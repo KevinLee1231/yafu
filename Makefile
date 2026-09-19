@@ -1410,6 +1410,14 @@ endif
 # -----------------------------------------------------------------------------
 # 28. CLEAN
 # -----------------------------------------------------------------------------
+# NOTE on .ptx: cuda_ecm80.ptx is *committed* to the repo — it ships a prebuilt
+# PTX module so that GPU batch factorization works on machines without nvcc.
+# The build also generates .ptx modules (cuda_ecm$(SM).ptx, lanczos_kernel.ptx,
+# stage1_core.ptx), and those should be cleaned. A bare `*.ptx` glob therefore
+# deletes a tracked file and leaves the working tree dirty after `make clean`.
+# Only remove the generated ones.
+GENERATED_PTX := $(filter-out cuda_ecm80.ptx,$(wildcard *.ptx))
+
 clean:
 	$(RM_RF) \
 	    $(MSIEVE_YAFU_OBJS) \
@@ -1421,7 +1429,7 @@ clean:
 	    $(DEPS_DIR) \
 	    libmsieve.a libysiqs.a libyecm.a libynfs.a \
 	    yafu$(EXE_EXT) msieve$(EXE_EXT) siqs_demo$(EXE_EXT) ecm_demo$(EXE_EXT) \
-	    *.ptx
+	    $(GENERATED_PTX)
 	$(RM_RF) $(TEST_OBJS) libyafu_common.a $(TEST_BIN)
 	@echo "Note: use 'make lasieve-clean' to also clean factor/lasieve5_64"
 
