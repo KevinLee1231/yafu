@@ -28,6 +28,16 @@ Download from the [latest release](../../releases/latest). All Windows builds ar
 
 Not sure which to pick? Run `wmic cpu get name` in a Windows command prompt and look up your CPU generation, or just start with `avx2` — it works on nearly every CPU sold since 2015.
 
+### The pre-built Linux binary in this repository
+
+`bin/linux/yafu` is a pre-built Linux executable that ships with the source tree, the counterpart of the Windows binaries above. It was built with Intel's compiler, and its ELF `DT_NEEDED` list includes `libsvml.so` — Intel's Short Vector Math Library, part of the Intel oneAPI compiler runtime. Without that runtime installed, the dynamic loader refuses to start it:
+
+```
+libsvml.so: cannot open shared object file: No such file or directory
+```
+
+So it only runs on a machine that already has the Intel compiler runtime. Everywhere else, build from source instead — the build is short and the result will be faster, since `config.mk` tunes the binary for your actual CPU.
+
 ### First run
 
 ```
@@ -41,7 +51,7 @@ yafu
 >> factor(2056802480868100646375721251575555494408897387375737955882170045672576386016591560879707933101909539325829251496440620798637813)
 ```
 
-Files YAFU writes (logs, savefiles, `yafu.ini`) go next to the executable. No installation step is needed.
+YAFU reads `yafu.ini` from, and writes its logs and savefiles to, the **current working directory** — not the directory holding the executable. On Windows the two are usually the same, since you tend to run YAFU from its own folder; on Linux they differ, so `cd` into the directory containing your `yafu.ini` before running `yafu`. No installation step is needed.
 
 ---
 

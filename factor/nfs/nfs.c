@@ -877,6 +877,18 @@ void nfs(fact_obj_t *fobj)
 
 			if (relations_needed == 0)
 				nfs_state = NFS_STATE_LINALG;
+			else if (job.use_max_rels > 0)
+			{
+				// We already cut the relation set down once (use_max_rels was
+				// set in the no-dependency-file path above) and filtering still
+				// cannot produce a matrix.  Raising min_rels and sieving again
+				// does not converge: filter_maxrels caps how many relations
+				// filtering actually consumes, so the target grows while the
+				// usable set stays the same.  Give up instead of looping.
+				printf("nfs: filtering with a reduced relation set failed again, giving up\n");
+				fobj->flags |= FACTOR_INTERRUPT;
+				nfs_state = NFS_STATE_DONE;
+			}
 			else
 			{
 				// if we filtered, but didn't produce a matrix, raise the target

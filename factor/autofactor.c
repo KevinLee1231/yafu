@@ -218,7 +218,8 @@ double get_qs_time_estimate(fact_obj_t *fobj, mpz_t b)
 			estimate = estimate / ((double)fobj->THREADS * 0.75);
 			break;
 		case 9:
-		case 10:
+		/* no case 10: enum cpu_type ends at cpu_opteron (9), so a
+		   case 10 could never match */
 			estimate = estimate / ((double)fobj->THREADS * 0.90);
 			break;
 
@@ -266,7 +267,8 @@ double get_gnfs_time_estimate(fact_obj_t *fobj, mpz_t b)
 			estimate = estimate / ((double)fobj->THREADS * 0.75);
 			break;
 		case 9:
-		case 10:
+		/* no case 10: enum cpu_type ends at cpu_opteron (9), so a
+		   case 10 could never match */
 			estimate = estimate / ((double)fobj->THREADS * 0.90);
 			break;
 

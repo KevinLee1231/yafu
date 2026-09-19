@@ -1347,7 +1347,7 @@ test-run: test
 	./$(TEST_BIN)
 
 test-clean:
-	$(RM_RF) $(TEST_OBJS) libyafu_common.a $(TEST_BIN) 0TEST_FULL_BIN)
+	$(RM_RF) $(TEST_OBJS) libyafu_common.a $(TEST_BIN) $(TEST_FULL_BIN)
 
 
 # -----------------------------------------------------------------------------
@@ -1496,6 +1496,14 @@ endif
 # -----------------------------------------------------------------------------
 # 28. CLEAN
 # -----------------------------------------------------------------------------
+# NOTE on .ptx: cuda_ecm80.ptx is *committed* to the repo — it ships a prebuilt
+# PTX module so that GPU batch factorization works on machines without nvcc.
+# The build also generates .ptx modules (cuda_ecm$(SM).ptx, lanczos_kernel.ptx,
+# stage1_core.ptx), and those should be cleaned. A bare `*.ptx` glob therefore
+# deletes a tracked file and leaves the working tree dirty after `make clean`.
+# Only remove the generated ones.
+GENERATED_PTX := $(filter-out cuda_ecm80.ptx,$(wildcard *.ptx))
+
 clean:
 	$(RM_RF) \
 	    $(MSIEVE_YAFU_OBJS) \
@@ -1507,7 +1515,7 @@ clean:
 	    $(DEPS_DIR) \
 	    libmsieve.a libysiqs.a libyecm.a libynfs.a \
 	    yafu$(EXE_EXT) msieve$(EXE_EXT) siqs_demo$(EXE_EXT) ecm_demo$(EXE_EXT) \
-	    *.ptx
+	    $(GENERATED_PTX)
 	$(RM_RF) $(TEST_OBJS) libyafu_common.a $(TEST_BIN)
 	@echo "Note: use 'make lasieve-clean' to also clean factor/lasieve5_64"
 
@@ -1527,12 +1535,12 @@ info:
 	@echo "----------------------------------------------------------------"
 	@echo "  ISA flags"
 	@echo "    USE_NATIVE     : $(if $(USE_NATIVE),yes,no)"
-	@echo "    USE_SSE41      : $(if $(USE_SSE41),yes,no)"
-	@echo "    USE_AVX2       : $(if $(USE_AVX2),yes,no)"
-	@echo "    USE_BMI2       : $(if $(USE_BMI2),yes,no)"
-	@echo "    USE_AVX512     : $(if $(USE_AVX512),yes,no)"
-	@echo "    USE_AVX512IFMA : $(if $(USE_AVX512IFMA),yes,no)"
-	@echo "    USE_AVX512PF   : $(if $(USE_AVX512PF),yes,no)"
+	@echo "    USE_SSE41      : $(if $(filter 1,$(USE_SSE41)),yes,no)"
+	@echo "    USE_AVX2       : $(if $(filter 1,$(USE_AVX2)),yes,no)"
+	@echo "    USE_BMI2       : $(if $(filter 1,$(USE_BMI2)),yes,no)"
+	@echo "    USE_AVX512     : $(if $(filter 1,$(USE_AVX512)),yes,no)"
+	@echo "    USE_AVX512IFMA : $(if $(filter 1,$(USE_AVX512IFMA)),yes,no)"
+	@echo "    USE_AVX512PF   : $(if $(filter 1,$(USE_AVX512PF)),yes,no)"
 	@echo "----------------------------------------------------------------"
 	@echo "  Dependencies"
 	@echo "    GMP     inc    : $(GMP_INCDIR)"
@@ -1560,7 +1568,7 @@ info:
 	@echo "----------------------------------------------------------------"
 	@echo "  lasieve (NFS sieve — separate target)"
 	@echo "    Directory      : $(LASIEVE_DIR)"
-	@echo "    AVX-512        : $(if $(USE_AVX512),enabled (AVX512_ALL=1),disabled)"
+	@echo "    AVX-512        : $(if $(filter 1,$(USE_AVX512)),enabled (AVX512_ALL=1),disabled)"
 	@echo "================================================================"
 
 

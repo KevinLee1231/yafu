@@ -318,7 +318,10 @@ func_static tiny_qs_params * free_tinysiqs(tiny_qs_params *params)
     }
 
     free(params);
-    return params;
+    /* Callers assign this back to the pointer they passed in and then leave
+       it alone, so returning the freed pointer happened to work -- but it is
+       a trap for any future caller that tests the result. */
+    return NULL;
 }
 
 /* Implementation of the modified Knuth-Schroeppel multiplier

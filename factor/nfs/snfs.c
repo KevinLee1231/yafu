@@ -1125,12 +1125,14 @@ void find_direct_form(mpz_t n, snfs_t* form, int verbose, char* flogname)
                         {
                             if (c[i] > 0) sign = '+'; else sign = '-';
                             printf("%c%d*(%d^%d)^%d ", sign, abs(c[i]), b, p, i);
-                            sprintf(nstr, "%s%c%d*(%d^%d)^%d ", nstr, sign, abs(c[i]), b, p, i);
+                            snprintf(nstr + strlen(nstr), sizeof(nstr) - strlen(nstr),
+                                "%c%d*(%d^%d)^%d ", sign, abs(c[i]), b, p, i);
                         }
                     }
                     if (c[i] > 0) sign = '+'; else sign = '-';
                     printf("%c%d\n", sign, abs(c[i]));
-                    sprintf(nstr, "%s%c%d", nstr, sign, abs(c[i]));
+                    snprintf(nstr + strlen(nstr), sizeof(nstr) - strlen(nstr),
+                        "%c%d", sign, abs(c[i]));
                 }
                 logprint_oc(flogname, "a", "nfs: input divides %s\n", nstr);
 
@@ -1337,6 +1339,12 @@ static int find_aurifeuillian(mpz_t N, mpz_t x, mpz_t y, int n, int sbp, int sp)
 		highCoeffs = gAurifCoeffs30;
 		degree = 8;
 		break;
+	default:
+		/* No coefficient table for this SBP, so `degree` would stay
+		   uninitialised and the loops below would walk x_powers[] and
+		   y_powers[] out of bounds.  Report "not usable" instead;
+		   generate_aurif() filters the SBP values it passes in. */
+		return 0;
 	}
 	lowCoeffs = highCoeffs + (degree + 1);
 	mpz_init_set_ui(x_powers[0], 1);
@@ -1466,7 +1474,16 @@ static int generate_aurif(mpz_t N, mpz_t x, mpz_t y, int n, int sign, int* degre
 		/* Exponent isn't an odd multiple of SBP. */
 		goto exit;
 	}
-	if (sbp == 19 || sbp == 22 || sbp == 23 || sbp == 26 || sbp == 29 || sbp > 30) {
+	/* Only the SBP values that find_aurifeuillian has coefficient tables
+	   for can yield a polynomial.  The old test listed a few excluded
+	   values instead, which left 1, 4, 9, 12, 18, 20, 25 and 28 unhandled --
+	   those reached find_aurifeuillian() and used an uninitialised
+	   `degree` to index its x_powers[]/y_powers[] arrays. */
+	switch (sbp) {
+	case 2: case 3: case 5: case 6: case 7: case 10: case 11:
+	case 13: case 14: case 15: case 17: case 21: case 30:
+		break;
+	default:
 		/* We can't make a polynomial with a reasonable degree. */
 		goto exit;
 	}
@@ -2292,7 +2309,13 @@ static int check_aurif(mpz_t N, mpz_t x, mpz_t y, int n, int sign)
 		success = 0;
 		goto exit;
 	}
-	if (sbp == 19 || sbp == 22 || sbp == 23 || sbp == 26 || sbp == 29 || sbp > 30) {
+	/* Only the SBP values that find_aurifeuillian has coefficient tables
+	   for can yield a polynomial; see the matching comment there. */
+	switch (sbp) {
+	case 2: case 3: case 5: case 6: case 7: case 10: case 11:
+	case 13: case 14: case 15: case 17: case 21: case 30:
+		break;
+	default:
 		/* We can't make a polynomial with a reasonable degree. */
 		success = 0;
 		goto exit;

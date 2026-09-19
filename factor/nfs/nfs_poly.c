@@ -936,7 +936,10 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
 	uint32_t deadline, estimated_range_time, this_range_time, total_time, num_ranges;
 	struct timeval stopt;	// stop time of this job
 	struct timeval startt;	// start time of this job
-	double t_time;
+	/* written in the TASK_POLY case below, but the block after the task
+	   switch reads it for every task type; zero it so that a first
+	   iteration which wasn't TASK_POLY doesn't read a stale value */
+	double t_time = 0;
     double e0;
     int sysreturn;
 
@@ -1025,6 +1028,22 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
 
 	// the overall deadline for poly-select.
 	// gets divided into coefficient deadlines by init_poly_threaddata
+	// get_default_params() fills in nothing when the input falls outside the
+	// table's span (below 80 digits, or above the largest entry).  A zero norm
+	// bound means the search has nothing to work with, and the msieve code
+	// underneath calls exit(-1) when it is handed one ("error: stage 2 size
+	// bound not provided").  Report it and return; the caller then treats this
+	// as "no polynomial found".
+	if ((params.stage2_norm == 0.0) || (params.deadline == 0))
+	{
+		printf("nfs: no polynomial-search parameters for a %1.2f-digit input "
+			"(degree-%d table starts at %.0f digits) - input too small for GNFS\n",
+			digits, fobj->nfs_obj.pref_degree, params_deg4[0].digits);
+		logprint_oc(fobj->flogname, "a",
+			"nfs: no polynomial-search parameters for a %1.2f-digit input\n", digits);
+		return;
+	}
+
 	deadline = params.deadline;
 
 	// initialize the variable tracking the total time spent (over all threads)
@@ -1185,7 +1204,7 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
 		quality_mult = -1; // 1.4;
         strcpy(quality, "awesome");
 
-        fobj->nfs_obj.poly_option == 4;
+        fobj->nfs_obj.poly_option = 4;
         printf("psearch options deep, fast, and wide are deprecated, using psearch=avg\n");
     }
 
@@ -1597,8 +1616,12 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
 
 				remove(t->outfilename);
 				remove(t->job_infile_name);
-				strncpy(t->outfilename, tmpoutfile, 80);
-				sprintf(t->job_infile_name, "%s", fobj->nfs_obj.job_infile);
+				/* outfilename and job_infile_name are both char[80] while their
+				   sources may be longer; size each store to its destination. */
+				strncpy(t->outfilename, tmpoutfile, sizeof(t->outfilename) - 1);
+				t->outfilename[sizeof(t->outfilename) - 1] = '\0';
+				snprintf(t->job_infile_name, sizeof(t->job_infile_name), "%s",
+					fobj->nfs_obj.job_infile);
 			}
 			break;
 

@@ -1589,8 +1589,7 @@ void ecm_do_one_curve(void *ptr)
 		{
 			char fact[1024];
 
-			fgets(line, 1024, fid);
-			if (line == NULL)
+			if (fgets(line, 1024, fid) == NULL)
 				break;
 
             if (fobj->ecm_obj.use_gpuecm && (found_curves_run == 0))

@@ -371,7 +371,7 @@ void pp1_print_B1_B2(fact_obj_t* fobj)
 
 int pp1_wrapper(fact_obj_t* fobj)
 {
-
+	return 0;
 }
 
 void pp1exit(int sig)
