@@ -41,7 +41,7 @@ yafu
 >> factor(2056802480868100646375721251575555494408897387375737955882170045672576386016591560879707933101909539325829251496440620798637813)
 ```
 
-Files YAFU writes (logs, savefiles, `yafu.ini`) go next to the executable. No installation step is needed.
+YAFU reads `yafu.ini` from, and writes its logs and savefiles to, the **current working directory** — not the directory holding the executable. On Windows the two are usually the same, since you tend to run YAFU from its own folder; on Linux they differ, so `cd` into the directory containing your `yafu.ini` before running `yafu`. No installation step is needed.
 
 ---
 
