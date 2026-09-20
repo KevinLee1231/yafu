@@ -1278,7 +1278,7 @@ uint64_t * yafu_block_lanczos_core(fact_obj_t *obj,
 				uint32_t eta = elapsed * (n - dim_solved) /
 						(dim_solved - first_dim_solved);
 
-				fprintf(NULL, "linear algebra completed %u "
+				fprintf(stderr, "linear algebra completed %u "
 					"of %u dimensions (%1.1f%%, ETA "
 					"%dh%2dm)    \r",
 					dim_solved, n, 100.0 * dim_solved / n,
