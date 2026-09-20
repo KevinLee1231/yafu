@@ -51,8 +51,18 @@ static void filter_read_lp_file_1pass(msieve_obj *obj,
 	r = filter->relation_array;
 	for (i = 0; i < num_relations; i++) {
 
-		for (j = 0; j < r->ideal_count; j++)
-			counts[r->ideal_list[j]]++;
+		for (j = 0; j < r->ideal_count; j++) {
+			uint32 ideal = r->ideal_list[j];
+			/* An ideal index past the end of the matrix means this lp file
+			   does not belong to it; indexing counts[] with it would corrupt
+			   the heap.  Fail loudly instead. */
+			if (ideal >= num_ideals) {
+				logprintf(obj, "error: relation %u uses ideal %u, but the "
+						"matrix has only %u ideals\n", i, ideal, num_ideals);
+				exit(-1);
+			}
+			counts[ideal]++;
+		}
 
 		r = next_relation_ptr(r);
 	}
@@ -152,12 +162,23 @@ void filter_read_lp_file(msieve_obj *obj, filter_t *filter,
 
 	for (i = 0; i < num_relations; i++) {
 
-		fread(&tmp, sizeof(uint32), header_words, fp);
+		if (fread(&tmp, sizeof(uint32), header_words, fp) != header_words) {
+			logprintf(obj, "error: unexpected end of LP file\n");
+			exit(-1);
+		}
 
 		for (j = 0; j < tmp.ideal_count; j++) {
 			uint32 curr_ideal;
 
-			fread(&curr_ideal, sizeof(uint32), (size_t)1, fp);
+			if (fread(&curr_ideal, sizeof(uint32), (size_t)1, fp) != 1) {
+				logprintf(obj, "error: unexpected end of LP file\n");
+				exit(-1);
+			}
+			if (curr_ideal >= num_ideals) {
+				logprintf(obj, "error: relation %u uses ideal %u, but the "
+						"matrix has only %u ideals\n", i, curr_ideal, num_ideals);
+				exit(-1);
+			}
 			counts[curr_ideal]++;
 		}
 	}
@@ -208,13 +229,24 @@ void filter_read_lp_file(msieve_obj *obj, filter_t *filter,
 
 		r = (relation_ideal_t *)(
 			(uint32 *)relation_array + curr_word);
-		fread(r, sizeof(uint32), header_words, fp);
+		if (fread(r, sizeof(uint32), header_words, fp) != header_words) {
+			logprintf(obj, "error: unexpected end of LP file\n");
+			exit(-1);
+		}
 
 		for (j = k = 0; j < r->ideal_count; j++) {
 
 			uint32 curr_ideal;
 
-			fread(&curr_ideal, sizeof(uint32), (size_t)1, fp);
+			if (fread(&curr_ideal, sizeof(uint32), (size_t)1, fp) != 1) {
+				logprintf(obj, "error: unexpected end of LP file\n");
+				exit(-1);
+			}
+			if (curr_ideal >= num_ideals) {
+				logprintf(obj, "error: relation %u uses ideal %u, but the "
+						"matrix has only %u ideals\n", i, curr_ideal, num_ideals);
+				exit(-1);
+			}
 			curr_ideal = counts[curr_ideal];
 			if (curr_ideal != (uint32)(-1))
 				r->ideal_list[k++] = curr_ideal;
