@@ -1277,7 +1277,7 @@ test-run: test
 	./$(TEST_BIN)
 
 test-clean:
-	$(RM_RF) $(TEST_OBJS) libyafu_common.a $(TEST_BIN) 0TEST_FULL_BIN)
+	$(RM_RF) $(TEST_OBJS) libyafu_common.a $(TEST_BIN) $(TEST_FULL_BIN)
 
 
 # -----------------------------------------------------------------------------
