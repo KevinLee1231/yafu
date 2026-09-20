@@ -929,7 +929,10 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
 	uint32_t deadline, estimated_range_time, this_range_time, total_time, num_ranges;
 	struct timeval stopt;	// stop time of this job
 	struct timeval startt;	// start time of this job
-	double t_time;
+	/* written in the TASK_POLY case below, but the block after the task
+	   switch reads it for every task type; zero it so that a first
+	   iteration which wasn't TASK_POLY doesn't read a stale value */
+	double t_time = 0;
     double e0;
     int sysreturn;
 
@@ -1521,8 +1524,12 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
 
 				remove(t->outfilename);
 				remove(t->job_infile_name);
-				strncpy(t->outfilename, tmpoutfile, 80);
-				sprintf(t->job_infile_name, "%s", fobj->nfs_obj.job_infile);
+				/* outfilename and job_infile_name are both char[80] while their
+				   sources may be longer; size each store to its destination. */
+				strncpy(t->outfilename, tmpoutfile, sizeof(t->outfilename) - 1);
+				t->outfilename[sizeof(t->outfilename) - 1] = '\0';
+				snprintf(t->job_infile_name, sizeof(t->job_infile_name), "%s",
+					fobj->nfs_obj.job_infile);
 			}
 			break;
 
@@ -1977,7 +1984,7 @@ void init_poly_threaddata(nfs_threaddata_t *t, msieve_obj *obj,
 	if (digits < 108.0)
     {
         //get_default_poly4_norms(digits, &norm1, &norm2, &min_e);
-		poly_params_t params;
+		poly_params_t params = { 0 };
 		get_default_params(digits, &params, params_deg4, num_params_deg4);
 		norm1 = params.stage1_norm;
 		norm2 = params.stage2_norm;
@@ -1987,7 +1994,7 @@ void init_poly_threaddata(nfs_threaddata_t *t, msieve_obj *obj,
     else
     {
 		//get_default_poly5_norms(digits, &norm1, &norm2, &min_e);
-		poly_params_t params;
+		poly_params_t params = { 0 };
 		get_default_params(digits, &params, params_deg5, num_params_deg5);
 		norm1 = params.stage1_norm;
 		norm2 = params.stage2_norm;

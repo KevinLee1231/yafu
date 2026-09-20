@@ -95,7 +95,7 @@ int main(int argc, char *argv[])
 	fact_obj_t *fobj;
     int firstline = 1;
     options_t *options;
-    meta_t calc_metadata;
+    meta_t calc_metadata = { 0 };
     yafu_obj_t yafu_obj;
     //soe_staticdata_t* sdata;
     info_t comp_info;
@@ -1327,7 +1327,7 @@ char * process_batchline(yafu_obj_t* yobj, char *input_exp, char *indup, int *co
 {
 	int nChars, j, i;
 	char *line, tmpline[GSTR_MAXSIZE], *ptr, *ptr2;
-	FILE *batchfile, *tmpfile;
+	FILE *batchfile = NULL, *tmpfile = NULL;
 
 	//try to open the file
 	if (yobj->USEBATCHFILE == 2)
