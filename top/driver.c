@@ -1911,7 +1911,7 @@ void options_to_factobj(fact_obj_t* fobj, options_t* options)
     if (cptr == NULL)
     {
         //no . in provided filename
-        sprintf(fobj->nfs_obj.outputfile, "%s.dat", fobj->nfs_obj.outputfile);
+        sprintf(fobj->nfs_obj.outputfile, "%s.dat", tmp);
         sprintf(fobj->nfs_obj.logfile, "%s.log", fobj->nfs_obj.outputfile);
         sprintf(fobj->nfs_obj.fbfile, "%s.fb", fobj->nfs_obj.outputfile);
     }
