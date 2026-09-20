@@ -199,26 +199,34 @@ char* time_from_secs(char* str, unsigned long time)
     // use an input scratch string
     unsigned long d;
 
-    strcpy(str, "");
+    /* Accumulate into a local buffer and copy out once at the end.
+       The old code built the result with sprintf(str, "%s...", str),
+       which overlaps source and destination -- undefined behaviour.
+       Only the leading field can be large; the rest are < 24/< 60/< 60. */
+    char buf[80];
+
+    buf[0] = '\0';
     if (time > 3600 * 24)
     {
         d = time / (3600 * 24);
         time %= (3600 * 24);
-        sprintf(str, "%u day%s ", d, d > 1 ? "s" : "");
+        sprintf(buf, "%lu day%s ", d, d > 1 ? "s" : "");
     }
     if (time > 3600)
     {
         d = time / 3600;
         time %= 3600;
-        sprintf(str, "%s%uh ", str, d);
+        sprintf(buf + strlen(buf), "%luh ", d);
     }
     if (time > 60)
     {
         d = time / 60;
         time %= 60;
-        sprintf(str, "%s%um ", str, d);
+        sprintf(buf + strlen(buf), "%lum ", d);
     }
-    sprintf(str, "%s%us", str, time);
+    sprintf(buf + strlen(buf), "%lus", time);
+
+    strcpy(str, buf);
     return str;
 }
 
