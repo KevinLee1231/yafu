@@ -28,6 +28,16 @@ Download from the [latest release](../../releases/latest). All Windows builds ar
 
 Not sure which to pick? Run `wmic cpu get name` in a Windows command prompt and look up your CPU generation, or just start with `avx2` — it works on nearly every CPU sold since 2015.
 
+### The pre-built Linux binary in this repository
+
+`bin/linux/yafu` is a pre-built Linux executable that ships with the source tree, the counterpart of the Windows binaries above. It was built with Intel's compiler, and its ELF `DT_NEEDED` list includes `libsvml.so` — Intel's Short Vector Math Library, part of the Intel oneAPI compiler runtime. Without that runtime installed, the dynamic loader refuses to start it:
+
+```
+libsvml.so: cannot open shared object file: No such file or directory
+```
+
+So it only runs on a machine that already has the Intel compiler runtime. Everywhere else, build from source instead — the build is short and the result will be faster, since `config.mk` tunes the binary for your actual CPU.
+
 ### First run
 
 ```
