@@ -3255,6 +3255,11 @@ uint8_t lucas_104x8(uint64_t* n, long *p, long *q)
 	return (is1prp | ism1prp);
 #endif
 
+	/* The body above is compiled out, so nothing here has produced a
+	   result.  Report "no lane passed" instead of falling off the end of
+	   a non-void function, which is undefined behaviour.  (The only
+	   caller of this chain, bpsw_104x8(), is itself unreferenced.) */
+	return 0;
 }
 
 // a Selfridge test on 8x 104-bit inputs
@@ -3297,7 +3302,7 @@ uint8_t selfridge_104x8(uint64_t* n)
 		if ((n[1] == 0) && (n[0] < 2))
 			continue;
 
-		if ((n[0] & 1 == 0))
+		if ((n[0] & 1) == 0)
 			continue;
 		
 		while (1)

@@ -343,9 +343,12 @@ void siqs_dispatch(void *vptr)
             // concurrently running threads to perform batch filtering so that
             // we run it with our full data set.
             int i;
-            for (i = 0; i < fobj->THREADS; i++);
+            // NB: this whole block is disabled by the if (0) above; the
+            // trailing semicolon used to make the loop body empty and the
+            // brace a one-shot block indexing t[tid] instead of t[i].
+            for (i = 0; i < fobj->THREADS; i++)
             {
-                t[tid].dconf->batch_run_override = 1;
+                t[i].dconf->batch_run_override = 1;
             }
 
             // wait a second 
@@ -2458,8 +2461,8 @@ void* process_poly(void* vptr)
                                     sconf->num_full + dconf->num_full, sconf->num_slp + dconf->num_slp,
                                     sconf->dlp_useful + dconf->dlp_useful,
                                     sconf->tlp_useful + dconf->tlp_useful,
-                                    (float)batched, suffix, dconf->numB, dconf->maxB),
-                                    (double)(total_rels) / t_time;
+                                    (float)batched, suffix, dconf->numB, dconf->maxB,
+                                    (double)(total_rels) / t_time);
                                 
                             }
                             else if(sconf->num_lp == 4)
@@ -6135,13 +6138,10 @@ void free_filter_vars(static_conf_t *sconf)
     {
         for (i = 0; i < sconf->num_cycles; i++)
         {
-            if (&sconf->cycle_list[i] != NULL)
-            {
-                if (sconf->cycle_list[i].cycle.list != NULL)
-                    free(sconf->cycle_list[i].cycle.list);
-                if (sconf->cycle_list[i].data != NULL)
-                    free(sconf->cycle_list[i].data);
-            }
+            if (sconf->cycle_list[i].cycle.list != NULL)
+                free(sconf->cycle_list[i].cycle.list);
+            if (sconf->cycle_list[i].data != NULL)
+                free(sconf->cycle_list[i].data);
         }
         free(sconf->cycle_list);
     }

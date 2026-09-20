@@ -1149,7 +1149,7 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
         quality_mult = 1.4;
         strcpy(quality, "awesome");
 
-        fobj->nfs_obj.poly_option == 4;
+        fobj->nfs_obj.poly_option = 4;
         printf("psearch options deep, fast, and wide are deprecated, using psearch=avg\n");
     }
 

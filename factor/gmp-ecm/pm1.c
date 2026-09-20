@@ -328,7 +328,7 @@ void pm1exit(int sig)
 }
 int pm1_wrapper(fact_obj_t* fobj)
 {
-
+	return 0;
 }
 void pm1_print_B1_B2(fact_obj_t* fobj)
 {
