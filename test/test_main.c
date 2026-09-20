@@ -65,6 +65,7 @@ extern const tk_module tk_module_microecm;
 extern const tk_module tk_module_tinyecm;
 #ifdef TK_WITH_LAYER3
 extern const tk_module tk_module_siqs;   /* Layer 3: links the full factoring archives */
+extern const tk_module tk_module_calc;
 #endif
 #endif
 
@@ -82,6 +83,7 @@ static const tk_module *const modules[] = {
     &tk_module_tinyecm,
 #ifdef TK_WITH_LAYER3
     &tk_module_siqs,
+    &tk_module_calc,
 #endif
 #endif
 };

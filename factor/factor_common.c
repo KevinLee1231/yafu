@@ -47,14 +47,6 @@ void new_factorization(fact_obj_t* fobj, mpz_t n)
     mpz_set(fobj->N, n);            // this one allowed to change if necessary throughout factorization process
     mpz_set(fobj->input_N, n);      // this one remains constant
     
-    // if (fobj->input_str_alloc > 0)
-    // {
-    //     free(fobj->input_str);
-    // }
-    // 
-    // fobj->input_str = mpz_get_str(NULL, 10, fobj->N);
-    // fobj->input_str_alloc = strlen(fobj->input_str) + 1;
-
     // reset specific inputs
     mpz_set_ui(fobj->nfs_obj.gmp_n, 0);
     mpz_set_ui(fobj->qs_obj.gmp_n, 0);
@@ -75,6 +67,9 @@ void new_factorization(fact_obj_t* fobj, mpz_t n)
 void init_factobj(fact_obj_t* fobj)
 {
     uint32_t seed1, seed2;
+
+    // 先初始化全部字段，确保库调用也有确定的硬件标志、日志和参数状态。
+    memset(fobj, 0, sizeof(*fobj));
 
     // initialize general stuff in fobj
     get_random_seeds(&seed1, &seed2);
@@ -399,6 +394,7 @@ void alloc_factobj(fact_obj_t *fobj)
     mpz_set_ui(fobj->N, 0);
     mpz_set_ui(fobj->input_N, 0);
     fobj->input_str = (char*)xmalloc(1024 * sizeof(char));
+    fobj->input_str[0] = '\0';
     fobj->input_str_alloc = 1024;
 
 	fobj->rho_obj.num_poly = 3;
@@ -715,7 +711,7 @@ void copy_factobj(fact_obj_t* dest, fact_obj_t* src, int parameters_only)
     dest->autofact_obj.stopprime = src->autofact_obj.stopprime;
     dest->autofact_obj.check_stop_conditions = src->autofact_obj.check_stop_conditions;
     dest->autofact_obj.max_siqs = src->autofact_obj.max_siqs;
-    dest->autofact_obj.max_nfs = src->autofact_obj.max_siqs;
+    dest->autofact_obj.max_nfs = src->autofact_obj.max_nfs;
     dest->autofact_obj.initial_work = src->autofact_obj.initial_work;
     dest->autofact_obj.ecm_total_work_performed = src->autofact_obj.ecm_total_work_performed;
 
@@ -864,6 +860,10 @@ int add_to_factor_list(yfactor_list_t *flist, mpz_t n, int VFLAG, int NUM_WITNES
                 gmp_printf("ignoring addition of existing factor %Zd\n", n);
                 print_current_factors(flist, VFLAG, 10);
             }
+            mpz_clear(g);
+            mpz_clear(a);
+            mpz_clear(b);
+            mpz_clear(t);
             return i;
         }
 
@@ -1022,36 +1022,35 @@ void delete_from_factor_list(yfactor_list_t* flist, mpz_t n)
 
 void copy_factor_list(yfactor_list_t* dest, yfactor_list_t* src, int alloc_dest)
 {
+    if (dest == src)
+        return;
+    // 旧目标的容量和因数个数未必与源相同，先释放再建立独立副本。
+    if (!alloc_dest)
+        clear_factor_list(dest);
+
     dest->alloc_factors = src->alloc_factors;
     dest->aprcl_display_cutoff = src->aprcl_display_cutoff;
     dest->aprcl_prove_cutoff = src->aprcl_prove_cutoff;
-    if (alloc_dest)
+    dest->factorization_str = NULL;
+    dest->str_alloc = 0;
+    if (src->factorization_str != NULL)
     {
-        dest->factorization_str = (char*)xmalloc(src->str_alloc * sizeof(char));
+        dest->str_alloc = (int)strlen(src->factorization_str) + 1;
+        dest->factorization_str = (char*)xmalloc(dest->str_alloc * sizeof(char));
+        strcpy(dest->factorization_str, src->factorization_str);
     }
-    strcpy(dest->factorization_str, src->factorization_str);
 
-    if (alloc_dest)
-    {
-        mpz_init(dest->N);
-    }
+    mpz_init(dest->N);
     mpz_set(dest->N, src->N);
     dest->num_factors = src->num_factors;
-    dest->str_alloc = src->str_alloc;
     dest->total_factors = src->total_factors;
 
-    if (alloc_dest)
-    {
-        dest->factors = (yfactor_t*)xmalloc(src->alloc_factors * sizeof(yfactor_t));
-    }
+    dest->factors = (yfactor_t*)xmalloc(src->alloc_factors * sizeof(yfactor_t));
 
     int i;
     for (i = 0; i < src->num_factors; i++)
     {
-        if (alloc_dest)
-        {
-            mpz_init(dest->factors[i].factor);
-        }
+        mpz_init(dest->factors[i].factor);
         mpz_set(dest->factors[i].factor, src->factors[i].factor);
         dest->factors[i].count = src->factors[i].count;
         dest->factors[i].curve_num = src->factors[i].curve_num;
@@ -1117,10 +1116,9 @@ void clear_factor_list(yfactor_list_t * flist)
     flist->num_factors = 0;
     flist->total_factors = 0;
 
-    if ((flist->str_alloc > 0) && (flist->factorization_str != NULL))
-    {
-        free(flist->factorization_str);
-    }
+    free(flist->factorization_str);
+    flist->factorization_str = NULL;
+    flist->str_alloc = 0;
 
     mpz_clear(flist->N);
 
@@ -1143,6 +1141,7 @@ void generate_factorization_str(yfactor_list_t* flist)
         }
 
         flist->factorization_str = (char*)xmalloc(2 * sizeof(char));
+        flist->str_alloc = 2;
         strcpy(flist->factorization_str, "");
         return;
     }

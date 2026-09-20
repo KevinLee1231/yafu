@@ -307,6 +307,15 @@ int main(int argc, char *argv[])
 	// check/process input arguments
 	is_cmdline_run = check_expression(options);
 
+    // 命令行表达式可以长于初始缓冲区；后续复制和批处理都使用这些副本。
+    if (strlen(options->inputExpr) + 9 > insize)
+    {
+        insize = (uint32_t)(strlen(options->inputExpr) + 9);
+        input_exp = (char*)xrealloc(input_exp, insize);
+        input_line = (char*)xrealloc(input_line, insize);
+        indup = (char*)xrealloc(indup, insize);
+    }
+
     //printf("check_expression returned %d, batchfile flag = %d\n", 
     //    is_cmdline_run, yafu_obj.USEBATCHFILE);
 
@@ -315,7 +324,6 @@ int main(int argc, char *argv[])
         // a default function applied to text that has no other function.
         int len = (int)strlen(options->inputExpr) + 9;
         options->inputExpr = (char*)xrealloc(options->inputExpr, len);
-        input_exp = (char*)xrealloc(input_exp, len);
         sprintf(input_exp, "factor(%s)", options->inputExpr);
         strcpy(options->inputExpr, input_exp);
         strcpy(input_line, options->inputExpr);

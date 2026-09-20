@@ -1277,7 +1277,7 @@ test-run: test
 	./$(TEST_BIN)
 
 test-clean:
-	$(RM_RF) $(TEST_OBJS) libyafu_common.a $(TEST_BIN) $(TEST_FULL_BIN)
+	$(RM_RF) $(TEST_OBJS) libyafu_common.a $(TEST_BIN) $(TEST_FULL_BIN) $(TEST_SAN_BIN)
 
 
 # -----------------------------------------------------------------------------
@@ -1288,15 +1288,15 @@ test-clean:
 #
 # Unlike Layers 0-2, these call into the full factoring library (SIQS/ECM/NFS/
 # msieve), so we link the same four archives yafu itself uses -- but with the
-# test's own main(), so none of YAFU_OBJS (driver.o/calc.o) is needed. Test
-# sources are compiled straight into the link with -DTK_WITH_LAYER3 (not the
-# shared %.o objects), so the Layer-3 build never collides with the lean
-# `make test` objects.
+# 测试提供 main()；计算器测试需要除 driver.o 外的前端对象。
+# 测试源码使用 -DTK_WITH_LAYER3 直接编译链接，避免覆盖 make test 的对象文件。
 # -----------------------------------------------------------------------------
 .PHONY: test-full test-full-run
 
-TEST_L3_SRCS  := $(TEST_DIR)/layer3/test_siqs.c
+TEST_L3_SRCS  := $(TEST_DIR)/layer3/test_siqs.c $(TEST_DIR)/layer3/test_calc.c
+TEST_FRONTEND_OBJS := $(filter-out top/driver$(OBJ_EXT),$(YAFU_OBJS))
 TEST_FULL_BIN := yafu_test_full$(EXE_EXT)
+TEST_SAN_BIN := yafu_test_sanitize$(EXE_EXT)
 TEST_ARCHIVES := libysiqs.a libyecm.a libynfs.a libmsieve.a
 
 # Standalone archive rules mirroring the inline `ar` steps in the yafu/msieve
@@ -1318,14 +1318,24 @@ libmsieve.a: $(MSIEVE_COMMON_OBJS) $(QS_OBJS) $(NFS_OBJS)
 	ar r  $@ $(MSIEVE_COMMON_OBJS) $(QS_OBJS) $(NFS_OBJS)
 	ranlib $@
 
-test-full: _dep_status $(TEST_ARCHIVES)
+test-full: _dep_status $(TEST_ARCHIVES) $(TEST_FRONTEND_OBJS)
 	$(CC) $(CFLAGS) -DTK_WITH_LAYER3 -I$(TEST_DIR) \
-	    $(TEST_SRCS) $(TEST_L3_SRCS) -o $(TEST_FULL_BIN) \
+	    $(TEST_SRCS) $(TEST_L3_SRCS) $(TEST_FRONTEND_OBJS) -o $(TEST_FULL_BIN) \
 	    $(TEST_ARCHIVES) $(LIBS)
 	@echo "built $(TEST_FULL_BIN) -- Layers 0-3 (incl. SIQS integration)"
 
 test-full-run: test-full
 	./$(TEST_FULL_BIN)
+
+# 只为本次回归涉及的源码和测试启用运行时检查，不覆盖常规对象文件。
+.PHONY: test-calc-sanitize
+test-calc-sanitize: _dep_status $(TEST_ARCHIVES) $(TEST_FRONTEND_OBJS)
+	$(CC) $(CFLAGS) -O1 -fsanitize=address,undefined -fno-omit-frame-pointer \
+	    -DTK_WITH_LAYER3 -I$(TEST_DIR) $(TEST_SRCS) $(TEST_L3_SRCS) \
+	    top/cmdParser/calc.c factor/factor_common.c \
+	    $(filter-out top/cmdParser/calc$(OBJ_EXT),$(TEST_FRONTEND_OBJS)) \
+	    -o $(TEST_SAN_BIN) $(TEST_ARCHIVES) $(LIBS)
+	./$(TEST_SAN_BIN) calc
 
 
 # -----------------------------------------------------------------------------
@@ -1499,7 +1509,8 @@ help:
 	@echo "    make test            build the test suite (yafu_test)"
 	@echo "    make test-run        build and run the test suite"
 	@echo "    make test-clean      remove test build artefacts"
-	@echo "    make test-full       build+run Layers 0-3 (SIQS integration)"
+	@echo "    make test-full       build Layers 0-3 (SIQS and calculator integration)"
+	@echo "    make test-calc-sanitize  build+run calculator regressions with ASan/UBSan"
 	@echo "    make test-full-run   build and run Layers 0-3"
 	@echo "    make lasieve         build NFS sieve libraries (factor/lasieve5_64)"
 	@echo "    make clean           remove yafu build artefacts (not lasieve)"
