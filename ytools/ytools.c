@@ -589,43 +589,60 @@ void ytools_get_computer_info(info_t* info, int do_print)
 
 
 
+// The CPUID/CPUID2 macros used to be hand-written asm blocks that declared the
+// EBX output as "=m"(b) and stored it with "movl %%ebx, %1" *after* cpuid had
+// already clobbered EAX.  Nothing stopped the compiler from computing that
+// memory operand's address out of EAX, and when it did (observed under ASan,
+// which re-lays-out the stack) the store landed on a wild address.  Use the
+// compiler's own cpuid builtin instead.
 #if (defined(__unix__) || defined(__MINGW32__)) && defined(__x86_64__)
 #define HAS_CPUID
-#define CPUID(code, a, b, c, d) 			\
-		asm volatile(					\
-			"movq %%rbx, %%rsi   \n\t"		\
-			"cpuid               \n\t"		\
-			"movl %%ebx, %1      \n\t"		\
-			"movq %%rsi, %%rbx   \n\t"		\
-			:"=a"(a), "=m"(b), "=c"(c), "=d"(d) 	\
-			:"0"(code) : "%rsi")
-#define CPUID2(code1, code2, a, b, c, d)		\
-		asm volatile(					\
-			"movq %%rbx, %%rsi   \n\t"		\
-			"cpuid               \n\t"		\
-			"movl %%ebx, %1      \n\t"		\
-			"movq %%rsi, %%rbx   \n\t"		\
-			:"=a"(a), "=m"(b), "=c"(c), "=d"(d) 	\
-			:"0"(code1), "2"(code2) : "%rsi")
+#include <cpuid.h>
+#define CPUID(code, a, b, c, d) \
+		do { \
+			unsigned int __z[4]; \
+			__cpuid_count((unsigned int)(code), (unsigned int)(0), \
+				__z[0], __z[1], __z[2], __z[3]); \
+			(a) = (int)__z[0]; \
+			(b) = (int)__z[1]; \
+			(c) = (int)__z[2]; \
+			(d) = (int)__z[3]; \
+		} while (0)
+#define CPUID2(code1, code2, a, b, c, d) \
+		do { \
+			unsigned int __z[4]; \
+			__cpuid_count((unsigned int)(code1), (unsigned int)(code2), \
+				__z[0], __z[1], __z[2], __z[3]); \
+			(a) = (int)__z[0]; \
+			(b) = (int)__z[1]; \
+			(c) = (int)__z[2]; \
+			(d) = (int)__z[3]; \
+		} while (0)
 
 #elif defined(__unix__) && defined(__i386__)
 #define HAS_CPUID
-#define CPUID(code, a, b, c, d) 			\
-		asm volatile(					\
-			"movl %%ebx, %%esi   \n\t"		\
-			"cpuid               \n\t"		\
-			"movl %%ebx, %1      \n\t"		\
-			"movl %%esi, %%ebx   \n\t"		\
-			:"=a"(a), "=m"(b), "=c"(c), "=d"(d) 	\
-			:"0"(code) : "%esi")
-#define CPUID2(code1, code2, a, b, c, d) 			\
-		asm volatile(					\
-			"movl %%ebx, %%esi   \n\t"		\
-			"cpuid               \n\t"		\
-			"movl %%ebx, %1      \n\t"		\
-			"movl %%esi, %%ebx   \n\t"		\
-			:"=a"(a), "=m"(b), "=c"(c), "=d"(d) 	\
-			:"0"(code1), "2"(code2) : "%esi")
+// same fix as the x86_64 branch above
+#include <cpuid.h>
+#define CPUID(code, a, b, c, d) \
+		do { \
+			unsigned int __z[4]; \
+			__cpuid_count((unsigned int)(code), (unsigned int)(0), \
+				__z[0], __z[1], __z[2], __z[3]); \
+			(a) = (int)__z[0]; \
+			(b) = (int)__z[1]; \
+			(c) = (int)__z[2]; \
+			(d) = (int)__z[3]; \
+		} while (0)
+#define CPUID2(code1, code2, a, b, c, d) \
+		do { \
+			unsigned int __z[4]; \
+			__cpuid_count((unsigned int)(code1), (unsigned int)(code2), \
+				__z[0], __z[1], __z[2], __z[3]); \
+			(a) = (int)__z[0]; \
+			(b) = (int)__z[1]; \
+			(c) = (int)__z[2]; \
+			(d) = (int)__z[3]; \
+		} while (0)
 
 //#elif defined(_MSC_VER) && defined(__clang__)
 //#include <x86intrin.h>
