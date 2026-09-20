@@ -890,6 +890,12 @@ static v_t * block_lanczos_core(msieve_obj *obj,
 
 	uint32 n = packed_matrix->ncols;
 	uint32 max_n = packed_matrix->max_ncols;
+	/* Size of the Lanczos vectors.  A vector that receives the result of
+	   A*x is indexed by matrix ROW (mul_unpacked does b[k], k coming from
+	   the column's row list), and after filtering the matrix still has
+	   more rows than columns.  Sizing these vectors by ncols alone let
+	   mul_unpacked write past the end of the allocation. */
+	uint32 vlen = n;
 	void *vnext, *v[3], *x, *v0, *scratch, *tmp;
 	v_t *out0, *out1, *out2, *out3;
 	v_t *winv[3], *vt_v0_next;
@@ -929,16 +935,17 @@ static v_t * block_lanczos_core(msieve_obj *obj,
 				packed_matrix->ncols),
 			  packed_matrix->extra);
 #else	
-	/* without MPI, all vectors are the maximum size */
-	scratch = vv_alloc(n, packed_matrix->extra);
+	/* without MPI, every vector is allocated at the maximum size */
+	vlen = MAX(packed_matrix->nrows, packed_matrix->ncols);
+	scratch = vv_alloc(vlen, packed_matrix->extra);
 #endif    
 
-	v[0] = vv_alloc(n, packed_matrix->extra);
-	v[1] = vv_alloc(n, packed_matrix->extra);
-	v[2] = vv_alloc(n, packed_matrix->extra);
-	vnext = vv_alloc(n, packed_matrix->extra);
-	x = vv_alloc(n, packed_matrix->extra);
-	v0 = vv_alloc(n, packed_matrix->extra);
+	v[0] = vv_alloc(vlen, packed_matrix->extra);
+	v[1] = vv_alloc(vlen, packed_matrix->extra);
+	v[2] = vv_alloc(vlen, packed_matrix->extra);
+	vnext = vv_alloc(vlen, packed_matrix->extra);
+	x = vv_alloc(vlen, packed_matrix->extra);
+	v0 = vv_alloc(vlen, packed_matrix->extra);
     
 	/* VBITSxVBITS data */
 
