@@ -19,6 +19,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include <gmp.h>
 #include "asm/siever-config.h"
 #include "if.h"
+#include "pm1.h"
+#include "asm/zeit.h"
 
 #include "asm/montgomery_mul.h"
 
@@ -111,4 +113,3 @@ int main(int argc, char *argv[])
   }
   exit(0);
 }
-

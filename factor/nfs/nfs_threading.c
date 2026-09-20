@@ -50,16 +50,39 @@ void nfs_start_worker_thread(nfs_threaddata_t *t,
 
 	WaitForSingleObject(t->finish_event, INFINITE); /* wait for ready */
 #else
-	pthread_mutex_init(&t->run_lock, NULL);
-	pthread_cond_init(&t->run_cond, NULL);
-
-	if (is_master_thread == 0)
 	{
-		pthread_cond_signal(&t->run_cond);
-		pthread_mutex_unlock(&t->run_lock);
+		int status = pthread_mutex_init(&t->run_lock, NULL);
+		if (status != 0)
+		{
+			fprintf(stderr, "nfs: could not initialize worker mutex: %s\n",
+				strerror(status));
+			t->inflight = 0;
+			exit(EXIT_FAILURE);
+		}
+		status = pthread_cond_init(&t->run_cond, NULL);
+		if (status != 0)
+		{
+			fprintf(stderr, "nfs: could not initialize worker condition: %s\n",
+				strerror(status));
+			pthread_mutex_destroy(&t->run_lock);
+			t->inflight = 0;
+			exit(EXIT_FAILURE);
+		}
 	}
 
-	pthread_create(&t->thread_id, NULL, nfs_worker_thread_main, t);
+	{
+		int status = pthread_create(&t->thread_id, NULL,
+			nfs_worker_thread_main, t);
+		if (status != 0)
+		{
+			fprintf(stderr, "nfs: could not create worker thread: %s\n",
+				strerror(status));
+			pthread_cond_destroy(&t->run_cond);
+			pthread_mutex_destroy(&t->run_lock);
+			t->inflight = 0;
+			exit(EXIT_FAILURE);
+		}
+	}
 
 	pthread_mutex_lock(&t->run_lock); /* wait for ready */
 	while (t->command != NFS_COMMAND_WAIT)

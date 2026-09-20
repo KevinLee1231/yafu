@@ -2,6 +2,7 @@
  YAFU modular test system -- framework implementation ("testkit").
  See testkit.h for the design and public API. Public domain.
 ----------------------------------------------------------------------*/
+#define _POSIX_C_SOURCE 200809L
 #include "testkit.h"
 
 #include <stdio.h>
@@ -100,7 +101,7 @@ uint64_t tk_rng_range(tk_rng *r, uint64_t n)
     }
 #endif
     if (m_lo < n) {
-        t = (uint64_t)(-(int64_t)n) % n;       /* 2^64 mod n */
+        t = (uint64_t)(-n) % n;       /* 无符号取负，n 为 2^63 时也不溢出。 */
         while (m_lo < t) {
             x = tk_rng_u64(r);
 #if defined(__SIZEOF_INT128__)
@@ -437,11 +438,14 @@ done:
     printf("\n=========================================================\n");
     printf(" tests run: %ld/%ld   checks: %ld   failures: %ld   -> %s\n",
            total_run, total_tests, total_checks, total_fails,
-           total_fails == 0 ? "PASS" : "FAIL");
+           !any_module_ran ? "NO TESTS" : total_fails == 0 ? "PASS" : "FAIL");
     printf("=========================================================\n");
 
     if (!any_module_ran)
+    {
         fprintf(stderr, "warning: no tests matched the given filters\n");
+        return 2;
+    }
 
     return total_fails == 0 ? 0 : 1;
 }

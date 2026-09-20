@@ -2373,7 +2373,7 @@ void factor(fact_obj_t *fobj)
             // handle appropriately.
             if (fobj->ecm_obj.exit_cond == ECM_EXIT_ABORT)
             {
-                FILE *flog;
+                FILE *flog = NULL;
 
                 if (fobj->LOGFLAG)
                 {

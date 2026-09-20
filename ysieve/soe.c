@@ -1058,14 +1058,17 @@ void finalize_sieve(soe_staticdata_t *sdata,
 
             //printf("main sieve found %lu twins, adding twins within sieve primes\n", num_p);
             i = 0;
-            while (((uint64_t)sdata->sieve_p[i] < sdata->min_sieved_val) && (i < sdata->bucket_start_id))
+            while ((i < sdata->bucket_start_id) &&
+                ((uint64_t)sdata->sieve_p[i] < sdata->min_sieved_val))
             {
                 // if we are doing twin prime or prime gap analysis 
                 // then do that analysis here for the sieving primes
                 // that are within the requested range.
-                if (sdata->sieve_p[i] >= (sdata->orig_llimit + ui_offset))
+                if ((sdata->sieve_p[i] >= (sdata->orig_llimit + ui_offset)) &&
+                    (sdata->sieve_p[i] <= (sdata->orig_hlimit + ui_offset)))
                 {
-                    if ((sdata->sieve_p[i + 1] - sdata->sieve_p[i]) == 2)
+                    if ((i + 1 < sdata->num_sp) &&
+                        ((sdata->sieve_p[i + 1] - sdata->sieve_p[i]) == 2))
                     {
                         num_p++;
                     }
@@ -1078,9 +1081,11 @@ void finalize_sieve(soe_staticdata_t *sdata,
             // num_p holds the primes counted in the main sieve.
             // add in sieve primes that are within the requested interval.        
             i = 0;
-            while (((uint64_t)sdata->sieve_p[i] < sdata->min_sieved_val) && (i < sdata->bucket_start_id))
+            while ((i < sdata->bucket_start_id) &&
+                ((uint64_t)sdata->sieve_p[i] < sdata->min_sieved_val))
             {
-                if (sdata->sieve_p[i] >= (sdata->orig_llimit + ui_offset))
+                if ((sdata->sieve_p[i] >= (sdata->orig_llimit + ui_offset)) &&
+                    (sdata->sieve_p[i] <= (sdata->orig_hlimit + ui_offset)))
                 {
                     //printf("%u ", sdata->sieve_p[i]);
                     num_p++;
@@ -1139,16 +1144,19 @@ void finalize_sieve(soe_staticdata_t *sdata,
 		j = 0;
 		i = 0;
 
-        while (((uint64_t)sdata->sieve_p[i] < sdata->min_sieved_val) && (i < sdata->bucket_start_id))
+        while ((i < sdata->bucket_start_id) &&
+            ((uint64_t)sdata->sieve_p[i] < sdata->min_sieved_val))
         {
             // if we are doing twin prime or prime gap analysis 
             // then do that analysis here for the sieving primes
             // that are within the requested range.
-            if (sdata->sieve_p[i] >= (sdata->orig_llimit + ui_offset))
+            if ((sdata->sieve_p[i] >= (sdata->orig_llimit + ui_offset)) &&
+                (sdata->sieve_p[i] <= (sdata->orig_hlimit + ui_offset)))
             {
                 if ((sdata->analysis == 2) && (sdata->is_main_sieve == 1))
                 {
-                    if ((sdata->sieve_p[i + 1] - sdata->sieve_p[i]) == 2)
+                    if ((i + 1 < sdata->num_sp) &&
+                        ((sdata->sieve_p[i + 1] - sdata->sieve_p[i]) == 2))
                     {
                         primes[j++] = (uint64_t)sdata->sieve_p[i];
                     }
@@ -1226,5 +1234,3 @@ void finalize_sieve(soe_staticdata_t *sdata,
 
 	return;
 }
-
-

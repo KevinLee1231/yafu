@@ -1,5 +1,8 @@
 #!/bin/sh
 
+set -eu
+cd "$(dirname "$0")"
+
 bin/mingw/mpqs/gnfs-lasieve4I11e.exe -c 10000 -f 650000 -v -o nfs300_650k_I11.job.mingw.mpqs.out.1 -a nfs300_650k_I11.job 
 bin/mingw/mpqs/gnfs-lasieve4I12e.exe -c 5000 -f 900000 -v -o nfs330_900k_I12.job.mingw.mpqs.out.1 -a nfs330_900k_I12.job 
 bin/mingw/mpqs/gnfs-lasieve4I13e.exe -c 1000 -f 1600000 -v -o nfs360_1600k_I13.job.mingw.mpqs.out.1 -a nfs360_1600k_I13.job 

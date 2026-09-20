@@ -40,9 +40,7 @@ SOFTWARE.
 #include <string.h>
 #include <inttypes.h>
 
-#ifdef __INTEL_LLVM_COMPILER
 #include <ctype.h>
-#endif
 
 // this function prints the help information specified by usageHelp
 // and OptionHelp.
@@ -423,7 +421,7 @@ void applyOpt(char* opt, char* arg, options_t* options)
         //options->rand_seed = strtoull(arg, ptr, 10);
         printf("attempting to parse user rng seed from %s\n", arg);
         sscanf(arg, "%lu", &options->rand_seed);
-        printf("read: % "PRIu64"\n", options->rand_seed);
+        printf("read: %" PRIu64 "\n", options->rand_seed);
     }
     else if (strcmp(opt, OptionArray[17]) == 0)
     {
@@ -1151,7 +1149,7 @@ void applyOpt(char* opt, char* arg, options_t* options)
 // ========================================================================
 options_t* initOpt(void)
 {
-    options_t* options = (options_t*)malloc(sizeof(options_t));
+    options_t* options = (options_t*)calloc(1, sizeof(options_t));
     int i;
 
     for (i = 0; i < NUMOPTIONS; i++)
@@ -1186,7 +1184,7 @@ options_t* initOpt(void)
     strcpy(options->sessionlog, "session.log");
     strcpy(options->scriptfile, "");
     options->num_tune_info = 0;
-    options->tune_info = (char**)xmalloc(1 * sizeof(char*));
+    options->tune_info = NULL;
     options->rand_seed = 0;
     options->threads = 1;
     options->verbosity = 0;
@@ -1208,7 +1206,6 @@ options_t* initOpt(void)
     strcpy(options->fact_plan, "normal");
     options->pretest = 0;
     options->want_output_expr = 1;
-    strcpy(options->tune_info, "");
     options->stopbase = 10;
     options->stopeq = -1;
     options->stople = -1;
@@ -1401,7 +1398,7 @@ int processOpts(int argc, char** argv, options_t* options)
                 if (strncmp(options->LongOptionAliases[j], &argv[i][2], MAXOPTIONLEN) == 0)
                 {
                     valid = 1;
-                    strncpy(optbuf, options->OptionArray[j], MAXOPTIONLEN);
+                    snprintf(optbuf, sizeof(optbuf), "%s", options->OptionArray[j]);
                     break;
                 }
             }
@@ -1413,7 +1410,7 @@ int processOpts(int argc, char** argv, options_t* options)
                 if (strncmp(options->OptionArray[j], &argv[i][1], MAXOPTIONLEN) == 0)
                 {
                     valid = 1;
-                    strncpy(optbuf, &argv[i][1], MAXOPTIONLEN);
+                    snprintf(optbuf, sizeof(optbuf), "%s", &argv[i][1]);
                     break;
                 }
             }
@@ -1435,7 +1432,7 @@ int processOpts(int argc, char** argv, options_t* options)
                 printUsage(options);
                 exit(0);
             }
-            strncpy(argbuf, argv[i], MAXARGLEN);
+            snprintf(argbuf, sizeof(argbuf), "%s", argv[i]);
 
             //now apply -option argument
             applyOpt(optbuf, argbuf, options);
@@ -1454,7 +1451,7 @@ int processOpts(int argc, char** argv, options_t* options)
             {
                 i++;
                 // an option was supplied, pass it on
-                strncpy(argbuf, argv[i], MAXARGLEN);
+                snprintf(argbuf, sizeof(argbuf), "%s", argv[i]);
 
                 //now apply -option argument
                 applyOpt(optbuf, argbuf, options);
@@ -1608,6 +1605,23 @@ int readINI(const char* filename, options_t* options)
         {
             //read value
             value = strtok((char*)0, "=");
+        }
+
+        if (value == NULL)
+        {
+            int i;
+            for (i = 0; i < NUMOPTIONS; i++)
+            {
+                if ((strcmp(key, options->OptionArray[i]) == 0) &&
+                    (options->needsArg[i] == 1))
+                {
+                    printf("warning: argument expected for %s in %s\n", key, filename);
+                    key = NULL;
+                    break;
+                }
+            }
+            if (key == NULL)
+                continue;
         }
 
         //apply the option... same routine command line options use

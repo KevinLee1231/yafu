@@ -10,6 +10,7 @@
 # Copy or rename this file to config.mk in the project root (same directory
 # as the Makefile) and uncomment / edit any paths that differ from the
 # system defaults.
+# 此文件只由根目录 Makefile 读取；三个带编译器后缀的旧构建文件不读取它。
 #
 # NOTE: "make info" is a useful tool. Run that command to see what 
 # is automatically found by Make

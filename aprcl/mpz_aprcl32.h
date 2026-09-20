@@ -17,6 +17,7 @@
 #ifndef __MPZ_APRCL__
 #define __MPZ_APRCL__
 
+#include <gmp.h>
 #include "jacobi_sum32.h"
 
 /*

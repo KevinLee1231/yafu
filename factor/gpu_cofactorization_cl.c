@@ -1201,6 +1201,11 @@ gpu_device_init(int which_gpu, int verbose)
         printf("error: no OpenCL-capable GPUs found\n");
         exit(-1);
     }
+    if ((which_gpu < 0) || (which_gpu >= gpu_config.num_gpu)) {
+        printf("error: OpenCL device index %d is outside 0..%d\n",
+            which_gpu, gpu_config.num_gpu - 1);
+        exit(-1);
+    }
 
     d->gpunum   = which_gpu;
     d->gpu_info = gpu_info = (gpu_info_t *)xmalloc(sizeof(gpu_info_t));
@@ -1531,6 +1536,7 @@ gpu_ctx_free(device_thread_ctx_t *d)
     clReleaseCommandQueue(d->queue);    /* was: cuStreamDestroy    */
     clReleaseProgram(d->gpu_program);   /* was: part of cuCtxDestroy */
     clReleaseContext(d->gpu_context);   /* was: cuCtxDestroy       */
+    free(d);
 }
 
 /* -----------------------------------------------------------------------

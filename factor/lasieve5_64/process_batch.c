@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <errno.h>
+#include <inttypes.h>
+#include <limits.h>
 #include <sys/time.h>
 #include "../ytools/ytools.h"
 #include "batch_factor.h"
@@ -12,32 +15,117 @@
 // 
 // usage: bfact lpb pmin pmax relsfilein relsfileout
 
+#define MAX_RELATION_FACTORS 32
+
+static int parse_u64(const char* text, uint64_t* value)
+{
+    char* end;
+    const char* cursor;
+    unsigned long long parsed;
+
+    if (*text == '\0')
+        return -1;
+    for (cursor = text; *cursor != '\0'; cursor++)
+        if (*cursor < '0' || *cursor > '9')
+            return -1;
+
+    errno = 0;
+    parsed = strtoull(text, &end, 10);
+    if (errno != 0 || end == text || *end != '\0')
+        return -1;
+    *value = (uint64_t)parsed;
+    return 0;
+}
+
+static int parse_factor_list(char* text, uint32_t* factors, uint32_t* count)
+{
+    uint32_t n = 0;
+
+    while (*text != '\0' && *text != '\r' && *text != '\n')
+    {
+        char* end;
+        unsigned long parsed;
+
+        if (n == MAX_RELATION_FACTORS)
+            return -1;
+        errno = 0;
+        parsed = strtoul(text, &end, 16);
+        if (errno != 0 || end == text || parsed > UINT32_MAX)
+            return -1;
+        factors[n++] = (uint32_t)parsed;
+        if (*end == '\0' || *end == '\r' || *end == '\n')
+            break;
+        if (*end != ',')
+            return -1;
+        text = end + 1;
+    }
+
+    *count = n;
+    return 0;
+}
+
+static void write_u32_factor(FILE* out, int* first, uint32_t factor)
+{
+    if (factor <= 1)
+        return;
+    if (!*first)
+        fputc(',', out);
+    fprintf(out, "%" PRIx32, factor);
+    *first = 0;
+}
+
+static void write_mpz_factor(FILE* out, int* first, const mpz_t factor)
+{
+    if (mpz_cmp_ui(factor, 1) <= 0)
+        return;
+    if (!*first)
+        fputc(',', out);
+    gmp_fprintf(out, "%Zx", factor);
+    *first = 0;
+}
+
 int main(int argc, char** argv)
 {
     relation_batch_t rb;
-
-    uint64_t lpb = atoi(argv[1]);
-    uint64_t pmin = strtoull(argv[2], NULL, 10);
-    uint64_t pmax = strtoull(argv[3], NULL, 10);
-    char infile[80], outfile[80];
-    char buf[1024], str1[1024], str2[1024];
+    uint64_t lpb, pmin_arg, pmax;
+    uint32_t pmin;
+    const char* infile;
+    const char* outfile;
+    char buf[1024];
     uint32_t fr[32], fa[32], numr = 0, numa = 0;
     mpz_t res1, res2;
     struct timeval start;
     struct timeval stop;
     double ttime;
     uint64_t lcg_state = 42;
-    int i;
+    uint32_t i;
     uint32_t line = 0;
     uint32_t numfull = 0;
 
-    strcpy(infile, argv[4]);
-    strcpy(outfile, argv[5]);
+    if (argc != 6)
+    {
+        fprintf(stderr, "usage: %s lpb pmin pmax relsfilein relsfileout\n", argv[0]);
+        return EXIT_FAILURE;
+    }
+    if (parse_u64(argv[1], &lpb) != 0 || parse_u64(argv[2], &pmin_arg) != 0 ||
+        parse_u64(argv[3], &pmax) != 0)
+    {
+        fprintf(stderr, "lpb, pmin, and pmax must be unsigned decimal integers\n");
+        return EXIT_FAILURE;
+    }
+    if (pmin_arg > UINT32_MAX)
+    {
+        fprintf(stderr, "pmin must fit in 32 bits\n");
+        return EXIT_FAILURE;
+    }
+    pmin = (uint32_t)pmin_arg;
+    infile = argv[4];
+    outfile = argv[5];
 
     if (lpb > 40)
     {
-        printf("expected large prime bound < 40 bits, saw %lu\n", lpb);
-        exit(0);
+        printf("expected large prime bound at most 40 bits, saw %" PRIu64 "\n", lpb);
+        return EXIT_FAILURE;
     }
 
     lpb = 1ull << lpb;
@@ -72,35 +160,59 @@ int main(int argc, char** argv)
 
     printf("init took %1.2f sec, reading input file...\n", ttime);
 
+    if (strcmp(infile, outfile) == 0)
+    {
+        fprintf(stderr, "input and output files must be different\n");
+        relation_batch_free(&rb);
+        mpz_clear(res1);
+        mpz_clear(res2);
+        return EXIT_FAILURE;
+    }
+
     FILE* fid = fopen(infile, "r");
     if (fid == NULL)
     {
         printf("could not open %s to read\n", infile);
-        exit(0);
+        relation_batch_free(&rb);
+        mpz_clear(res1);
+        mpz_clear(res2);
+        return EXIT_FAILURE;
     }
 
-    FILE* fout; // = fopen(outfile, "w");
-    //if (fid == NULL)
-    //{
-    //    printf("could not open %s to write\n", outfile);
-    //    exit(0);
-    //}
+    FILE* fout = fopen(outfile, "w");
+    if (fout == NULL)
+    {
+        fprintf(stderr, "could not open %s to write\n", outfile);
+        fclose(fid);
+        relation_batch_free(&rb);
+        mpz_clear(res1);
+        mpz_clear(res2);
+        return EXIT_FAILURE;
+    }
 
     gettimeofday(&start, NULL);
 
-    while (~feof(fid))
+    while (fgets(buf, sizeof(buf), fid) != NULL)
     {
         int64_t a;
         uint32_t b;
+        int parsed_chars;
         char* tok;
 
         line++;
-        char *ptr = fgets(buf, 1024, fid);
-        if (ptr == NULL)
-            break;
+        char* ptr;
 
-        // printf("buffer read: %s\n", buf);
-        strcpy(str1, buf);
+        if (strchr(buf, '\n') == NULL)
+        {
+            int ch = fgetc(fid);
+            if (ch != '\n' && ch != EOF)
+            {
+                while ((ch = fgetc(fid)) != '\n' && ch != EOF)
+                    ;
+                printf("could not read relation %u, line exceeds input buffer\n", line);
+                continue;
+            }
+        }
 
         tok = strtok(buf, ":");
         if (tok == NULL)
@@ -110,9 +222,17 @@ int main(int argc, char** argv)
         }
 
         ptr = strchr(tok, ',');
+        if (ptr == NULL)
+        {
+            printf("could not read relation %u, invalid lfactors token\n", line);
+            continue;
+        }
         *ptr = '\0';
-        mpz_set_str(res1, tok, 10);
-        mpz_set_str(res2, ptr+1, 10);
+        if (mpz_set_str(res1, tok, 10) != 0 || mpz_set_str(res2, ptr + 1, 10) != 0)
+        {
+            printf("could not read relation %u, invalid large cofactor\n", line);
+            continue;
+        }
 
         // gmp_printf("large factors: %Zd, %Zd\n", res1, res2);
 
@@ -123,7 +243,12 @@ int main(int argc, char** argv)
             continue;
         }
 
-        sscanf(tok, "%ld,%u", &a, &b);
+        if (sscanf(tok, "%" SCNd64 ",%" SCNu32 "%n", &a, &b, &parsed_chars) != 2 ||
+            tok[parsed_chars] != '\0')
+        {
+            printf("could not read relation %u, invalid a/b token\n", line);
+            continue;
+        }
 
         tok = strtok(NULL, ":");
         if (tok == NULL)
@@ -131,14 +256,10 @@ int main(int argc, char** argv)
             printf("could not read relation %u, no rfactors token\n", line);
             continue;
         }
-        numr = 0;
-        while (strlen(tok) > 0)
+        if (parse_factor_list(tok, fr, &numr) != 0)
         {
-            fr[numr++] = strtoul(tok, NULL, 16);
-            ptr = strchr(tok, ',');
-            if (ptr == NULL)
-                break;
-            tok = ptr + 1;
+            printf("could not read relation %u, invalid or oversized rfactors token\n", line);
+            continue;
         }
 
         tok = strtok(NULL, ":");
@@ -148,29 +269,44 @@ int main(int argc, char** argv)
             continue;
         }
 
-        numa = 0;
-        while (strlen(tok) > 0)
+        if (parse_factor_list(tok, fa, &numa) != 0)
         {
-            fa[numa++] = strtoul(tok, NULL, 16);
-            ptr = strchr(tok, ',');
-            if (ptr == NULL)
-                break;
-            tok = ptr + 1;
+            printf("could not read relation %u, invalid or oversized afactors token\n", line);
+            continue;
         }
 
         if ((mpz_sgn(res1) > 0) && (mpz_sgn(res2) > 0))
         {
+            int first = 1;
+
             numfull++;
-            //fprintf(fout, "%s", str1);
+            fprintf(fout, "%" PRId64 ",%" PRIu32 ":", a, b);
+            write_mpz_factor(fout, &first, res1);
+            for (i = 0; i < numr; i++)
+                write_u32_factor(fout, &first, fr[i]);
+            fputc(':', fout);
+            first = 1;
+            write_mpz_factor(fout, &first, res2);
+            for (i = 0; i < numa; i++)
+                write_u32_factor(fout, &first, fa[i]);
+            fputc('\n', fout);
         }
         else
         {
             relation_batch_add(a, b, fr, numr, res1, fa, numa, res2, &rb);
         }
     }
-    //fclose(fout);
+    if (ferror(fid))
+    {
+        fprintf(stderr, "error while reading %s\n", infile);
+        fclose(fid);
+        fclose(fout);
+        relation_batch_free(&rb);
+        mpz_clear(res1);
+        mpz_clear(res2);
+        return EXIT_FAILURE;
+    }
     fclose(fid);
-    //printf("wrote %d full relations to %s\n", numfull, outfile);
 
     gettimeofday(&stop, NULL);
     ttime = ytools_difftime(&start, &stop);
@@ -185,19 +321,7 @@ int main(int argc, char** argv)
     printf("relation_batch_run took %1.4f sec producing %u relations\n",
         ttime, rb.num_success);
 
-    fid = fopen(infile, "r");
-    if (fid == NULL)
     {
-        printf("could not open %s to read\n", infile);
-        exit(0);
-    }
-
-    fout = fopen(outfile, "w");
-
-    if (fout != NULL)
-    {
-        int num_success = 0;
-        int n = 0;
         int nwrote = 0;
         line = 0;
         for (i = 0; i < rb.num_relations; i++)
@@ -205,263 +329,42 @@ int main(int argc, char** argv)
             if (rb.relations[i].success > 0)
             {
                 int j, k;
+                int first = 1;
 
                 uint32_t* f = rb.factors + rb.relations[i].factor_list_word;
 
-                fprintf(fout, "%ld,%u:", rb.relations[i].a, rb.relations[i].b);
+                fprintf(fout, "%" PRId64 ",%" PRIu32 ":",
+                    rb.relations[i].a, rb.relations[i].b);
                 for (j = 0; j < 3; j++)
-                {
-                    if (rb.relations[i].lp_r[j] > 1)
-                        fprintf(fout, "%x,", rb.relations[i].lp_r[j]);
-                }
-                for (k = 0; k < rb.relations[i].num_factors_r - 1; k++)
-                {
-                    fprintf(fout, "%x,", f[k]);
-                }
-                fprintf(fout, "%x:", f[k]);
+                    write_u32_factor(fout, &first, rb.relations[i].lp_r[j]);
+                for (k = 0; k < rb.relations[i].num_factors_r; k++)
+                    write_u32_factor(fout, &first, f[k]);
+                fprintf(fout, ":");
+                first = 1;
                 for (j = 0; j < 3; j++)
-                {
-                    if (rb.relations[i].lp_a[j] > 1) 
-                        fprintf(fout, "%x,", rb.relations[i].lp_a[j]);
-                }
+                    write_u32_factor(fout, &first, rb.relations[i].lp_a[j]);
 
                 f = rb.factors + rb.relations[i].factor_list_word + rb.relations[i].num_factors_r;
-                for (k = 0; k < rb.relations[i].num_factors_a - 1; k++)
-                {
-                    fprintf(fout, "%x,", f[k]);
-                }
-                fprintf(fout, "%x\n", f[k]);
+                for (k = 0; k < rb.relations[i].num_factors_a; k++)
+                    write_u32_factor(fout, &first, f[k]);
+                fprintf(fout, "\n");
                 nwrote++;
             }
         }
-        fclose(fout);
-        printf("wrote %d relations to %s\n", nwrote, outfile);
-        fclose(fid);
-    }
-    else
-    {
-        printf("could not open %s to append\n", outfile);
-    }
-
-    if (0)
-    {
-        if (fout != NULL)
+        int write_error = ferror(fout);
+        if (fclose(fout) != 0)
+            write_error = 1;
+        if (write_error)
         {
-            int num_success = 0;
-            int n = 0;
-            int nwrote = 0;
-            line = 0;
-            for (i = 0; i < rb.num_relations; i++)
-            {
-                if (rb.relations[i].success > 0)
-                {
-                    num_success++;
-                    int p;
-
-                    // todo: find line 'i' of the input file and output it with the large cofactors
-                    // replaced with their factorizations.
-                    qsort(rb.relations[i].lp_r, 3, sizeof(uint32_t), &qcomp_uint32);
-                    qsort(rb.relations[i].lp_a, 3, sizeof(uint32_t), &qcomp_uint32);
-
-                    //printf("searching file for relation %u, currently on line %u\n", i, n);
-                    while (~feof(fid))
-                    {
-                        int64_t a;
-                        uint32_t b;
-                        char* tok;
-                        char rfactors[1024];
-                        char afactors[1024];
-
-                        line++;
-                        char* ptr = fgets(buf, 1024, fid);
-                        if (ptr == NULL)
-                            break;
-
-                        // printf("buffer read: %s\n", buf);
-                        buf[strlen(buf) - 1] = '\0';
-                        strcpy(str1, buf);
-
-                        tok = strtok(buf, ":");
-                        if (tok == NULL)
-                        {
-                            printf("could not read relation %u, no lfactors token\n", line);
-                            continue;
-                        }
-
-                        ptr = strchr(tok, ',');
-                        *ptr = '\0';
-                        mpz_set_str(res1, tok, 10);
-                        mpz_set_str(res2, ptr + 1, 10);
-
-                        // gmp_printf("large factors: %Zd, %Zd\n", res1, res2);
-
-                        tok = strtok(NULL, ":");
-                        if (tok == NULL)
-                        {
-                            printf("could not read relation %u, no a/b token\n", line);
-                            continue;
-                        }
-
-                        sscanf(tok, "%ld,%u", &a, &b);
-
-                        tok = strtok(NULL, ":");
-                        if (tok == NULL)
-                        {
-                            printf("could not read relation %u, no rfactors token\n", line);
-                            continue;
-                        }
-
-                        strcpy(rfactors, tok);
-
-                        numr = 0;
-                        while (strlen(tok) > 0)
-                        {
-                            fr[numr++] = strtoul(tok, NULL, 16);
-                            ptr = strchr(tok, ',');
-                            if (ptr == NULL)
-                                break;
-                            tok = ptr + 1;
-                        }
-
-                        tok = strtok(NULL, ":");
-                        if (tok == NULL)
-                        {
-                            printf("could not read relation %u, no afactors token\n", line);
-                            continue;
-                        }
-
-                        strcpy(afactors, tok);
-
-                        numa = 0;
-                        while (strlen(tok) > 0)
-                        {
-                            fa[numa++] = strtoul(tok, NULL, 16);
-                            ptr = strchr(tok, ',');
-                            if (ptr == NULL)
-                                break;
-                            tok = ptr + 1;
-                        }
-
-                        // A relation has been read.  If it is a full relation, 
-                        // then output it, but then don't include it in the search 
-                        // for this relation's line: these are added not to the batch solve.
-                        if ((mpz_sgn(res1) > 0) && (mpz_sgn(res2) > 0))
-                        {
-                            fprintf(fout, "%ld,%u:", a, b);
-                            if (mpz_cmp_ui(res1, 1) > 0)
-                                gmp_fprintf(fout, "%Zx,", res1);
-                            fprintf(fout, "%s:", rfactors);
-                            if (mpz_cmp_ui(res2, 1) > 0)
-                                gmp_fprintf(fout, "%Zx,", res2);
-                            fprintf(fout, "%s\n", afactors);
-                            nwrote++;
-                            continue;
-                        }
-
-
-                        if (n == i)
-                        {
-                            // make sure this factorization applies to this relation
-                            int good = 1;
-                            int j;
-                            int print_rres = 0;
-                            int print_ares = 0;
-
-                            if (mpz_sgn(res1) < 0)
-                            {
-                                mpz_neg(res1, res1);
-                                print_rres = 0;
-                            }
-                            else if (mpz_cmp_ui(res1, 1) > 0)
-                            {
-                                print_rres = 1;
-                            }
-
-                            if (mpz_sgn(res2) < 0)
-                            {
-                                mpz_neg(res2, res2);
-                                print_ares = 0;
-                            }
-                            else if (mpz_cmp_ui(res2, 1) > 0)
-                            {
-                                print_ares = 1;
-                            }
-
-                            for (j = 0; j < 3; j++)
-                                good &= (mpz_tdiv_ui(res1, rb.relations[i].lp_r[j]) == 0);
-
-                            for (j = 0; j < 3; j++)
-                                good &= (mpz_tdiv_ui(res2, rb.relations[i].lp_a[j]) == 0);
-
-                            if (!good)
-                            {
-                                printf("factors of relations array %d don't divide residues of "
-                                    "input file line %d as expected\n", i, n);
-                                gmp_printf("residues: %Zd, %Zd\n", res1, res2);
-                                printf("rfactors: ");
-                                for (j = 0; j < 3; j++)
-                                    if (rb.relations[i].lp_r[j] > 1)
-                                        printf("%u ", rb.relations[i].lp_r[j]);
-                                printf("\nafactors: ");
-                                for (j = 0; j < 3; j++)
-                                    if (rb.relations[i].lp_a[j] > 1)
-                                        printf("%lu ", rb.relations[i].lp_a[j]);
-                                printf("\n");
-                            }
-                            else
-                            {
-                                fprintf(fout, "%ld,%u:", a, b);
-                                if (print_rres)
-                                {
-                                    gmp_fprintf(fout, "%Zx,", res1);
-                                }
-                                else
-                                {
-                                    rb.relations[i].num_factors_r = 0;
-                                    for (j = 0; j < 3; j++)
-                                    {
-                                        if (rb.relations[i].lp_r[j] > 1)
-                                            fprintf(fout, "%x,", rb.relations[i].lp_r[j]);
-                                    }
-                                }
-                                fprintf(fout, "%s:", rfactors);
-
-                                if (print_ares)
-                                {
-                                    gmp_fprintf(fout, "%Zx,", res2);
-                                }
-                                else
-                                {
-                                    rb.relations[i].num_factors_a = 0;
-                                    for (j = 0; j < 3; j++)
-                                    {
-                                        if (rb.relations[i].lp_a[j] > 1)
-                                            fprintf(fout, "%x,", rb.relations[i].lp_a[j]);
-                                    }
-                                }
-                                fprintf(fout, "%s\n", afactors);
-                                nwrote++;
-                            }
-                            n++;
-                            break;
-
-                        }
-                        n++;
-
-                    }
-                }
-            }
-
-            fclose(fout);
-            printf("wrote %d relations to %s\n", nwrote, outfile);
-            fclose(fid);
+            fprintf(stderr, "error while writing %s\n", outfile);
+            relation_batch_free(&rb);
+            mpz_clear(res1);
+            mpz_clear(res2);
+            return EXIT_FAILURE;
         }
-        else
-        {
-            printf("could not open %s to append\n", outfile);
-        }
+        printf("wrote %u full and %d factored relations to %s\n",
+            numfull, nwrote, outfile);
     }
-
     printf("ECM stats R:\n");
     for (i = 0; i < 4; i++)
     {

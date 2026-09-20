@@ -65,7 +65,7 @@ adjust_mpz_bufsize(mpz_t **x,size_t *alloc_ptr,size_t size,size_t increment)
   size_t old_alloc;
 
   old_alloc=*alloc_ptr;
-  adjust_bufsize(x,alloc_ptr,size,increment,sizeof(**x));
+  adjust_bufsize((void **)x,alloc_ptr,size,increment,sizeof(**x));
   while(old_alloc<*alloc_ptr) mpz_init((*x)[old_alloc++]);
 }
 */
@@ -88,12 +88,15 @@ string2mpz(mpz_t rop,char *x,int base)
   int rv;
 
   x+=strspn(x," \t+");
-  if(strlen(x)==0) mpz_set_ui(rop,0);
-  y=strdup(x);
-  for(l=strlen(y)-1;y[l]=='\n';l--) {
-    y[l]='\0';
-    if(l==0) break;
+  l=strlen(x);
+  while(l>0 && (x[l-1]=='\n' || x[l-1]=='\r')) l--;
+  if(l==0) {
+    mpz_set_ui(rop,0);
+    return 0;
   }
+  y=xmalloc(l+1);
+  memcpy(y,x,l);
+  y[l]='\0';
   rv=mpz_set_str(rop,y,base);
   free(y);
   return rv;

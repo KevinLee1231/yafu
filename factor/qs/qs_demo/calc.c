@@ -1499,11 +1499,32 @@ void calc_with_assignment(str_t* in, meta_t* metadata, int force_quiet)
     mpz_init(tmp);
     sInit(&str);
 
+    if (in->s[0] == '\0')
+    {
+        mpz_clear(tmp);
+        sFree(&str);
+        return;
+    }
+
     if ((ptr = strchr(in->s, '=')) != NULL)
     {
         offset = (ptr - in->s);
+		if ((size_t)offset >= sizeof(uvars.vars[0].name))
+		{
+			printf("变量名过长\n");
+			mpz_clear(tmp);
+			sFree(&str);
+			return;
+		}
         strncpy(varname, in->s, offset);
         varname[offset++] = '\0';
+		if (invalid_dest(varname))
+		{
+			printf("变量名无效\n");
+			mpz_clear(tmp);
+			sFree(&str);
+			return;
+		}
     }
     else
     {
@@ -2436,12 +2457,12 @@ int set_uvar(const char *name, mpz_t data)
 		if (i != DEC && i != HEX && i != BIN && i != OCT)
 		{
 			printf("unknown base\n");
-			return 0;
+			return 1;
 		}
 		else
 		{
 			OBASE = i;
-			return 1;
+			return 0;
 		}
 	}
 
@@ -2521,10 +2542,15 @@ int new_strvar(const char *name, char *data)
         strvars.vars = (strvar_t *)realloc(strvars.vars, strvars.num * 2 * sizeof(strvar_t));
         strvars.alloc *= 2;
         for (i = strvars.num; i<strvars.alloc; i++)
-            strvars.vars[i].data = (char *)malloc(GSTR_MAXSIZE * sizeof(char));
+		{
+            strvars.vars[i].data = (char *)malloc(1);
+			strvars.vars[i].data[0] = '\0';
+		}
     }
 
     strcpy(strvars.vars[strvars.num].name, name);
+	strvars.vars[strvars.num].data = (char *)xrealloc(
+		strvars.vars[strvars.num].data, strlen(data) + 1);
     strcpy(strvars.vars[strvars.num].data, data);
     strvars.num++;
     return strvars.num - 1;
@@ -2541,6 +2567,8 @@ int set_strvar(const char *name, char *data)
     {
         if (strcmp(strvars.vars[i].name, name) == 0)
         {
+			strvars.vars[i].data = (char *)xrealloc(
+				strvars.vars[i].data, strlen(data) + 1);
             strcpy(strvars.vars[i].data, data);
             return 0;
         }

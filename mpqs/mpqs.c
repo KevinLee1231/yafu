@@ -102,9 +102,14 @@ uint32 factor_mpqs(msieve_obj *obj, mp_t *n,
 
 	free(modsqrt_array);
 	if (relation_list == NULL || cycle_list == NULL ||
-	    cycle_list == NULL || poly_a_list == NULL || poly_list == NULL) {
-
+	    poly_a_list == NULL || poly_list == NULL) {
 		free(factor_base);
+		if (cycle_list != NULL)
+			free_cycle_list(cycle_list, num_cycles);
+		if (relation_list != NULL)
+			qs_free_relation_list(relation_list, num_relations);
+		free(poly_list);
+		free(poly_a_list);
 		return 0;
 	}
 

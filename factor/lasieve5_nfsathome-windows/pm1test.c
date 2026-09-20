@@ -20,6 +20,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include <gmp.h>
 #include "asm/siever-config.h"
 #include "if.h"
+#include "pm1.h"
+#include "asm/zeit.h"
 
 #include "asm/montgomery_mul.h"
 
@@ -41,6 +43,7 @@ int main(int argc, char *argv[])
   initzeit(13); zeita(0);
   mpz_init(N); n=0; npm1=0;
   fi=fopen(argv[2],"r");
+  if (fi==NULL) complain("cannot open input file %s\n",argv[2]);
   if (argc>3) B2=strtoul(argv[3],NULL,10); else B2=10*B1;
   while (getline(&input_line,&input_line_alloc,fi)>0) {
     if (mpz_set_str(N,input_line,10)) break;
@@ -57,4 +60,3 @@ int main(int argc, char *argv[])
   for (i=0; i<13; i++) printzeit(i); printf("\n");
   exit(0);
 }
-

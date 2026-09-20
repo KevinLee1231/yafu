@@ -28,6 +28,8 @@ either expressed or implied, of the FreeBSD Project.
 */
 
 #include "gmp.h"
+#include <stdio.h>
+#include <stdlib.h>
 #include <stdint.h>
 
 #define D 120

@@ -430,6 +430,7 @@ void logTotalTime()
   double t=sTime()-sieveStartTime;
   FILE *fp=fopen("ggnfs.log", "ab");
   
+  if (fp==NULL) return;
   fprintf(fp, "\tLatSieveTime: "UL_FMTSTR"\n", (u64_t)t);
   fclose(fp);
 }
@@ -1034,8 +1035,45 @@ useful to store |spq_x|, the product of |i_shift| and |spq_i| modulo $q$.
     }
   }
   
-  if(verbose) { /* first rudimentary test of automatic $Rev reporting */
-      fprintf(stderr, "gnfs-lasieve4I%de (with asm64): L1_BITS=%d,\n", I_bits, L1_BITS);
+  {
+    char features[1024];
+    char *p=features;
+    char *base_end,*avx_list_start;
+
+    p+=sprintf(p,"with asm64");
+    base_end=p;
+    p+=sprintf(p,",avx-512 ");
+    avx_list_start=p;
+#ifdef AVX512_TD
+    p+=sprintf(p,"mmx-td,");
+#endif
+#ifdef AVX512_LASIEVE_SETUP
+    p+=sprintf(p,"lasetup,");
+#endif
+#ifdef AVX512_LASCHED
+    p+=sprintf(p,"lasched,");
+#endif
+#ifdef AVX512_SIEVE1
+    p+=sprintf(p,"sieve1,");
+#endif
+#ifdef AVX512_ECM
+    p+=sprintf(p,"ecm,");
+#endif
+#ifdef AVX512_TDS0
+    p+=sprintf(p,"tds0,");
+#endif
+#ifdef AVX512_SIEVE_SEARCH
+    p+=sprintf(p,"search0,");
+#endif
+#ifdef AVX512_TDSCHED
+    p+=sprintf(p,"tdsched,");
+#endif
+    if(p==avx_list_start) *base_end='\0';
+    else p[-1]='\0';
+
+    if(verbose)
+      fprintf(stderr,"gnfs-lasieve4I%de (%s): L1_BITS=%d\n",
+              I_bits,features,L1_BITS);
   }
 
 #define LINE_BUF_SIZE 300

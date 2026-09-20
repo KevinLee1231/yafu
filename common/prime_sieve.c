@@ -64,6 +64,7 @@ void init_prime_sieve(prime_sieve_t *s,
 	sieve = s->sieve = (uint8 *)xmalloc((size_t)SIEVE_BLOCK_BYTES);
 	aux = s->aux = (prime_aux_t *)xmalloc(MAX_SIEVE_PRIMES * 
 						sizeof(prime_aux_t));
+	s->num_aux = 0;
 	memset(sieve, 0, (size_t)SIEVE_BLOCK_BYTES);
 
 	/* sieve with the odd primes < 256 */
@@ -172,4 +173,3 @@ uint32 get_next_prime(prime_sieve_t *s) {
 
 	return 0;	/* should never happen */
 }
-

@@ -1102,7 +1102,7 @@ void save_relation_siqs(uint32_t offset, uint32_t *large_prime, uint32_t num_fac
     uint32_t *fb_offsets, uint32_t poly_id, uint32_t apoly_id, uint32_t parity,
 	static_conf_t *conf)
 {
-	char buf[1024];
+	char *buf = NULL;
 	fact_obj_t *obj = conf->obj;
 	uint32_t i, k, buf_offset;
 	uint32_t lp[MAXLP];
@@ -1198,6 +1198,7 @@ void save_relation_siqs(uint32_t offset, uint32_t *large_prime, uint32_t num_fac
 	else
 	{
 		//store to file
+		buf = (char *)xmalloc((size_t)10 * MAX_SMOOTH_PRIMES + 128);
 		i = sprintf(buf, "R ");
 
 		if (parity)
@@ -1248,7 +1249,8 @@ void save_relation_siqs(uint32_t offset, uint32_t *large_prime, uint32_t num_fac
                 sprintf(buf + buf_offset, "L %x %x\n", large_prime[1], large_prime[0]);
         }
 
-		savefile_write_line(&obj->qs_obj.savefile, buf);		
+		savefile_write_line(&obj->qs_obj.savefile, buf);
+		free(buf);
 	}
 
 	/* for partial relations, also update the bookeeping for

@@ -752,21 +752,6 @@ void SIQS(fact_obj_t *fobj)
 	// 3.) initialize data objects
 	// 4.) get ready to find the factor base
 
-	// fill in the factorization object	
-	fobj->qs_obj.savefile.name = (char *)malloc(80 * sizeof(char));
-	strncpy(fobj->savefile_name, fobj->qs_obj.siqs_savefile, 80);
-
-    // The above leaks a little memory:
-    // == 148041 == 80 bytes in 1 blocks are definitely lost in loss record 2 of 2
-    // == 148041 == at 0x4C2B0F7: malloc(vg_replace_malloc.c:381)
-    // == 148041 == by 0x42E5E7 : SIQS(SIQS.c:687)
-    // == 148041 == by 0x420046 : feval(calc.c:2575)
-    // == 148041 == by 0x41F175 : calc(calc.c:1947)
-    // == 148041 == by 0x41CBE2 : calc_with_assignment(calc.c:1527)
-    // == 148041 == by 0x41CBE2 : process_expression(calc.c:1473)
-    // == 148041 == by 0x405FD2 : main(driver.c:401)
-
-
 	// initialize the data objects both shared (static) and 
 	// per-thread (dynamic)
 	static_conf = (static_conf_t *)malloc(sizeof(static_conf_t));
@@ -1326,7 +1311,7 @@ int check_Qval(static_conf_t* sconf, dynamic_conf_t* dconf,
         }
     }
 
-    uint32_t fboffsets[100];
+    uint32_t fboffsets[MAX_SMOOTH_PRIMES];
     uint8_t sieveval = sconf->blockinit;
     int i;
     int j = 0;
@@ -1338,13 +1323,15 @@ int check_Qval(static_conf_t* sconf, dynamic_conf_t* dconf,
 
         while (mpz_tdiv_ui(dconf->gmptmp2, prime) == 0)
         {
+			if (j >= MAX_SMOOTH_PRIMES)
+				return 0;
             sieveval -= logp;
             fboffsets[j++] = i;
             mpz_tdiv_q_ui(dconf->gmptmp2, dconf->gmptmp2, prime);
         }
     }
 
-    if ((sieveval & 0x80))
+    if ((sieveval & 0x80) && j > 0)
     {
         gmp_printf("Q(%d,%d), logp = %02x: %Zd = %u ", polyid, offset, 
             sieveval, dconf->gmptmp1,
@@ -3399,7 +3386,7 @@ int siqs_dynamic_init(dynamic_conf_t *dconf, static_conf_t *sconf)
             // bucket per b-poly so it multiplies up quickly.
             if (sconf->obj->qs_obj.gbl_override_ssalloc_flag > 0)
             {
-                if (sconf->obj->qs_obj.gbl_override_ssalloc >= 32)
+                if (sconf->obj->qs_obj.gbl_override_ssalloc >= 16)
                 {
                     // invalid entry, use default
                     printf("Invalid subset-sum bucket alloc, should be a number of bits < 16\n");
@@ -3423,7 +3410,8 @@ int siqs_dynamic_init(dynamic_conf_t *dconf, static_conf_t *sconf)
                 // need to be bigger per slice.  also of course, larger slices
                 // means fewer maximum blocks allowed, because we need more bits to
                 // store prime id's and so we have fewer bits for storing root locations.
-                dconf->ss_slices_p[i].alloc = (1 << dconf->poly_buckets_allocated);
+                dconf->ss_slices_p[i].alloc =
+                    (UINT32_C(1) << dconf->poly_buckets_allocated);
                 dconf->ss_slices_p[i].numbuckets = 65536;
 
 #ifndef USE_POLY_BUCKET_PN_COMBINED_VARIATION
@@ -3431,8 +3419,8 @@ int siqs_dynamic_init(dynamic_conf_t *dconf, static_conf_t *sconf)
                 dconf->ss_slices_n[i].numbuckets = 131072;
 #endif
 
-                int a = dconf->ss_slices_p[i].alloc;
-                int nb = dconf->ss_slices_p[i].numbuckets;
+                size_t a = dconf->ss_slices_p[i].alloc;
+                size_t nb = dconf->ss_slices_p[i].numbuckets;
 
                 dconf->ss_slices_p[i].elements = (uint32_t*)xmalloc(a * nb * sizeof(uint32_t));
                 dconf->ss_slices_p[i].size = (uint32_t*)xmalloc(nb * sizeof(uint32_t));
@@ -5260,7 +5248,7 @@ int update_check(static_conf_t *sconf)
                 uint32_t* apolylist = NULL;
 				uint32_t newrels;
 				int j;
-				char buf[LINE_BUF_SIZE];
+				char buf[10 * MAX_SMOOTH_PRIMES + 128];
 				struct timeval filt_start, filt_stop;
                 double tmp;
 

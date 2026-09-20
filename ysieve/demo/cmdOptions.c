@@ -90,14 +90,14 @@ void applyArg(char* arg, int argNum, options_t* options)
 {
     if (argNum == 0)
     {
-        strcpy(options->stopExpression, arg);
+        snprintf(options->stopExpression, sizeof(options->stopExpression), "%s", arg);
     }
     else if (argNum == 1)
     {
         // we got two non-switch arguments: the one we already got is
         // the start and this one is stop.
         strcpy(options->startExpression, options->stopExpression);
-        strcpy(options->stopExpression, arg);
+        snprintf(options->stopExpression, sizeof(options->stopExpression), "%s", arg);
     }
 
     return;
@@ -125,7 +125,7 @@ void applyOpt(char* opt, char* arg, options_t* options)
         }
         else
         {
-            strcpy(options->outFile, arg);
+            snprintf(options->outFile, sizeof(options->outFile), "%s", arg);
         }
     }
     else if (strcmp(opt, options->OptionArray[3]) == 0)
@@ -189,7 +189,7 @@ void applyOpt(char* opt, char* arg, options_t* options)
 // ========================================================================
 options_t* initOpt(void)
 {
-    options_t* options = (options_t*)malloc(sizeof(options_t));
+    options_t* options = (options_t*)calloc(1, sizeof(options_t));
     int i;
 
     if (options == NULL)
@@ -309,7 +309,7 @@ int processOpts(int argc, char** argv, options_t* options)
                 if (strncmp(options->LongOptionAliases[j], &argv[i][2], MAXOPTIONLEN) == 0)
                 {
                     valid = 1;
-                    strncpy(optbuf, options->OptionArray[j], MAXOPTIONLEN);
+                    snprintf(optbuf, sizeof(optbuf), "%s", options->OptionArray[j]);
                     break;
                 }
             }
@@ -321,7 +321,7 @@ int processOpts(int argc, char** argv, options_t* options)
                 if (strncmp(options->OptionArray[j], &argv[i][1], MAXOPTIONLEN) == 0)
                 {
                     valid = 1;
-                    strncpy(optbuf, &argv[i][1], MAXOPTIONLEN);
+                    snprintf(optbuf, sizeof(optbuf), "%s", &argv[i][1]);
                     break;
                 }
             }
@@ -343,7 +343,7 @@ int processOpts(int argc, char** argv, options_t* options)
                 printUsage(options);
                 exit(0);
             }
-            strncpy(argbuf, argv[i], MAXARGLEN);
+            snprintf(argbuf, sizeof(argbuf), "%s", argv[i]);
 
             //now apply -option argument
             applyOpt(optbuf, argbuf, options);
@@ -362,7 +362,7 @@ int processOpts(int argc, char** argv, options_t* options)
             {
                 i++;
                 // an option was supplied, pass it on
-                strncpy(argbuf, argv[i], MAXARGLEN);
+                snprintf(argbuf, sizeof(argbuf), "%s", argv[i]);
 
                 //now apply -option argument
                 applyOpt(optbuf, argbuf, options);

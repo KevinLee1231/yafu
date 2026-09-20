@@ -71,6 +71,24 @@ As of YAFU 3.0, `ytools`, `ysieve`, and `msieve` are bundled in this repository 
 
 ### Linux, WSL, and MSYS2/MinGW-w64
 
+在 WSL Kali 中，从源码目录运行下列命令即可；无需安装到系统目录。已有
+`config.mk` 时保留本机配置。`make info` 会显示实际使用的 GMP、GMP-ECM
+路径和 CPU 选项；显式设置 `ECM=1` 时如果缺少头文件，构建会报错。
+
+```sh
+make -j4 yafu
+./yafu 'factor(91)' -terse
+make -j4 lasieve
+make -j4 test-full
+./yafu_test_full --tag fast
+make test-cli
+```
+
+`USE_NATIVE=1` 根据当前 WSL 可见的 CPU 编译；`FORCE_GENERIC=1` 关闭 CPU
+扩展选项，适合检查普通 x86-64 路径。更改编译器或编译选项会自动重建对象，
+不需要手动删除旧对象。完整检查入口和源码审阅范围见
+[测试说明](test/README.md) 与 [源码审阅记录](test/SOURCE_REVIEW.md)。
+
 ```bash
 cp config.mk.example config.mk          # first time only — edit paths as needed
 make yafu                               # builds with sensible defaults (gcc)
@@ -159,6 +177,10 @@ See the [Continuous Integration](../../wiki/Continuous-Integration) wiki page fo
 ## GGNFS sievers (required for NFS)
 
 For NFS factorizations, YAFU needs external GGNFS lattice sieve binaries (`ggnfs-lasieve4I*`). Linux and MinGW binaries are bundled under `factor/lasieve5_64/bin/`. Point YAFU at them with `ggnfs_dir=` in `yafu.ini`, or `-ggnfs_dir <path>` on the command line. Without these, NFS will not run.
+
+WSL 源码构建使用 `make -j4 lasieve`，输出位于 `factor/lasieve5_64/bin/local/`。
+仓库内的 `yafu.ini` 指向这个目录，以便 NFS 使用当前源码生成的筛选器。
+这些本地产物不提交到 Git；已有预编译文件仍可通过 `-ggnfs_dir` 显式选择。
 
 If you have AVX-512 on your CPU, YAFU will also use **AVX-ECM** as the default ECM backend (built in). A standalone version lives at <https://github.com/bbuhrow/avx-ecm>.
 

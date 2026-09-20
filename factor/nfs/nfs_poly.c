@@ -797,7 +797,7 @@ void split_file(int nthreads, char* base_filename, const char* file_extension)
 	char line[8192];
 	int count = 0;
 	int lines_per_file = 0;
-	char fname[80];
+	char fname[GSTR_MAXSIZE + 32];
 	char* strptr;
 
 	sprintf(fname, "%s.%s", base_filename, file_extension);
@@ -867,7 +867,7 @@ void split_file(int nthreads, char* base_filename, const char* file_extension)
 		FILE* fid_out = fopen(fname, "w");
 		if (fid_out != NULL)
 		{
-			for (j = 0; j < lines_per_file; j++)
+			while (1)
 			{
 				// need the ability to parse an arbitrary length line
 				char line[8192];
@@ -877,10 +877,6 @@ void split_file(int nthreads, char* base_filename, const char* file_extension)
 					break;
 				}
 				fputs(line, fid_out);
-				if (feof(fid))
-				{
-					break;
-				}
 			}
 			fclose(fid_out);
 		}
@@ -889,6 +885,8 @@ void split_file(int nthreads, char* base_filename, const char* file_extension)
 			printf("could not open %s to write\n", fname);
 		}
 	}
+	if (fid != NULL)
+		fclose(fid);
 
 
 	return;
@@ -934,7 +932,6 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
 	   iteration which wasn't TASK_POLY doesn't read a stale value */
 	double t_time = 0;
     double e0;
-    int sysreturn;
 
 	//file into which we will combine all of the thread results
 	strcpy(polyfile_extension, "p");
@@ -1434,28 +1431,9 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
 						fclose(fid);
 
 					// combine thread's output with main file
-#if defined(WIN32)
-					{
-						int a;
-
-						// test for cat
-						sprintf(syscmd, "cat %s.%s >> %s 2> nul",
-							t->polyfilename, polyfile_extension, master_polyfile);
-						a = system(syscmd);
-
-						if (a)
-						{
-							char tmp[80];
-							sprintf(tmp, "%s.%s", t->polyfilename, polyfile_extension);
-							win_file_concat(tmp, master_polyfile);
-						}
-					}
-
-#else
-					sprintf(syscmd, "cat %s.%s >> %s",
-						t->polyfilename, polyfile_extension, master_polyfile);
-					sysreturn = system(syscmd);
-#endif
+					snprintf(syscmd, sizeof(syscmd), "%s.%s",
+						t->polyfilename, polyfile_extension);
+					win_file_concat(syscmd, master_polyfile);
 					// then stick on the current total elasped time
 					// this is used to help restart jobs in the polyfind phase
 					if (!special_polyfind)

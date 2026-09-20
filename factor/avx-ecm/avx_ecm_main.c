@@ -305,6 +305,10 @@ void vec_ecm_main(fact_obj_t* fobj, uint32_t numcurves, uint64_t B1,
 	double t_time;
 
 	gettimeofday(&startt, NULL);
+	if (threads < 1)
+	{
+		threads = 1;
+	}
 
     
 
@@ -607,7 +611,7 @@ void vec_ecm_main(fact_obj_t* fobj, uint32_t numcurves, uint64_t B1,
 
     if (verbose > 1)
     {
-        printf("Input has %d bits, using %d threads (%d curves/thread)\n",
+        printf("Input has %zu bits, using %d threads (%d curves/thread)\n",
             mpz_sizeinbase(N, 2), threads, numcurves_per_thread);
         printf("Processing in batches of %u primes\n", tdata[0].PRIME_RANGE);
     }

@@ -91,6 +91,48 @@ void get_ecm_method(fact_obj_t* fobj, uint64_t b1, int* b1_method, int* b2_metho
     return;
 }
 
+static int ecm_data_levels(void)
+{
+    int i = 0;
+
+    /* 表中没有 t70 数据；零初始化项不是有效层。 */
+    while ((i < NUM_ECM_LEVELS) && (ecm_levels[i] > 0))
+    {
+        i++;
+    }
+
+    return i;
+}
+
+static double estimate_completed_tlevel(const double* tlevels, int num_levels)
+{
+    int i;
+
+    if (num_levels <= 0)
+    {
+        return 0.0;
+    }
+
+    for (i = 0; i < num_levels; i++)
+    {
+        if (tlevels[i] < 1.0)
+        {
+            break;
+        }
+    }
+
+    if (i == 0)
+    {
+        return 0.0;
+    }
+    if (i == num_levels)
+    {
+        return ecm_levels[num_levels - 1];
+    }
+
+    return ecm_levels[i - 1] + 5.0 * tlevels[i];
+}
+
 void print_std_ecm_work_done(ecm_obj_t* ecm_obj, int disp_levels, FILE* log, int VFLAG, int LOGFLAG)
 {
     // there is probably a more elegant way to do this involving dickman's function
@@ -105,7 +147,7 @@ void print_std_ecm_work_done(ecm_obj_t* ecm_obj, int disp_levels, FILE* log, int
     }
 
     // compute the %done of each tlevel
-    for (i = 0; i < NUM_ECM_LEVELS - 1; i++)
+    for (i = 0; i < ecm_data_levels(); i++)
     {
         if ((VFLAG >= 1) && disp_levels && (tlevels[i] > 0.01))
         {
@@ -122,6 +164,7 @@ void print_std_ecm_work_done(ecm_obj_t* ecm_obj, int disp_levels, FILE* log, int
 void record_curves_completed(ecm_obj_t* ecm_obj, int curves, uint64_t b1, int b1_method, int b2_method)
 {
     int i;
+    int num_levels = ecm_data_levels();
     int found = 0;
     for (i = 0; i < ecm_obj->num_records; i++)
     {
@@ -195,53 +238,35 @@ void record_curves_completed(ecm_obj_t* ecm_obj, int curves, uint64_t b1, int b1
         // all t-levels are increased by completing these curves.
         if ((b2_method == 100) && (b1_method == 0))
         {
-            for (i = 0; i < NUM_ECM_LEVELS; i++)
+            for (i = 0; i < num_levels; i++)
             {
                 ecm_obj->tlevels[i] += (double)curves / avx_ecm_data[i][level];
             }
         }
         else if ((b1_method == 0) || (b1_method == 2))
         {
-            for (i = 0; i < NUM_ECM_LEVELS; i++)
+            for (i = 0; i < num_levels; i++)
             {
                 ecm_obj->tlevels[i] += (double)curves / ecm_data_param0[i][level];
             }
         }
         else if (b1_method == 1)
         {
-            for (i = 0; i < NUM_ECM_LEVELS; i++)
+            for (i = 0; i < num_levels; i++)
             {
                 ecm_obj->tlevels[i] += (double)curves / ecm_data_param1[i][level];
             }
         }
         else if (b1_method == 3)
         {
-            for (i = 0; i < NUM_ECM_LEVELS; i++)
+            for (i = 0; i < num_levels; i++)
             {
                 ecm_obj->tlevels[i] += (double)curves / ecm_data_param3[i][level];
             }
         }
     }
 
-    // find the first tlevel less than 1
-    for (i = 0; i < NUM_ECM_LEVELS; i++)
-    {
-        if (ecm_obj->tlevels[i] < 1)
-        {
-            break;
-        }
-    }
-
-    // estimate total work done by extrapolating between this and the previous one
-    // assuming they are all spaced 5 digits apart.
-    if (i == 0)
-    {
-        ecm_obj->total_work = 0.0;
-    }
-    else
-    {
-        ecm_obj->total_work = ecm_levels[i - 1] + 5 * ecm_obj->tlevels[i];
-    }
+    ecm_obj->total_work = estimate_completed_tlevel(ecm_obj->tlevels, num_levels);
 
     return;
 }
@@ -250,7 +275,7 @@ uint32_t get_curves_for_tlevel(int tlevel, int b1_method, int b2_method)
 {
     uint32_t max_curves = 0;
 
-    if ((tlevel >= 0) && (tlevel < (NUM_ECM_LEVELS - 1)))
+    if ((tlevel >= 0) && (tlevel < ecm_data_levels()))
     {
         if ((b2_method == 100) && (b1_method == 0))
         {
@@ -286,6 +311,7 @@ uint32_t get_curves_required(ecm_obj_t* ecm_obj, double target_tlevel, uint64_t 
     // with the given b1, completed work record, and b1/b2 methods,
     // compute how many curves would be required to achieve the target t-level.
     int i;
+    int num_levels = ecm_data_levels();
     uint32_t est_curves;
 
     // which ecm level is this B1?
@@ -326,52 +352,34 @@ uint32_t get_curves_required(ecm_obj_t* ecm_obj, double target_tlevel, uint64_t 
             // all t-levels are increased by completing these curves.
             if ((b2_method == 100) && (b1_method == 0))
             {
-                for (i = 0; i < NUM_ECM_LEVELS; i++)
+                for (i = 0; i < num_levels; i++)
                 {
                     tlevels[i] += (double)curves / avx_ecm_data[i][level];
                 }
             }
             else if ((b1_method == 0) || (b1_method == 2))
             {
-                for (i = 0; i < NUM_ECM_LEVELS; i++)
+                for (i = 0; i < num_levels; i++)
                 {
                     tlevels[i] += (double)curves / ecm_data_param0[i][level];
                 }
             }
             else if (b1_method == 1)
             {
-                for (i = 0; i < NUM_ECM_LEVELS; i++)
+                for (i = 0; i < num_levels; i++)
                 {
                     tlevels[i] += (double)curves / ecm_data_param1[i][level];
                 }
             }
             else if (b1_method == 3)
             {
-                for (i = 0; i < NUM_ECM_LEVELS; i++)
+                for (i = 0; i < num_levels; i++)
                 {
                     tlevels[i] += (double)curves / ecm_data_param3[i][level];
                 }
             }
 
-            // find the first tlevel less than 1
-            for (i = 0; i < (NUM_ECM_LEVELS - 1); i++)
-            {
-                if (tlevels[i] < 1)
-                {
-                    break;
-                }
-            }
-
-            // estimate total work done by extrapolating between this and the previous one
-            // assuming they are all spaced 5 digits apart.
-            if (i == 0)
-            {
-                est_work = 0.0;
-            }
-            else
-            {
-                est_work = ecm_levels[i - 1] + 5.0 * tlevels[i];
-            }
+            est_work = estimate_completed_tlevel(tlevels, num_levels);
 
             if (est_work > target_tlevel)
             {
@@ -403,7 +411,12 @@ void split_residue_file(int curves_run, int nthreads, char* base_filename)
             // with -resume.  With multiple threads we need to split this
             // file into multiple files so that each thread can work
             // with a subset of the curves.
-    int i, j;
+	int i, j;
+	if (nthreads < 1)
+	{
+		printf("ecm: cannot split a residue file across fewer than one thread\n");
+		return;
+	}
     int curves_per_thread = curves_run / nthreads;
 
     if ((curves_run % nthreads) > 0)
@@ -437,7 +450,7 @@ void split_residue_file(int curves_run, int nthreads, char* base_filename)
                 {
                     // need the ability to parse an arbitrary length line
                     char line[8192];
-                    if ((fgets(line, 8192, fid) == NULL) || feof(fid))
+					if (fgets(line, sizeof(line), fid) == NULL)
                     {
                         printf("expected more lines in %s.txt\n", base_filename);
                         break;
@@ -456,10 +469,10 @@ void split_residue_file(int curves_run, int nthreads, char* base_filename)
         FILE* fid_out = fopen(fname, "w");
         if (fid_out != NULL)
         {
-            while (!feof(fid))
+			while (1)
             {
                 char line[8192];
-                if ((fgets(line, 8192, fid) == NULL) || feof(fid))
+				if (fgets(line, sizeof(line), fid) == NULL)
                 {
                     break;
                 }
@@ -1039,7 +1052,7 @@ int ecm_loop(fact_obj_t *fobj)
             {
                 printf("fopen error: %s\n", strerror(errno));
                 printf("could not open %s for appending\n", fobj->flogname);
-                return 0;
+				/* 日志失败不应跳过后续状态恢复。 */
             }
             else
             {
@@ -1078,7 +1091,7 @@ int ecm_loop(fact_obj_t *fobj)
         uint64_t B2;
         uint32_t curves_run;
         int save_b1 = fobj->ecm_obj.save_b1;
-        uint64_t ecm_ext_xover;
+        uint64_t ecm_ext_xover = fobj->ecm_obj.ecm_ext_xover;
         
         mpz_init(F);
         mpz_set(F, fobj->ecm_obj.gmp_n);
@@ -1111,7 +1124,6 @@ int ecm_loop(fact_obj_t *fobj)
             }
             save_b1 = 2;
             B2 = fobj->ecm_obj.B1;
-            ecm_ext_xover = fobj->ecm_obj.ecm_ext_xover;
             fobj->ecm_obj.ecm_ext_xover = 0;
         }
 
@@ -1202,7 +1214,7 @@ int ecm_loop(fact_obj_t *fobj)
                 {
                     printf("fopen error: %s\n", strerror(errno));
                     printf("could not open %s for appending\n", fobj->flogname);
-                    return 0;
+					/* 日志失败不应跳过后续状态恢复。 */
                 }
                 else
                 {
@@ -1219,8 +1231,6 @@ int ecm_loop(fact_obj_t *fobj)
             free(thread_data);
             signal(SIGINT, NULL);
             ecm_process_free(fobj);
-
-            fobj->ecm_obj.ecm_ext_xover = ecm_ext_xover;
 
             gettimeofday(&stg2stop, NULL);
             stg2time = ytools_difftime(&stg2start, &stg2stop);
@@ -1239,6 +1249,12 @@ int ecm_loop(fact_obj_t *fobj)
             // we just completed standard (param0) curves, with reduced and simplified B2
             record_curves_completed(&fobj->ecm_obj, curves_run,
                 fobj->ecm_obj.B1, 0, 100);
+        }
+
+        if (fobj->ecm_obj.prefer_gmpecm_stg2)
+        {
+            /* 临时禁用外部切换后，无论剩余合数是否为一都恢复调用者配置。 */
+            fobj->ecm_obj.ecm_ext_xover = ecm_ext_xover;
         }
 
         // this is how we tell factor() to stop running curves at this level
@@ -1426,7 +1442,7 @@ void ecm_do_one_curve(void *ptr)
 		char line[1024];
 		char *ptr = NULL;
 		char *tmpstr = NULL;
-		int retcode;
+		int retcode = 0;
 
 		// let mpz figure out and allocate the string
 		tmpstr = mpz_get_str(tmpstr, 10, thread_data->gmp_n);
@@ -1452,7 +1468,7 @@ void ecm_do_one_curve(void *ptr)
                 //char exename[1024];
                 //GetModuleFileName(NULL, exename, 1024);
 
-                sprintf(cmd, "echo %s | %s -resume `pwd`/avx_ecm_resume_%d.txt %u | tee %s\n",
+                sprintf(cmd, "echo %s | %s -resume `pwd`/avx_ecm_resume_%d.txt %" PRIu64 " | tee %s\n",
                     tmpstr, fobj->ecm_obj.ecm_path, thread_data->thread_num, 
                     fobj->ecm_obj.B1, thread_data->tmp_output);
             }
@@ -1477,7 +1493,7 @@ void ecm_do_one_curve(void *ptr)
                 //char exename[1024];
                 //GetModuleFileName(NULL, exename, 1024);
 
-                sprintf(cmd, "echo %s | %s -resume `pwd`/gpu_ecm_resume_%d.txt %u | tee %s\n",
+                sprintf(cmd, "echo %s | %s -resume `pwd`/gpu_ecm_resume_%d.txt %" PRIu64 " | tee %s\n",
                     tmpstr, fobj->ecm_obj.ecm_path, thread_data->thread_num,
                     fobj->ecm_obj.B1, thread_data->tmp_output);
             }
@@ -1527,7 +1543,7 @@ void ecm_do_one_curve(void *ptr)
 
                 if (fobj->ecm_obj.stg2_is_default)
                 {
-                    sprintf(stg2, "");
+                    stg2[0] = '\0';
                 }
                 else
                 {
@@ -1536,14 +1552,14 @@ void ecm_do_one_curve(void *ptr)
 
                 if (fobj->VFLAG >= 0)
                 {
-                    sprintf(cmd, "echo %s | %s -sigma 3:%u -save gpu_ecm_resume.txt -gpu %s %s %s %u %u | tee %s\n",
+                    sprintf(cmd, "echo %s | %s -sigma 3:%u -save gpu_ecm_resume.txt -gpu %s %s %s %" PRIu64 " %u | tee %s\n",
                         tmpstr, fobj->ecm_obj.ecm_path, thread_data->sigma,
                         cgbn, gpudev, gpucurves, fobj->ecm_obj.B1, 1,
                         thread_data->tmp_output);
                 }
                 else
                 {
-                    sprintf(cmd, "echo %s | %s -sigma 3:%u -save gpu_ecm_resume.txt -gpu %s %s %s %u %u > %s\n",
+                    sprintf(cmd, "echo %s | %s -sigma 3:%u -save gpu_ecm_resume.txt -gpu %s %s %s %" PRIu64 " %u > %s\n",
                         tmpstr, fobj->ecm_obj.ecm_path, thread_data->sigma,
                         cgbn, gpudev, gpucurves, fobj->ecm_obj.B1, 1,
                         thread_data->tmp_output);
@@ -1551,7 +1567,7 @@ void ecm_do_one_curve(void *ptr)
             }
             else
             {
-                sprintf(cmd, "echo %s | %s -sigma %u %u > %s\n",
+                sprintf(cmd, "echo %s | %s -sigma %u %" PRIu64 " > %s\n",
                     tmpstr, fobj->ecm_obj.ecm_path, thread_data->sigma, fobj->ecm_obj.B1,
                     thread_data->tmp_output);
             }
@@ -1673,27 +1689,27 @@ int print_B1B2(fact_obj_t *fobj, FILE *fid)
 {
 	int i;
 	char suffix;
-	char stg1str[20];
-	char stg2str[20];
+	char stg1str[32];
+	char stg2str[32];
 
 	if (fobj->ecm_obj.B1 % 1000000000 == 0)
 	{
 		suffix = 'B';
-		sprintf(stg1str,"%u%c",fobj->ecm_obj.B1 / 1000000000, suffix);
+                sprintf(stg1str,"%" PRIu64 "%c",fobj->ecm_obj.B1 / 1000000000, suffix);
 	}
 	else if (fobj->ecm_obj.B1 % 1000000 == 0)
 	{
 		suffix = 'M';
-		sprintf(stg1str,"%u%c",fobj->ecm_obj.B1 / 1000000, suffix);
+                sprintf(stg1str,"%" PRIu64 "%c",fobj->ecm_obj.B1 / 1000000, suffix);
 	}
 	else if (fobj->ecm_obj.B1 % 1000 == 0)
 	{
 		suffix = 'k';
-		sprintf(stg1str,"%u%c",fobj->ecm_obj.B1 / 1000, suffix);
+                sprintf(stg1str,"%" PRIu64 "%c",fobj->ecm_obj.B1 / 1000, suffix);
 	}
 	else
 	{
-		sprintf(stg1str,"%u",fobj->ecm_obj.B1);
+                sprintf(stg1str,"%" PRIu64,fobj->ecm_obj.B1);
 	}
 
 	if (fobj->ecm_obj.stg2_is_default == 0)

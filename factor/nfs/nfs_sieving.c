@@ -130,6 +130,7 @@ qrange_data_t* sort_completed_ranges(fact_obj_t* fobj, nfs_job_t* job)
 {
 	qrange_data_t* qrange_data;
 	char buf[1024];
+	char ranges_name[GSTR_MAXSIZE + sizeof(".ranges")];
 	FILE* fid;
 	uint32_t numranges = 0;
 	uint32_t totalrels = 0;
@@ -143,8 +144,9 @@ qrange_data_t* sort_completed_ranges(fact_obj_t* fobj, nfs_job_t* job)
 	qrange_data->num_a = 0;
 
 	// make a sorted list of completed q-ranges
-	sprintf(buf, "%s.ranges", fobj->nfs_obj.outputfile);
-	fid = fopen(buf, "r");
+	snprintf(ranges_name, sizeof(ranges_name), "%s.ranges",
+		fobj->nfs_obj.outputfile);
+	fid = fopen(ranges_name, "r");
 	if (fid != NULL)
 	{
 		char side;
@@ -159,15 +161,8 @@ qrange_data_t* sort_completed_ranges(fact_obj_t* fobj, nfs_job_t* job)
 				fobj->nfs_obj.outputfile);
 		}
 
-		while (~feof(fid))
+		while (fgets(buf, sizeof(buf), fid) != NULL)
 		{
-			fgets(buf, 1024, fid);
-
-			if (feof(fid))
-			{
-				break;
-			}
-
 			if (strlen(buf) < 10)
 				continue;
 
@@ -216,7 +211,14 @@ qrange_data_t* sort_completed_ranges(fact_obj_t* fobj, nfs_job_t* job)
 			//}
 			//else
 			{
-				sscanf(buf, "%c,%u,%u,%u", &side, &startq, &rangeq, &rels);
+				if (sscanf(buf, "%c,%u,%u,%u", &side, &startq, &rangeq,
+					&rels) != 4 || (side != 'r' && side != 'a') ||
+					rangeq > UINT32_MAX - startq)
+				{
+					if (fobj->VFLAG > 0)
+						printf("nfs: ignoring malformed completed range: %s", buf);
+					continue;
+				}
 			}
 
 			totalrels += rels;
@@ -249,12 +251,6 @@ qrange_data_t* sort_completed_ranges(fact_obj_t* fobj, nfs_job_t* job)
 				qrange_data->qranges_a[qrange_data->num_a].qrange_end = startq + rangeq;
 				qrange_data->num_a++;
 			}
-			else
-			{
-				printf("unrecognized side '%c' in completed range data\n", side);
-			}
-
-
 		}
 		fclose(fid);
 	}
@@ -419,7 +415,7 @@ void nfs_sieve_start(void* vptr)
 		logprint_oc(fobj->flogname, "a", "initializing relation batch from %u to %"PRIu64"\n", 2, 1ULL << max_prime);
 
 		char fname[80];
-		sprintf(fname, "bgcd_lpb%d", max_prime);
+		snprintf(fname, sizeof(fname), "bgcd_lpb%"PRIu64, max_prime);
 		FILE* fid = fopen(fname, "rb");
 		int compute_pproduct = 1;
 
@@ -852,8 +848,9 @@ void nfs_sieve_sync(void* vptr)
 		savefile_concat(t->outfilename, fobj->nfs_obj.outputfile, fobj->nfs_obj.mobj);
 
 		// log the range as completed
-		char fname[1024];
-		sprintf(fname, "%s.ranges", fobj->nfs_obj.outputfile);
+		char fname[GSTR_MAXSIZE + sizeof(".ranges")];
+		snprintf(fname, sizeof(fname), "%s.ranges",
+			fobj->nfs_obj.outputfile);
 		fid = fopen(fname, "a");
 		if (fid != NULL)
 		{
@@ -1067,7 +1064,8 @@ void nfs_sieve_dispatch(void* vptr)
 	{
 		if (fobj->VFLAG >= 0)
 		{
-			printf("nfs: thread %d halting, nfs timeout of %1.4sec exceeded\n", tid, fobj->nfs_obj.timeout);
+			printf("nfs: thread %d halting, nfs timeout of %u sec exceeded\n",
+				tid, fobj->nfs_obj.timeout);
 		}
 		tdata->work_fcn_id = tdata->num_work_fcn;
 		return;
@@ -1664,10 +1662,38 @@ int test_sieve(fact_obj_t* fobj, void* args, int njobs, int are_files)
 	return minscore_id;
 }
 
+static int parse_batch_factors(char *text, uint32_t *factors,
+	size_t capacity, uint32_t *num_factors)
+{
+	char *cursor = text;
+	*num_factors = 0;
+
+	while (*cursor != '\0')
+	{
+		char *end;
+		unsigned long long value;
+
+		if (*num_factors >= capacity)
+			return 0;
+		errno = 0;
+		value = strtoull(cursor, &end, 16);
+		if (end == cursor || errno == ERANGE || value > UINT32_MAX ||
+			(*end != '\0' && *end != ','))
+			return 0;
+		factors[(*num_factors)++] = (uint32_t)value;
+		if (*end == '\0')
+			break;
+		cursor = end + 1;
+		if (*cursor == '\0')
+			return 0;
+	}
+	return 1;
+}
+
 uint32_t process_batch(nfs_threaddata_t* thread_data, mpz_ptr prime_prod, char *infile, char *outfile, int vflag)
 {
 	relation_batch_t* rb = thread_data->job.rb;
-	char buf[1024], str1[1024], str2[1024];
+	char buf[8192], str1[8192];
 	uint32_t fr[32], fa[32], numr = 0, numa = 0;
 	mpz_t res1, res2;
 	struct timeval start;
@@ -1697,16 +1723,26 @@ uint32_t process_batch(nfs_threaddata_t* thread_data, mpz_ptr prime_prod, char *
 
 	gettimeofday(&start, NULL);
 
-	while (~feof(fid))
+	while (fgets(buf, sizeof(buf), fid) != NULL)
 	{
 		int64_t a;
 		uint32_t b;
 		char* thistok, *nexttok;
+		int consumed = 0;
 
 		line++;
-		char* ptr = fgets(buf, 1024, fid);
-		if (ptr == NULL)
-			break;
+		char* ptr;
+		size_t input_length = strlen(buf);
+		if (input_length == sizeof(buf) - 1 && buf[input_length - 1] != '\n')
+		{
+			int ch;
+			while ((ch = fgetc(fid)) != '\n' && ch != EOF)
+				;
+			printf("could not read relation %u, line is too long in file %s\n",
+				line, infile);
+			continue;
+		}
+		buf[strcspn(buf, "\r\n")] = '\0';
 
 		strcpy(str1, buf);
 
@@ -1721,11 +1757,24 @@ uint32_t process_batch(nfs_threaddata_t* thread_data, mpz_ptr prime_prod, char *
 		*nexttok = '\0';
 		nexttok++;
 
-		ptr = strchr(thistok, ',');		
+		ptr = strchr(thistok, ',');
+		if (ptr == NULL)
+		{
+			printf("could not read relation %u, no norm separator in file %s\n",
+				line, infile);
+			printf("line: %s\n", str1);
+			continue;
+		}
 		*ptr = '\0';
 
-		mpz_set_str(res1, thistok, 10);
-		mpz_set_str(res2, ptr + 1, 10);
+		if (mpz_set_str(res1, thistok, 10) != 0 ||
+			mpz_set_str(res2, ptr + 1, 10) != 0)
+		{
+			printf("could not read relation %u, invalid norms in file %s\n",
+				line, infile);
+			printf("line: %s\n", str1);
+			continue;
+		}
 
 		thistok = nexttok;
 		nexttok = strchr(thistok, ':');
@@ -1740,7 +1789,14 @@ uint32_t process_batch(nfs_threaddata_t* thread_data, mpz_ptr prime_prod, char *
 
 		//a = strtoll(thistok, &nexttok, 10);
 		//b = strtoul(nexttok + 1, &nexttok, 10);
-		sscanf(thistok, "%"PRId64",%u", &a, &b);
+		if (sscanf(thistok, "%"PRId64",%u%n", &a, &b, &consumed) != 2 ||
+			thistok[consumed] != '\0')
+		{
+			printf("could not read relation %u, invalid a/b pair in file %s\n",
+				line, infile);
+			printf("line: %s\n", str1);
+			continue;
+		}
 
 		thistok = nexttok;
 		nexttok = strchr(thistok, ':');
@@ -1754,28 +1810,22 @@ uint32_t process_batch(nfs_threaddata_t* thread_data, mpz_ptr prime_prod, char *
 		nexttok++;
 
 
-		numr = 0;
-		ptr = thistok;
-		while (strlen(ptr) > 0)
+		if (!parse_batch_factors(thistok, fr,
+			sizeof(fr) / sizeof(fr[0]), &numr))
 		{
-			fr[numr++] = strtoul(ptr, NULL, 16);
-			ptr = strchr(ptr, ',');
-			if (ptr == NULL)
-				break;
-			ptr++;
+			printf("could not read relation %u, invalid rational factors in file %s\n",
+				line, infile);
+			continue;
 		}
 
 		thistok = nexttok;
 
-		numa = 0;
-		ptr = thistok;
-		while (strlen(ptr) > 0)
+		if (!parse_batch_factors(thistok, fa,
+			sizeof(fa) / sizeof(fa[0]), &numa))
 		{
-			fa[numa++] = strtoul(ptr, NULL, 16);
-			ptr = strchr(ptr, ',');
-			if (ptr == NULL)
-				break;
-			ptr++;
+			printf("could not read relation %u, invalid algebraic factors in file %s\n",
+				line, infile);
+			continue;
 		}
 
 		if ((mpz_sgn(res1) > 0) && (mpz_sgn(res2) > 0))
@@ -1879,7 +1929,7 @@ uint32_t process_batch(nfs_threaddata_t* thread_data, mpz_ptr prime_prod, char *
 				for (j = 0; j < 3; j++)
 				{
 					if (rb->relations[i].lp_r[j] > 1)
-						fprintf(fout, "%x,", rb->relations[i].lp_r[j]);
+						fprintf(fout, "%"PRIx64",", rb->relations[i].lp_r[j]);
 				}
 				for (k = 0; k < rb->relations[i].num_factors_r - 1; k++)
 				{
@@ -1889,7 +1939,7 @@ uint32_t process_batch(nfs_threaddata_t* thread_data, mpz_ptr prime_prod, char *
 				for (j = 0; j < 3; j++)
 				{
 					if (rb->relations[i].lp_a[j] > 1)
-						fprintf(fout, "%x,", rb->relations[i].lp_a[j]);
+						fprintf(fout, "%"PRIx64",", rb->relations[i].lp_a[j]);
 				}
 
 				f = rb->factors + rb->relations[i].factor_list_word + rb->relations[i].num_factors_r;
@@ -2706,17 +2756,16 @@ void *lasieve_launcher(void *ptr) {
 #endif
 
 	// launch a gnfs-lasieve job
-	char syscmd[GSTR_MAXSIZE], tmpstr[GSTR_MAXSIZE], side[GSTR_MAXSIZE], batch3lp[GSTR_MAXSIZE];
+	char syscmd[sizeof(thread_data->job.sievername) + sizeof(thread_data->outfilename) +
+		sizeof(thread_data->job_infile_name) + 128];
+	char tmpstr[GSTR_MAXSIZE];
+	const char *side = thread_data->job.poly->side == ALGEBRAIC_SPQ ? "algebraic" : "rational";
+	const char *batch3lp = fobj->nfs_obj.batch_3lp ? "-d" : "";
 	FILE *fid;
 	int cmdret;
 	struct timeval bstop;	// stop time of sieving batch
 	struct timeval bstart;	// start time of sieving batch
 
-	sprintf(side, (thread_data->job.poly->side == ALGEBRAIC_SPQ) ? 
-				"algebraic" : "rational"); // gotta love ?:
-
-	sprintf(batch3lp, fobj->nfs_obj.batch_3lp ? "-d" : "");
-		
 	gettimeofday(&bstart, NULL);
 
 	//start ggnfs binary - new win64 ASM enabled binaries current have a problem with this:
@@ -2727,7 +2776,7 @@ void *lasieve_launcher(void *ptr) {
 
     // todo: add command line input of arbitrary argument string to append to this command
 	// but not this:
-	snprintf(syscmd, GSTR_MAXSIZE, "%s%s -f %u -c %u -o %s -n %d %s -%c %s ",
+	snprintf(syscmd, sizeof(syscmd), "%s%s -f %u -c %u -o %s -n %d %s -%c %s ",
 			thread_data->job.sievername, fobj->VFLAG>1?" -v":"", thread_data->job.startq, 
 			thread_data->job.qrange, thread_data->outfilename, thread_data->tindex, batch3lp, 
 			*side, thread_data->job_infile_name);
@@ -2781,9 +2830,9 @@ void *lasieve_launcher(void *ptr) {
 	{
 		mpz_ptr prime_prod = thread_data->rb_ref->prime_product;
 
-		char infile[80];
+		char infile[sizeof(thread_data->outfilename) + sizeof(".raw")];
 
-		sprintf(infile, "%s.raw", thread_data->outfilename);
+		snprintf(infile, sizeof(infile), "%s.raw", thread_data->outfilename);
 		thread_data->job.current_rels += 
 			process_batch(thread_data, prime_prod, infile, 
 				thread_data->outfilename, fobj->VFLAG);
@@ -2805,16 +2854,15 @@ void* lasieve_launcher_tdata(void* ptr) {
 	fact_obj_t* fobj = thread_data->fobj;
 
 	// launch a gnfs-lasieve job
-	char syscmd[GSTR_MAXSIZE], tmpstr[GSTR_MAXSIZE], side[GSTR_MAXSIZE], batch3lp[GSTR_MAXSIZE];
+	char syscmd[sizeof(thread_data->job.sievername) + sizeof(thread_data->outfilename) +
+		sizeof(thread_data->job_infile_name) + 128];
+	char tmpstr[GSTR_MAXSIZE];
+	const char *side = thread_data->job.poly->side == ALGEBRAIC_SPQ ? "algebraic" : "rational";
+	const char *batch3lp = fobj->nfs_obj.batch_3lp ? "-d" : "";
 	FILE* fid;
 	int cmdret;
 	struct timeval bstop;	// stop time of sieving batch
 	struct timeval bstart;	// start time of sieving batch
-
-	sprintf(side, (thread_data->job.poly->side == ALGEBRAIC_SPQ) ?
-		"algebraic" : "rational"); // gotta love ?:
-
-	sprintf(batch3lp, fobj->nfs_obj.batch_3lp ? "-d" : "");
 
 	gettimeofday(&bstart, NULL);
 
@@ -2826,7 +2874,7 @@ void* lasieve_launcher_tdata(void* ptr) {
 
 	// todo: add command line input of arbitrary argument string to append to this command
 	// but not this:
-	snprintf(syscmd, GSTR_MAXSIZE, "%s%s -f %u -c %u -o %s -n %d %s -%c %s ",
+	snprintf(syscmd, sizeof(syscmd), "%s%s -f %u -c %u -o %s -n %d %s -%c %s ",
 		thread_data->job.sievername, fobj->VFLAG > 1 ? " -v" : "", thread_data->job.startq,
 		thread_data->job.qrange, thread_data->outfilename, thread_data->tindex, batch3lp,
 		*side, thread_data->job_infile_name);
@@ -2880,9 +2928,9 @@ void* lasieve_launcher_tdata(void* ptr) {
 	{
 		mpz_ptr prime_prod = thread_data->rb_ref->prime_product;
 
-		char infile[80];
+		char infile[sizeof(thread_data->outfilename) + sizeof(".raw")];
 
-		sprintf(infile, "%s.raw", thread_data->outfilename);
+		snprintf(infile, sizeof(infile), "%s.raw", thread_data->outfilename);
 		thread_data->job.current_rels +=
 			process_batch(thread_data, prime_prod, infile, thread_data->outfilename, fobj->VFLAG);
 		MySleep(100);

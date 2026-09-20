@@ -636,6 +636,9 @@ static void get_zeros_rec(uint32 *zeros, uint32 shift,
 		return;
 	}
 
+	if (shift >= p)
+		return;
+
 	/* For an increasing sequence of integers 's', compute 
 	   the polynomial gcd((x-s)^(p-1)/2 - 1, f). If the result is
 	   not g = 1 or g = f, this is a nontrivial splitting 

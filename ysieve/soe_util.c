@@ -54,15 +54,21 @@ ALIGNED_MEM uint32_t presieve_p1[32];
 
 uint64_t estimate_primes_in_range(uint64_t lowlimit, uint64_t highlimit)
 {
-	uint64_t hi_est, lo_est;
+	double hi_est, lo_est, estimate;
 
-	hi_est = (uint64_t)(highlimit/log((double)highlimit));
+	if (highlimit <= lowlimit)
+		return 1;
+
+	hi_est = (highlimit > 1) ? highlimit / log((double)highlimit) : 0.0;
 	if (lowlimit > 1)
-		lo_est = (uint64_t)(lowlimit/log((double)lowlimit));
+		lo_est = lowlimit / log((double)lowlimit);
 	else
-		lo_est = 0;
+		lo_est = 0.0;
+	estimate = (hi_est - lo_est) * 1.25;
 
-	return (uint64_t)((double)(hi_est - lo_est) * 1.25);
+	if (!isfinite(estimate) || estimate < 1.0)
+		return MAX((highlimit - lowlimit) / 2 + 1, 1);
+	return (uint64_t)estimate;
 }
 
 
@@ -80,7 +86,7 @@ uint64_t mpz_estimate_primes_in_range(mpz_t lowlimit, mpz_t highlimit)
     //    mpz_get_d(lowlimit), log(mpz_get_d(lowlimit)));
 
     hi_est = (mpz_get_d(highlimit) / log(mpz_get_d(highlimit)));
-    if (mpz_cmp_ui(lowlimit, 1) >= 0)
+    if (mpz_cmp_ui(lowlimit, 1) > 0)
         lo_est = (mpz_get_d(lowlimit) / log(mpz_get_d(lowlimit)));
     else
         lo_est = 0.;
@@ -92,15 +98,16 @@ uint64_t mpz_estimate_primes_in_range(mpz_t lowlimit, mpz_t highlimit)
     // then the number of candidates found.  The best way to deal with
     // this is to realloc the primes array while storing candidates.  For
     // now we just use a big fudge factor to the estimate.
-    est = (uint64_t)((hi_est - lo_est) * 4);
+    est = (isfinite(hi_est) && isfinite(lo_est) && (hi_est > lo_est)) ?
+		(uint64_t)((hi_est - lo_est) * 4) : 0;
     //printf("estimate = %"PRIu64"\n", est);
 
-    if ((est == 0) || isnan(hi_est) || isnan(lo_est))
+    if (est == 0)
     {
         mpz_t d;
         mpz_init(d);
         mpz_sub(d, highlimit, lowlimit);
-        est = gmp2uint64(d) / 2;
+        est = MAX(gmp2uint64(d) / 2, 1);
         mpz_clear(d);
         //printf("fallback estimate = %"PRIu64"\n", est);
     }
@@ -602,6 +609,12 @@ int check_input(uint64_t highlimit, uint64_t lowlimit, uint32_t num_sp, uint32_t
 	sdata->orig_hlimit = highlimit;
 	sdata->orig_llimit = lowlimit;
 
+	if ((num_sp == 0) || (sieve_p == NULL))
+	{
+		printf("no sieving primes were provided\n");
+		return 1;
+	}
+
 	// the wrapper should handle this, but just in case we are called
 	// directly and not via the wrapper...
 	if (highlimit - lowlimit < 1000000)
@@ -652,14 +665,12 @@ int check_input(uint64_t highlimit, uint64_t lowlimit, uint32_t num_sp, uint32_t
                 break;
             }
 		}
-        if (i == num_sp)
-            i--;
 		sdata->pboundi = i;	
         sdata->pbound = sieve_p[sdata->pboundi - 1];
 
         if (sdata->VFLAG > 2)
         {
-            printf("largest needed prime is %u at sieve_p index %d\n",
+            printf("largest needed prime is %" PRIu64 " at sieve_p index %" PRIu64 "\n",
                 sdata->pbound, sdata->pboundi);
         }
 
@@ -850,7 +861,7 @@ uint64_t init_sieve(soe_staticdata_t *sdata)
         }
         sdata->numclasses = k;
         //printf("\n");
-        printf("%d twin residues for product %d\n", k, prodN);
+        printf("%d twin residues for product %" PRIu64 "\n", k, prodN);
         //exit(0);
     }
 
@@ -900,15 +911,17 @@ uint64_t init_sieve(soe_staticdata_t *sdata)
     // which represents integers spaced 'prodN' apart.
     sdata->blocks = (highlimit - lowlimit) / prodN / sdata->FLAGSIZE;
     if (((highlimit - lowlimit) / prodN) % sdata->FLAGSIZE != 0) sdata->blocks++;
+    if (sdata->blocks == 0)
+        sdata->blocks = 1;
     sdata->numlinebytes = sdata->blocks * sdata->SOEBLOCKSIZE;
     numlinebytes = sdata->numlinebytes;
     highlimit = (uint64_t)((uint64_t)sdata->numlinebytes * 
         (uint64_t)prodN * (uint64_t)BITSINBYTE + lowlimit);
     sdata->highlimit = highlimit;
 
-    if (sdata->blocks > (1 << (32 - sdata->FLAGBITS)))
+    if (sdata->blocks > (1ULL << (32 - sdata->FLAGBITS)))
     {
-        printf("too many blocks (%u)!\nReduce the sieve range\n",
+        printf("too many blocks (%" PRIu64 ")!\nReduce the sieve range\n",
             sdata->blocks);
         exit(0);
     }
@@ -1449,6 +1462,15 @@ void trim_line(soe_staticdata_t *sdata, int current_line)
 
     uint8_t* line = sdata->lines[current_line];
     uint8_t* flagblock = line;
+
+    /* 该剩余类在请求上界内没有候选值，反向裁剪会越过数组起点。 */
+    if ((lowlimit > sdata->orig_hlimit) ||
+        (sdata->rclass[current_line] > sdata->orig_hlimit - lowlimit))
+    {
+        memset(line, 0, (size_t)numlinebytes);
+        return;
+    }
+
     // process 256 bits at a time by using Warren's algorithm (the same
     // one that non-simd code uses, below) to compute the popcount
     // for four 64-bit words simultaneously.
@@ -1515,4 +1537,3 @@ void trim_line(soe_staticdata_t *sdata, int current_line)
     
     return;
 }
-

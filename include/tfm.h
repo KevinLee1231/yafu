@@ -69,7 +69,9 @@
 #define TFM_SQR48
 #define TFM_SQR64
 
+#ifndef CHAR_BIT
 #define CHAR_BIT 8
+#endif
 
 /* do we want some overflow checks
    Not required if you make sure your numbers are within range (e.g. by default a modulus for fp_exptmod() can only be upto 2048 bits long)

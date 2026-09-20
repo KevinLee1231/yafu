@@ -29,11 +29,14 @@ code to the public domain.
 #include "gmp.h"
 #include "microecm.h"
 #include "cofactorize.h"
+#ifdef HAVE_GMP_ECM
 #include <ecm.h>
+#endif
 #ifndef __aarch64__
 #include <immintrin.h>
 #endif
 #include <stdio.h>
+#include <math.h>
 #include "tinyecm.h"
 
 #if defined(__unix__)
@@ -70,6 +73,8 @@ void prepare_batchfile(char *input_exp);
 char * process_batchline(yafu_obj_t* yobj, char *input_exp, char *indup, int *code, int num);
 void finalize_batchline(yafu_obj_t* yobj);
 int exp_is_open(char *line, int firstline);
+static int read_stream_line(FILE *stream, str_t *line);
+static char batch_tempname[1100];
 
 // functions to process all incoming arguments
 int check_expression(options_t *options);
@@ -101,7 +106,9 @@ int main(int argc, char *argv[])
     info_t comp_info;
     int i;
     int ini_success;
-    int batchnum;
+    int batchnum = 1;
+    int exit_status = 0;
+    str_t script_line;
 
 #if defined(__unix__)
 
@@ -123,6 +130,7 @@ int main(int argc, char *argv[])
 	indup = (char *)malloc(GSTR_MAXSIZE*sizeof(char));
     input_line = (char *)malloc(GSTR_MAXSIZE*sizeof(char));
     sInit(&input_str);
+    sInit(&script_line);
 	strcpy(input_exp,"");
     strcpy(input_line, "");
 	
@@ -133,6 +141,7 @@ int main(int argc, char *argv[])
 
     // then process the command line, overriding any .ini settings.
     processOpts(argc, argv, options);
+    strcpy(yafu_obj.scriptname, options->scriptfile);
 
     // some things go into globals, but this is being phased out
     yafu_obj.VFLAG = options->verbosity;
@@ -171,10 +180,11 @@ int main(int argc, char *argv[])
         if (ini_success)
         {
 #ifdef _MSC_VER
-            _getcwd(yafu_obj.CWD, 1024);
+            if (_getcwd(yafu_obj.CWD, sizeof(yafu_obj.CWD)) == NULL)
 #else
-            getcwd(yafu_obj.CWD, 1024);
+            if (getcwd(yafu_obj.CWD, sizeof(yafu_obj.CWD)) == NULL)
 #endif
+                yafu_obj.CWD[0] = '\0';
         }
         else
         {
@@ -453,8 +463,12 @@ int main(int argc, char *argv[])
             batchnum++;
 			if (code == 1)
 			{
-                //printf("finalizing batchline and exiting\n");
-				finalize_batchline(&yafu_obj);
+
+				if (input_str.nchars > 1)
+                {
+                    fprintf(stderr, "incomplete expression at end of input\n");
+                    exit_status = 1;
+                }
 				break;
 			}
             else if (code == 2)
@@ -468,11 +482,26 @@ int main(int argc, char *argv[])
         {
             if (scriptfile != NULL)
             {
-                if (fgets(input_line, GSTR_MAXSIZE, scriptfile) == NULL)
+                int read_status = read_stream_line(scriptfile, &script_line);
+                if (read_status <= 0)
                 {
-                    //    break;
+                    if (read_status < 0 || input_str.nchars > 1)
+                    {
+                        fprintf(stderr, "cannot read a complete script expression\n");
+                        exit_status = 1;
+                        break;
+                    }
+                    if (yafu_obj.CMD_LINE_REPEAT > 0)
+                    {
+                        yafu_obj.CMD_LINE_REPEAT--;
+                        rewind(scriptfile);
+                        continue;
+                    }
+                    break;
                 }
-                
+                insize = (uint32_t)strlen(script_line.s) + 1;
+                input_line = (char *)xrealloc(input_line, insize);
+                strcpy(input_line, script_line.s);
             }
         }
 		else if (!is_cmdline_run)
@@ -503,6 +532,12 @@ int main(int argc, char *argv[])
             sAppend(input_line, &input_str);
             if (exp_is_open(input_line, firstline))
             {
+                if (is_cmdline_run && !yafu_obj.USEBATCHFILE && scriptfile == NULL)
+                {
+                    fprintf(stderr, "incomplete expression\n");
+                    exit_status = 1;
+                    break;
+                }
                 if (strlen(input_line) > 0)
                     sAppend(",", &input_str);
                 firstline = 0;
@@ -526,7 +561,9 @@ int main(int argc, char *argv[])
             {
                 logprint(logfile, "Factorization: %s\n", fobj->factors->factorization_str);
             }
-            logprint(logfile, "Result       : %s\n", result);
+            logprint(logfile, "Result       : %s\n", result != NULL ? result : "error");
+            if (result == NULL)
+                exit_status = 1;
             sClear(&input_str);
             if (result != NULL)
             {
@@ -586,24 +623,7 @@ int main(int argc, char *argv[])
 			}
             else if (scriptfile != NULL)
             {
-                if (feof(scriptfile))
-                {
-                    if (yafu_obj.CMD_LINE_REPEAT > 0)
-                    {
-                        yafu_obj.CMD_LINE_REPEAT--;
-                        fclose(scriptfile);
-                        scriptfile = fopen(yafu_obj.scriptname, "r");
-                        if (scriptfile == NULL)
-                        {
-                            printf("could not find %s\n", yafu_obj.scriptname);
-                            exit(1);
-                        }
-                    }
-                    else
-                    {
-                        break;
-                    }
-                }
+                /* 下一次读取处理 EOF 和重复执行，末行只执行一次。 */
             }
 			else if (yafu_obj.CMD_LINE_REPEAT > 0)
 			{
@@ -625,6 +645,8 @@ int main(int argc, char *argv[])
     {
         fclose(scriptfile);
     }
+    if (batch_tempname[0] != '\0')
+        remove(batch_tempname);
 
     if (slog)
     {
@@ -639,6 +661,7 @@ int main(int argc, char *argv[])
 	free_factobj(fobj);
 	free(fobj);      
     sFree(&input_str);
+    sFree(&script_line);
     free(options->inputExpr);
     for (i = 0; i < options->num_tune_info; i++)
     {
@@ -658,7 +681,7 @@ int main(int argc, char *argv[])
     free(CMDHIST);
 #endif
 
-	return 0;
+	return exit_status;
 }
 
 int exp_is_open(char *line, int firstline)
@@ -678,14 +701,7 @@ int exp_is_open(char *line, int firstline)
         if (line[i] == '{') openb++;
         if (line[i] == '}') closedb++;
     }
-    if ((openp == closedp) && (openb == closedb))
-    {
-        return 0;
-    }
-    else
-    {
-        return 1;
-    }
+    return openp > closedp || openb > closedb;
 }
 
 char * get_input(char *input_exp, uint32_t*insize)
@@ -693,7 +709,11 @@ char * get_input(char *input_exp, uint32_t*insize)
 #if !defined(__unix__)
 
     // get command from user
-    fgets(input_exp, GSTR_MAXSIZE, stdin);
+    if (fgets(input_exp, GSTR_MAXSIZE, stdin) == NULL)
+    {
+        strcpy(input_exp, "quit");
+        return input_exp;
+    }
 
     while (1)
     {
@@ -717,7 +737,8 @@ char * get_input(char *input_exp, uint32_t*insize)
                 printf("couldn't reallocate string when parsing\n");
                 exit(-1);
             }
-            fgets(input_exp + strlen(input_exp), GSTR_MAXSIZE, stdin);
+            if (fgets(input_exp + strlen(input_exp), GSTR_MAXSIZE, stdin) == NULL)
+                break;
         }
     }
 
@@ -754,7 +775,8 @@ char * get_input(char *input_exp, uint32_t*insize)
                 if (p == CMDHIST_HEAD)
                 {
                     input_exp[n] = '\0';
-                    memcpy(CMDHIST[CMDHIST_HEAD], input_exp, GSTR_MAXSIZE * sizeof(char));
+                    CMDHIST[CMDHIST_HEAD] = (char *)xrealloc(CMDHIST[CMDHIST_HEAD], (size_t)n + 1);
+                    strcpy(CMDHIST[CMDHIST_HEAD], input_exp);
                 }
 
                 // uparrow     
@@ -782,6 +804,11 @@ char * get_input(char *input_exp, uint32_t*insize)
 
                 // and print the previous one
                 printf("%s", CMDHIST[p]);
+                if (strlen(CMDHIST[p]) + 1 > *insize)
+                {
+                    *insize = (uint32_t)strlen(CMDHIST[p]) + 1;
+                    input_exp = (char *)xrealloc(input_exp, *insize);
+                }
                 strcpy(input_exp, CMDHIST[p]);
                 n = strlen(input_exp);
             }
@@ -811,6 +838,11 @@ char * get_input(char *input_exp, uint32_t*insize)
 
                 // and print the next one
                 printf("%s", CMDHIST[p]);
+                if (strlen(CMDHIST[p]) + 1 > *insize)
+                {
+                    *insize = (uint32_t)strlen(CMDHIST[p]) + 1;
+                    input_exp = (char *)xrealloc(input_exp, *insize);
+                }
                 strcpy(input_exp, CMDHIST[p]);
                 n = strlen(input_exp);
             }
@@ -847,10 +879,13 @@ char * get_input(char *input_exp, uint32_t*insize)
             continue;
         }
 
-        if (c == EOF)
+        if (c == EOF || c == 4)
         {
-            printf("\n");
-            exit(0);
+            if (n == 0)
+                strcpy(input_exp, "quit");
+            else
+                input_exp[n] = '\0';
+            break;
         }
 
         if ((c == 13) || (c == 10))
@@ -861,7 +896,7 @@ char * get_input(char *input_exp, uint32_t*insize)
 
         putc(c, stdout);
 
-        if (n >= *insize)
+        if ((uint32_t)n + 1 >= *insize)
         {
             *insize += GSTR_MAXSIZE;
             input_exp = (char *)xrealloc(input_exp, *insize * sizeof(char));
@@ -880,7 +915,8 @@ char * get_input(char *input_exp, uint32_t*insize)
 
     if (strlen(input_exp) > 0)
     {
-        memcpy(CMDHIST[CMDHIST_HEAD++], input_exp, GSTR_MAXSIZE * sizeof(char));
+        CMDHIST[CMDHIST_HEAD] = (char *)xrealloc(CMDHIST[CMDHIST_HEAD], strlen(input_exp) + 1);
+        strcpy(CMDHIST[CMDHIST_HEAD++], input_exp);
 
         if (CMDHIST_TAIL > 0)
         {
@@ -932,10 +968,8 @@ void helpfunc(char *s)
 
 	printf("searching for help on '%s'\n",func);
 	str = (char *)malloc(1024*sizeof(char));
-	while (!feof(doc))
+	while (fgets(str, 1024, doc) != NULL)
 	{
-		//read a line
-		fgets(str,1024,doc);
 		//is this a header?
 		//printf("(%d) %s",strlen(str),str);
         char* start = strchr(str, '[');
@@ -1000,87 +1034,27 @@ void prepare_batchfile(char *input_exp)
 
 int check_expression(options_t* options)
 {
-    int is_cmdline_run = 0;
-
-    if (strlen(options->inputExpr) > 0)
-    {
-        // there was an expression on the command line.
-        is_cmdline_run = 1;
-    }
-
-#ifdef NO_PIPE
-
-#else
-    // now check for incoming pipes or redirects.  If we see one, ignore the
-    // command line expression and process the pipe/redirect.
-
-    // Different ways to detect depending on the environment.  Here's an attempt
-    // to cover them; msys2 is difficult.
-    // if running in a MSYS2 fake console:
-    // from https://github.com/nodejs/node/issues/3006
-    // When running node in a fake console, it's useful to imagine that you're running it 
-    // with input and output redirected to files(e.g.node foobar.js <infile.txt >outfile.txt).
-    // That's basically what node thinks is going on (a pipe and a file look more-or-less 
-    // the same to node). Things that would work with file redirections 
-    // will work in the fake console.
-    //
-    // not sure how to sort it out in the case of msys2.  recommended running in normal
-    // windows cmd terminal once it is built.
-    // detect if stdin is a pipe
-    // http://stackoverflow.com/questions/1312922/detect-if-stdin-is-a-terminal-or-pipe-in-c-c-qt
-    // But this doesn't work if we are running in a msys console because of how
-    // they interface with stdin/out/err through pipes, so there will always
-    // be a pipe.
-    // https://github.com/msys2/msys2/wiki/Porting
+    int piped = 0;
+#ifndef NO_PIPE
 #if defined(__MINGW32__)
-    // I'm not sure how to detect at runtime if this is an msys shell.
-    // So unfortunately if we compile with mingw we basically have to remove 
-    // the ability to process from pipes or redirects.  should be able to use 
-    // batchfiles via command line switch still.
-    if (0)
-    {
-		
-#elif defined(WIN32) 
-    if (_isatty(_fileno(stdin)) == 0)
-    {
-        fseek(stdin, -1, SEEK_END);
-        if (ftell(stdin) >= 0)
-        {
-            rewind(stdin);
+    piped = 0;
+#elif defined(WIN32)
+    piped = (_isatty(_fileno(stdin)) == 0);
 #else
-        if (isatty(fileno(stdin)) == 0)
-        {
+    piped = (isatty(fileno(stdin)) == 0);
 #endif
-
-            // ok, we also have incoming data.  This is just
-            // batchfile mode with the batchfile = stdin.
-            is_cmdline_run = 2;
-        }
-#if defined(WIN32) && !defined(__MINGW32__)		//not complete, but ok for now
-    }
 #endif
-    else
+    if (options->batchfile[0] != '\0' || options->scriptfile[0] != '\0')
+        return 1;
+    if (options->inputExpr[0] != '\0')
     {
-        // no incoming data, just execute the provided expression, if any,
-        // or start up an interactive session.
-        // special check: if there is no function call, insert a 
-        // default function call
-        if ((is_cmdline_run == 1) && (strstr(options->inputExpr, "(") == NULL))
-        {
-            // this indicates we have an input expression with no function call
-            is_cmdline_run = 3;
-        }
+        /* 带 @ 的表达式仍可作为管道模板，其余显式表达式直接执行。 */
+        if (piped && strchr(options->inputExpr, '@') != NULL)
+            return 2;
+        return strchr(options->inputExpr, '(') == NULL ? 3 : 1;
     }
-
-//#if defined(__MINGW32__)
-//    }
-//#endif
-#endif
-
-	return is_cmdline_run;
-
+    return piped ? 2 : 0;
 }
-
 void print_splash(fact_obj_t *fobj, info_t *comp_info, int is_cmdline_run, 
     FILE* logfile, int VFLAG, double freq, int numwit, char *cwd)
 {
@@ -1202,10 +1176,11 @@ void print_splash(fact_obj_t *fobj, info_t *comp_info, int is_cmdline_run,
     {
         char buf[1024];
 #ifdef _MSC_VER
-        _getcwd(buf, 1024);
+        if (_getcwd(buf, sizeof(buf)) == NULL)
 #else
-        getcwd(buf, 1024);
+        if (getcwd(buf, sizeof(buf)) == NULL)
 #endif
+            strcpy(buf, "(unavailable)");
         logprint(logfile, "Could not parse yafu.ini from %s\n\n", buf);
     }
     else
@@ -1251,10 +1226,11 @@ void print_splash(fact_obj_t *fobj, info_t *comp_info, int is_cmdline_run,
         {
             char buf[1024];
 #ifdef _MSC_VER
-            _getcwd(buf, 1024);
+            if (_getcwd(buf, sizeof(buf)) == NULL)
 #else
-            getcwd(buf, 1024);
+            if (getcwd(buf, sizeof(buf)) == NULL)
 #endif
+                strcpy(buf, "(unavailable)");
             printf("Could not parse yafu.ini from %s\n\n", buf);
         }
         else
@@ -1288,6 +1264,7 @@ void yafu_set_idle_priority(void) {
 
 void yafu_init(yafu_obj_t* yobj)
 {
+    memset(yobj, 0, sizeof(*yobj));
     yobj->VFLAG = 0;
     yobj->VERBOSE_PROC_INFO = 0;
     yobj->LOGFLAG = 1;
@@ -1312,332 +1289,200 @@ void yafu_finalize(yafu_obj_t* yobj)
 	return;
 }
 
+static int read_stream_line(FILE *stream, str_t *line)
+{
+    char buffer[GSTR_MAXSIZE];
+    size_t len;
+    sClear(line);
+    while (fgets(buffer, sizeof(buffer), stream) != NULL)
+    {
+        sAppend(buffer, line);
+        len = strlen(buffer);
+        if (len > 0 && buffer[len - 1] == '\n')
+            break;
+    }
+    if (ferror(stream))
+        return -1;
+    len = strlen(line->s);
+    if (len == 0)
+        return 0;
+    while (len > 0 && (line->s[len - 1] == '\n' || line->s[len - 1] == '\r'))
+        line->s[--len] = '\0';
+    line->nchars = (int)len + 1;
+    return 1;
+}
+
 void finalize_batchline(yafu_obj_t* yobj)
 {
-	if (yobj->USEBATCHFILE == 1)
-	{
-		rename(yobj->batchfilename,"_bkup");
-		rename("__tmpbatchfile", yobj->batchfilename);
-
-        int code;
-
-        code = remove("_bkup");
-        if (code)
+    if (yobj->USEBATCHFILE == 1 && batch_tempname[0] != '\0')
+    {
+        /* 临时文件和原文件在同一目录；替换失败时保留原始输入。 */
+#if defined(WIN32) || defined(_WIN64)
+        int failed = !MoveFileExA(batch_tempname, yobj->batchfilename,
+            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
+#else
+        int failed = rename(batch_tempname, yobj->batchfilename);
+#endif
+        if (failed)
         {
-            printf("!! unable to remove _bkup file: code %d\n", code);
+            fprintf(stderr, "cannot replace batch file %s with %s\n",
+                yobj->batchfilename, batch_tempname);
+            exit(EXIT_FAILURE);
         }
-	}
-
-	return;
+        batch_tempname[0] = '\0';
+    }
 }
 
 char * process_batchline(yafu_obj_t* yobj, char *input_exp, char *indup, int *code, int num)
 {
-	int nChars, j, i;
-	char *line, tmpline[GSTR_MAXSIZE], *ptr, *ptr2;
-	FILE *batchfile = NULL, *tmpfile = NULL;
-
-	//try to open the file
-	if (yobj->USEBATCHFILE == 2)
-		batchfile = stdin;
-	else if (yobj->USEBATCHFILE == 1)
-		batchfile = fopen(yobj->batchfilename,"r");
-
-	if (batchfile == NULL)
-	{
-		printf("fopen error: %s\n", strerror(errno));
-		printf("couldn't open %s for reading\n", yobj->batchfilename);
-		exit(-1);
-	}	
-
-	//load the next line of the batch file and get the expression
-	//ready for processing
-	line = (char *)malloc(GSTR_MAXSIZE * sizeof(char));
-	strcpy(line,"");
-	strcpy(input_exp,"");
-    strcpy(tmpline, "");
-
-    //printf("contents of batchfile prior to processing a line:\n");
-    //system("cat batchfile.txt");
-
-	// read a line - skipping blank lines
-	do
-	{
-		while (1)
-		{
-			ptr = fgets(tmpline,GSTR_MAXSIZE,batchfile);
-            strncpy(line + strlen(line), tmpline, GSTR_MAXSIZE);
-
-            //printf("line = %s, length = %d\n", tmpline, strlen(tmpline));
-
-			// stop if we didn't read anything
-			if (feof(batchfile))
-			{
-                if (strlen(line) > 0)
-                {
-                    //printf("last line: %s\n", line);
-                    break;
-                }
-				printf("eof; done processing batchfile\n");
-				fclose(batchfile);
-				*code = 1;
-				free(line);
-				return input_exp;
-			}
-
-			if (ptr == NULL)
-			{
-				printf("fgets returned null; done processing batchfile\n");		
-				fclose(batchfile);
-				*code = 1;
-				free(line);
-				return input_exp;
-			}
-
-            //printf("line = %s, length = %d\n", line, strlen(line));
-            //printf("last character is %02x\n", line[strlen(line) - 1]);
-
-            if (strlen(line) == 0)
-                break;
-
-			// if we got the end of the line, stop reading
-			if ((line[strlen(line)-1] == 0xa) ||
-				(line[strlen(line)-1] == 0xd))
-				break;
-
-			// else reallocate the buffer and get some more
-			line = (char *)realloc(line, (strlen(line) + GSTR_MAXSIZE) * sizeof(char));
-		} 
-
-        //printf("got end-of-line.  full line = %s\n", line);
-        //printf("last character is %02x\n", line[strlen(line) - 1]);
-
-		// remove LF and CRs and other unprintable characters from line
-		nChars = 0;
-		for (j=0; j<strlen(line); j++)
-		{
-            if (line[j] > 31)
-                line[nChars++] = line[j];
-		}
-		line[nChars++] = '\0';
-
-	} while ((strlen(line) == 0) && !(feof(batchfile)));
-
-    //printf("loop exit with line length %d characters: ", strlen(line));
-    //for (i = 0; i < strlen(line); i++)
-    //{
-    //    printf("%02x ", line[i]);
-    //}
-    //printf("\n");
-
-    if (feof(batchfile) && (strlen(line) == 0))
+    FILE *batchfile = yobj->USEBATCHFILE == 2 ? stdin : fopen(yobj->batchfilename, "r");
+    str_t line;
+    int read_status;
+    char *p, *out;
+    size_t count = 0, length, line_length;
+    if (batchfile == NULL)
     {
-        printf("eof; done processing batchfile\n");
-        fclose(batchfile);
+        fprintf(stderr, "cannot open batch file %s: %s\n", yobj->batchfilename, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    sInit(&line);
+    do
+    {
+        read_status = read_stream_line(batchfile, &line);
+        p = line.s;
+        while (isspace((unsigned char)*p))
+            p++;
+    } while (read_status > 0 && *p == '\0');
+    if (read_status <= 0)
+    {
+        if (yobj->USEBATCHFILE == 1)
+            fclose(batchfile);
+        sFree(&line);
+        if (read_status < 0)
+        {
+            fprintf(stderr, "error reading batch input\n");
+            exit(EXIT_FAILURE);
+        }
         *code = 1;
-        free(line);
         return input_exp;
     }
 
-	// this only applies for non-stdin batchfiles
-	if (yobj->USEBATCHFILE == 1)
-	{
-		// copy everything in the file after the line we just read to
-		// a temporary file.  if the expression we just read finishes, 
-		// the temporary file will become the batch file (effectively 
-		// eliminating the expression from the batch file).
-		tmpfile = fopen("__tmpbatchfile", "w");
-	
-		if (tmpfile == NULL)
-		{
-			printf("fopen error: %s\n", strerror(errno));
-			printf("couldn't open __tmpbatchfile for reading\n");
-			exit(-1);
-		}	
-
-		while (!feof(batchfile))
-		{
-			ptr2 = fgets(tmpline,GSTR_MAXSIZE,batchfile);
-			if (ptr2 == NULL)
-				break;
-
-			if (strlen(tmpline) == 0)
-				continue;
-
-			fputs(tmpline,tmpfile);
-		}
-		fclose(tmpfile);
-
-		// close the batchfile
-		fclose(batchfile);		
-	}
-
-	//ignore blank lines
-	if (strlen(line) == 0)
-	{
-		*code = 2;
-		free(line);
-		return input_exp;
-	}
-
-	//ignore comment lines
-	if (((line[0] == '/') && (line[1] == '/')) || (line[0] == '%'))
-	{
-		*code = 2;
-		free(line);
-		return input_exp;
-	}
-
-    //printf("processing batch line %s using flag %d\n", line, yobj->USEBATCHFILE);
-
-	//substitute the batchfile line into the '@' symbol in the input expression
-	nChars = 0;
-	if ((strlen(indup) + strlen(line)) >= strlen(input_exp))
-		input_exp = (char *)realloc(input_exp, strlen(indup) + strlen(line) + 2);
-
-	for (i=0; i<strlen(indup); i++)
-	{
-		if (indup[i] == '@')
-		{
-			for (j=0; j<strlen(line); j++)
-				input_exp[nChars++] = line[j];
-		}
-		else				
-			input_exp[nChars++] = indup[i];
-	}
-	input_exp[nChars++] = '\0';
-
-	if (yobj->VFLAG >= 0)
-	{
-		printf("=== Starting work on batchfile expression #%d ===\n", num);
-		printf("%s\n",input_exp);
-		printf("=============================================\n");
-		fflush(stdout);
-	}
-
-	free(line);
-	*code = 0;
-	return input_exp;;
-}
-
-void apply_tuneinfo(yafu_obj_t* yobj, fact_obj_t *fobj, char *arg)
-{
-	int i,j;
-	char cpustr[80], osstr[80];
-    double xover;
-
-	//read up to the first comma - this is the cpu id string
-	j=0;
-	for (i=0; i<strlen(arg); i++)
-	{
-		if (arg[i] == 10) break;
-		if (arg[i] == 13) break;
-		if (arg[i] == ',') break;
-		cpustr[j++] = arg[i];
-	}
-	cpustr[j] = '\0';
-	i++;
-
-	//read up to the next comma - this is the OS string
-	j=0;
-	for ( ; i<strlen(arg); i++)
-	{
-		if (arg[i] == 10) break;
-		if (arg[i] == 13) break;
-		if (arg[i] == ',') break;
-		osstr[j++] = arg[i];
-	}
-	osstr[j] = '\0';
-
-
-	//printf("found OS = %s and CPU = %s in tune_info field, this cpu is %s\n",
-    //    osstr, cpustr, yobj->CPU_ID_STR);
-
-    // "xover" trumps tune info.  I.e., if a specific crossover has been
-    // specified, prefer this to whatever may be in the tune_info string.
-    xover = fobj->autofact_obj.qs_gnfs_xover;
-
-    double dummy1;
-    double dummy2;
-    double dummy3;
-
-#if defined(_WIN64)
-	if ((strcmp(cpustr, yobj->CPU_ID_STR) == 0) && (strcmp(osstr, "WIN64") == 0))
-	{
-        if (yobj->VFLAG > 0)
-		    printf("Applying tune_info entry for %s - %s\n",osstr,cpustr);
-		
-		sscanf(arg + i + 1, "%lg, %lg, %lg, %lg, %lg, %lg, %lg, %lg, %lg",
-			&fobj->qs_obj.qs_multiplier, &fobj->qs_obj.qs_exponent,
-			&fobj->nfs_obj.gnfs_multiplier, &fobj->nfs_obj.gnfs_exponent, 
-			&fobj->autofact_obj.qs_gnfs_xover, 
-            &dummy1, &dummy2, &dummy3, &fobj->nfs_obj.gnfs_tune_freq);
-		fobj->qs_obj.qs_tune_freq = fobj->nfs_obj.gnfs_tune_freq;
-
-        if (yobj->VFLAG > 1)
-        {
-            printf("QS_MULTIPLIER = %lg, QS_EXPONENT = %lg\nNFS_MULTIPLIER = %lg, NFS_EXPONENT = %lg\nXOVER = %lg, TUNE_FREQ = %lg\n",
-                fobj->qs_obj.qs_multiplier, fobj->qs_obj.qs_exponent,
-                fobj->nfs_obj.gnfs_multiplier, fobj->nfs_obj.gnfs_exponent,
-                fobj->autofact_obj.qs_gnfs_xover, fobj->qs_obj.qs_tune_freq);
-        }
-
-	}
-#elif defined(WIN32)
-	if ((strcmp(cpustr, yobj->CPU_ID_STR) == 0) && (strcmp(osstr, "WIN32") == 0))
-	{
-        if (yobj->VFLAG > 0)
-		    printf("Applying tune_info entry for %s - %s\n",osstr,cpustr);
-		sscanf(arg + i + 1, "%lg, %lg, %lg, %lg, %lg, %lg, %lg, %lg, %lg",
-			&fobj->qs_obj.qs_multiplier, &fobj->qs_obj.qs_exponent,
-			&fobj->nfs_obj.gnfs_multiplier, &fobj->nfs_obj.gnfs_exponent, 
-			&fobj->autofact_obj.qs_gnfs_xover, 
-            &dummy1, &dummy2, &dummy3, &fobj->nfs_obj.gnfs_tune_freq);
-		fobj->qs_obj.qs_tune_freq = fobj->nfs_obj.gnfs_tune_freq;
-
-        if (yobj->VFLAG > 1)
-        {
-            printf("QS_MULTIPLIER = %lg, QS_EXPONENT = %lg\nNFS_MULTIPLIER = %lg, NFS_EXPONENT = %lg\nXOVER = %lg, TUNE_FREQ = %lg\n",
-                fobj->qs_obj.qs_multiplier, fobj->qs_obj.qs_exponent,
-                fobj->nfs_obj.gnfs_multiplier, fobj->nfs_obj.gnfs_exponent,
-                fobj->autofact_obj.qs_gnfs_xover, fobj->qs_obj.qs_tune_freq);
-        }
-	}
-#else 
-
-    //printf("cpustr: %s\nyobj->CPU_ID_STR: %s\nosstr: %s\n", cpustr, yobj->CPU_ID_STR, osstr);
-	if ((strcmp(cpustr, yobj->CPU_ID_STR) == 0) && (strcmp(osstr, "LINUX64") == 0))
-	{
-        if (yobj->VFLAG > 0)
-            printf("Applying tune_info entry for %s - %s\n",osstr,cpustr);
-		
-		sscanf(arg + i + 1, "%lg, %lg, %lg, %lg, %lg, %lg, %lg, %lg, %lg",
-			&fobj->qs_obj.qs_multiplier, &fobj->qs_obj.qs_exponent,
-			&fobj->nfs_obj.gnfs_multiplier, &fobj->nfs_obj.gnfs_exponent, 
-			&fobj->autofact_obj.qs_gnfs_xover, 
-            &dummy1, &dummy2, &dummy3, &fobj->nfs_obj.gnfs_tune_freq);
-		fobj->qs_obj.qs_tune_freq = fobj->nfs_obj.gnfs_tune_freq;
-
-        if (yobj->VFLAG > 1)
-        {
-            printf("QS_MULTIPLIER = %lg, QS_EXPONENT = %lg\nNFS_MULTIPLIER = %lg, NFS_EXPONENT = %lg\nXOVER = %lg, TUNE_FREQ = %lg\n",
-                fobj->qs_obj.qs_multiplier, fobj->qs_obj.qs_exponent,
-                fobj->nfs_obj.gnfs_multiplier, fobj->nfs_obj.gnfs_exponent,
-                fobj->autofact_obj.qs_gnfs_xover, fobj->qs_obj.qs_tune_freq);
-        }
-	}
-#endif	
-
-	
-    // restore the user's xover if preferred.
-    if (fobj->autofact_obj.prefer_xover)
+    if (yobj->USEBATCHFILE == 1)
     {
-        fobj->autofact_obj.qs_gnfs_xover = xover;
+        FILE *pending;
+        unsigned char buffer[8192];
+        size_t bytes;
+        int failed;
+        snprintf(batch_tempname, sizeof(batch_tempname), "%s.yafu-tmp", yobj->batchfilename);
+        pending = fopen(batch_tempname, "wx");
+        if (pending == NULL)
+        {
+            fprintf(stderr, "cannot create %s: %s\n", batch_tempname, strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+        failed = 0;
+        while ((bytes = fread(buffer, 1, sizeof(buffer), batchfile)) != 0)
+        {
+            if (fwrite(buffer, 1, bytes, pending) != bytes)
+            {
+                failed = 1;
+                break;
+            }
+        }
+        failed |= ferror(batchfile);
+        failed |= fclose(pending) != 0;
+        fclose(batchfile);
+        if (failed)
+        {
+            fprintf(stderr, "cannot write pending batch input to %s\n", batch_tempname);
+            exit(EXIT_FAILURE);
+        }
+    }
+    if (*p == '%' || (p[0] == '/' && p[1] == '/'))
+    {
+        sFree(&line);
+        *code = 2;
+        return input_exp;
     }
 
-	return;
+    length = strlen(indup);
+    line_length = strlen(line.s);
+    for (p = indup; *p != '\0'; p++)
+        count += (*p == '@');
+    if (count != 0 && line_length > (SIZE_MAX - length - 1) / count)
+    {
+        fprintf(stderr, "batch expression is too long\n");
+        exit(EXIT_FAILURE);
+    }
+    input_exp = (char *)xrealloc(input_exp, length + count * line_length + 1);
+    out = input_exp;
+    for (p = indup; *p != '\0'; p++)
+    {
+        if (*p == '@')
+        {
+            memcpy(out, line.s, line_length);
+            out += line_length;
+        }
+        else
+            *out++ = *p;
+    }
+    *out = '\0';
+    if (yobj->VFLAG >= 0)
+        printf("=== Starting work on batchfile expression #%d ===\n%s\n", num, input_exp);
+    sFree(&line);
+    *code = 0;
+    return input_exp;
 }
-
+void apply_tuneinfo(yafu_obj_t* yobj, fact_obj_t *fobj, char *arg)
+{
+    char cpustr[80], osstr[80];
+    double values[9] = {0};
+    int end = 0, i;
+#if defined(_WIN64)
+    const char *os = "WIN64";
+#elif defined(WIN32)
+    const char *os = "WIN32";
+#else
+    const char *os = "LINUX64";
+#endif
+    /* 整条记录验证成功后再应用，避免长名称越界及部分更新配置。 */
+    if (sscanf(arg, "%79[^,],%79[^,],%lg,%lg,%lg,%lg,%lg,%lg,%lg,%lg,%lg %n",
+        cpustr, osstr, &values[0], &values[1], &values[2], &values[3],
+        &values[4], &values[5], &values[6], &values[7], &values[8], &end) != 11 ||
+        arg[end] != '\0')
+    {
+        /* 兼容只包含 QS/NFS 参数和频率的旧记录，未提供的 ECM 参数保持零。 */
+        end = 0;
+        if (sscanf(arg, "%79[^,],%79[^,],%lg,%lg,%lg,%lg,%lg,%lg %n",
+            cpustr, osstr, &values[0], &values[1], &values[2], &values[3],
+            &values[4], &values[5], &end) != 8 || arg[end] != '\0')
+        {
+            fprintf(stderr, "ignoring malformed tune_info\n");
+            return;
+        }
+        values[8] = values[5];
+        values[5] = values[6] = values[7] = 0.0;
+    }
+    for (i = 0; i < 9; i++)
+    {
+        if (!isfinite(values[i]))
+        {
+            fprintf(stderr, "ignoring non-finite tune_info\n");
+            return;
+        }
+    }
+    if (strcmp(cpustr, yobj->CPU_ID_STR) != 0 || strcmp(osstr, os) != 0)
+        return;
+    if (yobj->VFLAG > 0)
+        printf("Applying tune_info entry for %s - %s\n", osstr, cpustr);
+    fobj->qs_obj.qs_multiplier = values[0];
+    fobj->qs_obj.qs_exponent = values[1];
+    fobj->nfs_obj.gnfs_multiplier = values[2];
+    fobj->nfs_obj.gnfs_exponent = values[3];
+    if (!fobj->autofact_obj.prefer_xover)
+        fobj->autofact_obj.qs_gnfs_xover = values[4];
+    fobj->qs_obj.qs_tune_freq = fobj->nfs_obj.gnfs_tune_freq = values[8];
+}
 void options_to_factobj(fact_obj_t* fobj, options_t* options)
 {
     // set any parameters of fobj changed by user options

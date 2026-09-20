@@ -252,10 +252,15 @@ void complain(char *fmt,...)
 @c
 void Schlendrian(char *fmt,...)
 {
-  va_list arglist;
+  va_list arglist,log_args;
   va_start(arglist,fmt);
+  if(logfile != NULL) {
+    va_copy(log_args,arglist);
+    vfprintf(logfile,fmt,log_args);
+    va_end(log_args);
+  }
   vfprintf(stderr,fmt,arglist);
-  if(logfile != NULL) vfprintf(logfile,fmt,arglist);
+  va_end(arglist);
 #ifdef HAVE_BOINC 
     boinc_finish(1);       
 #else                
@@ -277,7 +282,11 @@ void logbook(int l, char *fmt,...)
     char *output_str;
     unsigned int sl;
     va_start(arglist,fmt);
-    vasprintf(&output_str,fmt,arglist);
+    if(vasprintf(&output_str,fmt,arglist)<0) {
+      va_end(arglist);
+      complain("logbook: cannot format message\n");
+    }
+    va_end(arglist);
     sl=strlen(output_str);
     if(used_cols+sl>ncol) {
       fprintf(stderr,"\n");
@@ -298,12 +307,17 @@ writes the same output to the logfile, if a logfile exists.
 int
 errprintf(char *fmt,...)
 {
-  va_list arglist;
+  va_list arglist,log_args;
   int res;
 
   va_start(arglist,fmt);
-  if(logfile != NULL) vfprintf(logfile,fmt,arglist);
+  if(logfile != NULL) {
+    va_copy(log_args,arglist);
+    vfprintf(logfile,fmt,log_args);
+    va_end(log_args);
+  }
   res=vfprintf(stderr,fmt,arglist);
+  va_end(arglist);
   return res;
 }
 
@@ -329,20 +343,31 @@ int yn_query(char *fmt,...)
 {
   va_list arglist;
   char answer[10];
+  char *question;
+  int result;
 
   va_start(arglist,fmt);
-  if(logfile != NULL) vfprintf(logfile,fmt,arglist);
-  vfprintf(stderr,fmt,arglist);
-  if(!isatty(STDIN_FILENO) || !isatty(STDERR_FILENO)) return 0;
+  if(vasprintf(&question,fmt,arglist)<0) {
+    va_end(arglist);
+    complain("yn_query: cannot format question\n");
+  }
+  va_end(arglist);
+  if(logfile != NULL) fputs(question,logfile);
+  fputs(question,stderr);
+  if(!isatty(STDIN_FILENO) || !isatty(STDERR_FILENO)) {
+    free(question);
+    return 0;
+  }
   /* Maybe we dont need this, but is safer so. */
   fflush(stderr);
   while(scanf("%9s",answer) != 1 ||
 	(strcasecmp(answer,"yes") != 0 && strcasecmp(answer,"no") !=0)) {
     fprintf(stderr,"Please answer yes or no!\n");
-    vfprintf(stderr,fmt,arglist);
+    fputs(question,stderr);
   }
-  if(strcasecmp(answer,"yes")==0) return 1;
-  return 0;
+  result=strcasecmp(answer,"yes")==0 ? 1 : -1;
+  free(question);
+  return result;
 }
 
 
@@ -550,12 +575,15 @@ vasprintf (char **ptr, const char *template, va_list ap)
   int n, size = 32;
 
   while (1) {
+    va_list aq;
     *ptr = xmalloc (size);
     /* Try to print in the allocated space. */
-    n = vsnprintf (*ptr, size, template, ap);
-    if(1+strlen(*ptr)<size) return n;
-    size*=2;
+    va_copy(aq,ap);
+    n = vsnprintf (*ptr, size, template, aq);
+    va_end(aq);
+    if(n>=0 && n<size) return n;
     free(*ptr);
+    size=n>=0 ? n+1 : size*2;
   }
 }
 #endif
@@ -641,4 +669,3 @@ u64_cmp210(const void *x,const void *y)
   if(*xx>*yy) return -1;
   return 0;
 }
-

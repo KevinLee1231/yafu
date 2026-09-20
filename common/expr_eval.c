@@ -297,10 +297,14 @@ static int do_binary_op(mp_t *a, mp_t *b, int op, mp_t *r)
 		break;
 
 	case '/':
+		if (mp_is_zero(b))
+			return EVALUATION_ERROR;
 		mp_div(a, b, r); 
 		break;
 
 	case '%':
+		if (mp_is_zero(b))
+			return EVALUATION_ERROR;
 		mp_mod(a, b, r); 
 		break;
 
@@ -373,8 +377,9 @@ static int mp_evaluate(char *str, mp_t *res) {
 int32 evaluate_expression(char *expr, mp_t *res) {
 
 	int status;
-	char postfix[BIGNUM_BUF_SIZE];
+	char *postfix;
 	char *tmp;
+	size_t expr_len;
 
 	/* fast path: if expr is an ascii integer, convert
 	   it immediately */
@@ -400,11 +405,20 @@ int32 evaluate_expression(char *expr, mp_t *res) {
 		return RETURN_SUCCESS;
 	}
 
+	expr_len = strlen(expr);
+	if (expr_len > SIZE_MAX - STACK_SIZE - 1)
+		return OUT_OF_MEMORY;
+	postfix = (char *)xmalloc(expr_len + STACK_SIZE + 1);
+	postfix[0] = 0;
+
 	status = infix_to_postfix(expr, postfix);
-	if (status < 0)
+	if (status < 0) {
+		free(postfix);
 		return status;
+	}
 
 	status = mp_evaluate(postfix, res);
+	free(postfix);
 	if (status < 0)
 		return status;
 	return RETURN_SUCCESS;

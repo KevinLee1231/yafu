@@ -218,6 +218,8 @@ uint32_t savefile_exists(savefile_t * s) {
 
 /*--------------------------------------------------------------------*/
 void savefile_read_line(char* buf, size_t max_len, savefile_t * s) {
+	if (max_len == 0)
+		return;
 
 #if defined(NO_ZLIB) && (defined(WIN32) || defined(_WIN64))
 	size_t i, j;
@@ -264,11 +266,24 @@ void savefile_read_line(char* buf, size_t max_len, savefile_t * s) {
 
 /*--------------------------------------------------------------------*/
 void savefile_write_line(savefile_t * s, char* buf) {
+	size_t bytes_left = strlen(buf);
 
-	if (s->buf_off + strlen(buf) + 1 >= SAVEFILE_BUF_SIZE)
-		savefile_flush(s);
+	while (bytes_left > 0) {
+		size_t available = (SAVEFILE_BUF_SIZE - 1) - s->buf_off;
+		size_t chunk;
 
-	s->buf_off += sprintf(s->buf + s->buf_off, "%s", buf);
+		if (available == 0) {
+			savefile_flush(s);
+			available = SAVEFILE_BUF_SIZE - 1;
+		}
+
+		chunk = bytes_left < available ? bytes_left : available;
+		memcpy(s->buf + s->buf_off, buf, chunk);
+		s->buf_off += (uint32_t)chunk;
+		s->buf[s->buf_off] = 0;
+		buf += chunk;
+		bytes_left -= chunk;
+	}
 }
 
 /*--------------------------------------------------------------------*/
@@ -309,4 +324,3 @@ void savefile_rewind(savefile_t * s) {
 	s->is_a_FILE ? rewind((FILE*)s->fp) : gzrewind(s->fp);
 #endif
 }
-

@@ -65,6 +65,7 @@ typedef struct {
 #define MAX_RESIEVE_ENTRIES 255
 #define RESIEVE_INVALID 0xff
 #define NUM_RESIEVE_FACTORS 19
+#define MAX_RELATION_FACTORS 100
 
 typedef struct {
 	uint16 offset;
@@ -1214,9 +1215,9 @@ static uint32 do_one_factoring(sieve_job_t *job, resieve_t *sieve_value,
 	uint32 offset = sieve_value->offset;
 	int64 a;
 	uint32 num_factors_r;
-	uint32 factors_r[100];
+	uint32 factors_r[MAX_RELATION_FACTORS];
 	uint32 num_factors_a;
-	uint32 factors_a[100];
+	uint32 factors_a[MAX_RELATION_FACTORS];
 	sieve_t *small, *large;
 
 	if (b % 2 == 0)
@@ -1370,8 +1371,11 @@ static uint32 do_one_tf(sieve_t *sieve_fb, resieve_t *resieve,
 
 		r = (uint32)entry->offset + BLOCK_SIZE - offset;
 		if (r % p == 0) {
-			if (p >= MAX_SKIPPED_FACTOR)
+			if (p >= MAX_SKIPPED_FACTOR) {
+				if (num_factors >= MAX_RELATION_FACTORS)
+					return 0;
 				factors[num_factors++] = p;
+			}
 			divide_out_p(sieve_fb, p);
 		}
 	}
@@ -1384,6 +1388,8 @@ static uint32 do_one_tf(sieve_t *sieve_fb, resieve_t *resieve,
 
 		for (i = 0; i < num_resieve_factors; i++) {
 			uint32 p = resieve->factors[i];
+			if (num_factors >= MAX_RELATION_FACTORS)
+				return 0;
 			factors[num_factors++] = p;
 			divide_out_p(sieve_fb, p);
 		}
@@ -1402,6 +1408,8 @@ static uint32 do_one_tf(sieve_t *sieve_fb, resieve_t *resieve,
 	
 			r = (uint32)entry->offset + BLOCK_SIZE - offset;
 			if (r % p == 0) {
+				if (num_factors >= MAX_RELATION_FACTORS)
+					return 0;
 				factors[num_factors++] = p;
 				divide_out_p(sieve_fb, p);
 			}
@@ -1423,6 +1431,8 @@ static uint32 do_one_tf(sieve_t *sieve_fb, resieve_t *resieve,
 	
 			if (offset == list_offset) {
 				uint32 p = update_list[i].p;
+				if (num_factors >= MAX_RELATION_FACTORS)
+					return 0;
 				factors[num_factors++] = p;
 				divide_out_p(sieve_fb, p);
 			}
@@ -1443,8 +1453,11 @@ static uint32 do_one_tf(sieve_t *sieve_fb, resieve_t *resieve,
 		uint32 p = proj_factor_base[i].p;
 
 		if (b % p == 0) {
-			if (p >= MAX_SKIPPED_FACTOR)
+			if (p >= MAX_SKIPPED_FACTOR) {
+				if (num_factors >= MAX_RELATION_FACTORS)
+					return 0;
 				factors[num_factors++] = p;
+			}
 			divide_out_p(sieve_fb, p);
 		}
 	}

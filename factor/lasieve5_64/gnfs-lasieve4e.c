@@ -739,7 +739,7 @@ static u32_t n_tdsurvivors[2]= {0,0},n_psp= 0,n_cof= 0;
 static FILE*g_ofile;
 static FILE* g_ofile_raw;
 static char*g_ofile_name;
-static char g_ofile_raw_name[80];
+static char *g_ofile_raw_name;
 
 #ifdef STC_DEBUG
 FILE*debugfile;
@@ -813,6 +813,8 @@ void logTotalTime()
     double t = sTime() - sieveStartTime;
     FILE* fp = fopen("ggnfs.log", "ab");
 
+    if (fp == NULL)
+        return;
     fprintf(fp, "\tLatSieveTime: "UL_FMTSTR"\n", (u64_t)t);
     fclose(fp);
 }
@@ -1156,7 +1158,9 @@ int main(int argc, char** argv)
 
 
             if (do_batch_factor) {
-                sprintf(g_ofile_raw_name, "%s.raw", g_ofile_name);
+                size_t raw_name_size = strlen(g_ofile_name) + sizeof(".raw");
+                g_ofile_raw_name = xrealloc(g_ofile_raw_name, raw_name_size);
+                snprintf(g_ofile_raw_name, raw_name_size, "%s.raw", g_ofile_name);
                 if ((g_ofile_raw = fopen(g_ofile_raw_name, "ab+")) == NULL)
                     complain("Cannot open %s for append: %m\n", g_ofile_raw_name);
             }
@@ -1514,7 +1518,9 @@ int main(int argc, char** argv)
                 g_ofile = fopen(g_ofile_name, "ab");
 
                 if (do_batch_factor) {
-                    sprintf(g_ofile_raw_name, "%s.raw", g_ofile_name);
+                    size_t raw_name_size = strlen(g_ofile_name) + sizeof(".raw");
+                    g_ofile_raw_name = xrealloc(g_ofile_raw_name, raw_name_size);
+                    snprintf(g_ofile_raw_name, raw_name_size, "%s.raw", g_ofile_name);
                     g_ofile_raw = fopen(g_ofile_raw_name, "ab");
                 }
             }
@@ -1525,7 +1531,9 @@ int main(int argc, char** argv)
                 g_ofile = fopen(g_ofile_name, "wb");
 
                 if (do_batch_factor) {
-                    sprintf(g_ofile_raw_name, "%s.raw", g_ofile_name);
+                    size_t raw_name_size = strlen(g_ofile_name) + sizeof(".raw");
+                    g_ofile_raw_name = xrealloc(g_ofile_raw_name, raw_name_size);
+                    snprintf(g_ofile_raw_name, raw_name_size, "%s.raw", g_ofile_name);
                     g_ofile_raw = fopen(g_ofile_raw_name, "wb");
                 }
             }

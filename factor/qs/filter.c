@@ -239,13 +239,22 @@ void generate_bpolys(static_conf_t *sconf, dynamic_conf_t *dconf, int maxB)
 	return;
 }
 
-void td_and_merge_relation(fb_list *fb, mpz_t n,
+int td_and_merge_relation(fb_list *fb, mpz_t n,
     static_conf_t *sconf, fact_obj_t *obj, 
     siqs_r *r_out, siqs_r *rel)
 {
     int i, j, k, err_code = 0;
     mpz_t Q;
     mpz_init(Q);
+
+#define APPEND_OUT_FACTOR(value) \
+	do { \
+		if (k >= MAX_SMOOTH_PRIMES) { \
+			mpz_clear(Q); \
+			return 1; \
+		} \
+		r_out->fb_offsets[k++] = (uint32_t)(value); \
+	} while (0)
 
     // trial divide to find divisible primes less than med_B.
     // this will include small primes and primes dividing poly_a.
@@ -291,7 +300,7 @@ void td_and_merge_relation(fb_list *fb, mpz_t n,
         uint32_t prime = sconf->factor_base->list->prime[i];
         while (mpz_tdiv_ui(Q, prime) == 0)
         {
-            r_out->fb_offsets[k++] = i;
+            APPEND_OUT_FACTOR(i);
             mpz_tdiv_q_ui(Q, Q, prime);
         }
     }
@@ -308,29 +317,28 @@ void td_and_merge_relation(fb_list *fb, mpz_t n,
         uint32_t prime;
 
         if (rel->fb_offsets[i] < sconf->curr_poly->qlisort[j]) {
-            r_out->fb_offsets[k++] = rel->fb_offsets[i++];
+            APPEND_OUT_FACTOR(rel->fb_offsets[i++]);
         }
         else if (rel->fb_offsets[i] > sconf->curr_poly->qlisort[j]) {
             // add in the one factor that will always be there because a | Q
-            r_out->fb_offsets[k++] = sconf->curr_poly->qlisort[j];
+            APPEND_OUT_FACTOR(sconf->curr_poly->qlisort[j]);
             prime = sconf->factor_base->list->prime[sconf->curr_poly->qlisort[j]];
 
             // then test and add more if we can
             while (mpz_tdiv_ui(Q, prime) == 0)
             {
-                r_out->fb_offsets[k++] = sconf->curr_poly->qlisort[j];
+                APPEND_OUT_FACTOR(sconf->curr_poly->qlisort[j]);
                 mpz_tdiv_q_ui(Q, Q, prime);
             }
             j++;
         }
         else {
-            r_out->fb_offsets[k] = rel->fb_offsets[i++];
-            r_out->fb_offsets[k + 1] = sconf->curr_poly->qlisort[j];
+            APPEND_OUT_FACTOR(rel->fb_offsets[i++]);
+            APPEND_OUT_FACTOR(sconf->curr_poly->qlisort[j]);
             prime = sconf->factor_base->list->prime[sconf->curr_poly->qlisort[j]];
-            k += 2;
             while (mpz_tdiv_ui(Q, prime) == 0)
             {
-                r_out->fb_offsets[k++] = sconf->curr_poly->qlisort[j];
+                APPEND_OUT_FACTOR(sconf->curr_poly->qlisort[j]);
                 mpz_tdiv_q_ui(Q, Q, prime);
             }
             j++;
@@ -339,18 +347,18 @@ void td_and_merge_relation(fb_list *fb, mpz_t n,
 
     while (i < (int)rel->num_factors)
     {
-        r_out->fb_offsets[k++] = rel->fb_offsets[i++];
+        APPEND_OUT_FACTOR(rel->fb_offsets[i++]);
     }
 
     while (j < sconf->curr_poly->s)
     {
-        r_out->fb_offsets[k++] = sconf->curr_poly->qlisort[j];
+        APPEND_OUT_FACTOR(sconf->curr_poly->qlisort[j]);
         uint32_t prime = sconf->factor_base->list->prime[sconf->curr_poly->qlisort[j]];
 
         // then test and add more if we can
         while (mpz_tdiv_ui(Q, prime) == 0)
         {
-            r_out->fb_offsets[k++] = sconf->curr_poly->qlisort[j];
+            APPEND_OUT_FACTOR(sconf->curr_poly->qlisort[j]);
             mpz_tdiv_q_ui(Q, Q, prime);
         }
         j++;
@@ -399,7 +407,8 @@ void td_and_merge_relation(fb_list *fb, mpz_t n,
             err_code = 1;
         }
     }
-    return;
+	#undef APPEND_OUT_FACTOR
+    return err_code;
 }
 
 int process_rel(char *substr, fb_list *fb, mpz_t n,
@@ -415,6 +424,15 @@ int process_rel(char *substr, fb_list *fb, mpz_t n,
     mpz_t Q;
     mpz_init(Q);
 
+#define APPEND_FACTOR(value) \
+	do { \
+		if (k >= MAX_SMOOTH_PRIMES) { \
+			mpz_clear(Q); \
+			return 1; \
+		} \
+		rel->fb_offsets[k++] = (uint32_t)(value); \
+	} while (0)
+
 	//printf("processing rel: %s", substr);
 
     //read the offset
@@ -422,6 +440,10 @@ int process_rel(char *substr, fb_list *fb, mpz_t n,
     substr = nextstr;
 
     this_id = strtoul(substr, &nextstr, 16);
+	if (nextstr == substr || this_id >= sconf->bpoly_alloc) {
+		mpz_clear(Q);
+		return 1;
+	}
     substr = nextstr;
 
     if (this_offset & 0x80000000)
@@ -435,21 +457,29 @@ int process_rel(char *substr, fb_list *fb, mpz_t n,
     }
 
     j = 0;
-    do
+    while (1)
     {
+		while (isspace((unsigned char)*substr))
+			substr++;
+		if (*substr == 'L')
+			break;
+		if (j >= MAX_SMOOTH_PRIMES) {
+			mpz_clear(Q);
+			return 1;
+		}
         this_val = strtoul(substr, &nextstr, 16);
-        if (this_val == (uint32_t)(-1))
+		if (nextstr == substr || this_val >= fb->B)
         {
-            printf("error parsing relation: strtoul returned error code\n");
-            continue;
+			mpz_clear(Q);
+			return 1;
         }
         substr = nextstr;
         fb_offsets[j] = this_val;
         j++;
-    } while (substr[1] != 'L');
+    }
     this_num_factors = j;
 
-    substr += 2;
+	 substr++;
     this_val = strtoul(substr, &nextstr, 16);
     substr = nextstr;
     lp[0] = this_val;
@@ -532,7 +562,7 @@ int process_rel(char *substr, fb_list *fb, mpz_t n,
         uint32_t prime = sconf->factor_base->list->prime[i];
         while (mpz_tdiv_ui(Q, prime) == 0)
         {
-            rel->fb_offsets[k++] = i;
+			APPEND_FACTOR(i);
             mpz_tdiv_q_ui(Q, Q, prime);
         }
     }
@@ -554,29 +584,28 @@ int process_rel(char *substr, fb_list *fb, mpz_t n,
         uint32_t prime;
 
         if (fb_offsets[i] < sconf->curr_poly->qlisort[j]) {
-            rel->fb_offsets[k++] = fb_offsets[i++];
+			APPEND_FACTOR(fb_offsets[i++]);
         }
         else if (fb_offsets[i] > sconf->curr_poly->qlisort[j]) {
             // add in the one factor that will always be there because a | Q
-            rel->fb_offsets[k++] = sconf->curr_poly->qlisort[j];
+			APPEND_FACTOR(sconf->curr_poly->qlisort[j]);
             prime = sconf->factor_base->list->prime[sconf->curr_poly->qlisort[j]];
 
             // then test and add more if we can
             while (mpz_tdiv_ui(Q, prime) == 0)
             {
-                rel->fb_offsets[k++] = sconf->curr_poly->qlisort[j];
+				APPEND_FACTOR(sconf->curr_poly->qlisort[j]);
                 mpz_tdiv_q_ui(Q, Q, prime);
             }
             j++;
         }
         else {
-            rel->fb_offsets[k] = fb_offsets[i++];
-            rel->fb_offsets[k + 1] = sconf->curr_poly->qlisort[j];
+			APPEND_FACTOR(fb_offsets[i++]);
+			APPEND_FACTOR(sconf->curr_poly->qlisort[j]);
             prime = sconf->factor_base->list->prime[sconf->curr_poly->qlisort[j]];
-            k += 2;
             while (mpz_tdiv_ui(Q, prime) == 0)
             {
-                rel->fb_offsets[k++] = sconf->curr_poly->qlisort[j];
+				APPEND_FACTOR(sconf->curr_poly->qlisort[j]);
                 mpz_tdiv_q_ui(Q, Q, prime);
             }
             j++;
@@ -584,17 +613,17 @@ int process_rel(char *substr, fb_list *fb, mpz_t n,
     }
 
     while (i < (int)this_num_factors)
-        rel->fb_offsets[k++] = fb_offsets[i++];
+		APPEND_FACTOR(fb_offsets[i++]);
 
     while (j < sconf->curr_poly->s - NUM_ALP)
     {
-        rel->fb_offsets[k++] = sconf->curr_poly->qlisort[j];
+		APPEND_FACTOR(sconf->curr_poly->qlisort[j]);
         uint32_t prime = sconf->factor_base->list->prime[sconf->curr_poly->qlisort[j]];
 
         // then test and add more if we can
         while (mpz_tdiv_ui(Q, prime) == 0)
         {
-            rel->fb_offsets[k++] = sconf->curr_poly->qlisort[j];
+			APPEND_FACTOR(sconf->curr_poly->qlisort[j]);
             mpz_tdiv_q_ui(Q, Q, prime);
         }
         j++;
@@ -650,6 +679,7 @@ int process_rel(char *substr, fb_list *fb, mpz_t n,
 	}
 
 	//printf("done\n"); fflush(stdout);
+	#undef APPEND_FACTOR
 	return err_code;	//error code, if there is one.
 }
 
@@ -2034,7 +2064,7 @@ qs_la_col_t * find_cycles3(fact_obj_t*fobj, static_conf_t *sconf,
 	int done;
 	uint32_t max_length = 0;
 	uint32_t numfull = 0;
-	uint32_t cycle_alloc = (num_relations - *numcycles) * 2;
+	uint32_t cycle_alloc = MAX((num_relations - *numcycles) * 2, 16);
 	uint32_t num3lp = 0;
 	uint32_t num4lp = 0;
 	uint32_t numlp = sconf->num_lp + NUM_ALP;
@@ -2079,14 +2109,14 @@ qs_la_col_t * find_cycles3(fact_obj_t*fobj, static_conf_t *sconf,
 		rtmp = &relation_list[i];
 		lp = rtmp->large_prime;
 
-		pbr_entry = new_pbr_entry(pbr_table, pbr_hashtable, i, &pbr_table_size);
-
-		if (pbr_table_size == pbr_table_alloc)
+		/* new_pbr_entry 返回表内指针，扩容必须发生在取指针之前。 */
+		if (pbr_table_size + 1 >= pbr_table_alloc)
 		{
-			printf("========== had to reallocate pbr table\n");
 			pbr_table_alloc *= 2;
-			pbr_table = (pbr_t *)xrealloc(pbr_table, pbr_table_alloc * sizeof(pbr_t));
+			pbr_table = (pbr_t *)xrealloc(pbr_table,
+				pbr_table_alloc * sizeof(pbr_t));
 		}
+		pbr_entry = new_pbr_entry(pbr_table, pbr_hashtable, i, &pbr_table_size);
 
 		// special cases:
 		if (numlp == 3)
@@ -2097,7 +2127,15 @@ qs_la_col_t * find_cycles3(fact_obj_t*fobj, static_conf_t *sconf,
 				{
 					// list as a single large prime relation
 					printf("special case single large prime\n");
-					rbp_t* rbp_entry = new_rbp_entry(rbp_table, rbp_hashtable, lp[0], &rbp_table_size);
+					rbp_t* rbp_entry;
+					if (rbp_table_size + 1 >= rbp_table_alloc)
+					{
+						rbp_table_alloc *= 2;
+						rbp_table = (rbp_t *)xrealloc(rbp_table,
+							rbp_table_alloc * sizeof(rbp_t));
+					}
+					rbp_entry = new_rbp_entry(rbp_table, rbp_hashtable,
+						lp[0], &rbp_table_size);
 
 					rbp_entry->rids[rbp_entry->num_rids] = i;
 					rbp_entry->num_rids++;
@@ -2110,13 +2148,17 @@ qs_la_col_t * find_cycles3(fact_obj_t*fobj, static_conf_t *sconf,
 				{
 					// list as a full relation
 					// build a cycle and don't add the relation to the table.
-					qs_la_col_t* c = cycle_list + curr_cycle;
+					qs_la_col_t* c;
+					if (curr_cycle == cycle_alloc)
+					{
+						cycle_alloc *= 2;
+						cycle_list = (qs_la_col_t *)xrealloc(cycle_list,
+							cycle_alloc * sizeof(qs_la_col_t));
+					}
+					c = cycle_list + curr_cycle;
 
 					// we have a cycle
 					curr_cycle++;
-
-					if (curr_cycle > cycle_alloc)
-						printf("====== cycle alloc failure\n");
 
 					c->cycle.num_relations = 1;
 					c->cycle.list = (uint32_t*)xmalloc(c->cycle.num_relations *
@@ -2137,13 +2179,17 @@ qs_la_col_t * find_cycles3(fact_obj_t*fobj, static_conf_t *sconf,
 			{
 				// list as a full relation
 				// build a cycle and don't add the relation to the table.
-				qs_la_col_t* c = cycle_list + curr_cycle;
+				qs_la_col_t* c;
+				if (curr_cycle == cycle_alloc)
+				{
+					cycle_alloc *= 2;
+					cycle_list = (qs_la_col_t *)xrealloc(cycle_list,
+						cycle_alloc * sizeof(qs_la_col_t));
+				}
+				c = cycle_list + curr_cycle;
 
 				// we have a cycle
 				curr_cycle++;
-
-				if (curr_cycle > cycle_alloc)
-					printf("====== cycle alloc failure\n");
 
 				c->cycle.num_relations = 1;
 				c->cycle.list = (uint32_t*)xmalloc(c->cycle.num_relations *
@@ -2160,14 +2206,15 @@ qs_la_col_t * find_cycles3(fact_obj_t*fobj, static_conf_t *sconf,
 		{
 			if (lp[j] > 1)
 			{
-				rbp_t *rbp_entry = new_rbp_entry(rbp_table, rbp_hashtable, lp[j], &rbp_table_size);
-
-				if (rbp_table_size == rbp_table_alloc)
+				rbp_t *rbp_entry;
+				if (rbp_table_size + 1 >= rbp_table_alloc)
 				{
-					printf("=========== had to reallocate rbp table\n");
 					rbp_table_alloc *= 2;
-					rbp_table = (rbp_t *)xrealloc(rbp_table, rbp_table_alloc * sizeof(pbr_t));
+					rbp_table = (rbp_t *)xrealloc(rbp_table,
+						rbp_table_alloc * sizeof(rbp_t));
 				}
+				rbp_entry = new_rbp_entry(rbp_table, rbp_hashtable,
+					lp[j], &rbp_table_size);
 
 				// add this relation to the rbp list
 				if (rbp_entry->num_rids == rbp_entry->alloc_rids)
@@ -2273,10 +2320,18 @@ qs_la_col_t * find_cycles3(fact_obj_t*fobj, static_conf_t *sconf,
 						uint32_t rid;
 						uint32_t length = pbr_entry->chain_sz +
 							pbr_entry2->chain_sz + 2;
-						qs_la_col_t *c = cycle_list + curr_cycle;
+						qs_la_col_t *c;
 						uint32_t m = 0;
 						int has3lp = 0;
 						int has4lp = 0;
+
+						if (curr_cycle == cycle_alloc)
+						{
+							cycle_alloc *= 2;
+							cycle_list = (qs_la_col_t *)xrealloc(cycle_list,
+								cycle_alloc * sizeof(qs_la_col_t));
+						}
+						c = cycle_list + curr_cycle;
 
 						if (length > max_length)
 							max_length = length;
@@ -2284,9 +2339,6 @@ qs_la_col_t * find_cycles3(fact_obj_t*fobj, static_conf_t *sconf,
 						// we have a cycle
 						curr_cycle++;
 
-						if (curr_cycle > cycle_alloc)
-							printf("\n******ERROR cycle alloc failure\n");
-						
 						/* Now that we know how many relations are in the
 						cycle, allocate space to remember them */
 
@@ -2591,7 +2643,7 @@ void yafu_qs_filter_relations(static_conf_t *sconf) {
 	uint32_t total_poly_a;
 	uint32_t poly_saved;
 	uint32_t cycle_bins[NUM_CYCLE_BINS+1] = {0};
-	char buf[LINE_BUF_SIZE];
+	char buf[10 * MAX_SMOOTH_PRIMES + 128];
 	char *subbuf;
 	int first, last_poly;
 	uint32_t this_rel = 0;
@@ -2984,8 +3036,16 @@ void yafu_qs_filter_relations(static_conf_t *sconf) {
                 //    this_rel-1, curr_saved, c, rel->sieve_offset, rel->apoly_idx,
                 //    rel->poly_idx, rel->num_factors, rel->large_prime[0], rel->large_prime[1]);
 
-                td_and_merge_relation(sconf->factor_base,
-                    sconf->n, sconf, sconf->obj, r, rel);
+                if (td_and_merge_relation(sconf->factor_base,
+                    sconf->n, sconf, sconf->obj, r, rel))
+                {
+                    if (fobj->logfile != NULL)
+                        logprint(fobj->logfile,
+                            "failed to merge in-memory relation %u\n", this_rel - 1);
+                    if (fobj->VFLAG > 1)
+                        printf("failed to merge in-memory relation %u\n", this_rel - 1);
+                    break;
+                }
 
                 table = sconf->cycle_table;
 			}

@@ -59,7 +59,7 @@ static INLINE void uint64_2gmp(uint64_t src, mpz_t dest) {
 static INLINE void int64_2gmp(int64_t src, mpz_t dest) {
 
 	if (src < 0) {
-		uint64_2gmp((uint64_t)(-src), dest);
+		uint64_2gmp(UINT64_C(0) - (uint64_t)src, dest);
 		mpz_neg(dest, dest);
 	}
 	else {
@@ -105,7 +105,7 @@ static INLINE uint64_t gmp2uint64(mpz_t src) {
 static INLINE int64_t gmp2int64(mpz_t src) {
 
 	if (mpz_cmp_ui(src, 0) < 0) {
-		return -(int64_t)gmp2uint64(src);
+		return (int64_t)(UINT64_C(0) - gmp2uint64(src));
 	}
 	else {
        	return (int64_t)gmp2uint64(src);
@@ -118,4 +118,3 @@ static INLINE int64_t gmp2int64(mpz_t src) {
 #endif
 
 #endif //  _GMP_U64_XFACE_H_ 
-

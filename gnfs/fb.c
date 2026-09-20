@@ -17,6 +17,43 @@ $Id: fb.c 978 2015-03-14 01:40:32Z jasonp_sf $
 
 #define REPORT_INTERVAL 20000
 
+static int32 read_factor_base_side(FILE *fp, char *buf, size_t buf_size,
+			fb_entry_t *entries, uint32 num_entries) {
+	uint32 i = 0;
+
+	while (i < num_entries && buf[0] != '\0') {
+		char *tmp = buf;
+		char *next_field;
+		unsigned long p_value = strtoul(tmp, &next_field, 10);
+
+		if (next_field == tmp || p_value > UINT32_MAX ||
+			(*next_field != ' ' && *next_field != '\t'))
+			return -1;
+		tmp = next_field;
+		while (*tmp == ' ' || *tmp == '\t')
+			tmp++;
+		if (*tmp == '\0' || *tmp == '\n' || *tmp == '\r')
+			return -1;
+
+		while (*tmp != '\0' && *tmp != '\n' && *tmp != '\r') {
+			unsigned long r_value = strtoul(tmp, &next_field, 10);
+			if (next_field == tmp || r_value > UINT32_MAX || i >= num_entries)
+				return -1;
+			entries[i].p = (uint32)p_value;
+			entries[i].r = (uint32)r_value;
+			i++;
+			tmp = next_field;
+			while (*tmp == ' ' || *tmp == '\t')
+				tmp++;
+		}
+
+		if (fgets(buf, (int)buf_size, fp) == NULL)
+			buf[0] = '\0';
+	}
+
+	return (i == num_entries) ? 0 : -1;
+}
+
 /*------------------------------------------------------------------*/
 void create_factor_base(msieve_obj *obj, 
 			factor_base_t *fb, 
@@ -109,6 +146,14 @@ void create_factor_base(msieve_obj *obj,
 	}
 
 	free_prime_sieve(&prime_sieve);
+	if (num_found_r == 0 || num_found_a == 0) {
+		logprintf(obj, "error: factor base bounds produced no roots\n");
+		free(rfb->entries);
+		free(afb->entries);
+		rfb->entries = NULL;
+		afb->entries = NULL;
+		exit(-1);
+	}
 	rfb->entries = (fb_entry_t *)xrealloc(rfb->entries,
 				num_found_r * sizeof(fb_entry_t));
 	afb->entries = (fb_entry_t *)xrealloc(afb->entries,
@@ -143,15 +188,12 @@ int32 read_factor_base(msieve_obj *obj, mpz_t n,
 			factor_base_t *fb) {
 	
 	int32 status = 0;
-	uint32 i;
 	FILE *fp;
 	char buf[LINE_BUF_SIZE];
 	uint32 rfb_size = 0;
 	uint32 afb_size = 0;
 
-	uint32 p, r;
 	char *tmp;
-	char *next_field;
 
 	memset(fb, 0, sizeof(factor_base_t));
 	fb->rfb.max_prime = params->rfb_limit;
@@ -179,8 +221,8 @@ int32 read_factor_base(msieve_obj *obj, mpz_t n,
 	   call will fail and (presumably) the file will get 
 	   regenerated */
 
-	fgets(buf, (int)sizeof(buf), fp);
-	while (!feof(fp)) {
+	buf[0] = '\0';
+	while (fgets(buf, (int)sizeof(buf), fp) != NULL) {
 		uint32 value;
 
 		/* stop reading configuration info when a
@@ -190,13 +232,14 @@ int32 read_factor_base(msieve_obj *obj, mpz_t n,
 			break;
 
 		if (buf[0] != 'F' && buf[0] != 'S') {
-			fgets(buf, (int)sizeof(buf), fp);
 			continue;
 		}
 
 		tmp = buf;
-		while (!isdigit(*tmp) && *tmp != '-')
+		while (*tmp != '\0' && !isdigit(*tmp) && *tmp != '-')
 			tmp++;
+		if (*tmp == '\0')
+			continue;
 		value = strtoul(tmp, NULL, 10);
 
 		if (strstr(buf, "FRNUM"))
@@ -221,7 +264,6 @@ int32 read_factor_base(msieve_obj *obj, mpz_t n,
 			params->sieve_end = sieve_size;
 		}
 
-		fgets(buf, (int)sizeof(buf), fp);
 	}
 
 	if (rfb_size == 0 || afb_size == 0) {
@@ -244,62 +286,27 @@ int32 read_factor_base(msieve_obj *obj, mpz_t n,
 		exit(-1);
 	}
 	rewind(fp);
-	fgets(buf, (int)sizeof(buf), fp);
-	while (!feof(fp) && !isdigit(buf[0])) {
-		fgets(buf, (int)sizeof(buf), fp);
-	}
+	buf[0] = '\0';
+	while (fgets(buf, (int)sizeof(buf), fp) != NULL && !isdigit(buf[0]))
+		;
 
 	/* read the rational factor base. Every prime has
 	   all of the roots for that prime listed after it.
 	   Keep reading until the file runs out, or all 
 	   entries are filled */
 
-	i = 0;
-	while (i < rfb_size) {
-		if (feof(fp))
-			break;
-
-		tmp = buf;
-		p = strtoul(tmp, &next_field, 10);
-		tmp = next_field + 1;
-		while (1) {
-			r = strtoul(tmp, &next_field, 10);
-			fb->rfb.entries[i].p = p;
-			fb->rfb.entries[i].r = r;
-			i++;
-			if (*next_field == '\n' || *next_field == '\r')
-				break;
-			tmp = next_field + 1;
-		}
-		fgets(buf, (int)sizeof(buf), fp);
-	}
-	if (i != rfb_size || fb->rfb.entries[i-1].p != params->rfb_limit) {
+	if (read_factor_base_side(fp, buf, sizeof(buf), fb->rfb.entries,
+			rfb_size) != 0 ||
+		fb->rfb.entries[rfb_size - 1].p != params->rfb_limit) {
 		status = -3;
 		goto cleanup;
 	}
 
 	/* repeat for the algebraic factor base */
 
-	i = 0;
-	while (i < afb_size) {
-		if (feof(fp))
-			break;
-
-		tmp = buf;
-		p = strtoul(tmp, &next_field, 10);
-		tmp = next_field + 1;
-		while (1) {
-			r = strtoul(tmp, &next_field, 10);
-			fb->afb.entries[i].p = p;
-			fb->afb.entries[i].r = r;
-			i++;
-			if (*next_field == '\n' || *next_field == '\r')
-				break;
-			tmp = next_field + 1;
-		}
-		fgets(buf, (int)sizeof(buf), fp);
-	}
-	if (i != afb_size || fb->afb.entries[i-1].p != params->afb_limit) {
+	if (read_factor_base_side(fp, buf, sizeof(buf), fb->afb.entries,
+			afb_size) != 0 ||
+		fb->afb.entries[afb_size - 1].p != params->afb_limit) {
 		status = -4;
 		goto cleanup;
 	}

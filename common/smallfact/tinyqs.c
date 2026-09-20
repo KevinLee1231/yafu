@@ -275,12 +275,20 @@ static void check_sieve_val_tiny(tiny_qs_params *params,
 	}
 	else {
 		mp_sub(c, &res, &res);
+		if (num_factors >= MAX_FACTORS_TINY)
+			return;
 		fb_offsets[num_factors++] = 0;
 	}
 
-	cutoff2 = LOGPRIME_SCALE_TINY * mp_bits(&res) - params->error_bits;
+	cutoff2 = LOGPRIME_SCALE_TINY * mp_bits(&res);
+	if (cutoff2 >= params->error_bits)
+		cutoff2 -= params->error_bits;
+	else
+		cutoff2 = 0;
 
 	i = mp_rjustify(&res, &res);
+	if (i > MAX_FACTORS_TINY - num_factors)
+		return;
 	for (bits += i * LOGPRIME_SCALE_TINY; i; i--)
 		fb_offsets[num_factors++] = MIN_FB_OFFSET;
 
@@ -465,8 +473,11 @@ static void sieve_next_poly_tiny(tiny_qs_params *params) {
 		}
 	}
 
-	cutoff1 = LOGPRIME_SCALE_TINY * mp_bits(&c) - 
-			params->error_bits - SMALL_PRIME_FUDGE_TINY;
+	cutoff1 = LOGPRIME_SCALE_TINY * mp_bits(&c);
+	if (cutoff1 >= params->error_bits + SMALL_PRIME_FUDGE_TINY)
+		cutoff1 -= params->error_bits + SMALL_PRIME_FUDGE_TINY;
+	else
+		cutoff1 = 0;
 	mp_add(&b, &b, &b);
 	
 	for (i = block_start = 0; i < num_sieve_blocks; i++) {

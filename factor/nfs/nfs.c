@@ -20,6 +20,7 @@ benefit from your work.
 #include <stdlib.h>
 #include "ytools.h"
 #include <math.h>
+#include <stdarg.h>
 
 #ifndef _WIN32
 #include <unistd.h>
@@ -44,6 +45,20 @@ benefit from your work.
 int NFS_ABORT;
 int IGNORE_NFS_ABORT;
 msieve_obj *obj_ptr;
+
+static int append_command(char *buffer, size_t buffer_size, const char *format, ...)
+{
+	size_t used = strlen(buffer);
+	int written;
+	va_list args;
+
+	if (used >= buffer_size)
+		return 0;
+	va_start(args, format);
+	written = vsnprintf(buffer + used, buffer_size - used, format, args);
+	va_end(args);
+	return written >= 0 && (size_t)written < buffer_size - used;
+}
 
 void set_ggnfs_tables(fact_obj_t *fobj);
 
@@ -209,7 +224,7 @@ void nfs(fact_obj_t *fobj)
 	struct timeval ustart;	// utility start time
 	double t_time;
 	uint32_t pre_batch_rels = 0;
-	char tmpstr[GSTR_MAXSIZE];
+	char tmpstr[GSTR_MAXSIZE + 32];
 	int process_done;
 	enum nfs_state_e nfs_state;
 
@@ -658,14 +673,14 @@ void nfs(fact_obj_t *fobj)
 
 		case NFS_STATE_CADO: {
 
-			gmp_printf("nfs: commencing cado-msieve nfs on c%d: %s\n", strlen(input), input);
+			gmp_printf("nfs: commencing cado-msieve nfs on c%zu: %s\n",
+				strlen(input), input);
 
 #if defined(WIN32) || defined(_WIN64)
 			printf("cadoMsieve is not available on Windows! Bailing\n");
 			exit(-1);
 #endif
 
-			FILE *fp;
 			char buffer[1024];
 
 			if (job.snfs != NULL) {
@@ -675,59 +690,115 @@ void nfs(fact_obj_t *fobj)
 			}
 
 			FILE *dat = fopen("nfs.dat", "a+");
+			checkFp(dat, "nfs.dat");
 
 			// First run
 			if (job.current_rels == 0) {
-				if (fgetc(dat) == 'N') {
-					// https://www.geeksforgeeks.org/c-program-count-number-lines-file/
-					for (char c = fgetc(dat); !feof(dat); c = fgetc(dat)) {
+				char header[GSTR_MAXSIZE + 4];
+				rewind(dat);
+				if (fgets(header, sizeof(header), dat) != NULL) {
+					int relation_has_data = 0;
+					size_t header_length = strlen(header);
+					if (header_length == 0 || header[header_length - 1] != '\n' ||
+						header[0] != 'N' ||
+						(header[1] != ' ' && header[1] != '\t')) {
+						fprintf(stderr, "nfs: nfs.dat has an invalid header\n");
+						fclose(dat);
+						nfs_state = NFS_STATE_EXIT;
+						break;
+					}
+					header[strcspn(header, "\r\n")] = '\0';
+					char *header_value = header + 2;
+					while (*header_value == ' ' || *header_value == '\t')
+						header_value++;
+					if (strcmp(header_value, input) != 0) {
+						fprintf(stderr, "nfs: nfs.dat belongs to a different input\n");
+						fclose(dat);
+						nfs_state = NFS_STATE_EXIT;
+						break;
+					}
+					int c;
+					while ((c = fgetc(dat)) != EOF) {
+						relation_has_data = 1;
 						if (c == '\n') {
 							job.current_rels++;
+							relation_has_data = 0;
 						}
 					}
-
-					// Don't count the header
-					job.current_rels--;
+					if (relation_has_data)
+						job.current_rels++;
 
 					if (job.current_rels > job.min_rels) {
 						// Immediately try to filter again
 						job.min_rels = job.current_rels;
 					}
 
-					printf("nfs: found %d relations in nfs.dat\n", job.current_rels);
-				} else {
+					printf("nfs: found %u relations in nfs.dat\n", job.current_rels);
+				} else if (feof(dat)) {
 					// Write the N header
-					sprintf(buffer, "N %s\n", input);
-					fwrite(buffer, sizeof(char), strlen(buffer), dat);
+					clearerr(dat);
+					fprintf(dat, "N %s\n", input);
 					printf("nfs: created nfs.dat\n");
+				} else {
+					fprintf(stderr, "nfs: nfs.dat has an invalid header\n");
+					fclose(dat);
+					nfs_state = NFS_STATE_EXIT;
+					break;
 				}
 			}
 
 			// Check for cado-nfs.py presence
-			sprintf(buffer, "%scado-nfs.py", fobj->nfs_obj.cado_dir);
+			int path_length = snprintf(buffer, sizeof(buffer), "%scado-nfs.py",
+				fobj->nfs_obj.cado_dir);
+			if (path_length < 0 || (size_t)path_length >= sizeof(buffer)) {
+				fprintf(stderr, "nfs: CADO executable path is too long\n");
+				fclose(dat);
+				nfs_state = NFS_STATE_EXIT;
+				break;
+			}
 			checkFilePresence(buffer);
 
 			printf("nfs: calling cado-nfs\n");
 			char syscmd[8192];
 
 			// Specify path, param file and N
-			sprintf(syscmd, "%s %sparameters/factor/params.c%d N=%s ", buffer, fobj->nfs_obj.cado_dir, cadoPower, input);
+			syscmd[0] = '\0';
+			if (!append_command(syscmd, sizeof(syscmd),
+				"%s %sparameters/factor/params.c%d N=%s ", buffer,
+				fobj->nfs_obj.cado_dir, cadoPower, input)) {
+				fprintf(stderr, "nfs: CADO command is too long\n");
+				fclose(dat);
+				nfs_state = NFS_STATE_EXIT;
+				break;
+			}
 
 			// Roundup of fobj->num_threads / 2
-			int nrclients = (fobj->num_threads / 2) + (obj->num_threads % 2);
+			int nrclients = (int)((fobj->num_threads + 1) / 2);
 			// Spawn clients based on fobj->num_threads
 			// Use sprintf to append to end of syscmd
-			sprintf(syscmd + strlen(syscmd), "slaves.nrclients=%d slaves.hostnames=localhost ", nrclients);
+			if (!append_command(syscmd, sizeof(syscmd),
+				"slaves.nrclients=%d slaves.hostnames=localhost ", nrclients) ||
 
 			// Stop after sieving enough relations
-			sprintf(syscmd + strlen(syscmd), "tasks.filter.run=false ");
+				!append_command(syscmd, sizeof(syscmd), "tasks.filter.run=false ") ||
 
 			// Reduce time before retry from 10 seconds to 1 second
-			sprintf(syscmd + strlen(syscmd), "slaves.downloadretry=1 ");
+				!append_command(syscmd, sizeof(syscmd), "slaves.downloadretry=1 ")) {
+				fprintf(stderr, "nfs: CADO command is too long\n");
+				fclose(dat);
+				nfs_state = NFS_STATE_EXIT;
+				break;
+			}
 
 			if (job.min_rels != 0) {
 				// Specify relations wanted
-				sprintf(syscmd + strlen(syscmd), "tasks.sieve.rels_wanted=%d ", job.min_rels);
+				if (!append_command(syscmd, sizeof(syscmd),
+					"tasks.sieve.rels_wanted=%d ", job.min_rels)) {
+					fprintf(stderr, "nfs: CADO command is too long\n");
+					fclose(dat);
+					nfs_state = NFS_STATE_EXIT;
+					break;
+				}
 			}
 
 			// SNFS, hell yeah!
@@ -735,27 +806,36 @@ void nfs(fact_obj_t *fobj)
 			if (job.snfs != NULL) {
 				// Create poly file
 				FILE *poly = fopen("nfs.poly", "w");
+				checkFp(poly, "nfs.poly");
 
-				sprintf(buffer, "n: %s\n", input);
-				sprintf(buffer + strlen(buffer), "skew: %f\n", job.snfs->poly->skew);
+				fprintf(poly, "n: %s\n", input);
+				fprintf(poly, "skew: %f\n", job.snfs->poly->skew);
 
 				for (int deg = MAX_POLY_DEGREE; deg >= 0; deg--) {
-					s = mpz_get_str(NULL, 10, job.snfs->c[deg]);
-					sprintf(buffer + strlen(buffer), "c%d: %s\n", deg, s);
-					free(s);
+					gmp_fprintf(poly, "c%d: %Zd\n", deg, job.snfs->c[deg]);
 				}
 
 				for (int deg = 1; deg >= 0; deg--) {
-					s = mpz_get_str(NULL, 10, job.snfs->poly->rat.coeff[deg]);
-					sprintf(buffer + strlen(buffer), "Y%d: %s\n", deg, s);
-					free(s);
+					gmp_fprintf(poly, "Y%d: %Zd\n", deg,
+						job.snfs->poly->rat.coeff[deg]);
 				}
 
-				fwrite(buffer, sizeof(char), strlen(buffer), poly);
-				fclose(poly);
+				if (fclose(poly) != 0) {
+					fprintf(stderr, "nfs: could not finish writing nfs.poly: %s\n",
+						strerror(errno));
+					fclose(dat);
+					nfs_state = NFS_STATE_EXIT;
+					break;
+				}
 
 				// Make CADO use our poly
-				sprintf(syscmd + strlen(syscmd), "tasks.polyselect.import=nfs.poly ");
+				if (!append_command(syscmd, sizeof(syscmd),
+					"tasks.polyselect.import=nfs.poly ")) {
+					fprintf(stderr, "nfs: CADO command is too long\n");
+					fclose(dat);
+					nfs_state = NFS_STATE_EXIT;
+					break;
+				}
 
 				int sqside;
 				if (job.snfs->poly->side == RATIONAL_SPQ) {
@@ -765,7 +845,13 @@ void nfs(fact_obj_t *fobj)
 				}
 
 				// Specify whether to sieve rational or algebraic side
-				sprintf(syscmd + strlen(syscmd), "tasks.sieve.sqside=%d ", sqside);
+				if (!append_command(syscmd, sizeof(syscmd),
+					"tasks.sieve.sqside=%d ", sqside)) {
+					fprintf(stderr, "nfs: CADO command is too long\n");
+					fclose(dat);
+					nfs_state = NFS_STATE_EXIT;
+					break;
+				}
 
 				// CADO seems to know the right sieving parameters, so we ignore the params from nfs.job
 				/*
@@ -781,14 +867,30 @@ void nfs(fact_obj_t *fobj)
 			// Specify work directory as an absolute path
 			char cwdBuf[4097];
 #ifdef _MSC_VER
-			_getcwd(cwdBuf, 4097);
+			if (_getcwd(cwdBuf, 4097) == NULL) {
 #else
-			getcwd(cwdBuf, 4097);
+			if (getcwd(cwdBuf, 4097) == NULL) {
 #endif
-			sprintf(syscmd + strlen(syscmd), "-w %s/cadoWorkdir", cwdBuf);
+				fprintf(stderr, "nfs: could not determine current directory: %s\n",
+					strerror(errno));
+				fclose(dat);
+				nfs_state = NFS_STATE_EXIT;
+				break;
+			}
+			if (!append_command(syscmd, sizeof(syscmd), "-w %s/cadoWorkdir", cwdBuf)) {
+				fprintf(stderr, "nfs: CADO command is too long\n");
+				fclose(dat);
+				nfs_state = NFS_STATE_EXIT;
+				break;
+			}
 
 			printf("nfs: cmdline: %s\n", syscmd);
-			system(syscmd);
+			if (system(syscmd) != 0) {
+				fprintf(stderr, "nfs: cado-nfs failed\n");
+				fclose(dat);
+				nfs_state = NFS_STATE_EXIT;
+				break;
+			}
 
 			// Check for convert_poly presence
 			checkFilePresence(fobj->nfs_obj.convert_poly_path);
@@ -799,8 +901,16 @@ void nfs(fact_obj_t *fobj)
 
 			printf("nfs: calling convert_poly to create nfs.fb from c*.poly\n");
 			// TODO: Support Windows lol
-			sprintf(syscmd, "%s -of msieve < ./cadoWorkdir/c%d.poly > nfs.fb", fobj->nfs_obj.convert_poly_path, cadoPower);
-			system(syscmd);
+			int convert_length = snprintf(syscmd, sizeof(syscmd),
+				"%s -of msieve < ./cadoWorkdir/c%d.poly > nfs.fb",
+				fobj->nfs_obj.convert_poly_path, cadoPower);
+			if (convert_length < 0 || (size_t)convert_length >= sizeof(syscmd) ||
+				system(syscmd) != 0) {
+				fprintf(stderr, "nfs: convert_poly failed\n");
+				fclose(dat);
+				nfs_state = NFS_STATE_EXIT;
+				break;
+			}
 
 			printf("nfs: appending CADO relations into nfs.dat\n");
 
@@ -810,6 +920,7 @@ void nfs(fact_obj_t *fobj)
 			checkFp(logFile, buffer);
 
 			char logLine[3072];
+			int cado_failed = 0;
 			while (fgets(logLine, 3072, logFile)) {
 				// Check if this logLine has relation filename
 				char *match = " relations in '";
@@ -819,7 +930,10 @@ void nfs(fact_obj_t *fobj)
 				// Move beyond " relations in '" text
 				filename += strlen(match);
 				// Read ptr until next ' character
-				strtok(filename, "'");
+				char *filename_end = strchr(filename, '\'');
+				if (filename_end == NULL)
+					continue;
+				*filename_end = '\0';
 
 				// filename is now something like "/home/nyancat/Tools/yafu-combined/cadoWorkdir/c85.upload/c85.146453-147000.s_yzjb7c.gz"
 				// printf("Extracting %s\n", filename);
@@ -827,9 +941,16 @@ void nfs(fact_obj_t *fobj)
 				// Extract the relations into nfs.cado
 				// Don't keep the file, as that would cause us to read it again the next run
 				// Suppress stderr with 2>/dev/null
-				sprintf(syscmd, "gunzip -c %s 1>nfs.cado 2>/dev/null && rm %s", filename, filename);
-				system(syscmd);
-				checkFilePresence("nfs.cado");
+				int cmd_length = snprintf(syscmd, sizeof(syscmd),
+					"gunzip -c '%s' 1>nfs.cado 2>/dev/null && rm -- '%s'",
+					filename, filename);
+				if (cmd_length < 0 || (size_t)cmd_length >= sizeof(syscmd) ||
+					system(syscmd) != 0) {
+					fprintf(stderr, "nfs: could not extract CADO relations from %s\n",
+						filename);
+					cado_failed = 1;
+					break;
+				}
 
 				// Read the relations
 				FILE *relatFile = fopen("nfs.cado", "r");
@@ -841,20 +962,36 @@ void nfs(fact_obj_t *fobj)
 					if (relatLine[0] == '#') continue;
 
 					// fgets include \n already
-					fwrite(relatLine, sizeof(char), strlen(relatLine), dat);
+					size_t line_length = strlen(relatLine);
+					if (fwrite(relatLine, sizeof(char), line_length, dat) != line_length) {
+						fprintf(stderr, "nfs: could not append CADO relations: %s\n",
+							strerror(errno));
+						cado_failed = 1;
+						break;
+					}
 					job.current_rels++;
 				}
 				fclose(relatFile);
+				if (cado_failed)
+					break;
 			}
 			fclose(logFile);
-			fclose(dat);
+			if (fclose(dat) != 0) {
+				fprintf(stderr, "nfs: could not finish writing nfs.dat: %s\n",
+					strerror(errno));
+				cado_failed = 1;
+			}
+			if (cado_failed) {
+				nfs_state = NFS_STATE_EXIT;
+				break;
+			}
 
 			// min_rels is not set by YAFU during GNFS
 			if (job.min_rels == 0) {
 				job.min_rels = job.current_rels;
 			}
 
-			printf("nfs: now have %d relations\n", job.current_rels);
+			printf("nfs: now have %u relations\n", job.current_rels);
 			nfs_state = NFS_STATE_FILTER;
 			break;
 		}
@@ -1247,7 +1384,8 @@ void nfs(fact_obj_t *fobj)
 				if (fobj->VFLAG >= 0)
 				{
 					printf("nfs: elapsed time of %6.4f seconds exceeds specified "
-						"nfs timeout of %1.4f sec, exiting\n", t_time, fobj->nfs_obj.timeout);
+						"nfs timeout of %u sec, exiting\n", t_time,
+						fobj->nfs_obj.timeout);
 				}
 				nfs_state = NFS_STATE_EXIT;
 			}
@@ -1621,14 +1759,18 @@ int check_for_sievers(fact_obj_t *fobj, int revert_to_siqs)
 		(fobj->nfs_obj.nfs_phases & NFS_PHASE_SIEVE))
 	{
 		FILE *test;
-		char name[1024];
-		int found, i;
+		char name[GSTR_MAXSIZE + 32];
+		int found = 0, i;
 
 		for (i=11; i<=16; i++)
 		{
-			sprintf(name, "%sggnfs-lasieve4I%de", fobj->nfs_obj.ggnfs_dir, i);
+			name[0] = '\0';
+			if (!append_command(name, sizeof(name), "%sggnfs-lasieve4I%de",
+				fobj->nfs_obj.ggnfs_dir, i))
+				continue;
 #if defined(WIN32)
-			sprintf(name, "%s.exe", name);
+			if (!append_command(name, sizeof(name), ".exe"))
+				continue;
 #endif
 			// test for existence of the siever
 			test = fopen(name, "rb");
@@ -1639,9 +1781,13 @@ int check_for_sievers(fact_obj_t *fobj, int revert_to_siqs)
 				break;
 			}
 
-            sprintf(name, "%sgnfs-lasieve4I%de", fobj->nfs_obj.ggnfs_dir, i);
+			name[0] = '\0';
+			if (!append_command(name, sizeof(name), "%sgnfs-lasieve4I%de",
+				fobj->nfs_obj.ggnfs_dir, i))
+				continue;
 #if defined(WIN32)
-            sprintf(name, "%s.exe", name);
+			if (!append_command(name, sizeof(name), ".exe"))
+				continue;
 #endif
             // test for existence of the siever
             test = fopen(name, "rb");
@@ -1906,6 +2052,7 @@ double* parse_params_file(char* filename, int *numrows)
 				{
 					free(table);
 				}
+				fclose(fid);
 				return NULL;
 			}
 		}
@@ -2440,9 +2587,20 @@ int get_ggnfs_params(fact_obj_t *fobj, nfs_job_t *job)
 		job->startq = fobj->nfs_obj.startq;
 	}
 
-	sprintf(job->sievername, "%sgnfs-lasieve4I%de", fobj->nfs_obj.ggnfs_dir, fobj->nfs_obj.siever);
+	int siever_length = snprintf(job->sievername, sizeof(job->sievername),
+		"%sgnfs-lasieve4I%de", fobj->nfs_obj.ggnfs_dir,
+		fobj->nfs_obj.siever);
+	if (siever_length < 0 || (size_t)siever_length >= sizeof(job->sievername))
+	{
+		fprintf(stderr, "nfs: siever path is too long\n");
+		exit(-1);
+	}
 #if defined(WIN32)
-	sprintf(job->sievername, "%s.exe", job->sievername);
+	if (!append_command(job->sievername, sizeof(job->sievername), ".exe"))
+	{
+		fprintf(stderr, "nfs: siever path is too long\n");
+		exit(-1);
+	}
 #endif
 
 	return betterskew;

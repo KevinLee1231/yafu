@@ -1712,6 +1712,12 @@ Queue_t* newQueue(uint32_t sz, int isStack)
 
 void enqueue(Queue_t* Q, uint32_t e)
 {
+	if (Q->len == Q->sz)
+	{
+		printf("warning: Q overflowed\n");
+		return;
+	}
+
     Q->Q[Q->tail++] = e;
     Q->len++;
 
@@ -1720,11 +1726,7 @@ void enqueue(Queue_t* Q, uint32_t e)
         Q->tail = 0;
     }
 
-    if (Q->len >= Q->sz)
-    {
-        printf("warning: Q overflowed\n");
-    }
-    return;
+	return;
 }
 
 uint32_t dequeue(Queue_t* Q)
@@ -1733,14 +1735,12 @@ uint32_t dequeue(Queue_t* Q)
 
     if (Q->len > 0)
     {
-        if (Q->isStack)
-        {
-            e = Q->Q[Q->tail];
-
-            if (Q->tail > 0)
-            {
-                Q->tail--;
-            }
+		if (Q->isStack)
+		{
+			if (Q->tail == 0)
+				Q->tail = Q->sz;
+			Q->tail--;
+			e = Q->Q[Q->tail];
         }
         else
         {
@@ -1768,8 +1768,11 @@ uint32_t peekqueue(Queue_t* Q)
     uint32_t e = -1;
     if (Q->len > 0)
     {
-        if (Q->isStack)
-            e = Q->Q[Q->tail];
+		if (Q->isStack)
+		{
+			uint32_t tail = (Q->tail == 0) ? Q->sz - 1 : Q->tail - 1;
+			e = Q->Q[tail];
+		}
         else
             e = Q->Q[Q->head];
     }
@@ -1871,40 +1874,52 @@ char* get_full_line(char* line, int *sz, FILE* fid)
     // if line is allocated (non-null), then use it, otherwise allocate it.
     // return the (possibly modified) pointer to the next full line in the file.
     // also return the updated size in the *sz pointer.
-    char* ptr;
-    char tmpline[1024];
+	char tmpline[1024];
 
     if (line == NULL)
     {
         *sz = 1024;
-        line = (char*)malloc(1024 * sizeof(char));
-    }
+		line = (char*)xmalloc(1024 * sizeof(char));
+	}
 
-    strcpy(line, "");
-    do
-    {
-        int j;
-        while (1)
-        {
-            ptr = fgets(tmpline, 1024, fid);
-            strcpy(line + strlen(line), tmpline);
+	line[0] = '\0';
+	do
+	{
+		int j;
+		while (1)
+		{
+			size_t used;
+			size_t added;
+			char* ptr = fgets(tmpline, sizeof(tmpline), fid);
 
-            // stop if we didn't read anything
-            if ((feof(fid)) || (ptr == NULL))
-            {
-                free(line);
-                return NULL;
-            }
+			if (ptr == NULL)
+			{
+				if (line[0] == '\0')
+				{
+					free(line);
+					return NULL;
+				}
+				break;
+			}
 
-            // if we got the end of the line, stop reading
-            if ((line[strlen(line) - 1] == 0xa) ||
-                (line[strlen(line) - 1] == 0xd))
-                break;
+			used = strlen(line);
+			added = strlen(tmpline);
+			if (used + added + 1 > (size_t)*sz)
+			{
+				size_t needed = used + added + 1;
+				size_t new_size = (size_t)*sz;
+				while (new_size < needed)
+					new_size += 1024;
+				line = (char*)xrealloc(line, new_size);
+				*sz = (int)new_size;
+			}
+			memcpy(line + used, tmpline, added + 1);
 
-            // else reallocate the buffer and get some more
-            *sz += 1024;
-            line = (char*)realloc(line, (strlen(line) + 1024) * sizeof(char));
-        }
+			// if we got the end of the line, stop reading
+			if ((added > 0) && ((tmpline[added - 1] == 0xa) ||
+				(tmpline[added - 1] == 0xd)))
+				break;
+		}
 
         // remove trailing LF and CRs from line
         for (j = (int)strlen(line) - 1; j > 0; j--)
@@ -2069,13 +2084,12 @@ void CombinationRepetition(int arr[], int n, int r)
 {
     // Allocate memory
     int* chosen = (int*)xmalloc((r + 1) * sizeof(int));
-    int num;
+	int num = 0;
 
     // Call the recursive function
     CombinationRepetitionUtil(chosen, arr, 0, r, 0, n - 1, &num);
 
     free(chosen);
 }
-
 
 

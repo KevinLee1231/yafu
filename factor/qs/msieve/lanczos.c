@@ -832,11 +832,11 @@ void yafu_dump_lanczos_state(fact_obj_t *obj,
 			uint32_t n, uint32_t dim_solved, uint32_t iter,
 			uint32_t s[2][64], uint32_t dim1) {
 
-	char buf[256];
+	char buf[sizeof(obj->savefile_name) + sizeof(".chk")];
 	FILE *dump_fp;
 
 	
-	sprintf(buf, "%s.chk", obj->savefile_name);
+	snprintf(buf, sizeof(buf), "%s.chk", obj->savefile_name);
 	dump_fp = fopen(buf, "wb");
 	if (dump_fp == NULL) {
 		printf("error: cannot open matrix checkpoint file\n");
@@ -873,11 +873,11 @@ void yafu_read_lanczos_state(fact_obj_t *obj,
 
 	uint32_t read_n;
 	uint32_t status;
-	char buf[256];
+	char buf[sizeof(obj->savefile_name) + sizeof(".chk")];
 	FILE *dump_fp;
 
 	
-	sprintf(buf, "%s.chk", obj->savefile_name);
+	snprintf(buf, sizeof(buf), "%s.chk", obj->savefile_name);
 	dump_fp = fopen(buf, "rb");
 	if (dump_fp == NULL) {
 		printf("error: cannot open matrix checkpoint file\n");

@@ -470,7 +470,7 @@ typedef struct
 	uint32_t flags;				    // state flags
     char *input_str;                // a copy of the input string
     int input_str_alloc;
-    char argc;                      // number of input arguments to yafu
+    int argc;                       // 命令行参数个数，保持与 main() 的类型一致
     char** argv;                    // pointer to the input arguments to yafu (read only)
 
 	// info for work done in various places during this factorization

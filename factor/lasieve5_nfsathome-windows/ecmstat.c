@@ -19,8 +19,10 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include <gmp.h>
 #include "asm/siever-config.h"
 #include "if.h"
+#include "asm/zeit.h"
 
 #include "asm/montgomery_mul.h"
+#include "ecm.h"
 
 char *input_line=NULL;
 size_t input_line_alloc=0;
@@ -226,4 +228,3 @@ int main(int argc, char *argv[])
   }
   exit(0);
 }
-

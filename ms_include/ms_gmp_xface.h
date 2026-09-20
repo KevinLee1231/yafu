@@ -46,6 +46,14 @@ static INLINE void mp2gmp(mp_t *src, mpz_t dest) {
 static INLINE void gmp2mp(mpz_t src, mp_t *dest) {
 
 	size_t count;
+	size_t bits = mpz_sizeinbase(src, 2);
+
+	if (bits > 32 * MAX_MP_WORDS) {
+		/* 固定长度目标无法表示该数，明确停止而不是写出数组。 */
+		fprintf(stderr, "gmp2mp input exceeds %u bits\n",
+			(unsigned)(32 * MAX_MP_WORDS));
+		exit(-1);
+	}
 
 	mp_clear(dest);
 	mpz_export(dest->val, &count, -1, sizeof(uint32),
@@ -70,7 +78,9 @@ static INLINE void uint64_2gmp(uint64 src, mpz_t dest) {
 static INLINE void int64_2gmp(int64 src, mpz_t dest) {
 
 	if (src < 0) {
-		uint64_2gmp((uint64)(-src), dest);
+		/* 先加一再取反，避免 INT64_MIN 上的有符号溢出。 */
+		uint64 magnitude = (uint64)(-(src + 1)) + 1;
+		uint64_2gmp(magnitude, dest);
 		mpz_neg(dest, dest);
 	}
 	else {
@@ -94,6 +104,12 @@ static INLINE uint64 gmp2uint64(mpz_t src) {
 
 /*--------------------------------------------------------------------*/
 static INLINE int64 gmp2int64(mpz_t src) {
+	uint64 magnitude;
+	const uint64 sign_bit = (uint64)1 << 63;
+	if (mpz_sizeinbase(src, 2) > 64) {
+		fprintf(stderr, "gmp2int64 input is out of range\n");
+		exit(-1);
+	}
 
 	if (mpz_cmp_ui(src, 0) < 0) {
 		// when ULL_NO_UL is active and GMP_BITS_PER_ULONG = 32, then
@@ -101,12 +117,23 @@ static INLINE int64 gmp2int64(mpz_t src) {
 		// input is non-negative.  But it works in all cases if the input
 		// is non-negative.  So we do a quick double negation.
 		mpz_neg(src, src);
-		uint64 result = gmp2uint64(src);
+		magnitude = gmp2uint64(src);
 		mpz_neg(src, src);
-		return -(int64)result;
+		if (magnitude == sign_bit)
+			return (int64)(-9223372036854775807LL - 1LL);
+		if (magnitude > sign_bit) {
+			fprintf(stderr, "gmp2int64 input is out of range\n");
+			exit(-1);
+		}
+		return -(int64)magnitude;
 	}
 	else {
-       		return (int64)gmp2uint64(src);
+		magnitude = gmp2uint64(src);
+		if (magnitude >= sign_bit) {
+			fprintf(stderr, "gmp2int64 input is out of range\n");
+			exit(-1);
+		}
+		return (int64)magnitude;
 	}
 }
 

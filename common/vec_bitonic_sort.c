@@ -182,7 +182,39 @@ uint32_t next_power_2(uint32_t sz)
 		printf("buffer too big, sz must be <= 2^31 in sort()\n");
 		exit(0);
 	}
-	return (1 << (32 - new_sz));
+	return (UINT32_C(1) << (32 - new_sz));
+}
+
+static void scalar_sort64(uint64_t *data, uint32_t sz, int dir)
+{
+	uint32_t i;
+
+	for (i = 1; i < sz; i++) {
+		uint64_t value = data[i];
+		uint32_t j = i;
+
+		while (j > 0 && (dir ? data[j - 1] < value : data[j - 1] > value)) {
+			data[j] = data[j - 1];
+			j--;
+		}
+		data[j] = value;
+	}
+}
+
+static void scalar_sort32(uint32_t *data, uint32_t sz, int dir)
+{
+	uint32_t i;
+
+	for (i = 1; i < sz; i++) {
+		uint32_t value = data[i];
+		uint32_t j = i;
+
+		while (j > 0 && (dir ? data[j - 1] < value : data[j - 1] > value)) {
+			data[j] = data[j - 1];
+			j--;
+		}
+		data[j] = value;
+	}
 }
 
 #if defined(USE_AVX512F)
@@ -5579,7 +5611,15 @@ void sort(uint64_t *data, uint32_t sz, int dir)
 	// 2) the bitonic sort works on a power-of-2 sized array
 	// here we make sure we feed the bitonic sort function
 	// an array that satifies those requirements.
-	int is_aligned = (((uint64_t)data & 0x3full) == 0);
+	int is_aligned;
+	int needs_copy;
+
+	if (sz < 64) {
+		scalar_sort64(data, sz, dir);
+		return;
+	}
+
+	is_aligned = (((uint64_t)data & 0x3full) == 0);
 	if (is_aligned && ((sz & (sz - 1)) == 0))
 	{
 		// meets both requirements as-is
@@ -5596,10 +5636,11 @@ void sort(uint64_t *data, uint32_t sz, int dir)
 	}
 		
 	uint64_t *adata;
+	needs_copy = !is_aligned || new_sz != sz;
 	
-	if (!is_aligned)
+	if (needs_copy)
 	{
-		adata = (uint64_t*)aligned_malloc(new_sz * sizeof(uint64_t), 64);
+		adata = (uint64_t*)xmalloc_align(new_sz * sizeof(uint64_t));
 		memcpy(adata, data, sz * sizeof(uint64_t));
 	}
 	else
@@ -5617,10 +5658,10 @@ void sort(uint64_t *data, uint32_t sz, int dir)
 	
 	bitonic_sort(adata, new_sz, dir);
 	
-	if (!is_aligned)
+	if (needs_copy)
 	{
 		memcpy(data, adata, sz * sizeof(uint64_t));
-		aligned_free(adata);
+		align_free(adata);
 	}
 	
 	return;
@@ -6229,7 +6270,15 @@ void sort32(uint32_t *data, uint32_t sz, int dir)
 	// 2) the bitonic sort works on a power-of-2 sized array
 	// here we make sure we feed the bitonic sort function
 	// an array that satifies those requirements.
-	int is_aligned = (((uint64_t)data & 0x3full) == 0);
+	int is_aligned;
+	int needs_copy;
+
+	if (sz < 64) {
+		scalar_sort32(data, sz, dir);
+		return;
+	}
+
+	is_aligned = (((uint64_t)data & 0x3full) == 0);
 	if (is_aligned && ((sz & (sz - 1)) == 0))
 	{
 		// meets both requirements as-is
@@ -6242,20 +6291,15 @@ void sort32(uint32_t *data, uint32_t sz, int dir)
 	uint32_t new_sz = sz;
 	if ((sz & (sz - 1)) > 0)
 	{
-		new_sz = my_clz32(sz);
-		if (new_sz == 0)
-		{
-			printf("buffer too big, sz must be <= 2^31 in sort()\n");
-			exit(0);
-		}
-		new_sz = 1 << (32 - new_sz + 1);
+		new_sz = next_power_2(sz);
 	}
 		
 	uint32_t *adata;
+	needs_copy = !is_aligned || new_sz != sz;
 	
-	if (!is_aligned)
+	if (needs_copy)
 	{
-		adata = (uint32_t*)aligned_malloc(new_sz * sizeof(uint32_t), 64);
+		adata = (uint32_t*)xmalloc_align(new_sz * sizeof(uint32_t));
 		memcpy(adata, data, sz * sizeof(uint32_t));
 	}
 	else
@@ -6266,19 +6310,19 @@ void sort32(uint32_t *data, uint32_t sz, int dir)
 	if ((new_sz - sz) > 0)
 	{
 		if (dir == 0)
-			memset(adata + sz, 0xff, (new_sz - sz));
+			memset(adata + sz, 0xff, (new_sz - sz) * sizeof(uint32_t));
 		else
-			memset(adata + sz, 0, (new_sz - sz));
+			memset(adata + sz, 0, (new_sz - sz) * sizeof(uint32_t));
 	}
 	
 	bitonic_sort32(adata, new_sz, dir);
 	
-	if (!is_aligned)
+	if (needs_copy)
 	{
 		memcpy(data, adata, sz * sizeof(uint32_t));
-		aligned_free(adata);
+		align_free(adata);
 	}
-	
+
 	return;
 }
 
@@ -6386,4 +6430,4 @@ void bucket_sort32(uint32_t *buckets, uint32_t bucket_size, uint32_t *bucket_cou
 
 #endif
 
-	
+

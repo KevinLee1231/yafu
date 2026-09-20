@@ -37,6 +37,17 @@
 #include <gmp.h>
 #include "mpz_aprcl32.h"
 
+static void set_lucas_discriminant(mpz_t d, long int p, long int q)
+{
+  mpz_t zq;
+  mpz_set_si(d, p);
+  mpz_mul(d, d, d);
+  mpz_init_set_si(zq, q);
+  mpz_mul_ui(zq, zq, 4);
+  mpz_sub(d, d, zq);
+  mpz_clear(zq);
+}
+
 
 /* ******************************************************************
  * mpz_prp: (also called a Fermat pseudoprime)
@@ -235,12 +246,18 @@ int mpz_sprp(mpz_t n, mpz_t a)
  * *************************************************************************/
 int mpz_fibonacci_prp(mpz_t n, long int p, long int q)
 {
-  mpz_t pmodn, zP;
+  mpz_t pmodn, zP, zD;
   mpz_t vl, vh, ql, qh, tmp; /* used for calculating the Lucas V sequence */
   int s = 0, j = 0;
 
-  if (p*p-4*q == 0)
+  mpz_init(zD);
+  set_lucas_discriminant(zD, p, q);
+  if (mpz_sgn(zD) == 0)
+  {
+    mpz_clear(zD);
     return PRP_ERROR;
+  }
+  mpz_clear(zD);
 
   if (((q != 1) && (q != -1)) || (p <= 0))
     return PRP_ERROR;
@@ -373,11 +390,6 @@ int mpz_lucas_prp(mpz_t n, long int p, long int q)
   mpz_t uh, vl, vh, ql, qh, tmp; /* used for calculating the Lucas U sequence */
   int s = 0, j = 0;
   int ret = 0;
-  long int d = p*p - 4*q;
-
-  if (d == 0) /* Does not produce a proper Lucas sequence */
-    return PRP_ERROR;
-
   if (mpz_cmp_ui(n, 2) < 0)
     return PRP_COMPOSITE;
 
@@ -389,8 +401,15 @@ int mpz_lucas_prp(mpz_t n, long int p, long int q)
       return PRP_COMPOSITE;
   }
 
+  mpz_init(zD);
+  set_lucas_discriminant(zD, p, q);
+  if (mpz_sgn(zD) == 0) /* Does not produce a proper Lucas sequence */
+  {
+    mpz_clear(zD);
+    return PRP_ERROR;
+  }
+
   mpz_init(index);
-  mpz_init_set_si(zD, d);
   mpz_init(res);
 
   mpz_mul_si(res, zD, q);
@@ -543,13 +562,9 @@ int mpz_stronglucas_prp(mpz_t n, long int p, long int q)
   mpz_t nmj; /* n minus jacobi(D/n) */
   mpz_t res;
   mpz_t uh, vl, vh, ql, qh, tmp; /* these are needed for the LucasU and LucasV part of this function */
-  long int d = p*p - 4*q;
   unsigned long int r = 0;
   int ret = 0;
   unsigned long int j = 0;
-
-  if (d == 0) /* Does not produce a proper Lucas sequence */
-    return PRP_ERROR;
 
   if (mpz_cmp_ui(n, 2) < 0)
     return PRP_COMPOSITE;
@@ -562,7 +577,14 @@ int mpz_stronglucas_prp(mpz_t n, long int p, long int q)
       return PRP_COMPOSITE;
   }
 
-  mpz_init_set_si(zD, d);
+  mpz_init(zD);
+  set_lucas_discriminant(zD, p, q);
+  if (mpz_sgn(zD) == 0) /* Does not produce a proper Lucas sequence */
+  {
+    mpz_clear(zD);
+    return PRP_ERROR;
+  }
+
   mpz_init(res);
 
   mpz_mul_si(res, zD, q);
@@ -740,14 +762,10 @@ int mpz_extrastronglucas_prp(mpz_t n, long int p)
   mpz_t nmj; /* n minus jacobi(D/n) */
   mpz_t res;
   mpz_t uh, vl, vh, ql, qh, tmp; /* these are needed for the LucasU and LucasV part of this function */
-  long int d = p*p - 4;
   long int q = 1;
   unsigned long int r = 0;
   int ret = 0;
   unsigned long int j = 0;
-
-  if (d == 0) /* Does not produce a proper Lucas sequence */
-    return PRP_ERROR;
 
   if (mpz_cmp_ui(n, 2) < 0)
     return PRP_COMPOSITE;
@@ -760,7 +778,14 @@ int mpz_extrastronglucas_prp(mpz_t n, long int p)
       return PRP_COMPOSITE;
   }
 
-  mpz_init_set_si(zD, d);
+  mpz_init(zD);
+  set_lucas_discriminant(zD, p, q);
+  if (mpz_sgn(zD) == 0) /* Does not produce a proper Lucas sequence */
+  {
+    mpz_clear(zD);
+    return PRP_ERROR;
+  }
+
   mpz_init(res);
 
   mpz_mul_ui(res, zD, 2);
@@ -884,7 +909,7 @@ int mpz_extrastronglucas_prp(mpz_t n, long int p)
     return PRP_PRP;
   }
 
-  for (j = 1; j < r-1; j++)
+  for (j = 1; r > 1 && j < r-1; j++)
   {
     /* vl = vl*vl - 2*ql (mod n) */
     mpz_mul(vl, vl, vl);
@@ -1324,24 +1349,16 @@ int aiT[] =  {
   1396755360};/* | 4.0165 E1913 | 424 |  232792561 | p={2,3,5,7,11,13,17,19} */
 
 
-int aiInv[PWmax];
-mpz_t biTmp;
-mpz_t biExp;
-mpz_t biN;
-mpz_t biR;
-mpz_t biS;
-mpz_t biT;
-mpz_t biU;
-mpz_t *aiJS; /* [PWmax] */
-mpz_t *aiJW; /* [PWmax] */
-mpz_t *aiJX; /* [PWmax] */
-mpz_t *aiJ0; /* [PWmax] */
-mpz_t *aiJ1; /* [PWmax] */
-mpz_t *aiJ2; /* [PWmax] */
-mpz_t *aiJ00; /* [PWmax] */
-mpz_t *aiJ01; /* [PWmax] */
-int NumberLength; /* Length of multiple precision nbrs */
-mpz_t TestNbr;
+/* 每个线程独占证明过程中的可写状态。 */
+#ifdef _MSC_VER
+#define APRCL_THREAD_LOCAL __declspec(thread)
+#else
+#define APRCL_THREAD_LOCAL _Thread_local
+#endif
+static APRCL_THREAD_LOCAL int aiInv[PWmax];
+static APRCL_THREAD_LOCAL mpz_t biTmp, biExp, biN, biR, biS, biT, biU, TestNbr;
+static APRCL_THREAD_LOCAL mpz_t *aiJS, *aiJW, *aiJX, *aiJ0, *aiJ1, *aiJ2, *aiJ00, *aiJ01;
+static APRCL_THREAD_LOCAL int NumberLength; /* Length of multiple precision nbrs */
 
 /* ============================================================================================== */
 
@@ -1356,6 +1373,8 @@ void allocate_vars(void)
   aiJ2 = malloc(PWmax * sizeof(mpz_t));
   aiJ00 = malloc(PWmax * sizeof(mpz_t));
   aiJ01 = malloc(PWmax * sizeof(mpz_t));
+  if (!aiJS || !aiJW || !aiJX || !aiJ0 || !aiJ1 || !aiJ2 || !aiJ00 || !aiJ01)
+    abort();
   for (i = 0 ; i < PWmax; i++)
   {
     mpz_init(aiJS[i]);
@@ -1555,6 +1574,12 @@ void JS_E(int PK, int PL, int PM, int P)
 {
   int K;
   long Mask;
+
+  if (mpz_sgn(biExp) == 0)
+  {
+    for (K = 0; K < PK; K++) mpz_set_ui(aiJS[K], K == 0);
+    return;
+  }
 
   if (mpz_cmp_ui(biExp, 1) == 0)
   {
@@ -2280,7 +2305,7 @@ MainStart:
           NP = aiNP[LEVELnow];
           /* biS = 2; */
           mpz_set_ui(biS, 2);
-          for (J = 0; J <= aiNQ[LEVELnow]; J++)
+          for (J = 0; J < aiNQ[LEVELnow]; J++)
           {
             Q = aiQ[J];
             if (T%(Q-1) != 0) continue;

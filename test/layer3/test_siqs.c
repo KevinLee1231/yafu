@@ -29,6 +29,7 @@
 #include "testkit.h"
 #include <gmp.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "factor.h"
 #include "qs.h"
 
@@ -73,6 +74,7 @@ static void siqs_case(tk_ctx *tk, const char *decimal)
     fflush(stdout);
 
     free_factobj(fobj);
+    free(fobj);
     mpz_clears(N, prod, pe, NULL);
 }
 
@@ -86,9 +88,9 @@ static void t_siqs_c70(tk_ctx *tk)
 { siqs_case(tk, "6470287906463336878241474855987746904297564226439499503918586590778209"); }
 
 static const tk_test tk__siqs_tests[] = {
-    { "siqs_c50", t_siqs_c50, "slow siqs integration" },
-    { "siqs_c60", t_siqs_c60, "slow siqs integration" },
-    { "siqs_c70", t_siqs_c70, "slow siqs integration" }
+    { "siqs_c50", t_siqs_c50, "slow siqs integration siqs-c50" },
+    { "siqs_c60", t_siqs_c60, "slow siqs integration siqs-c60" },
+    { "siqs_c70", t_siqs_c70, "slow siqs integration siqs-c70" }
 };
 
 const tk_module tk_module_siqs = {

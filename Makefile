@@ -110,9 +110,11 @@ ifeq ($(DETECTED_OS),Windows)
     SYS_INC_PATHS := /mingw64/include /mingw32/include /usr/include
     SYS_LIB_PATHS := /mingw64/lib     /mingw32/lib     /usr/lib
 else
-    SYS_INC_PATHS := /usr/include /usr/local/include /opt/local/include
+    MULTIARCH := $(shell $(CC) -print-multiarch 2>/dev/null)
+    SYS_INC_PATHS := $(if $(MULTIARCH),/usr/include/$(MULTIARCH)) \
+                     /usr/include /usr/local/include /opt/local/include
     SYS_LIB_PATHS := /usr/lib /usr/lib64 /usr/local/lib \
-                     /usr/lib/x86_64-linux-gnu
+                     $(if $(MULTIARCH),/usr/lib/$(MULTIARCH))
 endif
 
 
@@ -470,6 +472,19 @@ endif
 # -----------------------------------------------------------------------------
 
 # --- USE_NATIVE: auto-detect ISA from the build CPU --------------------------
+# 通用构建必须在探测和级联启用指令集之前清除配置中的特定指令集选项。
+ifeq ($(FORCE_GENERIC),1)
+    override USE_NATIVE :=
+    override USE_SSE41 :=
+    override USE_AVX2 :=
+    override USE_BMI2 :=
+    override USE_AVX512 :=
+    override USE_AVX512IFMA :=
+    override USE_AVX512PF :=
+    override ICELAKE :=
+    override SKYLAKEX :=
+    override KNL :=
+endif
 #
 # Queries the compiler for the preprocessor macros it defines when targeting
 # the native CPU (-march=native -dM -E).  This approach works identically
@@ -487,7 +502,7 @@ endif
 # The feature-enablement flags (-mavx2, -msse4.1 etc.) are safe alongside
 # -march=native and are kept.
 # -----------------------------------------------------------------------------
-ifdef USE_NATIVE
+ifeq ($(USE_NATIVE),1)
     ifeq ($(DETECTED_OS),Windows)
         $(error USE_NATIVE is not supported on Windows/MinGW builds. \
             -march=native does not reliably enable the expected ISA instructions \
@@ -584,7 +599,7 @@ endif
 ifeq ($(USE_AVX2),1)
     CFLAGS += -DUSE_AVX2
     ifeq ($(COMPILER_FAMILY),icc)
-        ifndef USE_NATIVE
+        ifneq ($(USE_NATIVE),1)
             CFLAGS += -march=core-avx2
         endif
     else
@@ -605,7 +620,7 @@ ifeq ($(USE_AVX512),1)
     CFLAGS += -DUSE_AVX512F -DUSE_AVX512BW
     # Legacy defines retained for source compatibility during transition
     CFLAGS += -DSKYLAKEX
-    ifndef USE_NATIVE
+    ifneq ($(USE_NATIVE),1)
         # Skip -march=<arch> when USE_NATIVE is set: -march=native already
         # covers this and the specific arch could conflict with native target.
         ifeq ($(COMPILER_FAMILY),icc)
@@ -622,7 +637,7 @@ ifeq ($(USE_AVX512IFMA),1)
     CFLAGS += -DUSE_AVX512IFMA
     # Legacy define retained for source compatibility during transition
     CFLAGS += -DIFMA
-    ifndef USE_NATIVE
+    ifneq ($(USE_NATIVE),1)
         CFLAGS += -march=icelake-client
     endif
 endif
@@ -631,7 +646,7 @@ endif
 ifeq ($(USE_AVX512PF),1)
     # New-style define
     CFLAGS += -DUSE_AVX512PF -DTARGET_KNL
-    ifndef USE_NATIVE
+    ifneq ($(USE_NATIVE),1)
         ifeq ($(COMPILER_FAMILY),icc)
             CFLAGS += -xMIC-AVX512
         else
@@ -707,7 +722,10 @@ ifeq ($(FORCE_GENERIC),1)
 endif
 
 ifeq ($(STATIC),1)
-    CFLAGS += -static-intel -static
+    LDFLAGS_EXTRA += -static
+    ifeq ($(COMPILER_FAMILY),icc)
+        LDFLAGS_EXTRA += -static-intel
+    endif
 endif
 
 # Append any user overrides from config.mk
@@ -731,7 +749,7 @@ ifeq ($(ECM),1)
         LIBS        += -lecm
         MSIEVE_LIBS += -lecm
     else
-        $(warning ECM=1 set but libecm not found — linking without -lecm)
+        $(error ECM=1 requires ecm.h; set ECM_PREFIX or ECM_INCDIR, or use ECM=0)
     endif
 endif
 
@@ -784,11 +802,6 @@ ifneq ($(MINGW),1)
     endif
 endif
 
-# Static extras
-ifeq ($(STATIC),1)
-    LIBS += -L/usr/lib/x86_64-redhat-linux6E/lib64/ -lpthread -lm
-endif
-
 # ICC: SVML
 ifeq ($(COMPILER_FAMILY),icc)
     LIBS        += -lsvml
@@ -796,7 +809,7 @@ ifeq ($(COMPILER_FAMILY),icc)
 endif
 
 LIBS        += $(USER_LDFLAGS) $(LDFLAGS_EXTRA)
-MSIEVE_LIBS += $(LDFLAGS_EXTRA)
+MSIEVE_LIBS += $(USER_LDFLAGS) $(LDFLAGS_EXTRA)
 
 
 # =============================================================================
@@ -1117,7 +1130,7 @@ ALL_COMPILED  := $(ALL_OBJS) $(QS_OBJS) $(NFS_OBJS)
 ALL_DEPS      := $(patsubst %.o,$(DEPS_DIR)/%.d,\
                  $(patsubst %.qo,$(DEPS_DIR)/%.d,\
                  $(patsubst %.no,$(DEPS_DIR)/%.d,$(ALL_COMPILED))))
-DEPS_SUBDIRS  := $(sort $(dir $(ALL_DEPS)))
+DEPS_SUBDIRS  := $(sort $(DEPS_DIR)/ $(dir $(ALL_DEPS)))
 
 # GPU / PTX objects
 GPU_OBJS :=
@@ -1168,49 +1181,18 @@ $(DEPS_SUBDIRS):
 # 25. LINK TARGETS
 # -----------------------------------------------------------------------------
 
-yafu: _dep_status \
-      $(MSIEVE_YAFU_OBJS) $(YAFU_SIQS_OBJS) $(YAFU_OBJS) $(YAFU_NFS_OBJS) \
-      $(YAFU_ECM_OBJS) $(YAFU_COMMON_OBJS) \
-      $(MSIEVE_COMMON_OBJS) $(QS_OBJS) $(NFS_OBJS) $(BATCH_GPU_OBJS)
-	rm -f libmsieve.a
-	ar r  libmsieve.a $(MSIEVE_COMMON_OBJS) $(QS_OBJS) $(NFS_OBJS)
-	ranlib libmsieve.a
-	rm -f libysiqs.a
-	ar r  libysiqs.a $(YAFU_SIQS_OBJS) $(YAFU_COMMON_OBJS) $(MSIEVE_YAFU_OBJS)
-	ranlib libysiqs.a
-	rm -f libyecm.a
-	ar r  libyecm.a $(YAFU_ECM_OBJS) $(YAFU_COMMON_OBJS)
-	ranlib libyecm.a
-	rm -f libynfs.a
-	ar r  libynfs.a $(YAFU_NFS_OBJS) $(YAFU_COMMON_OBJS) $(BATCH_GPU_OBJS)
-	ranlib libynfs.a
+yafu: _dep_status $(YAFU_OBJS) libysiqs.a libyecm.a libynfs.a libmsieve.a $(GPU_OBJS)
 	$(CC) $(CFLAGS) $(YAFU_OBJS) -o yafu$(EXE_EXT) \
 	    -lysiqs -lyecm -lynfs -lmsieve $(LIBS)
 
-msieve: _dep_status \
-        $(MSIEVE_COMMON_OBJS) $(QS_OBJS) $(NFS_OBJS) $(GPU_OBJS)
-	rm -f libmsieve.a
-	ar r  libmsieve.a $(MSIEVE_COMMON_OBJS) $(QS_OBJS) $(NFS_OBJS)
-	ranlib libmsieve.a
+msieve: _dep_status libmsieve.a $(GPU_OBJS) demo.c
 	$(CC) $(CFLAGS) demo.c -o msieve$(EXE_EXT) \
 	    libmsieve.a $(MSIEVE_LIBS)
 
-siqs: _dep_status \
-      $(MSIEVE_YAFU_OBJS) $(YAFU_SIQS_OBJS) $(YAFU_COMMON_OBJS) $(SIQS_BIN_OBJS) \
-      $(MSIEVE_COMMON_OBJS) $(QS_OBJS) $(NFS_OBJS)
-	rm -f libysiqs.a
-	ar r  libysiqs.a $(YAFU_SIQS_OBJS) $(YAFU_COMMON_OBJS) $(MSIEVE_YAFU_OBJS)
-	ranlib libysiqs.a
-	rm -f libmsieve.a
-	ar r  libmsieve.a $(MSIEVE_COMMON_OBJS) $(QS_OBJS) $(NFS_OBJS)
-	ranlib libmsieve.a
+siqs: _dep_status $(SIQS_BIN_OBJS) libysiqs.a libmsieve.a
 	$(CC) $(CFLAGS) $(SIQS_BIN_OBJS) -o siqs_demo$(EXE_EXT) -lysiqs -lmsieve $(LIBS)
 
-ecm: _dep_status \
-     $(YAFU_ECM_OBJS) $(YAFU_COMMON_OBJS) $(ECM_BIN_OBJS)
-	rm -f libyecm.a
-	ar r  libyecm.a $(YAFU_ECM_OBJS) $(YAFU_COMMON_OBJS)
-	ranlib libyecm.a
+ecm: _dep_status $(ECM_BIN_OBJS) libyecm.a
 	$(CC) $(CFLAGS) $(ECM_BIN_OBJS) -o ecm_demo$(EXE_EXT) -lyecm $(LIBS)
 
 
@@ -1249,7 +1231,10 @@ TEST_SRCS := \
     $(TEST_DIR)/layer0/test_mp_bitscan.c \
     $(TEST_DIR)/layer1/test_sp_arith.c \
     $(TEST_DIR)/layer1/test_modular.c \
+    $(TEST_DIR)/layer1/test_monty_review.c \
     $(TEST_DIR)/layer1/test_primality.c \
+    $(TEST_DIR)/layer1/test_aprcl_review.c \
+    $(TEST_DIR)/layer1/test_tinyprp_review.c \
     $(TEST_DIR)/layer1/test_sieve.c \
     $(TEST_DIR)/layer2/test_ecm.c
 TEST_OBJS := $(TEST_SRCS:.c=$(OBJ_EXT))
@@ -1258,11 +1243,12 @@ TEST_BIN  := yafu_test$(EXE_EXT)
 # YAFU objects the layered tests link against (overridable).
 TEST_KERNEL_OBJS ?= $(YAFU_COMMON_OBJS)
 
-# Dedicated compile rule: more specific than the generic %.o rule, so it wins
-# for test sources.  Adds -I$(TEST_DIR) and a coarse header dependency; stays
-# out of the .deps/ machinery.
+# 测试对象同样跟踪所包含的头文件，修改算术实现后自动重编译。
 $(TEST_DIR)/%.o: $(TEST_DIR)/%.c $(TEST_DIR)/testkit.h $(TEST_DIR)/test_data.h
-	$(CC) $(CFLAGS) -I$(TEST_DIR) -c -o $@ $<
+	$(MKDIR) $(DEPS_DIR)/$(dir $<)
+	$(CC) $(CFLAGS) -I$(TEST_DIR) -MMD -MP -MF $(DEPS_DIR)/$(patsubst %.c,%.d,$<) -c -o $@ $<
+
+-include $(patsubst %.c,$(DEPS_DIR)/%.d,$(TEST_SRCS))
 
 libyafu_common.a: $(TEST_KERNEL_OBJS)
 	rm -f $@
@@ -1293,14 +1279,16 @@ test-clean:
 # -----------------------------------------------------------------------------
 .PHONY: test-full test-full-run
 
-TEST_L3_SRCS  := $(TEST_DIR)/layer3/test_siqs.c $(TEST_DIR)/layer3/test_calc.c
+TEST_L3_SRCS  := $(TEST_DIR)/layer3/test_siqs.c $(TEST_DIR)/layer3/test_calc.c \
+    $(TEST_DIR)/layer3/test_options.c \
+    $(TEST_DIR)/layer3/test_ecm_review.c $(TEST_DIR)/layer3/test_qs_review.c \
+    common/vec_bitonic_sort.c
 TEST_FRONTEND_OBJS := $(filter-out top/driver$(OBJ_EXT),$(YAFU_OBJS))
 TEST_FULL_BIN := yafu_test_full$(EXE_EXT)
 TEST_SAN_BIN := yafu_test_sanitize$(EXE_EXT)
 TEST_ARCHIVES := libysiqs.a libyecm.a libynfs.a libmsieve.a
 
-# Standalone archive rules mirroring the inline `ar` steps in the yafu/msieve
-# recipes (same member sets), so test-full can depend on them directly.
+# 每个静态库只由一条规则生成，允许主程序、演示程序和测试并行链接。
 libysiqs.a: $(YAFU_SIQS_OBJS) $(YAFU_COMMON_OBJS) $(MSIEVE_YAFU_OBJS)
 	rm -f $@
 	ar r  $@ $(YAFU_SIQS_OBJS) $(YAFU_COMMON_OBJS) $(MSIEVE_YAFU_OBJS)
@@ -1327,6 +1315,21 @@ test-full: _dep_status $(TEST_ARCHIVES) $(TEST_FRONTEND_OBJS)
 test-full-run: test-full
 	./$(TEST_FULL_BIN)
 
+.PHONY: test-cli
+test-cli: yafu
+	sh $(TEST_DIR)/test_cli.sh ./yafu$(EXE_EXT)
+
+.PHONY: test-standalone
+test-standalone:
+	CC="$(CC)" CFLAGS="$(USER_CFLAGS)" sh $(TEST_DIR)/test_nfs.sh
+	CC="$(CC)" CFLAGS="$(USER_CFLAGS)" sh $(TEST_DIR)/test_lasieve.sh
+
+# 为所有参与链接的项目源码启用检查；下次常规 make 会按配置记录自动重建。
+.PHONY: test-sanitize
+test-sanitize:
+	$(MAKE) test-full USER_CFLAGS="$(USER_CFLAGS) -O1 -fsanitize=address,undefined -fno-omit-frame-pointer"
+	ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 ./$(TEST_FULL_BIN) --tag fast
+
 # 只为本次回归涉及的源码和测试启用运行时检查，不覆盖常规对象文件。
 .PHONY: test-calc-sanitize
 test-calc-sanitize: _dep_status $(TEST_ARCHIVES) $(TEST_FRONTEND_OBJS)
@@ -1347,28 +1350,42 @@ test-calc-sanitize: _dep_status $(TEST_ARCHIVES) $(TEST_FRONTEND_OBJS)
 # USE_AVX512=1 in config.mk or on the command line enables AVX-512 sieve
 # paths automatically (maps to AVX512_ALL=1 in the sub-make).
 #
-# The built libraries land in factor/lasieve5_64/asm/ alongside the sources.
-# yafu.ini's ggnfs_dir should point there (or to wherever you copy them).
+# 本地可执行文件写入独立目录，yafu.ini 的 ggnfs_dir 与此目录对应。
+# asm/ 中只生成供链接使用的库。
 # -----------------------------------------------------------------------------
 LASIEVE_DIR  := factor/lasieve5_64
+LASIEVE_BINDIR ?= bin/local
 LASIEVE_VARS := \
     CC=$(CC) \
+    BINDIR=$(LASIEVE_BINDIR) \
     GMP_INCDIR=$(GMP_INCDIR) \
     GMP_LIBDIR=$(GMP_LIBDIR) \
     DETECTED_OS=$(DETECTED_OS) \
-    $(if $(DEBUG),DEBUG=$(DEBUG)) \
-    $(if $(USE_AVX512),AVX512_ALL=1)
+    $(if $(filter 1,$(DEBUG)),DEBUG=1) \
+    $(if $(filter 1,$(USE_AVX512)),AVX512_ALL=1)
 
 lasieve: _dep_status
 	$(MAKE) -C $(LASIEVE_DIR) alle $(LASIEVE_VARS)
 
 lasieve-clean:
-	$(MAKE) -C $(LASIEVE_DIR) clean
+	$(MAKE) -C $(LASIEVE_DIR) clean BINDIR=$(LASIEVE_BINDIR)
 
 
 # -----------------------------------------------------------------------------
 # 26. COMPILE RULES
 # -----------------------------------------------------------------------------
+
+# 编译器或选项变化时重建对象；内容不变则保留文件时间，避免无效重编译。
+BUILD_CONFIG := $(DEPS_DIR)/build-config
+shell_quote = '$(subst ','"'"',$(1))'
+.PHONY: _force_build_config
+_force_build_config:
+
+$(BUILD_CONFIG): _force_build_config | $(DEPS_DIR)/
+	@printf '%s\n' $(call shell_quote,$(CC)) $(call shell_quote,$(CFLAGS)) > $@.tmp
+	@cmp -s $@.tmp $@ && rm -f $@.tmp || mv -f $@.tmp $@
+
+$(sort $(ALL_COMPILED) $(TEST_OBJS)): $(BUILD_CONFIG)
 
 # Standard .c → .o
 # -MF redirects the dependency file into .deps/, mirroring the source tree.
@@ -1440,7 +1457,7 @@ clean:
 	    libmsieve.a libysiqs.a libyecm.a libynfs.a \
 	    yafu$(EXE_EXT) msieve$(EXE_EXT) siqs_demo$(EXE_EXT) ecm_demo$(EXE_EXT) \
 	    $(GENERATED_PTX)
-	$(RM_RF) $(TEST_OBJS) libyafu_common.a $(TEST_BIN)
+	$(RM_RF) $(TEST_OBJS) libyafu_common.a $(TEST_BIN) $(TEST_FULL_BIN) $(TEST_SAN_BIN)
 	@echo "Note: use 'make lasieve-clean' to also clean factor/lasieve5_64"
 
 
@@ -1458,7 +1475,7 @@ info:
 	@echo "  VBITS            : $(VBITS)"
 	@echo "----------------------------------------------------------------"
 	@echo "  ISA flags"
-	@echo "    USE_NATIVE     : $(if $(USE_NATIVE),yes,no)"
+	@echo "    USE_NATIVE     : $(if $(filter 1,$(USE_NATIVE)),yes,no)"
 	@echo "    USE_SSE41      : $(if $(filter 1,$(USE_SSE41)),yes,no)"
 	@echo "    USE_AVX2       : $(if $(filter 1,$(USE_AVX2)),yes,no)"
 	@echo "    USE_BMI2       : $(if $(filter 1,$(USE_BMI2)),yes,no)"
@@ -1510,9 +1527,12 @@ help:
 	@echo "    make test-run        build and run the test suite"
 	@echo "    make test-clean      remove test build artefacts"
 	@echo "    make test-full       build Layers 0-3 (SIQS and calculator integration)"
+	@echo "    make test-cli        run command-line regressions"
+	@echo "    make test-standalone run isolated NFS and lasieve regressions"
+	@echo "    make test-sanitize   rebuild all test dependencies with ASan/UBSan and run fast tests"
 	@echo "    make test-calc-sanitize  build+run calculator regressions with ASan/UBSan"
 	@echo "    make test-full-run   build and run Layers 0-3"
-	@echo "    make lasieve         build NFS sieve libraries (factor/lasieve5_64)"
+	@echo "    make lasieve         build NFS sieve executables (factor/lasieve5_64/bin/local)"
 	@echo "    make clean           remove yafu build artefacts (not lasieve)"
 	@echo "    make lasieve-clean   remove lasieve build artefacts"
 	@echo "    make info            show resolved flags and dependency paths"

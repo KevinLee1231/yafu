@@ -1,18 +1,18 @@
 # .github/workflows/build-linux.yml
 #
 # GitHub Actions CI/CD for YAFU — Linux (Ubuntu)
-# Uses Makefile.new (unified Linux/MSYS2 makefile)
+# 使用根目录统一 Makefile。
 #
 # GMP:     Installed via apt (libgmp-dev). gmp.h lands in /usr/include and
 #          libgmp.a/.so in /usr/lib/x86_64-linux-gnu, both of which are in
-#          Makefile.new's default SYS_INC_PATHS / SYS_LIB_PATHS for Linux.
+#          Makefile's default SYS_INC_PATHS / SYS_LIB_PATHS for Linux.
 #          GMP_PREFIX is passed explicitly to remove any ambiguity.
 #
 # GMP-ECM: Built from source and cached, same approach as build-windows.yml.
 #          libecm-dev on Ubuntu is often an older version, so building from
 #          source ensures consistency between Linux and Windows builds.
 #
-# Artifacts are dynamically linked ELF binaries — normal for Linux.
+# 产物使用下面指定的 -static 选项链接。
 # They are uploaded alongside the Windows .exe files on each release.
 
 name: Build YAFU Linux (Ubuntu)
@@ -163,17 +163,18 @@ jobs:
           path: ${{ matrix.artifact_name }}
           retention-days: 30
 
-      # ── 9. Smoke test ─────────────────────────────────────────────────────────
-      # AVX-512 targets are skipped: GitHub's Azure VMs don't support AVX-512
-      # at runtime so the binary would fault on the first AVX-512 instruction.
-      # generic, sse41, and avx2 all run fine on the ubuntu-latest runner.
-      - name: Smoke test (${{ matrix.target }})
+      # AVX-512 产物只编译；其余配置运行回归，失败时令整个任务失败。
+      - name: Regression tests (${{ matrix.target }})
         if: ${{ !contains(matrix.target, 'avx512') }}
         run: |
-          echo "Binary size: $(ls -lh ${{ matrix.artifact_name }} | awk '{print $5}')"
-          ./${{ matrix.artifact_name }} "factor(12345678901234567)" \
-            && echo "SMOKE TEST PASSED" \
-            || echo "::warning::Smoke test failed for ${{ matrix.target }}"
+          sh test/test_cli.sh ./${{ matrix.artifact_name }}
+          make test-full \
+            ${{ matrix.make_flags }} \
+            GMP_INCDIR="$GMP_INC" \
+            GMP_LIBDIR="$GMP_LIB" \
+            ECM_PREFIX="$HOME/ecm-install" \
+            USER_LDFLAGS="-static"
+          ./yafu_test_full --tag fast
 
   # ─────────────────────────────────────────────────────────────────────────────
   # RELEASE — only on version tags (e.g. git tag v2.1.0 && git push --tags)
