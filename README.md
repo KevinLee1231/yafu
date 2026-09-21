@@ -86,8 +86,7 @@ make test-cli
 
 `USE_NATIVE=1` 根据当前 WSL 可见的 CPU 编译；`FORCE_GENERIC=1` 关闭 CPU
 扩展选项，适合检查普通 x86-64 路径。更改编译器或编译选项会自动重建对象，
-不需要手动删除旧对象。完整检查入口和源码审阅范围见
-[测试说明](test/README.md) 与 [源码审阅记录](test/SOURCE_REVIEW.md)。
+不需要手动删除旧对象。完整检查入口见 [测试说明](test/README.md)。
 
 ```bash
 cp config.mk.example config.mk          # first time only — edit paths as needed
