@@ -52,9 +52,22 @@
 
 # --- Standalone fallbacks (overridden when called from top-level) ------------
 CC         ?= gcc
-GMP_INCDIR ?= /usr/include
-GMP_LIBDIR ?= /usr/lib
 BINDIR     ?= .
+
+# GMP locations differ between distributions: Debian/Ubuntu keep gmp.h and
+# libgmp.a under a multiarch tuple (/usr/include/<tuple> and /usr/lib/<tuple>)
+# while most others use plain /usr/include together with /usr/lib or
+# /usr/lib64.  Probe for the actual files rather than assuming one layout.
+# An explicit GMP_INCDIR= / GMP_LIBDIR= on the command line -- which is what
+# the top-level Makefile passes when it recurses into this one -- still wins.
+MULTIARCH     := $(shell $(CC) -print-multiarch 2>/dev/null)
+GMP_INC_PATHS := $(if $(MULTIARCH),/usr/include/$(MULTIARCH)) \
+                 /usr/include /usr/local/include /opt/local/include
+GMP_LIB_PATHS := $(if $(MULTIARCH),/usr/lib/$(MULTIARCH)) \
+                 /usr/lib /usr/lib64 /usr/local/lib
+find_dir = $(firstword $(foreach d,$(2),$(if $(wildcard $(d)/$(1)),$(d))))
+GMP_INCDIR ?= $(call find_dir,gmp.h,$(GMP_INC_PATHS))
+GMP_LIBDIR ?= $(call find_dir,libgmp.a,$(GMP_LIB_PATHS))
 
 ifndef DETECTED_OS
     ifeq ($(OS),Windows_NT)
@@ -80,6 +93,14 @@ endif
 
 # --- GMP static library ------------------------------------------------------
 # Lasieve links statically against GMP so the sieve binaries are self-contained.
+ifneq (,$(filter clean,$(MAKECMDGOALS)))
+else ifeq (,$(GMP_LIBDIR))
+    $(error libgmp.a not found in any of: $(GMP_LIB_PATHS).  Install libgmp-dev, \
+            or pass GMP_LIBDIR=/path/to/lib)
+else ifeq (,$(GMP_INCDIR))
+    $(error gmp.h not found in any of: $(GMP_INC_PATHS).  Install libgmp-dev, \
+            or pass GMP_INCDIR=/path/to/include)
+endif
 GMP_LIB := $(GMP_LIBDIR)/libgmp.a
 
 
