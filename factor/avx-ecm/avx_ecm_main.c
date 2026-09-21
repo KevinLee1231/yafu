@@ -787,8 +787,8 @@ void vec_ecm_main(fact_obj_t* fobj, uint32_t numcurves, uint64_t B1,
         // each thread gets a random LCG state that folds in the current pid,
         // this session's rand_t, and the current microsecond timer.  Plus the
         // thread id to make it unique per-thread.
-		tdata[i].lcg_state = hash64(stopt.tv_usec) + hash64(pid) + hash64(i+1) + 
-            seed1 + (uint64_t)seed2 << 32;
+		tdata[i].lcg_state = hash64(stopt.tv_usec) + hash64(pid) + hash64(i+1) +
+            seed1 + ((uint64_t)seed2 << 32);
         tdata[i].total_threads = threads;
         tdata[i].verbose = verbose;
         tdata[i].save_b1 = save_b1;

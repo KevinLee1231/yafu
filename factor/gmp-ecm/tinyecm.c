@@ -3284,7 +3284,6 @@ __inline static void tecm_submulredc104_x8(vec_u104_t* p, vec_u104_t* w, vec_u10
 	msk |= _mm512_cmpeq_epu64_mask(T3, mN3) & _mm512_cmplt_epu64_mask(T2, mN2);
 
 	// subtract
-	bmsk;
 	T2 = _mm512_subsetc_epi52(T2, mN2, &bmsk);
 	T3 = _mm512_sbb_epi52(T3, bmsk, mN3, &bmsk);
 
@@ -3469,7 +3468,6 @@ __inline static void tecm_addmulredc104_x8(vec_u104_t* p, vec_u104_t* w, vec_u10
 	msk |= _mm512_cmpeq_epu64_mask(T3, mN3) & _mm512_cmplt_epu64_mask(T2, mN2);
 
 	// subtract
-	bmsk;
 	T2 = _mm512_subsetc_epi52(T2, mN2, &bmsk);
 	T3 = _mm512_sbb_epi52(T3, bmsk, mN3, &bmsk);
 
