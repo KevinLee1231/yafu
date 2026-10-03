@@ -20,7 +20,8 @@ static uint64_t tk__mulmod64(uint64_t a, uint64_t b, uint64_t m)
     a %= m;
     while (b) {
         if (b & 1) { r += a; if (r < a || r >= m) r -= m; }
-        a <<= 1; if (a < (a >> 1) /*ovf*/ || a >= m) a -= m;
+        /* 先保存最高位；移位后无法再从 a 检测已丢失的进位。 */
+        { uint64_t carry = a >> 63; a <<= 1; if (carry || a >= m) a -= m; }
         b >>= 1;
     }
     return r;
@@ -80,6 +81,8 @@ int tk_is_prime_u64(uint64_t n)
 uint64_t tk_gen_prime_u64(tk_ctx *tk, int bits)
 {
     tk_rng *r = tk_rng_of(tk);
+    TK_REQUIRE(tk, bits >= 2 && bits <= 64, "prime bit length must be in [2,64]");
+    if (bits == 2) return 2 + tk_rng_range(r, 2);
     for (;;) {
         uint64_t x = tk_rng_nbits(r, bits) | 1ULL;   /* odd, exact length */
         if (tk_is_prime_u64(x)) return x;
@@ -88,6 +91,7 @@ uint64_t tk_gen_prime_u64(tk_ctx *tk, int bits)
 
 uint64_t tk_gen_semiprime_u64(tk_ctx *tk, int bits, uint64_t *p, uint64_t *q)
 {
+    TK_REQUIRE(tk, bits >= 4 && bits <= 64, "semiprime bit length must be in [4,64]");
     int pb = bits / 2;
     int qb = bits - pb;
     uint64_t pp, qq, t;
