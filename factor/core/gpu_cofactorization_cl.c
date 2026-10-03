@@ -1340,8 +1340,8 @@ gpu_ctx_init(device_ctx_t* d)
      * if you change the .cl sources or build options.                    */
 
 
-    const char* intrinsics_file = "factor/opencl_intrinsics.cl";
-    const char* tinyecm_file = "factor/opencl_tinyecm.cl";
+    const char* intrinsics_file = "factor/core/opencl_intrinsics.cl";
+    const char* tinyecm_file = "factor/core/opencl_tinyecm.cl";
     const char* build_options = "-cl-std=CL2.0 -cl-mad-enable";
 
     /* Build a cache filename: "ocl_ecm_<devname>.bin"

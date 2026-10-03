@@ -118,7 +118,7 @@ GMP_LIB := $(GMP_LIBDIR)/libgmp.a
 CFLAGS_BASE := \
     -Wall -Wno-unused-variable -Wno-unused-function \
     -Ofast -fomit-frame-pointer -march=native -funroll-loops \
-    -I$(GMP_INCDIR) -L$(GMP_LIBDIR) -I../../factor/include -fcommon
+    -I$(GMP_INCDIR) -L$(GMP_LIBDIR) -I../../factor/shared/include -fcommon
 
 ifeq ($(DETECTED_OS),Windows)
     CFLAGS = -I. $(CFLAGS_BASE) -DULL_NO_UL -DBITS_PER_GMP_ULONG=32

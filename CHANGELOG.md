@@ -34,7 +34,7 @@
 - 被多个方法共用的代码各保留一份，收在 `factor/shared/`：`arith/`（52 位
   limb 算术）、`ysieve/`（素数筛）、`common/`（线程池、线性代数、
   savefile）、`ytools/`、`cub/`、`aprcl/`（素性判定）。
-- 全部头文件合并到 `factor/include/`，不再有第二份头文件目录。
+- 全部头文件合并到 `factor/shared/include/`，不再有第二份头文件目录。
 - 静态库输出改到 `build/`，仓库根目录不再产生中间文件。
 
 ### 构建与依赖

@@ -11,7 +11,7 @@
 #include "gmp.h"
 
 // build line:
-// clang -O2 -g -I. -I../../factor/shared/ytools/ -I../../factor/include -I../../factor/include -I../../factor/shared/aprcl -I../../../gmp-install/6.2.0-aocc/include -L../../../gmp-install/6.2.0-aocc/lib -march=icelake-client -DUSE_AVX512F -DIFMA ../../factor/shared/ytools/util.c batch_factor.c process_batch.c tinyecm.c microecm.c prime_sieve.c micropm1.c -o bfact -lm -lgmp
+// clang -O2 -g -I. -I../../factor/shared/ytools/ -I../../factor/shared/include -I../../factor/shared/include -I../../factor/shared/aprcl -I../../../gmp-install/6.2.0-aocc/include -L../../../gmp-install/6.2.0-aocc/lib -march=icelake-client -DUSE_AVX512F -DIFMA ../../factor/shared/ytools/util.c batch_factor.c process_batch.c tinyecm.c microecm.c prime_sieve.c micropm1.c -o bfact -lm -lgmp
 // 
 // usage: bfact lpb pmin pmax relsfilein relsfileout
 

@@ -386,8 +386,7 @@ CFLAGS += -DVBITS=$(VBITS)
 # Include paths — project-internal
 CFLAGS += \
     -I. \
-    -Ifactor/include \
-    -Ifactor/shared/aprcl \
+    -Ifactor/shared/include \
     -Itop/cmdParser \
     -Itop \
     -Ifactor/siqs/include \
@@ -863,7 +862,7 @@ COMMON_SRCS = \
 	factor/shared/common/vec_bitonic_sort.c
 
 COMMON_BATCH_GPU_SRCS = \
-    factor/cuda_tinyecm.cu \
+    factor/core/cuda_tinyecm.cu \
     factor/core/cuda_intrinsics.h
 
 

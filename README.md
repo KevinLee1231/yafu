@@ -1,166 +1,156 @@
-# YAFU — Yet Another Factoring Utility
+# YAFU — 又一个整数分解工具
 
-Automated integer factorization. 
+自动整数分解。
 
-YAFU (with assistance from other free software) uses the most powerful modern algorithms (and implementations of them) to factor input integers in a completely automated way.  
+YAFU（借助其他自由软件）使用当代最强的算法及其实现，以完全自动化的方式分解输入整数。
 
-YAFU has been referenced several times in the academic literature.  If you have academic work that requires integer factorization, YAFU might be able to help.  
- 
-For factorization help, support, and discussion, see the community at <https://www.mersenneforum.org/node/58>.
+YAFU 在学术文献中多次被引用。如果你的研究需要整数分解，YAFU 或许能帮上忙。
 
-> **Detailed documentation lives in the [project wiki](../../wiki).** The wiki covers every option, every callable function, and a fuller version of the build instructions below.
+寻求分解帮助、技术支持与讨论，请到 <https://www.mersenneforum.org/node/58> 的社区。
+
+> **详细文档在 [项目 wiki](../../wiki)。** wiki 涵盖每一个选项、每一个可调用函数，以及比下文更完整的构建说明。
 
 ---
 
-## Quick start
+## 快速开始
 
-
-
-
-
-### First run
+### 首次运行
 
 ```
 yafu "factor(rsa(200))"
 ```
 
-Or launch the interactive prompt:
+或者启动交互式提示符：
 
 ```
 yafu
 >> factor(2056802480868100646375721251575555494408897387375737955882170045672576386016591560879707933101909539325829251496440620798637813)
 ```
 
-YAFU reads `yafu.ini` from, and writes its logs and savefiles to, the **current working directory** — not the directory holding the executable. On Windows the two are usually the same, since you tend to run YAFU from its own folder; on Linux they differ, so `cd` into the directory containing your `yafu.ini` before running `yafu`. No installation step is needed.
+YAFU 从**当前工作目录**读取 `yafu.ini`，日志和中间文件也写在那里 —— 不是可执行文件所在的目录。Linux 上这两者通常不同，所以运行前先 `cd` 到放着 `yafu.ini` 的目录。无需任何安装步骤。
 
 ---
 
-## Building from source
+## 从源码编译
 
-Pre-built Windows binaries are provided, but **building yourself, tuned to your CPU, will very likely be faster.** The whole build is driven by a `Makefile`, configured per-machine through `config.mk`.
+本仓库只面向 Linux，**按自己的 CPU 编译出来的二进制通常比通用版快得多**。整个构建由 `Makefile` 驱动，按机器调整的部分写在 `config.mk` 里。
 
-### Dependencies
+### 依赖
 
-| Required | Optional |
+| 必需 | 可选 |
 | --- | --- |
-| **GMP** — <https://gmplib.org/> | **GMP-ECM** — <http://ecm.gforge.inria.fr/> (for ECM factorization) |
-| | **CUDA Toolkit** (for GPU cofactorization / poly select / LA) |
-| | **OpenCL** (alternative to CUDA for cofactorization) |
+| **GMP** — <https://gmplib.org/> | **CUDA 工具包**（GPU 余因子分解 / 多项式选择 / 线性代数） |
+| **GMP-ECM** — <http://ecm.gforge.inria.fr/>（ECM 分解） | **OpenCL**（余因子分解的 CUDA 替代方案） |
+| **OpenMP**（多线程 ECM 与筛选） | |
 
-As of YAFU 3.0, `ytools`, `ysieve`, and `msieve` are bundled in this repository and built as part of the YAFU build.
+ECM 和 OpenMP 是无条件启用的：缺 `ecm.h` 会直接停止构建并说明该装什么。GMP 路径由 Makefile 按 multiarch 自动探测，通常不用手工指定。
 
-### Linux, WSL, and MSYS2/MinGW-w64
+`ysieve` 与 msieve 的实现都随仓库分发，作为 YAFU 构建的一部分一起编译，不需要另外安装。
 
-在 WSL Kali 中，从源码目录运行下列命令即可；无需安装到系统目录。已有
-`config.mk` 时保留本机配置。`make info` 会显示实际使用的 GMP、GMP-ECM
-路径和 CPU 选项；显式设置 `ECM=1` 时如果缺少头文件，构建会报错。
+### 编译与运行
 
 ```sh
 make -j4 yafu
 ./yafu 'factor(91)' -terse
-make -j4 lasieve
-make -j4 test-full
-./yafu_test_full --tag fast
-make test-cli
+make -j4 lasieve          # 编译外部格点筛
+make test-run             # 分层回归（算术 / 素性 / ECM / SIQS）
+make test-cli             # 命令行回归
+make test-standalone      # 独立编译的 NFS 与 lasieve 回归
 ```
 
-`USE_NATIVE=1` 根据当前 WSL 可见的 CPU 编译；`FORCE_GENERIC=1` 关闭 CPU
-扩展选项，适合检查普通 x86-64 路径。更改编译器或编译选项会自动重建对象，
-不需要手动删除旧对象。完整检查入口见 [测试说明](test/README.md)。
+`make info` 会打印最终解析出来的配置：GMP、ECM 的实际路径，以及选中的 CPU 指令集档位。
+
+### 指令集档位
 
 ```bash
-cp config.mk.example config.mk          # first time only — edit paths as needed
-make yafu                               # builds with sensible defaults (gcc)
+make yafu USE_AVX2=1          # 通用 x86-64 / Haswell 及更新
+make yafu USE_AVX512=1        # Skylake-X、Cascade Lake、Zen 4
+make yafu USE_AVX512IFMA=1    # Ice Lake 及更新，ECM 内核最快
+make yafu CC=clang            # 换编译器
+make yafu DEBUG=1             # 调试构建
 ```
 
-Pass feature/ISA flags either on the command line or by uncommenting them in `config.mk`. The most useful ones are listed below. For the complete set, see the [Building YAFU](../../wiki/Building-YAFU) wiki page or run `make help`.
+**不要用 `USE_NATIVE=1`。** 本机实测它在 Zen 5 上会产出筛法失效的二进制：能编译、能跑小整数，但 SIQS 几乎筛不出关系（表现为极慢而不是报错）。根因是 `-march=native` 本身，与 AVX-512 无关 —— 选上面任一档位即可，Makefile 会自动搭配对应的 `-march`。完整的横向实测数据见 `config.mk` 里的注释。
 
-```bash
-# Inspect the resolved configuration before/during a build
-make info
-make help
+编译器或编译选项变化会自动触发重编，不需要手工删旧的目标文件。
 
-# Using config.mk for configuration of ISA and features
-make yafu
+### 常用目标
 
-or
-
-make all
-
-# ISA selection — overriding config.mk with specified ISA
-make yafu USE_AVX2=1
-make yafu USE_AVX512=1          # Skylake-X, Cascade Lake, Zen 4, etc.
-make yafu USE_AVX512IFMA=1      # Ice Lake and newer
-
-# ISA selection — overriding config.mk with feature flags or compiler options
-make yafu ECM=1 OMP=1           # link GMP-ECM, enable OpenMP
-make yafu CC=clang              # use clang
-make yafu DEBUG=1               # debug build
-
-```
-
-The first time you set up, copy `config.mk.example` to `config.mk` and edit any paths that differ from your system. `config.mk` is gitignored — only `config.mk.example` is tracked.
-
-### Other useful targets
-
-| Target | Builds |
+| 目标 | 作用 |
 | --- | --- |
-| `yafu` | The main yafu executable |
-| `msieve` | The msieve static library + demo |
-| `all` | Both of the above |
-| `info` | Print the fully resolved configuration |
-| `help` | Show the feature-flag reference |
-| `clean` | Remove build artifacts |
+| `yafu` | 主程序 |
+| `all` | 同上（`all` 目前只构建 yafu） |
+| `lasieve` | 外部格点筛（编译到 `factor/lasieve/bin/local/`） |
+| `info` | 打印最终配置 |
+| `help` | 功能开关速查 |
+| `clean` | 清理构建产物 |
 
-
-
----
-
-## Continuous integration & release builds
-
-This fork is Linux-only, so the **automated GitHub Actions pipeline** builds and tests on Linux alone:
-
-- **Linux / gcc**, via `Makefile`, with `USER_LDFLAGS=-static` for a self-contained binary
-
-For every push the CI builds the full matrix of ISA targets (`generic`, `sse41`, `avx2`, `avx512`, `avx512ifma`), runs the CLI regression script, and builds and runs the layered test binary. On tagged releases the resulting binary is attached to the release page.
-
-See the [Continuous Integration](../../wiki/Continuous-Integration) wiki page for details on the matrix, the artifacts, and how the same `Makefile` flags drive both CI and local builds.
+静态库等中间产物统一输出到 `build/`，仓库根目录不会产生生成文件。
 
 ---
 
-## GGNFS sievers (required for NFS)
+## 目录结构
 
-For NFS factorizations, YAFU needs external GGNFS lattice sieve binaries (`ggnfs-lasieve4I*`). Linux and MinGW binaries are bundled under `factor/lasieve/bin/`. Point YAFU at them with `ggnfs_dir=` in `yafu.ini`, or `-ggnfs_dir <path>` on the command line. Without these, NFS will not run.
+每个分解方法在 `factor/` 下占一个以方法命名的子目录，方法私有的头文件放在该目录的 `include/` 里；被多个方法共用的代码收在 `factor/shared/`，各保留一份。
 
-WSL 源码构建使用 `make -j4 lasieve`，输出位于 `factor/lasieve/bin/local/`。
-仓库内的 `yafu.ini` 指向这个目录，以便 NFS 使用当前源码生成的筛选器。
-这些本地产物不提交到 Git；已有预编译文件仍可通过 `-ggnfs_dir` 显式选择。
-
-If you have AVX-512 on your CPU, YAFU will also use **AVX-ECM** as the default ECM backend (built in). A standalone version lives at <https://github.com/bbuhrow/avx-ecm>.
-
----
-
-## Help and documentation
-
-| Where | What |
+| 目录 | 内容 |
 | --- | --- |
-| `help` at the YAFU prompt | Built-in help (reads `docfile.txt`) |
-| `help <function>` | Per-function detail |
-| `docfile.txt` | Function reference (must sit next to the binary for `help` to work) |
-| `yafu.ini` | Every option, as commented lines |
-| [Project wiki](../../wiki) | All of the above, cross-referenced and searchable |
-| <https://www.mersenneforum.org/node/58> | Community / support |
+| `factor/core/` | 调度层：决定每个数走哪条分解路线；也是命令行选项与 `yafu.ini` 的实现 |
+| `factor/trialdiv/` | 试除、Fermat、Pollard rho、SQUFOF、Lehman |
+| `factor/siqs/` | 自初始化二次筛 |
+| `factor/ecm/` | 椭圆曲线分解，标量与 AVX-512 两套实现 |
+| `factor/nfs/` | NFS 作业编排 |
+| `factor/nfs/gnfs/` | 数域筛本体：多项式选择、筛选、关系、线性代数、开方 |
+| `factor/mpqs/` | 多项式二次筛 |
+| `factor/tinyqs/` | 小输入的捷径 |
+| `factor/lasieve/` | 外部格点筛（NFS 必需） |
+| `factor/shared/include/` | 全部头文件 |
+| `factor/shared/` | 共享代码：大数算术 `arith/`、素数筛 `ysieve/`、线程与线性代数 `common/`、`ytools/`、`cub/`、素性判定 `aprcl/` |
+| `top/` | 命令行前端 |
+| `test/` | 三套回归测试 |
+| `tools/` | 多项式搜索的离线分析脚本 |
+
+`/usr/include` 之外的 GMP 位置、指令集档位等，在 `config.mk` 里覆盖；其余走 Makefile 自动探测。
 
 ---
 
-## Fun examples
+## 持续集成
+
+**GitHub Actions** 只在 Linux 上构建和测试：每次推送编译完整指令集矩阵（`generic`、`sse41`、`avx2`、`avx512`、`avx512ifma`），运行命令行回归脚本，并编译运行分层测试程序。`avx512` 档位只编译不运行 —— 托管的 runner 执行不了 AVX-512。打标签发布时产物会附到 release 页面。
+
+---
+
+## GGNFS 筛选器（NFS 必需）
+
+NFS 分解需要外部的 GGNFS 格点筛程序（`ggnfs-lasieve4I*`）。仓库内带了预编译的 Linux 版本，在 `factor/lasieve/bin/` 下。用 `yafu.ini` 里的 `ggnfs_dir=` 或命令行 `-ggnfs_dir <路径>` 指向它们；没有它们 NFS 无法运行。
+
+自己编译用 `make -j4 lasieve`，输出在 `factor/lasieve/bin/local/`。仓库里的 `yafu.ini` 指向这个目录，好让 NFS 用上你当前源码编译出的筛选器。这些本地产物不进 Git；预编译的那份仍可用 `-ggnfs_dir` 显式选择。
+
+如果 CPU 支持 AVX-512，YAFU 会默认使用内置的 **AVX-ECM** 作为 ECM 后端。独立版本在 <https://github.com/bbuhrow/avx-ecm>。
+
+---
+
+## 帮助与文档
+
+| 位置 | 内容 |
+| --- | --- |
+| YAFU 提示符里输入 `help` | 内置帮助（读 `top/docfile.txt`） |
+| `help <函数名>` | 单个函数的详细说明 |
+| `top/docfile.txt` | 函数参考 |
+| `yafu.ini` | 全部选项，逐条注释 |
+| [项目 wiki](../../wiki) | 以上全部，互相关联且可搜索 |
+| <https://www.mersenneforum.org/node/58> | 社区与支持 |
+
+---
+
+## 例子
 
 ```
-# Exercises many of yafu's algorithms
+# 涉及 yafu 多种算法的例子
 yafu "factor(2056802480868100646375721251575555494408897387375737955882170045672576386016591560879707933101909539325829251496440620798637813)"
 
-# Neat example involving ecm and siqs
+# 涉及 ecm 与 siqs 的例子
 yafu "factor(140870298550359924914704160737419905257747544866892632000062896476968602578482966342704)"
 ```
 
-If you build YAFU on a new platform or with a new compiler — or build a binary that beats one of the pre-compiled releases for a specific CPU — the maintainer would like to hear about it.
+变更记录见 [CHANGELOG.md](CHANGELOG.md)。
