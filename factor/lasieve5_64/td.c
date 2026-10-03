@@ -152,7 +152,7 @@ void td_pprod_store(mpz_t op, u64_t p0, u64_t p1)
   asprintf(&fname,"pprod/pprod."UL_FMTSTR"-"UL_FMTSTR,p0,p1-1);
   if (stat(fname,&statbuf)==0)
     complain("td_pprod_store: file already exists: %s\n",fname);
-  fi=fopen(fname,"w");
+  fi=fopen(fname,"wb");
   if (fi==NULL) complain("cannot open %s\n",fname);
   if (!mpz_out_raw(fi,op)) complain("mpz-error writing file\n");
   fclose(fi);
@@ -168,9 +168,13 @@ int td_pprod_load(mpz_t rop, u64_t p0, u64_t p1)
 
   // SMJSasprintf(&fname,"pprod/pprod.%llu-%llu",p0,p1-1);
   asprintf(&fname,"pprod/pprod."UL_FMTSTR"-"UL_FMTSTR,p0,p1-1);
-  if (stat(fname,&statbuf)) { mpz_set_ui(rop,0); return -1; }
+  if (stat(fname,&statbuf)) {
+    mpz_set_ui(rop,0);
+    free(fname);
+    return -1;
+  }
 //    complain("td_pprod_load: file does not exist: %s\n",fname);
-  fi=fopen(fname,"r");
+  fi=fopen(fname,"rb");
   if (fi==NULL) complain("cannot open %s\n",fname);
   if (!mpz_inp_raw(rop,fi)) complain("mpz-error reading file\n");
   fclose(fi);

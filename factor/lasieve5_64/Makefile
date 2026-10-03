@@ -26,6 +26,7 @@
 #   GMP_LIBDIR    Path to libgmp.a            (default: /usr/lib)
 #   DETECTED_OS   Windows or Linux            (auto-detected if absent)
 #   DEBUG         Set to 1 for a debug build
+#   BINDIR        可执行文件输出目录（默认：.）
 #
 # AVX-512 feature flags (set individually or use AVX512_ALL=1 for all):
 #   AVX512_ALL        Enable all AVX-512 sieve paths
@@ -43,6 +44,7 @@
 # Standalone usage examples:
 #   make alle
 #   make alle AVX512_ALL=1
+#   make alle BINDIR=bin/local
 #   make alle GMP_INCDIR=/path/to/include GMP_LIBDIR=/path/to/lib
 #   make clean
 # -----------------------------------------------------------------------------
@@ -50,8 +52,22 @@
 
 # --- Standalone fallbacks (overridden when called from top-level) ------------
 CC         ?= gcc
-GMP_INCDIR ?= /usr/include
-GMP_LIBDIR ?= /usr/lib
+BINDIR     ?= .
+
+# GMP locations differ between distributions: Debian/Ubuntu keep gmp.h and
+# libgmp.a under a multiarch tuple (/usr/include/<tuple> and /usr/lib/<tuple>)
+# while most others use plain /usr/include together with /usr/lib or
+# /usr/lib64.  Probe for the actual files rather than assuming one layout.
+# An explicit GMP_INCDIR= / GMP_LIBDIR= on the command line -- which is what
+# the top-level Makefile passes when it recurses into this one -- still wins.
+MULTIARCH     := $(shell $(CC) -print-multiarch 2>/dev/null)
+GMP_INC_PATHS := $(if $(MULTIARCH),/usr/include/$(MULTIARCH)) \
+                 /usr/include /usr/local/include /opt/local/include
+GMP_LIB_PATHS := $(if $(MULTIARCH),/usr/lib/$(MULTIARCH)) \
+                 /usr/lib /usr/lib64 /usr/local/lib
+find_dir = $(firstword $(foreach d,$(2),$(if $(wildcard $(d)/$(1)),$(d))))
+GMP_INCDIR ?= $(call find_dir,gmp.h,$(GMP_INC_PATHS))
+GMP_LIBDIR ?= $(call find_dir,libgmp.a,$(GMP_LIB_PATHS))
 
 ifndef DETECTED_OS
     ifeq ($(OS),Windows_NT)
@@ -77,6 +93,14 @@ endif
 
 # --- GMP static library ------------------------------------------------------
 # Lasieve links statically against GMP so the sieve binaries are self-contained.
+ifneq (,$(filter clean,$(MAKECMDGOALS)))
+else ifeq (,$(GMP_LIBDIR))
+    $(error libgmp.a not found in any of: $(GMP_LIB_PATHS).  Install libgmp-dev, \
+            or pass GMP_LIBDIR=/path/to/lib)
+else ifeq (,$(GMP_INCDIR))
+    $(error gmp.h not found in any of: $(GMP_INC_PATHS).  Install libgmp-dev, \
+            or pass GMP_INCDIR=/path/to/include)
+endif
 GMP_LIB := $(GMP_LIBDIR)/libgmp.a
 
 
@@ -210,14 +234,18 @@ asm/%: force
 
 # --- Targets -----------------------------------------------------------------
 
-alle: gnfs-lasieve4I11e gnfs-lasieve4I12e gnfs-lasieve4I13e \
-      gnfs-lasieve4I14e gnfs-lasieve4I15e gnfs-lasieve4I16e
+# BINDIR 为 . 时保持原目标名；其他值作为最终可执行文件的目录前缀。
+SIEVE_I_VALUES := 11 12 13 14 15 16
+BINPREFIX := $(if $(filter-out . ./,$(strip $(BINDIR))),$(patsubst %/,%,$(strip $(BINDIR)))/,)
+SIEVE_E_TARGETS := $(addprefix $(BINPREFIX)gnfs-lasieve4I,$(addsuffix e,$(SIEVE_I_VALUES)))
+SIEVE_F_TARGETS := $(addprefix $(BINPREFIX)gnfs-lasieve4I,$(addsuffix f,$(SIEVE_I_VALUES)))
+SIEVE_G_TARGETS := $(addprefix $(BINPREFIX)gnfs-lasieve4I,$(addsuffix g,$(SIEVE_I_VALUES)))
 
-allf: gnfs-lasieve4I11f gnfs-lasieve4I12f gnfs-lasieve4I13f \
-      gnfs-lasieve4I14f gnfs-lasieve4I15f gnfs-lasieve4I16f
+alle: $(SIEVE_E_TARGETS)
 
-allg: gnfs-lasieve4I11g gnfs-lasieve4I12g gnfs-lasieve4I13g \
-      gnfs-lasieve4I14g gnfs-lasieve4I15g gnfs-lasieve4I16g
+allf: $(SIEVE_F_TARGETS)
+
+allg: $(SIEVE_G_TARGETS)
 
 
 # --- Explicit header dependencies --------------------------------------------
@@ -271,25 +299,28 @@ mpqs3.o: mpqs3.c asm/mpqs-config.h asm/siever-config.h
 
 # --- Executable link rules ---------------------------------------------------
 
-gnfs-lasieve4I%e: gnfs-lasieve4eI%.o if.o input-poly.o libgmp-aux.a redu2.o \
+$(BINPREFIX)gnfs-lasieve4I%e: gnfs-lasieve4eI%.o if.o input-poly.o libgmp-aux.a redu2.o \
 	recurrence6I%.o fbgen.o fbgen64.o real-poly-aux.o mpqs.o \
 	primgen32.o lasieve-prepn.o pprime_p.o \
 	strategy.o ecm.o mpqs3.o pm1.o microecm.o micropm1.o tinyecm.o \
 	asm/liblasieve.a asm/liblasieveI%.a
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
-gnfs-lasieve4I%f: gnfs-lasieve4fI%.o if.o input-poly-orig.o libgmp-aux.a redu2.o \
+$(BINPREFIX)gnfs-lasieve4I%f: gnfs-lasieve4fI%.o if.o input-poly-orig.o libgmp-aux.a redu2.o \
 	recurrence6.o fbgen.o fbgen64.o real-poly-aux.o mpqs.o \
 	primgen32.o lasieve-prepn.o pprime_p.o \
 	strategy.o ecm.o mpqs3.o pm1.o \
 	asm/liblasieve.a asm/liblasieveI%.a
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
-gnfs-lasieve4I%g: gnfs-lasieve4gI%.o if.o input-poly-orig.o libgmp-aux.a redu2.o \
+$(BINPREFIX)gnfs-lasieve4I%g: gnfs-lasieve4gI%.o if.o input-poly-orig.o libgmp-aux.a redu2.o \
 	recurrence6.o fbgen.o fbgen64.o real-poly-aux.o mpqs.o \
 	primgen32.o primgen64.o lasieve-prepn.o pprime_p.o \
 	strategy.o ecm.o mpqs3.o pm1.o td.o \
 	asm/liblasieve.a asm/liblasieveI%.a
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
 
@@ -347,4 +378,5 @@ pm1stat: pm1stat.o pm1z.o if.o asm/liblasieve.a
 # --- Clean -------------------------------------------------------------------
 
 clean:
-	-rm -f *.o *.a asm/*.o asm/*.a asm/*.s asm/*.S gnfs-lasieve4I1*
+	-rm -f *.o *.a asm/*.o asm/*.a asm/*.s asm/*.S \
+		$(SIEVE_E_TARGETS) $(SIEVE_F_TARGETS) $(SIEVE_G_TARGETS)

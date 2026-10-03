@@ -165,7 +165,7 @@ void relation_batch_free(relation_batch_t *rb);
    just involves modifying the base case of the recursion; maybe 
    that should be made into a callback */
 
-void relation_batch_add(uint64_t a, uint32_t b,
+void relation_batch_add(int64_t a, uint32_t b,
 			uint32_t *factors_r, uint32_t num_factors_r, 
 			mpz_t unfactored_r,
 			uint32_t *factors_a, uint32_t num_factors_a, 
