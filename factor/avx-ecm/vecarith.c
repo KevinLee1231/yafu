@@ -4188,7 +4188,7 @@ uint32_t vec_bignum_mask_lshift_1(vec_bignum_t * u, uint32_t wmask)
     }
 
     _mm512_mask_store_epi32(u->data + i * VECLEN, (__mmask16)wmask,
-        _mm512_or_epi32(_mm512_slli_epi32(word, 1), carry));
+        carry);
 
     // return an overflow mask
     return wmask & _mm512_cmp_epi32_mask(carry, _mm512_setzero_epi32(), _MM_CMPINT_GT);
@@ -4212,7 +4212,7 @@ void vec_bignum_mask_rshift_n(vec_bignum_t* u, vec_bignum_t* v, int n, uint32_t 
     {
         word = _mm512_load_epi32(u->data + i * VECLEN);
         nextcarry = _mm512_slli_epi32(_mm512_and_epi32(word, lowmask), (DIGITBITS - bshift));
-        _mm512_mask_store_epi64(v->data + (i - wshift) * VECLEN, (__mmask16)wmask,
+        _mm512_mask_store_epi32(v->data + (i - wshift) * VECLEN, (__mmask16)wmask,
             _mm512_or_epi32(_mm512_srli_epi32(word, bshift), carry));
         carry = nextcarry;
     }

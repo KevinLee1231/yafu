@@ -137,7 +137,7 @@ void print_vechexbignum(vec_bignum_t* a, const char* pre)
         //for (i = 2 * NWORDS - 1; i >= 0; i--)
         for (i = NWORDS - 1; i >= 0; i--)
         {
-            printf("%016llx", a->data[i * VECLEN + j]);
+            printf("%016" PRIx64, a->data[i * VECLEN + j]);
         }
         printf("\n");
     }
@@ -230,7 +230,7 @@ uint32_t vec_bignum52_mask_lshift_1(vec_bignum_t* u, uint32_t wmask)
     }
 
     _mm512_mask_store_epi64(u->data + i * VECLEN, (__mmask8)wmask,
-        _mm512_and_epi64(highmask, _mm512_or_epi64(_mm512_slli_epi64(word, 1), carry)));
+        carry);
 
     // return an overflow mask
     return wmask & _mm512_cmp_epi64_mask(carry, _mm512_set1_epi64(0), _MM_CMPINT_GT);
@@ -247,10 +247,10 @@ uint32_t vec_bignum52_mask_lshift_n(vec_bignum_t* u, int n, uint32_t wmask)
     __m512i highmask = _mm512_set1_epi64(VEC_MAXDIGIT);
     __m512i word;
 
-    if (n > DIGITBITS)
+    if (n < 0 || n > DIGITBITS)
     {
-        printf("error, vec_bignum52_mask_lshift_n expects n < %d\n", DIGITBITS);
-        exit(0);
+        fprintf(stderr, "error, vec_bignum52_mask_lshift_n expects 0 <= n <= %d\n", DIGITBITS);
+        exit(1);
     }
 
     for (i = 0; i < NWORDS; i++)
@@ -263,7 +263,7 @@ uint32_t vec_bignum52_mask_lshift_n(vec_bignum_t* u, int n, uint32_t wmask)
     }
 
     _mm512_mask_store_epi64(u->data + i * VECLEN, (__mmask8)wmask,
-        _mm512_and_epi64(highmask, _mm512_or_epi64(_mm512_slli_epi64(word, n), carry)));
+        carry);
 
     // return an overflow mask
     return wmask & _mm512_cmp_epi64_mask(carry, _mm512_set1_epi64(0), _MM_CMPINT_GT);

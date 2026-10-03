@@ -2296,6 +2296,12 @@ void ecm_stage2(tinyecm_pt* P, monty128_t* mdata, tinyecm_work* work )
 		barray = b1_205;
 		numb = numb1_205;
 	}
+	else
+	{
+		/* 没有对应预配对表时安全跳过第二阶段。 */
+		copy128(mdata->one, work->stg2acc);
+		return;
+	}
 
 	for (i = 0; i < numb; i++)
 	{
@@ -3278,7 +3284,6 @@ __inline static void tecm_submulredc104_x8(vec_u104_t* p, vec_u104_t* w, vec_u10
 	msk |= _mm512_cmpeq_epu64_mask(T3, mN3) & _mm512_cmplt_epu64_mask(T2, mN2);
 
 	// subtract
-	bmsk;
 	T2 = _mm512_subsetc_epi52(T2, mN2, &bmsk);
 	T3 = _mm512_sbb_epi52(T3, bmsk, mN3, &bmsk);
 
@@ -3463,7 +3468,6 @@ __inline static void tecm_addmulredc104_x8(vec_u104_t* p, vec_u104_t* w, vec_u10
 	msk |= _mm512_cmpeq_epu64_mask(T3, mN3) & _mm512_cmplt_epu64_mask(T2, mN2);
 
 	// subtract
-	bmsk;
 	T2 = _mm512_subsetc_epi52(T2, mN2, &bmsk);
 	T3 = _mm512_sbb_epi52(T3, bmsk, mN3, &bmsk);
 
@@ -4410,6 +4414,12 @@ void ecm_stage2_x8(tecm_pt_x8* P, monty104_x8_t* mdata, tinyecm_work_x8* work)
 	{
 		barray = b1_205;
 		numb = numb1_205;
+	}
+	else
+	{
+		/* 没有对应预配对表时安全跳过第二阶段。 */
+		copyvec104(&work->stg2acc, &mdata->one);
+		return;
 	}
 
 	for (i = 0; i < numb; i++)

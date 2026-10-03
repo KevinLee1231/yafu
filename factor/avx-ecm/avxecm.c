@@ -783,7 +783,7 @@ int * getEseq(uint64_t d, uint64_t e)
 		uint32_t x = 1;
 		it = 0;
 
-		printf("target is %u, sequence length is %u\n", target, seqLen);
+		printf("target is %" PRIu64 ", sequence length is %u\n", target, seqLen);
 		while (seq[it] != 0)
 		{
 			if (seq[it] == 1)
@@ -1976,7 +1976,7 @@ void vececm_old(thread_data_t *tdata)
 
                         if (mpz_cmp_ui(gmpt, 0) == 0)
                         {
-                            printf("something failed: tid = %d, vec = %d has zero result\n", j, i);
+                            printf("something failed: tid = %" PRIu64 ", vec = %" PRIu64 " has zero result\n", j, i);
                         }
 
                         result = vec_check_factor(gmpt, gmpn, tmp_factor);
@@ -2076,7 +2076,7 @@ void vececm_old(thread_data_t *tdata)
 
                 if (mpz_cmp_ui(gmpt, 0) == 0)
                 {
-                    printf("something failed: tid = %d, vec = %d has zero result\n", j, i);
+                    printf("something failed: tid = %" PRIu64 ", vec = %" PRIu64 " has zero result\n", j, i);
                 }
 
                 result = vec_check_factor(gmpt, gmpn, tmp_factor);
@@ -2248,7 +2248,7 @@ void vececm_old(thread_data_t *tdata)
 
                     if (mpz_cmp_ui(gmpt, 0) == 0)
                     {
-                        printf("something failed: tid = %d, vec = %d has zero result\n", j, i);
+                        printf("something failed: tid = %" PRIu64 ", vec = %" PRIu64 " has zero result\n", j, i);
                     }
 
                     if (result == 1)
@@ -3076,7 +3076,7 @@ void vec_build_one_curve(thread_data_t *tdata, mpz_t X, mpz_t Z, mpz_t A, uint64
     {
         do
         {
-            work->sigma = spRandp(&tdata->lcg_state, 6, VEC_MAXDIGIT);
+            work->sigma = spRandp(&tdata->lcg_state, 6, UINT32_MAX);
         } while (work->sigma < 6);
     }
     else
@@ -3328,7 +3328,7 @@ void build_one_curve_param1(thread_data_t *tdata, mpz_t X, mpz_t Z,
     {
         do
         {
-            work->sigma = spRandp(&tdata->lcg_state, 6, VEC_MAXDIGIT) & 0X3FFFFFF;  
+            work->sigma = spRandp(&tdata->lcg_state, 6, 0x4000000);
         } while (work->sigma < 6);
     }
     else
@@ -4378,7 +4378,7 @@ void vec_ecm_stage2_pair(uint32_t pairmap_steps, uint32_t* pairmap_v, uint32_t* 
     if (verbose > 1)
     {
         printf("commencing stage 2 at A=%"PRIu64"\n"
-            "w = %u, R = %u, L = %u, U = %d, umax = %u, amin = %u\n",
+            "w = %u, R = %u, L = %u, U = %d, umax = %u, amin = %" PRIu64 "\n",
             2 * (uint64_t)amin * (uint64_t)w, w, work->R - 3, L, U, umax, amin);
     }
 
@@ -4774,13 +4774,13 @@ uint32_t pair(uint32_t* pairmap_v, uint32_t* pairmap_u,
         printf("amin is now %"PRIu64" (A = %"PRIu64")\n", amin, 2 * amin * w);
         for (i = 0; i < mapid; i++)
         {
-            printf("pair: %uw+/-%u => %"PRIu64":%"PRIu64"\n", pairmap_v[i]+amin, pairmap_u[i],
+            printf("pair: %" PRIu64 "w+/-%u => %"PRIu64":%"PRIu64"\n", pairmap_v[i]+amin, pairmap_u[i],
                 (pairmap_v[i]+amin) * w - pairmap_u[i],
                 (pairmap_v[i]+amin) * w + pairmap_u[i]);
             if (pairmap_u[i] == 0)
             {
                 amin = amin + L - U;
-                printf("amin is now %u (A = %u)\n", amin, 2 * amin * w);
+                printf("amin is now %" PRIu64 " (A = %" PRIu64 ")\n", amin, 2 * amin * w);
             }
         }
 
