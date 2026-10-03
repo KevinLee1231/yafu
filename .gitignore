@@ -2,6 +2,7 @@
 # Build artifacts
 *.o
 *.a
+/build/
 /yafu
 /msieve
 /factor/lasieve/bin/local/

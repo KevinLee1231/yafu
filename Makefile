@@ -27,7 +27,6 @@
 #   BATCH_CUDA=1   GPU cofactorisation for NFS/SIQS  (requires CUDA)
 #   CUDA_POLY=1    GPU NFS polynomial selection       (requires CUDA)
 #   MPI=1          MPI parallel processing
-#   NO_ZLIB=1      Disable zlib
 #   VBITS=N        Linear algebra vector width: 64 (default), 128, 256
 #   USE_SSE41=1      SSE 4.1
 #   USE_AVX2=1       AVX2  (implies SSE 4.1)
@@ -139,7 +138,7 @@ GMP_INC   := -I$(GMP_INCDIR)
 GMP_LPATH := $(if $(GMP_LIBDIR),-L$(GMP_LIBDIR))
 
 
-# ---- 4b. GMP-ECM  (optional) -----------------------------------------------
+# ---- 4b. GMP-ECM  (required) -----------------------------------------------
 ifdef ECM_PREFIX
     ECM_INCDIR ?= $(ECM_PREFIX)/include
     ECM_LIBDIR ?= $(ECM_PREFIX)/lib
@@ -665,13 +664,10 @@ endif
 # -----------------------------------------------------------------------------
 # 10. OPTIONAL FEATURE FLAGS
 # -----------------------------------------------------------------------------
-ifeq ($(OMP),1)
-    CFLAGS += -fopenmp -DHAVE_OMP
-endif
-
-ifeq ($(ECM),1)
-    CFLAGS += -DHAVE_GMP_ECM
-endif
+# OpenMP drives the parallel ECM and sieve stages, and HAVE_GMP_ECM selects
+# the gmp-ecm implementation; neither is optional here.
+CFLAGS += -fopenmp -DHAVE_OMP
+CFLAGS += -DHAVE_GMP_ECM
 
 ifdef BATCH_CUDA
     CFLAGS += -DHAVE_CUDA_BATCH_FACTOR -DTOOLKIT_VERSION=$(TOOLKIT_VERSION)
@@ -753,14 +749,13 @@ CFLAGS += $(USER_CFLAGS)
 LIBS        := -L. $(GMP_LPATH) $(ECM_LPATH) $(CUDA_LPATH) $(OCL_LPATH)
 MSIEVE_LIBS := -L. $(GMP_LPATH) $(ECM_LPATH)
 
-# ECM
-ifeq ($(ECM),1)
-    ifneq (,$(HAVE_ECM_LIB))
-        LIBS        += -lecm
-        MSIEVE_LIBS += -lecm
-    else
-        $(error ECM=1 requires ecm.h; set ECM_PREFIX or ECM_INCDIR, or use ECM=0)
-    endif
+# ECM.  The elliptic-curve method is one of the two ways this program finds
+# medium-sized factors, so gmp-ecm is required rather than a build option.
+ifneq (,$(HAVE_ECM_LIB))
+    LIBS        += -lecm
+    MSIEVE_LIBS += -lecm
+else
+    $(error ecm.h not found: the ECM factoring method needs gmp-ecm.             Install libecm-dev, or point ECM_PREFIX / ECM_INCDIR + ECM_LIBDIR at it)
 endif
 
 # CUDA (batch cofactorisation)
@@ -1167,7 +1162,7 @@ all: yafu msieve
 _dep_status:
 	@echo "--- Dependency status -----------------------------------------------"
 	@echo "  GMP     : found ($(GMP_INCDIR))"
-	@echo "  GMP-ECM : $(if $(HAVE_ECM_LIB),found ($(ECM_INCDIR)),DISABLED — ecm.h not found; set ECM_PREFIX in config.mk)"
+	@echo "  GMP-ECM : found ($(ECM_INCDIR)) — required for the ECM method"
 	@echo "  CUDA    : $(if $(HAVE_CUDA_TOOLKIT),found ($(CUDA_INCDIR)),DISABLED — cuda.h not found; set CUDA_PREFIX in config.mk)"
 	@echo "  OpenCL  : $(if $(HAVE_OPENCL),found ($(OCL_INCDIR)),DISABLED — CL/cl.h not found; set OCL_PREFIX in config.mk)"
 	@echo "---------------------------------------------------------------------"
@@ -1177,17 +1172,22 @@ $(DEPS_SUBDIRS):
 	$(MKDIR) $@
 
 
+# 静态库是链接中间产物：放在 build/ 下，根目录不留生成文件
+BUILD_DIR   := build
+ARCHIVES    := $(BUILD_DIR)/libysiqs.a $(BUILD_DIR)/libyecm.a \
+               $(BUILD_DIR)/libynfs.a $(BUILD_DIR)/libmsieve.a
+
 # -----------------------------------------------------------------------------
 # 25. LINK TARGETS
 # -----------------------------------------------------------------------------
 
-yafu: _dep_status $(YAFU_OBJS) libysiqs.a libyecm.a libynfs.a libmsieve.a $(GPU_OBJS)
+yafu: _dep_status $(YAFU_OBJS) $(ARCHIVES) $(GPU_OBJS)
 	$(CC) $(CFLAGS) $(YAFU_OBJS) -o yafu$(EXE_EXT) \
-	    -lysiqs -lyecm -lynfs -lmsieve $(LIBS)
+	    $(ARCHIVES) $(LIBS)
 
-msieve: _dep_status libmsieve.a $(GPU_OBJS) factor/shared/common/demo.c
+msieve: _dep_status $(BUILD_DIR)/libmsieve.a $(GPU_OBJS) factor/shared/common/demo.c
 	$(CC) $(CFLAGS) factor/shared/common/demo.c -o msieve$(EXE_EXT) \
-	    libmsieve.a $(MSIEVE_LIBS)
+	    $(BUILD_DIR)/libmsieve.a $(MSIEVE_LIBS)
 
 
 # -----------------------------------------------------------------------------
@@ -1244,20 +1244,21 @@ $(TEST_DIR)/%.o: $(TEST_DIR)/%.c $(TEST_DIR)/testkit.h $(TEST_DIR)/test_data.h
 
 -include $(patsubst %.c,$(DEPS_DIR)/%.d,$(TEST_SRCS))
 
-libyafu_common.a: $(TEST_KERNEL_OBJS)
+$(BUILD_DIR)/libyafu_common.a: $(TEST_KERNEL_OBJS)
+	@mkdir -p $(@D)
 	rm -f $@
 	ar r  $@ $(TEST_KERNEL_OBJS)
 	ranlib $@
 
-test: _dep_status $(TEST_OBJS) libyafu_common.a
-	$(CC) $(CFLAGS) $(TEST_OBJS) -o $(TEST_BIN) libyafu_common.a $(LIBS)
+test: _dep_status $(TEST_OBJS) $(BUILD_DIR)/libyafu_common.a
+	$(CC) $(CFLAGS) $(TEST_OBJS) -o $(TEST_BIN) $(BUILD_DIR)/libyafu_common.a $(LIBS)
 	@echo "built $(TEST_BIN) — run it:  ./$(TEST_BIN)   (try --list, --bench, --help)"
 
 test-run: test
 	./$(TEST_BIN)
 
 test-clean:
-	$(RM_RF) $(TEST_OBJS) libyafu_common.a $(TEST_BIN) $(TEST_FULL_BIN) $(TEST_SAN_BIN)
+	$(RM_RF) $(TEST_OBJS) $(BUILD_DIR) $(TEST_BIN) $(TEST_FULL_BIN) $(TEST_SAN_BIN)
 
 
 # -----------------------------------------------------------------------------
@@ -1280,30 +1281,33 @@ TEST_L3_SRCS  := $(TEST_DIR)/layer3/test_siqs.c $(TEST_DIR)/layer3/test_calc.c \
 TEST_FRONTEND_OBJS := $(filter-out top/driver$(OBJ_EXT),$(YAFU_OBJS))
 TEST_FULL_BIN := yafu_test_full$(EXE_EXT)
 TEST_SAN_BIN := yafu_test_sanitize$(EXE_EXT)
-TEST_ARCHIVES := libysiqs.a libyecm.a libynfs.a libmsieve.a
 
 # 每个静态库只由一条规则生成，允许主程序、演示程序和测试并行链接。
-libysiqs.a: $(YAFU_SIQS_OBJS) $(YAFU_COMMON_OBJS) $(MSIEVE_YAFU_OBJS)
+$(BUILD_DIR)/libysiqs.a: $(YAFU_SIQS_OBJS) $(YAFU_COMMON_OBJS) $(MSIEVE_YAFU_OBJS)
+	@mkdir -p $(@D)
 	rm -f $@
 	ar r  $@ $(YAFU_SIQS_OBJS) $(YAFU_COMMON_OBJS) $(MSIEVE_YAFU_OBJS)
 	ranlib $@
-libyecm.a: $(YAFU_ECM_OBJS) $(YAFU_COMMON_OBJS)
+$(BUILD_DIR)/libyecm.a: $(YAFU_ECM_OBJS) $(YAFU_COMMON_OBJS)
+	@mkdir -p $(@D)
 	rm -f $@
 	ar r  $@ $(YAFU_ECM_OBJS) $(YAFU_COMMON_OBJS)
 	ranlib $@
-libynfs.a: $(YAFU_NFS_OBJS) $(YAFU_COMMON_OBJS) $(BATCH_GPU_OBJS)
+$(BUILD_DIR)/libynfs.a: $(YAFU_NFS_OBJS) $(YAFU_COMMON_OBJS) $(BATCH_GPU_OBJS)
+	@mkdir -p $(@D)
 	rm -f $@
 	ar r  $@ $(YAFU_NFS_OBJS) $(YAFU_COMMON_OBJS) $(BATCH_GPU_OBJS)
 	ranlib $@
-libmsieve.a: $(MSIEVE_COMMON_OBJS) $(QS_OBJS) $(NFS_OBJS)
+$(BUILD_DIR)/libmsieve.a: $(MSIEVE_COMMON_OBJS) $(QS_OBJS) $(NFS_OBJS)
+	@mkdir -p $(@D)
 	rm -f $@
 	ar r  $@ $(MSIEVE_COMMON_OBJS) $(QS_OBJS) $(NFS_OBJS)
 	ranlib $@
 
-test-full: _dep_status $(TEST_ARCHIVES) $(TEST_FRONTEND_OBJS)
+test-full: _dep_status $(ARCHIVES) $(TEST_FRONTEND_OBJS)
 	$(CC) $(CFLAGS) -DTK_WITH_LAYER3 -I$(TEST_DIR) \
 	    $(TEST_SRCS) $(TEST_L3_SRCS) $(TEST_FRONTEND_OBJS) -o $(TEST_FULL_BIN) \
-	    $(TEST_ARCHIVES) $(LIBS)
+	    $(ARCHIVES) $(LIBS)
 	@echo "built $(TEST_FULL_BIN) -- Layers 0-3 (incl. SIQS integration)"
 
 test-full-run: test-full
@@ -1326,12 +1330,12 @@ test-sanitize:
 
 # 只为本次回归涉及的源码和测试启用运行时检查，不覆盖常规对象文件。
 .PHONY: test-calc-sanitize
-test-calc-sanitize: _dep_status $(TEST_ARCHIVES) $(TEST_FRONTEND_OBJS)
+test-calc-sanitize: _dep_status $(ARCHIVES) $(TEST_FRONTEND_OBJS)
 	$(CC) $(CFLAGS) -O1 -fsanitize=address,undefined -fno-omit-frame-pointer \
 	    -DTK_WITH_LAYER3 -I$(TEST_DIR) $(TEST_SRCS) $(TEST_L3_SRCS) \
 	    top/cmdParser/calc.c factor/core/factor_common.c \
 	    $(filter-out top/cmdParser/calc$(OBJ_EXT),$(TEST_FRONTEND_OBJS)) \
-	    -o $(TEST_SAN_BIN) $(TEST_ARCHIVES) $(LIBS)
+	    -o $(TEST_SAN_BIN) $(ARCHIVES) $(LIBS)
 	./$(TEST_SAN_BIN) calc
 
 
@@ -1464,10 +1468,10 @@ clean:
 	    $(MSIEVE_COMMON_OBJS) \
 	    $(QS_OBJS) $(NFS_OBJS) $(NFS_GPU_OBJS) $(NFS_NOGPU_OBJS) \
 	    $(DEPS_DIR) \
-	    libmsieve.a libysiqs.a libyecm.a libynfs.a \
+	    $(ARCHIVES) $(BUILD_DIR) \
 	    yafu$(EXE_EXT) msieve$(EXE_EXT) \
 	    $(GENERATED_PTX)
-	$(RM_RF) $(TEST_OBJS) libyafu_common.a $(TEST_BIN) $(TEST_FULL_BIN) $(TEST_SAN_BIN)
+	$(RM_RF) $(TEST_OBJS) $(BUILD_DIR) $(TEST_BIN) $(TEST_FULL_BIN) $(TEST_SAN_BIN)
 	@echo "Note: use 'make lasieve-clean' to also clean factor/lasieve"
 
 
@@ -1496,7 +1500,7 @@ info:
 	@echo "  Dependencies"
 	@echo "    GMP     inc    : $(GMP_INCDIR)"
 	@echo "    GMP     lib    : $(GMP_LIBDIR)"
-	@echo "    GMP-ECM        : $(if $(HAVE_ECM_LIB),enabled ($(ECM_INCDIR)),disabled)"
+	@echo "    GMP-ECM        : required ($(ECM_INCDIR))"
 	@echo "    CUDA           : $(if $(HAVE_CUDA_TOOLKIT),enabled ($(CUDA_INCDIR)),disabled)"
 	@echo "    CUDA root src  : $(if $(CUDA_ROOT),CUDA_ROOT env,$(if $(CUDA_PATH),CUDA_PATH env,$(if $(_NVCC_ON_PATH),nvcc on PATH,$(if $(CUDA_PREFIX),config.mk/cmdline,not found))))"
 	@echo "    OpenCL         : $(if $(HAVE_OPENCL),enabled ($(OCL_INCDIR)),disabled)"
@@ -1504,8 +1508,7 @@ info:
 	@echo "    SM target      : $(SM)$(if $(_SMS_RAW), (all cards: $(_SMS_RAW)))"
 	@echo "----------------------------------------------------------------"
 	@echo "  Optional features"
-	@echo "    OMP            : $(if $(filter 1,$(OMP)),yes,no)"
-	@echo "    ECM            : $(if $(filter 1,$(ECM)),yes,no)"
+	@echo "    OMP            : yes (required)"
 	@echo "    BATCH_CUDA     : $(if $(BATCH_CUDA),yes,no)"
 	@echo "    CUDA_POLY      : $(if $(CUDA_POLY),yes,no)"
 	@echo "    MPI            : $(if $(filter 1,$(MPI)),yes,no)"
@@ -1529,7 +1532,7 @@ help:
 	@echo ""
 	@echo "  Targets:"
 	@echo "    make yafu            build the main yafu binary"
-	@echo "    make msieve          build libmsieve.a + msieve demo"
+	@echo "    make msieve          build $(BUILD_DIR)/libmsieve.a + msieve demo"
 	@echo "    make all             build all four targets above"
 	@echo "    make test            build the test suite (yafu_test)"
 	@echo "    make test-run        build and run the test suite"
