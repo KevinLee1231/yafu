@@ -130,9 +130,9 @@ See the [Continuous Integration](../../wiki/Continuous-Integration) wiki page fo
 
 ## GGNFS sievers (required for NFS)
 
-For NFS factorizations, YAFU needs external GGNFS lattice sieve binaries (`ggnfs-lasieve4I*`). Linux and MinGW binaries are bundled under `factor/lasieve5_64/bin/`. Point YAFU at them with `ggnfs_dir=` in `yafu.ini`, or `-ggnfs_dir <path>` on the command line. Without these, NFS will not run.
+For NFS factorizations, YAFU needs external GGNFS lattice sieve binaries (`ggnfs-lasieve4I*`). Linux and MinGW binaries are bundled under `factor/lasieve/bin/`. Point YAFU at them with `ggnfs_dir=` in `yafu.ini`, or `-ggnfs_dir <path>` on the command line. Without these, NFS will not run.
 
-WSL 源码构建使用 `make -j4 lasieve`，输出位于 `factor/lasieve5_64/bin/local/`。
+WSL 源码构建使用 `make -j4 lasieve`，输出位于 `factor/lasieve/bin/local/`。
 仓库内的 `yafu.ini` 指向这个目录，以便 NFS 使用当前源码生成的筛选器。
 这些本地产物不提交到 Git；已有预编译文件仍可通过 `-ggnfs_dir` 显式选择。
 

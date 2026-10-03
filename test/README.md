@@ -74,7 +74,7 @@ make test-calc-sanitize
 ```
 
 This builds and runs the `calc` regressions with instrumentation in the
-test sources, `top/cmdParser/calc.c` and `factor/factor_common.c`. Other
+test sources, `top/cmdParser/calc.c` and `factor/core/factor_common.c`. Other
 archives and frontend objects retain the normal build flags. The target
 does not replace the normal objects or executables.
 

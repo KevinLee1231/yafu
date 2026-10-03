@@ -2692,7 +2692,7 @@ void nfs_set_min_rels(nfs_job_t *job)
 				lpb = job->lpba;
 
 			// appoximate min_rels:
-			// http://ggnfs.svn.sourceforge.net/viewvc/ggnfs/trunk/tests/factMsieve.pl?r1=374&r2=416
+			// http://ggnfs.svn.sourceforge.net/viewvc/gfactor/nfs/gnfs/trunk/tests/factMsieve.pl?r1=374&r2=416
 			// http://www.mersenneforum.org/showpost.php?p=294055&postcount=25
 			switch (lpb)
 			{

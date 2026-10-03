@@ -2,8 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <gmp.h>
-#include "factor/lasieve5_64/asm/siever-config.h"
-#include "factor/lasieve5_64/input-poly.h"
+#include "factor/lasieve/asm/siever-config.h"
+#include "factor/lasieve/input-poly.h"
 static void clear_poly(mpz_t *p) { int i; for (i=0;i<9;i++) mpz_clear(p[i]); free(p); }
 static FILE *input(const char *s) { FILE *f=tmpfile(); assert(f); fputs(s,f); rewind(f); return f; }
 int main(void) {

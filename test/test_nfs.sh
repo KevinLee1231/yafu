@@ -13,7 +13,7 @@ cppflags=${CPPFLAGS:-}
 # 生产函数各自放入独立 section，链接时只保留驱动实际调用的路径。
 common_flags="-UNDEBUG -std=c11 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE -DVBITS=64 -DUSE_NFS -ffunction-sections -fdata-sections"
 cd "$repo_dir"
-includes="-I. -Iinclude -Ims_include -Itop -Itop/aprcl -Itop/cmdParser -Ifactor -Ifactor/gmp-ecm -Ifactor/nfs -Iytools -Iysieve -Ignfs -Ignfs/poly -Ignfs/poly/stage1"
+includes="-I. -Ifactor/include -Ifactor/include -Itop -Ifactor/shared/aprcl -Itop/cmdParser -Ifactor -Ifactor/ecm -Ifactor/nfs -Ifactor/shared/ytools -Ifactor/shared/ysieve -Ifactor/nfs/gnfs -Ifactor/nfs/gnfs/poly -Ifactor/nfs/gnfs/poly/stage1"
 
 # CFLAGS/CPPFLAGS 允许常规的空格分隔编译选项。
 # shellcheck disable=SC2086
@@ -34,7 +34,7 @@ $cc $cppflags $cflags $common_flags $includes \
 
 # shellcheck disable=SC2086
 $cc $cppflags $cflags -UNDEBUG -std=c11 -D_POSIX_C_SOURCE=200112L \
-    -I"$repo_dir/include" -I"$repo_dir/ms_include" \
+    -I"$repo_dir/factor/include" \
     "$repo_dir/test/standalone/nfs/ms_gmp_review.c" -lgmp \
     -o "$task_dir/ms_gmp_review"
 "$task_dir/ms_gmp_review"
