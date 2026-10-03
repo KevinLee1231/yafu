@@ -27,5 +27,3 @@ nfs.*
 *.tlog
 *.last_spq*
 
-# makefile configuration
-config.mk

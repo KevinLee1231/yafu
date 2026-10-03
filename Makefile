@@ -11,8 +11,7 @@
 #   cp config.mk.example config.mk   # first time only; edit paths as needed
 #   Add to .gitignore: config.mk  .deps/
 #   make yafu                        # build yafu (default compiler: gcc)
-#   make msieve                      # build msieve static library + demo
-#   make all                         # build both of the above
+#   make all                         # build yafu
 #   make lasieve                     # build the external lattice sievers
 #   make CC=clang yafu               # use clang
 #   make CC=icc yafu                 # use Intel compiler
@@ -742,18 +741,15 @@ CFLAGS += $(USER_CFLAGS)
 # 11. LINKER FLAG ASSEMBLY
 #
 #    LIBS       — libraries linked into yafu and the demo binaries
-#    MSIEVE_LIBS — libraries linked into msieve (slightly different set)
 # -----------------------------------------------------------------------------
 
 # Base library search paths
 LIBS        := -L. $(GMP_LPATH) $(ECM_LPATH) $(CUDA_LPATH) $(OCL_LPATH)
-MSIEVE_LIBS := -L. $(GMP_LPATH) $(ECM_LPATH)
 
 # ECM.  The elliptic-curve method is one of the two ways this program finds
 # medium-sized factors, so gmp-ecm is required rather than a build option.
 ifneq (,$(HAVE_ECM_LIB))
     LIBS        += -lecm
-    MSIEVE_LIBS += -lecm
 else
     $(error ecm.h not found: the ECM factoring method needs gmp-ecm.             Install libecm-dev, or point ECM_PREFIX / ECM_INCDIR + ECM_LIBDIR at it)
 endif
@@ -761,42 +757,27 @@ endif
 # CUDA (batch cofactorisation)
 ifdef BATCH_CUDA
     LIBS        += $(CUDA_LPATH) -lcuda -lcudart
-    MSIEVE_LIBS += $(CUDA_LPATH) -lcuda -lcudart
 endif
 
 # CUDA (polynomial selection)
 ifdef CUDA_POLY
 	LIBS        += $(CUDA_LPATH) $(CUDA_POLY_LIBS)
-    MSIEVE_LIBS += $(CUDA_POLY_LIBS)
 endif
 
 # OpenCL
 ifneq (,$(HAVE_OPENCL))
     LIBS        += $(OCL_LPATH) $(OCL_LIBS)
-    MSIEVE_LIBS += $(OCL_LPATH) $(OCL_LIBS)
 endif
 
-# MPI / BOINC / zlib
-ifeq ($(BOINC),1)
-    MSIEVE_LIBS += -L$(BOINC_LIB_DIR) -lboinc_api -lboinc
-endif
-
-ifeq ($(NO_ZLIB),1)
-    CFLAGS += -DNO_ZLIB
-else
-    MSIEVE_LIBS += -lz
-endif
-
+# MPI / BOINC
 # GMP, math, threading
 LIBS        += -lgmp -lpthread -lm
-MSIEVE_LIBS += -lgmp -lm -lpthread
 
 # Static Windows build needs extra libs that are normally pulled in implicitly
 # by the shared runtime, plus winpthread for the static pthreads implementation.
 ifeq ($(DETECTED_OS),Windows)
     ifdef STATIC_WIN
         LIBS        += -lwinpthread -lws2_32 -lssp
-        MSIEVE_LIBS += -lwinpthread -lws2_32 -lssp
     endif
 endif
 
@@ -804,18 +785,15 @@ endif
 ifneq ($(MINGW),1)
     ifneq ($(DETECTED_OS),Windows)
         LIBS        += -ldl
-        MSIEVE_LIBS += -ldl
     endif
 endif
 
 # ICC: SVML
 ifeq ($(COMPILER_FAMILY),icc)
     LIBS        += -lsvml
-    MSIEVE_LIBS += -lsvml
 endif
 
 LIBS        += $(USER_LDFLAGS) $(LDFLAGS_EXTRA)
-MSIEVE_LIBS += $(USER_LDFLAGS) $(LDFLAGS_EXTRA)
 
 
 # =============================================================================
@@ -1149,12 +1127,12 @@ endif
 # -----------------------------------------------------------------------------
 # 22. PHONY TARGETS
 # -----------------------------------------------------------------------------
-.PHONY: all yafu msieve lasieve lasieve-clean clean info help _dep_status
+.PHONY: all yafu lasieve lasieve-clean clean info help _dep_status
 
 # -----------------------------------------------------------------------------
 # 23. DEFAULT GOAL
 # -----------------------------------------------------------------------------
-all: yafu msieve
+all: yafu
 
 # -----------------------------------------------------------------------------
 # 24. DEPENDENCY STATUS  (printed at the start of every real build)
@@ -1184,10 +1162,6 @@ ARCHIVES    := $(BUILD_DIR)/libysiqs.a $(BUILD_DIR)/libyecm.a \
 yafu: _dep_status $(YAFU_OBJS) $(ARCHIVES) $(GPU_OBJS)
 	$(CC) $(CFLAGS) $(YAFU_OBJS) -o yafu$(EXE_EXT) \
 	    $(ARCHIVES) $(LIBS)
-
-msieve: _dep_status $(BUILD_DIR)/libmsieve.a $(GPU_OBJS) factor/shared/common/demo.c
-	$(CC) $(CFLAGS) factor/shared/common/demo.c -o msieve$(EXE_EXT) \
-	    $(BUILD_DIR)/libmsieve.a $(MSIEVE_LIBS)
 
 
 # -----------------------------------------------------------------------------
@@ -1469,7 +1443,7 @@ clean:
 	    $(QS_OBJS) $(NFS_OBJS) $(NFS_GPU_OBJS) $(NFS_NOGPU_OBJS) \
 	    $(DEPS_DIR) \
 	    $(ARCHIVES) $(BUILD_DIR) \
-	    yafu$(EXE_EXT) msieve$(EXE_EXT) \
+	    yafu$(EXE_EXT) \
 	    $(GENERATED_PTX)
 	$(RM_RF) $(TEST_OBJS) $(BUILD_DIR) $(TEST_BIN) $(TEST_FULL_BIN) $(TEST_SAN_BIN)
 	@echo "Note: use 'make lasieve-clean' to also clean factor/lasieve"
@@ -1512,12 +1486,10 @@ info:
 	@echo "    BATCH_CUDA     : $(if $(BATCH_CUDA),yes,no)"
 	@echo "    CUDA_POLY      : $(if $(CUDA_POLY),yes,no)"
 	@echo "    MPI            : $(if $(filter 1,$(MPI)),yes,no)"
-	@echo "    NO_ZLIB        : $(if $(filter 1,$(NO_ZLIB)),yes,no)"
 	@echo "    STATIC_WIN     : $(if $(STATIC_WIN),yes,no)"
 	@echo "----------------------------------------------------------------"
 	@echo "  CFLAGS           : $(CFLAGS)"
 	@echo "  LIBS             : $(LIBS)"
-	@echo "  MSIEVE_LIBS      : $(MSIEVE_LIBS)"
 	@echo "----------------------------------------------------------------"
 	@echo "  lasieve (NFS sieve — separate target)"
 	@echo "    Directory      : $(LASIEVE_DIR)"
@@ -1532,7 +1504,6 @@ help:
 	@echo ""
 	@echo "  Targets:"
 	@echo "    make yafu            build the main yafu binary"
-	@echo "    make msieve          build $(BUILD_DIR)/libmsieve.a + msieve demo"
 	@echo "    make all             build all four targets above"
 	@echo "    make test            build the test suite (yafu_test)"
 	@echo "    make test-run        build and run the test suite"
@@ -1583,7 +1554,6 @@ help:
 	@echo "    make BATCH_CUDA=1    GPU cofactorisation (NFS/SIQS)"
 	@echo "    make CUDA_POLY=1     GPU NFS polynomial selection"
 	@echo "    make MPI=1           MPI parallel processing"
-	@echo "    make NO_ZLIB=1       disable zlib"
 	@echo "    make VBITS=128       linear algebra vector width (64/128/256)"
 	@echo "    make SMALLINT=1      small SIQS intervals"
 	@echo "    make PROFILE=1       gprof profiling"
