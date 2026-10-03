@@ -29,10 +29,10 @@ either or both sides.
 #include <math.h>
 #include "gmp.h"
 #ifdef HAVE_LASIEVE_MPQS
-#include "../factor/lasieve/mpqs.h"
-#include "../factor/lasieve/mpqs3.h"
-#include "../factor/lasieve/if.h"
-#include "../factor/lasieve/gmp-aux.h"
+#include "factor/lasieve/mpqs.h"
+#include "factor/lasieve/mpqs3.h"
+#include "factor/lasieve/if.h"
+#include "factor/lasieve/gmp-aux.h"
 #endif
 #include "ytools.h"
 #include "cofactorize.h"
