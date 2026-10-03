@@ -109,6 +109,7 @@ int processOP(char* s, str_t* n1, str_t* n2);
 int getOP(char s);
 int isEOE(char s);
 int getFunc(char* s, int* nargs);
+int check_args(int funcnum, int nargs);
 int feval(int func, int nargs, meta_t* metadata);
 int new_uvar(const char* name, mpz_t data);
 int set_uvar(const char* name, mpz_t data, fact_obj_t *fobj);
@@ -122,7 +123,7 @@ int is_strvar(const char* name);
 void free_strvars();
 int invalid_dest(char* dest);
 int invalid_num(char* num);
-char** tokenize(char* in, int* token_types, int* num_tokens);
+char** tokenize(char* in, int** token_types, int* num_tokens);
 int get_el_type2(char s);
 int is_new_token(int el_type, int el_type2);
 int invalid_dest(char* dest);
@@ -225,7 +226,7 @@ void sClear(str_t* s)
 
 void toStr(char* src, str_t* dest)
 {
-    if ((int)strlen(src) > dest->alloc)
+    if ((int)strlen(src) >= dest->alloc)
     {
         sGrow(dest, strlen(src) + 10);
         dest->alloc = strlen(src) + 10;
@@ -315,13 +316,14 @@ void push(str_t* str, bstack_t* stack)
     // add an element to the stack, growing the stack if necessary
     if (stack->num >= stack->size)
     {
+        int i, old_size = stack->size;
         stack->size *= 2;
         stack->elements = (str_t**)xrealloc(stack->elements,
             stack->size * sizeof(str_t*));
-        if (stack->elements == NULL)
+        for (i = old_size; i < stack->size; i++)
         {
-            printf("error allocating stack space\n");
-            return;
+            stack->elements[i] = (str_t*)xmalloc(sizeof(str_t));
+            sInit(stack->elements[i]);
         }
     }
 
@@ -351,16 +353,16 @@ int pop(str_t* str, bstack_t* stack)
         stack->num--;
         if (stack->type == 1)   // this is a queue
         {
+            str_t* first = stack->elements[0];
             // for queues, the top element is always node 0
-            sCopy(str, stack->elements[0]);
-            sFree(stack->elements[0]);
-            free(stack->elements[0]);
+            sCopy(str, first);
             stack->top--;
-            // now we need to adjust all the pointers down 1
-            for (i = 1; i < stack->num; i++)
+            // 移动全部剩余元素，并保留空槽供下次入队或释放。
+            for (i = 1; i <= stack->num; i++)
             {
                 stack->elements[i - 1] = stack->elements[i];
             }
+            stack->elements[stack->num] = first;
         }
         else
         {
@@ -513,7 +515,7 @@ int getOP(char s)
 
 int getAssoc(char* s)
 {
-    if (strcmp(s, "^") == 0)
+    if (strcmp(s, "^") == 0 || strcmp(s, "~") == 0)
         return RIGHT;
     else
         return LEFT;
@@ -530,6 +532,7 @@ int getPrecedence(char* s)
     if (strcmp(s, "/") == 0)  return 2;
     if (strcmp(s, "%") == 0)  return 2;
     if (strcmp(s, "^") == 0)  return 3;
+    if (strcmp(s, "~") == 0)  return 3;
     if (strcmp(s, "\\") == 0) return 4;
     return 0;
 }
@@ -643,22 +646,24 @@ str_t* preprocess(str_t* in, int* numlines)
     str_t* out;
     str_t* current;
 
-    if (in->s[0] == '{')
+    if (in->s[0] == '{' && strlen(in->s) >= 2 &&
+        in->s[strlen(in->s) - 1] == '}')
     {
         // if the first character is a open brace '{', then we need to
         // reformat this block expression by removing one level of
         // braces and removing leading or trailing commas.  The driver
         // will have placed commas between separate lines within the braces.
-        strcpy(in->s, in->s + 1);
+        memmove(in->s, in->s + 1, strlen(in->s));
         in->s[strlen(in->s) - 1] = '\0';
         i = 0;
         while (in->s[i] == ',')
             in->s[i++] = ' ';
 
         i = 1;
-        while ((in->s[strlen(in->s) - i] == ',') ||
+        while ((size_t)i <= strlen(in->s) &&
+            ((in->s[strlen(in->s) - i] == ',') ||
             (in->s[strlen(in->s) - i] == '}') ||
-            (in->s[strlen(in->s) - i] == ')'))
+            (in->s[strlen(in->s) - i] == ')')))
         {
             if ((in->s[strlen(in->s) - i] == ',') ||
                 (in->s[strlen(in->s) - i] == '}'))
@@ -678,6 +683,7 @@ str_t* preprocess(str_t* in, int* numlines)
         j++;
     }
     in->s[j] = '\0';
+    in->nchars = j + 1;
 
     // copy input to first output location
     *numlines = 1;
@@ -1071,7 +1077,7 @@ int is_new_token(int el_type, int el_type2)
     return 0;
 }
 
-char** tokenize(char* in, int* token_types, int* num_tokens)
+char** tokenize(char* in, int** token_types, int* num_tokens)
 {
     // take a string as input
     // break it into tokens
@@ -1158,10 +1164,10 @@ char** tokenize(char* in, int* token_types, int* num_tokens)
             switch (get_el_type2(in[inpos - 1]))
             {
             case OP:
-                el_type2 = NUM;
-                break;
+            case AMBIG:
             case LP:
-                el_type2 = NUM;
+            case COMMA:
+                el_type2 = get_el_type2(in[inpos + 1]) == NUM ? NUM : OP;
                 break;
             case RP:
                 el_type2 = OP;
@@ -1174,9 +1180,6 @@ char** tokenize(char* in, int* token_types, int* num_tokens)
                 break;
             case NUM:
                 el_type2 = OP;
-                break;
-            case COMMA:
-                el_type2 = NUM;
                 break;
             case SPACE:
                 // when processing postfix strings, we need this
@@ -1192,7 +1195,10 @@ char** tokenize(char* in, int* token_types, int* num_tokens)
             }
         }
 
-        if (is_new_token(el_type, el_type2) || el_type == EOE)
+        if (is_new_token(el_type, el_type2) || el_type == EOE ||
+            (el_type == OP && el_type2 == OP &&
+             !(i == 1 && ((tmp[0] == '<' && ch == '<') ||
+                          (tmp[0] == '>' && ch == '>')))))
         {
             if (el_type == EOE)
                 break;
@@ -1215,13 +1221,13 @@ char** tokenize(char* in, int* token_types, int* num_tokens)
                 //printf("copying size %d tmp string to token\n", strlen(tmp));
                 tokens[*num_tokens] = (char*)xmalloc((strlen(tmp) + 2) * sizeof(char));
                 strcpy(tokens[*num_tokens], tmp);
-                token_types[*num_tokens] = el_type;
+                (*token_types)[*num_tokens] = el_type;
                 *num_tokens = *num_tokens + 1;
 
                 if (*num_tokens >= token_alloc)
                 {
                     tokens = (char**)xrealloc(tokens, token_alloc * 2 * sizeof(char*));
-                    token_types = (int*)xrealloc(token_types, token_alloc * 2 * sizeof(int));
+                    *token_types = (int*)xrealloc(*token_types, token_alloc * 2 * sizeof(int));
                     token_alloc *= 2;
                 }
             }
@@ -1513,11 +1519,14 @@ char* process_expression(char* input_exp, meta_t* metadata,
 void calc_with_assignment(str_t* in, meta_t* metadata, int force_quiet)
 {
     char* ptr;
-    char varname[80];
+    char varname[sizeof(uvars.vars[0].name)];
     int offset = 0;
     int nooutput;
     str_t str;
     mpz_t tmp;
+
+    if (in->s[0] == '\0')
+        return;
 
     mpz_init(tmp);
     sInit(&str);
@@ -1525,8 +1534,18 @@ void calc_with_assignment(str_t* in, meta_t* metadata, int force_quiet)
     if ((ptr = strchr(in->s, '=')) != NULL)
     {
         offset = (ptr - in->s);
+        if (offset == 0 || (size_t)offset >= sizeof(varname))
+        {
+            printf("invalid assignment name (maximum %zu characters)\n", sizeof(varname) - 1);
+            goto done;
+        }
         strncpy(varname, in->s, offset);
         varname[offset++] = '\0';
+        if (invalid_dest(varname))
+        {
+            printf("invalid assignment name: %s\n", varname);
+            goto done;
+        }
     }
     else
     {
@@ -1614,6 +1633,7 @@ void calc_with_assignment(str_t* in, meta_t* metadata, int force_quiet)
         }
     }
 
+done:
     mpz_clear(tmp);
     sFree(&str);
     return;
@@ -1688,7 +1708,7 @@ int calc(str_t* in, meta_t* metadata)
 
     //initialize and find tokens
     token_types = (int*)xmalloc(100 * sizeof(int));
-    tokens = tokenize(in->s, token_types, &num_tokens);
+    tokens = tokenize(in->s, &token_types, &num_tokens);
     if (tokens == NULL)
     {
         free(token_types);
@@ -1717,6 +1737,10 @@ int calc(str_t* in, meta_t* metadata)
             break;
         case 6:
             // LP
+            // 标记函数参数的起点，避免可选参数取走外层表达式的值。
+            if (i > 0 && token_types[i - 1] == CH &&
+                getFunc(tokens[i - 1], &na) >= 0)
+                sAppend(" @", post);
             toStr(tokens[i], tmp);
             push(tmp, &stk);
             break;
@@ -1752,6 +1776,13 @@ int calc(str_t* in, meta_t* metadata)
             break;
         case 9:
             //comma (function argument separator)
+            if (i == 0 || token_types[i - 1] == LP ||
+                token_types[i - 1] == COMMA || token_types[i - 1] == OP)
+            {
+                printf("missing function argument\n");
+                retval = 1;
+                goto free;
+            }
             while (1)
             {
                 if (pop(tmp, &stk) == 0)
@@ -1764,6 +1795,14 @@ int calc(str_t* in, meta_t* metadata)
 
                 if (strcmp(tmp->s, "(") == 0)
                 {
+                    if (stk.num == 0 ||
+                        getFunc(stk.elements[stk.top]->s, &na) < 0 ||
+                        !isalpha((unsigned char)stk.elements[stk.top]->s[0]))
+                    {
+                        printf("separator outside a function call\n");
+                        retval = 1;
+                        goto free;
+                    }
                     // found a left paren.  put it back and continue
                     push(tmp, &stk);
                     break;
@@ -1778,6 +1817,12 @@ int calc(str_t* in, meta_t* metadata)
             break;
         case 5:
             // right paren
+            if (i > 0 && (token_types[i - 1] == COMMA || token_types[i - 1] == OP))
+            {
+                printf("missing operand before closing parenthesis\n");
+                retval = 1;
+                goto free;
+            }
             while (1)
             {
                 if (pop(tmp, &stk) == 0)
@@ -1794,14 +1839,9 @@ int calc(str_t* in, meta_t* metadata)
                     if (pop(tmp, &stk) != 0)
                     {
                         // is the top of stack a function?
-                        if ((getFunc(tmp->s, &na) >= 0) && (strlen(tmp->s) > 1))
+                        if ((getFunc(tmp->s, &na) >= 0) &&
+                            isalpha((unsigned char)tmp->s[0]))
                         {
-                            // the extra check for strlen > 1 fixes
-                            // the case where the string is an operator, not
-                            // a function.  for multichar operators this won't work
-                            // instead should probably separate out the operators
-                            // from the functions in getFunc
-
                             // yes, put it on the output queue as well
                             sAppend(" ", post);
                             sAppend(tmp->s, post);
@@ -1824,13 +1864,22 @@ int calc(str_t* in, meta_t* metadata)
             break;
         case 4:
             // operator
+            if (strcmp(tokens[i], "-") == 0 &&
+                (i == 0 || token_types[i - 1] == OP ||
+                 token_types[i - 1] == LP || token_types[i - 1] == COMMA))
+            {
+                // 一元负号单独入栈，不提前执行尚未取得右操作数的运算。
+                toStr("~", tmp);
+                push(tmp, &stk);
+                break;
+            }
             while (pop(tmp, &stk))
             {
-                if (strlen(tmp->s) == 1 && getOP(tmp->s[0]) > 0)
+                if (getOP(tmp->s[0]) > 0 || strcmp(tmp->s, "~") == 0)
                 {
                     // its an operator
                     // check the precedence
-                    if (op_precedence(tmp->s, tokens[i], getAssoc(tmp->s)))
+                    if (op_precedence(tmp->s, tokens[i], getAssoc(tokens[i])))
                     {
                         // push to output op queue
                         sAppend(" ", post);
@@ -1878,13 +1927,6 @@ int calc(str_t* in, meta_t* metadata)
         sAppend(" ", post);
         sAppend(tmp->s, post);
     }
-
-    // free the input tokens
-    for (i = 0; i < num_tokens; i++)
-    {
-        free(tokens[i]);
-    }
-    free(tokens);
 
     // process the output postfix expression:
     // this can be done with a simple stack
@@ -1944,31 +1986,57 @@ int calc(str_t* in, meta_t* metadata)
 
             // if not a num, proceed into the next switch (function handle)
         default:
+            if (strcmp(tok, "@") == 0)
+            {
+                toStr(tok, tmp);
+                push(tmp, &stk);
+                break;
+            }
             func = getFunc(tok, &na);
-            if (CALC_VERBOSE)
+            if (strcmp(tok, "~") == 0)
+            {
+                func = 20;
+                na = 2;
+            }
+            if (CALC_VERBOSE && func >= 0)
             {
                 printf("processing function %d: %s from token %s\n", func, function_names[func], tok);
             }
 
             if (func >= 0)
             {
-                // pop those args and put them in a global array
-                for (j = 0; j < na; j++)
+                int nargs = strcmp(tok, "~") == 0 ? 1 : na;
+                int marker = -1;
+                if (isalpha((unsigned char)tok[0]))
                 {
-                    // right now we must get all of the operands.
-                    // somewhere in there we should make allowances
-                    // for getting a reduced number (i.e. for unary "-"
-                    // and for variable numbers of arguments
+                    for (k = stk.num - 1; k >= 0; k--)
+                    {
+                        if (strcmp(stk.elements[k]->s, "@") == 0)
+                        {
+                            marker = k;
+                            nargs = stk.num - marker - 1;
+                            break;
+                        }
+                    }
+                }
+                if (check_args(func, nargs) || stk.num < nargs)
+                {
+                    printf("invalid arguments to %s\n", tok);
+                    retval = 1;
+                    goto free;
+                }
+                // pop those args and put them in a global array
+                for (j = 0; j < nargs; j++)
+                {
+                    // 按本次调用的参数个数取值，仍保留可选参数的右对齐约定。
                     int r;
                     k = pop(tmp, &stk);
 
-                    if (k == 0)
+                    if (k == 0 || strcmp(tmp->s, "@") == 0)
                     {
-                        // didn't get the expected number of arguments
-                        // for this function.  This may be ok, if the
-                        // function accepts varable argument lists.
-                        // feval will handle it.
-                        break;
+                        printf("missing operand for %s\n", tok);
+                        retval = 1;
+                        goto free;
                     }
 
                     // try to make a number out of it
@@ -1979,6 +2047,12 @@ int calc(str_t* in, meta_t* metadata)
                         {
                             printf("adding %s to choperands\n", tmp->s);
                         }
+                        if (strlen(tmp->s) >= sizeof(choperands[0]))
+                        {
+                            printf("string argument is too long\n");
+                            retval = 1;
+                            goto free;
+                        }
                         strcpy(choperands[na - j - 1], tmp->s);
                     }
                     else
@@ -1988,10 +2062,16 @@ int calc(str_t* in, meta_t* metadata)
                     }
                 }
 
-                na = j;
+                if (marker >= 0)
+                    pop(tmp, &stk);
                 // call the function evaluator with the 
                 // operator string and the number of args available
-                na = feval(func, na, metadata);
+                na = feval(func, nargs, metadata);
+                if (na < 0)
+                {
+                    retval = 1;
+                    goto free;
+                }
 
                 // put result back on stack
                 for (j = 0; j < na; j++)
@@ -2033,6 +2113,7 @@ int calc(str_t* in, meta_t* metadata)
             else
             {
                 printf("unrecognized variable or function '%s'\n", tok);
+                retval = 1;
                 sClear(in);
                 goto free;
             }
@@ -2040,9 +2121,18 @@ int calc(str_t* in, meta_t* metadata)
 
         tok = strtok_s((char*)0, delim, &tok_context);
     } while (tok != NULL);
+    if (stk.num != 1 || strcmp(stk.elements[0]->s, "@") == 0)
+    {
+        printf("invalid expression\n");
+        retval = 1;
+        goto free;
+    }
     pop(in, &stk);
 
 free:
+    for (i = 0; i < num_tokens; i++)
+        free(tokens[i]);
+    free(tokens);
     free(token_types);
     stack_free(&stk);
     mpz_clear(tmpz);
@@ -2142,7 +2232,21 @@ int getFunc(char* s, int* nargs)
 
 int check_args(int funcnum, int nargs)
 {
-    if (nargs != function_nargs[funcnum])
+    int minargs = function_nargs[funcnum];
+    // 这些函数允许省略末尾的可选参数。
+    switch (funcnum)
+    {
+    case 20: case 55: case 57: case 62:
+        minargs = 1;
+        break;
+    case 60: case 70:
+        minargs = 2;
+        break;
+    case 64:
+        minargs = 0;
+        break;
+    }
+    if (nargs < minargs || nargs > function_nargs[funcnum])
     {
         printf("wrong number of arguments in %s, expected %d\n",
             function_names[funcnum], function_nargs[funcnum]);
@@ -2153,6 +2257,40 @@ int check_args(int funcnum, int nargs)
     {
         return 0;
     }
+}
+
+static const char* check_operands(int funcnum)
+{
+    switch (funcnum)
+    {
+    case 12:
+        if (mpz_sgn(operands[0]) < 0)
+            return "square root requires a nonnegative input";
+        break;
+    case 13: case 22: case 28:
+        if (mpz_sgn(operands[1]) == 0)
+            return "divisor or modulus must not be zero";
+        break;
+    case 14:
+        if (mpz_sgn(operands[2]) == 0)
+            return "modulus must not be zero";
+        break;
+    case 15:
+        if (!mpz_fits_ulong_p(operands[1]) || mpz_sgn(operands[1]) == 0)
+            return "root degree must be a positive unsigned long";
+        if (mpz_sgn(operands[0]) < 0 && mpz_even_p(operands[1]))
+            return "even root requires a nonnegative input";
+        break;
+    case 29:
+        if (!mpz_fits_ulong_p(operands[1]))
+            return "exponent must be a nonnegative unsigned long";
+        break;
+    case 66:
+        if (mpz_sgn(operands[0]) <= 0)
+            return "totient requires a positive integer";
+        break;
+    }
+    return NULL;
 }
 
 int feval(int funcnum, int nargs, meta_t *metadata)
@@ -2172,6 +2310,17 @@ int feval(int funcnum, int nargs, meta_t *metadata)
 	uint64_t lower, upper, inc, count;
     fact_obj_t* fobj = metadata->fobj;
     soe_staticdata_t* sdata = metadata->sdata;
+    const char* error;
+    int result = 1;
+
+    if (check_args(funcnum, nargs))
+        return -1;
+    error = check_operands(funcnum);
+    if (error != NULL)
+    {
+        printf("invalid argument in %s: %s\n", function_names[funcnum], error);
+        return -1;
+    }
 
 	mpz_init(mp1);
 	mpz_init(mp2);
@@ -2296,11 +2445,22 @@ int feval(int funcnum, int nargs, meta_t *metadata)
 	case 13:
 		// modinv - two arguments
         if (check_args(funcnum, nargs)) break;
-		mpz_invert(operands[0], operands[0], operands[1]);        
+        if (mpz_invert(operands[0], operands[0], operands[1]) == 0)
+        {
+            printf("modinv: inverse does not exist\n");
+            result = -1;
+        }
 		break;
 	case 14:
 		// modexp - three arguments
         if (check_args(funcnum, nargs)) break;
+        if (mpz_sgn(operands[1]) < 0 &&
+            mpz_invert(mp1, operands[0], operands[2]) == 0)
+        {
+            printf("modexp: negative exponent requires an invertible base\n");
+            result = -1;
+            break;
+        }
 		mpz_powm(operands[0], operands[0], operands[1], operands[2]);
 		break;
 	case 15:
@@ -2339,7 +2499,7 @@ int feval(int funcnum, int nargs, meta_t *metadata)
 		//subtract or negate
 		if (nargs == 1)
 		{
-			mpz_neg(operands[0], operands[0]);
+			mpz_neg(operands[0], operands[1]);
 		}
 		else if (nargs == 2)
 		{
@@ -2954,6 +3114,9 @@ int feval(int funcnum, int nargs, meta_t *metadata)
         // Euler's totient function
         if (check_args(funcnum, nargs)) break;
 
+        if (mpz_cmp_ui(operands[0], 1) == 0)
+            break;
+
         oldvflag = fobj->VFLAG;
         if (mpz_sizeinbase(operands[0], 2) < 192)
         {
@@ -2967,15 +3130,10 @@ int feval(int funcnum, int nargs, meta_t *metadata)
         // customize for this method
         factor(fobj);
         mpz_set(operands[0], mp2);
-        mpz_tdiv_q(mp1, mp2, fobj->factors->factors[0].factor);
-        mpz_sub(operands[0], operands[0], mp1);
-
-        for (i = 1; i < fobj->factors->num_factors; i++)
+        for (i = 0; i < fobj->factors->num_factors; i++)
         {
-            mpz_tdiv_q(mp1, mp2, fobj->factors->factors[i].factor);
-            mpz_sub(mp1, mp2, mp1);
-            mpz_mul(operands[0], operands[0], mp1);
-            mpz_tdiv_q(operands[0], operands[0], mp2);
+            mpz_divexact(mp1, operands[0], fobj->factors->factors[i].factor);
+            mpz_sub(operands[0], operands[0], mp1);
         }
         fobj->VFLAG = oldvflag;
 
@@ -4254,7 +4412,7 @@ int feval(int funcnum, int nargs, meta_t *metadata)
 	mpz_clear(mp3);
 	mpz_clear(tmp1);
 	mpz_clear(tmp2);
-	return 1;
+	return result;
 }
 
 int new_uvar(const char* name, mpz_t data)
