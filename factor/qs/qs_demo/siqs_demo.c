@@ -176,12 +176,16 @@ int main(int argc, char *argv[])
 
 	// check/process input arguments
 	run_type = check_expression(options);
+	input_line = (char*)xrealloc(input_line, strlen(options->inputExpr) + 1);
+	input_exp = (char*)xrealloc(input_exp, strlen(options->inputExpr) + 1);
+	indup = (char*)xrealloc(indup, strlen(options->inputExpr) + 1);
     if (run_type == 3)
     {
         // a default function applied to text that has no other function.
         int len = (int)strlen(options->inputExpr) + 9;
         options->inputExpr = (char*)xrealloc(options->inputExpr, len);
         input_exp = (char*)xrealloc(input_exp, len);
+		input_line = (char*)xrealloc(input_line, len);
         sprintf(input_exp, "siqs(%s)", options->inputExpr);
         strcpy(options->inputExpr, input_exp);
         strcpy(input_line, options->inputExpr);
@@ -723,10 +727,9 @@ char * process_batchline(siqs_obj_t* yobj, char *input_exp, char *indup, int *co
 		while (1)
 		{
 			ptr = fgets(tmpline,GSTR_MAXSIZE,batchfile);
-			strcpy(line + strlen(line), tmpline);
 			
 			// stop if we didn't read anything
-			if (feof(batchfile))
+			if (ptr == NULL && feof(batchfile))
 			{
 				printf("eof; done processing batchfile\n");
 				fclose(batchfile);
@@ -743,6 +746,8 @@ char * process_batchline(siqs_obj_t* yobj, char *input_exp, char *indup, int *co
 				free(line);
 				return input_exp;
 			}
+
+			strcpy(line + strlen(line), tmpline);
 
 			// if we got the end of the line, stop reading
 			if ((line[strlen(line)-1] == 0xa) ||

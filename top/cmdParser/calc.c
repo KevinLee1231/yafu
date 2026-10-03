@@ -127,7 +127,7 @@ char** tokenize(char* in, int** token_types, int* num_tokens);
 int get_el_type2(char s);
 int is_new_token(int el_type, int el_type2);
 int invalid_dest(char* dest);
-void calc_with_assignment(str_t* in, meta_t* metadata, int force_quiet);
+int calc_with_assignment(str_t* in, meta_t* metadata, int force_quiet);
 
 #ifndef _MSC_VER
 #define strtok_s strtok_r
@@ -455,7 +455,7 @@ int get_el_type2(char s)
 {
 	// there are several types of characters in an expression.  
 	// decide which type this is
-	if (isdigit(s) || (s <= 90 && s >= 65))
+	if (isdigit((unsigned char)s) || (s <= 90 && s >= 65))
 		return NUM;
 	else if (s == '(')
 		return LP;
@@ -473,7 +473,7 @@ int get_el_type2(char s)
 		return COMMA;
 	else if ((s <= 122 && s >= 95) || s == 39)
 		return CH;
-	else if (isspace(s))
+	else if (isspace((unsigned char)s))
 		return SPACE;
 	else
 		return -1;
@@ -629,427 +629,55 @@ int find_offset_matching_brace(char* ptr, char type)
 
 str_t* preprocess(str_t* in, int* numlines)
 {
-    // preprocess the expression in 'in'.
-    // the expression evaluator is good at evaluating single-line
-    // expressions (not assignments) that can be converted into
-    // a post-fix notation consisting of operands, numbers, or variables.
-    // The expression evaluator is therefore not able to handle assigments,
-    // multiple lines, or compound expressions.
-    // This preprocessor converts such complex syntax into a notation that
-    // the expression evaluator can deal with.
-    // We return the number of lines found and an array of strings,
-    // one line per string.  user must free 'out'.
-    int i, j, k;
-    char* ptr;
-    char str[1024];
-    int openp, closedp, openb, closedb;
-    str_t* out;
-    str_t* current;
-
-    if (in->s[0] == '{' && strlen(in->s) >= 2 &&
-        in->s[strlen(in->s) - 1] == '}')
+    size_t i, j, begin, length;
+    int parens = 0, braces = 0;
+    str_t *out;
+    /* 调度表未实现 for/if；保留原文交给解析器报告未知函数。 */
+    for (i = 0, j = 0; in->s[i] != '\0'; i++)
+        if (!isspace((unsigned char)in->s[i]))
+            in->s[j++] = in->s[i];
+    in->s[j] = '\0';
+    in->nchars = (int)j + 1;
+    length = j;
+    if (length >= 2 && in->s[0] == '{' && in->s[length - 1] == '}' &&
+        find_offset_matching_brace(in->s + 1, '}') == (int)length - 2)
     {
-        // if the first character is a open brace '{', then we need to
-        // reformat this block expression by removing one level of
-        // braces and removing leading or trailing commas.  The driver
-        // will have placed commas between separate lines within the braces.
-        memmove(in->s, in->s + 1, strlen(in->s));
-        in->s[strlen(in->s) - 1] = '\0';
+        memmove(in->s, in->s + 1, length - 2);
+        length -= 2;
+        in->s[length] = '\0';
+        while (length > 0 && in->s[length - 1] == ',')
+            in->s[--length] = '\0';
         i = 0;
         while (in->s[i] == ',')
-            in->s[i++] = ' ';
-
-        i = 1;
-        while ((size_t)i <= strlen(in->s) &&
-            ((in->s[strlen(in->s) - i] == ',') ||
-            (in->s[strlen(in->s) - i] == '}') ||
-            (in->s[strlen(in->s) - i] == ')')))
-        {
-            if ((in->s[strlen(in->s) - i] == ',') ||
-                (in->s[strlen(in->s) - i] == '}'))
-                in->s[strlen(in->s) - i] = ' ';
             i++;
-        }
+        memmove(in->s, in->s + i, length - i + 1);
+        length -= i;
+        in->nchars = (int)length + 1;
     }
-
-    j = 0;
-    // remove white space from the input
-    for (i = 0; i < in->nchars; i++)
-    {
-        if (isspace(in->s[i]))
-            continue;
-
-        in->s[j] = in->s[i];
-        j++;
-    }
-    in->s[j] = '\0';
-    in->nchars = j + 1;
-
-    // copy input to first output location
+    out = (str_t *)xmalloc(sizeof(*out));
+    sInit(&out[0]);
     *numlines = 1;
-    out = (str_t*)xmalloc(sizeof(str_t));
-    current = &out[0];
-    sInit(current);
-    sCopy(current, in);
-
-    // algebraic simplification (this would be cool...)    
-
-    // reformat 'for' and 'if' tokens as functions 
-    // taking string arguments, where the arguments are the various text
-    // components of the function.  The actual looping is handled by 
-    // recursive calls to process_expression from within the function evaluator.
-    if (((ptr = strstr(current->s, "for(")) != NULL) &&
-        exp_is_closed(current->s, ptr))
+    begin = 0;
+    for (i = 0; i <= length; i++)
     {
-        // new for loop
-        char pre[8], start[80], vname[20];
-        sprintf(pre, "for%d", for_cnt++);
-
-        // save the beginning part of the command, if any
-        if (ptr != current->s)
+        char ch = in->s[i];
+        if (ch == '(') parens++;
+        if (ch == ')') parens--;
+        if (ch == '{') braces++;
+        if (ch == '}') braces--;
+        if (ch == '\0' || (ch == ',' && parens == 0 && braces == 0))
         {
-            int n = (int)(ptr - current->s);
-            strncpy(start, current->s, MIN(n, 79));
-            start[n] = '\0';
-        }
-        else
-            strcpy(start, "");
-
-        // tokenize the loop
-        //ptr = strtok(&current->s[4], ";");
-        ptr = strtok(ptr, ";");
-        if (ptr == NULL)
-        {
-            printf("badly formatted for loop: for(init; test; iter; body)\n");
-            exit(3);
-        }
-        sprintf(vname, "%s_init", pre);
-        if (set_strvar(vname, ptr + 4))
-            new_strvar(vname, ptr + 4);
-        ptr = strtok(NULL, ";");
-        if (ptr == NULL)
-        {
-            printf("badly formatted for loop: for(init; test; iter; body)\n");
-            exit(3);
-        }
-        sprintf(vname, "%s_test", pre);
-        if (set_strvar(vname, ptr))
-            new_strvar(vname, ptr);
-        ptr = strtok(NULL, ";");
-        if (ptr == NULL)
-        {
-            printf("badly formatted for loop: for(init; test; iter; body)\n");
-            exit(3);
-        }
-        sprintf(vname, "%s_iter", pre);
-        if (set_strvar(vname, ptr))
-            new_strvar(vname, ptr);
-
-        // this can't just find any old ')', it has to find the matching one.
-        ptr = ptr + strlen(ptr) + 1;
-        openp = closedp = 0;
-        for (i = 0; i < strlen(ptr); i++)
-        {
-            if (ptr[i] == '(') openp++;
-            if (ptr[i] == ')') {
-                closedp++;
-                if (closedp > openp)
-                    break;
-            }
-        }
-
-        if (ptr[i] == '\0')
-        {
-            printf("badly formatted for loop: for(init; test; iter; body)\n");
-            exit(3);
-        }
-
-        ptr[i] = '\0';
-        sprintf(vname, "%s_body", pre);
-        if (set_strvar(vname, ptr))
-            new_strvar(vname, ptr);
-
-        if (ptr[i + 1] != '\0')
-        {
-            sprintf(str, "%s", ptr + i + 1);
-            sprintf(current->s, "%sfor(%s_init, %s_test, %s_iter, %s_body);%s",
-                start, pre, pre, pre, pre, str);
-        }
-        else
-        {
-            sprintf(current->s, "%sfor(%s_init, %s_test, %s_iter, %s_body);",
-                start, pre, pre, pre, pre);
+            in->s[i] = '\0';
+            toStr(in->s + begin, &out[*numlines - 1]);
+            if (ch == '\0')
+                break;
+            begin = i + 1;
+            out = (str_t *)xrealloc(out, (size_t)(*numlines + 1) * sizeof(*out));
+            sInit(&out[(*numlines)++]);
         }
     }
-
-    if (0 && ((ptr = strstr(current->s, "forprime(")) != NULL) &&
-        exp_is_closed(current->s, ptr))
-    {
-        // new for loop
-        char pre[8], start[80], vname[20];
-        sprintf(pre, "forp%d", forp_cnt++);
-
-        // save the beginning part of the command, if any
-        if (ptr != current->s)
-        {
-            int n = (int)(ptr - current->s);
-            strncpy(start, current->s, MIN(n, 79));
-            start[n] = '\0';
-        }
-        else
-            strcpy(start, "");
-
-        // tokenize the loop
-        ptr = strtok(ptr, ";");
-        if (ptr == NULL)
-        {
-            printf("badly formatted forprime loop: forprime(var=start; stop; body)\n");
-            exit(3);
-        }
-        sprintf(vname, "%s_start", pre);
-        if (set_strvar(vname, ptr + 9))
-            new_strvar(vname, ptr + 9);
-        ptr = strtok(NULL, ";");
-        if (ptr == NULL)
-        {
-            printf("badly formatted forprime loop: forprime(var=start; stop; body)\n");
-            exit(3);
-        }
-        sprintf(vname, "%s_stop", pre);
-        if (set_strvar(vname, ptr))
-            new_strvar(vname, ptr);
-
-        // this can't just find any old ')', it has to find the matching one.
-        ptr = ptr + strlen(ptr) + 1;
-        openp = closedp = 0;
-        for (i = 0; i < strlen(ptr); i++)
-        {
-            if (ptr[i] == '(') openp++;
-            if (ptr[i] == ')') {
-                closedp++;
-                if (closedp > openp)
-                    break;
-            }
-        }
-
-        if (ptr[i] == '\0')
-        {
-            printf("badly formatted for loop: forprime(var=start; stop; body)\n");
-            exit(3);
-        }
-
-        ptr[i] = '\0';
-        sprintf(vname, "%s_body", pre);
-        if (set_strvar(vname, ptr))
-            new_strvar(vname, ptr);
-
-        if (ptr[i + 1] != '\0')
-        {
-            sprintf(str, "%s", ptr + i + 1);
-            sprintf(current->s, "%sforprime(%s_start, %s_stop, %s_body);%s",
-                start, pre, pre, pre, str);
-        }
-        else
-            sprintf(current->s, "%sforprime(%s_start, %s_stop, %s_body);", start, pre, pre, pre);
-    }
-
-    if (0 && ((ptr = strstr(current->s, "forfactors(")) != NULL) &&
-        exp_is_closed(current->s, ptr))
-    {
-        // new for loop
-        char pre[8], start[80], vname[20];
-        sprintf(pre, "forf%d", forf_cnt++);
-
-        // save the beginning part of the command, if any
-        if (ptr != current->s)
-        {
-            int n = (int)(ptr - current->s);
-            strncpy(start, current->s, MIN(n, 79));
-            start[n] = '\0';
-        }
-        else
-            strcpy(start, "");
-
-        // tokenize the loop
-        ptr = strtok(ptr, ";");
-        if (ptr == NULL)
-        {
-            printf("badly formatted forfactors loop: forfactors(init, body)\n");
-            exit(3);
-        }
-        sprintf(vname, "%s_init", pre);
-        if (set_strvar(vname, ptr + 11))
-            new_strvar(vname, ptr + 11);
-
-        // this can't just find any old ')', it has to find the matching one.
-        ptr = ptr + strlen(ptr) + 1;
-        openp = closedp = 0;
-        for (i = 0; i < strlen(ptr); i++)
-        {
-            if (ptr[i] == '(') openp++;
-            if (ptr[i] == ')') {
-                closedp++;
-                if (closedp > openp)
-                    break;
-            }
-        }
-
-        if (ptr[i] == '\0')
-        {
-            printf("badly formatted for loop: forfactors(init, body)\n");
-            exit(3);
-        }
-
-        ptr[i] = '\0';
-        sprintf(vname, "%s_body", pre);
-        if (set_strvar(vname, ptr))
-            new_strvar(vname, ptr);
-
-        if (ptr[i + 1] != '\0')
-        {
-            sprintf(str, "%s", ptr + i + 1);
-            sprintf(current->s, "%sforfactors(%s_init, %s_body);%s",
-                start, pre, pre, str);
-        }
-        else
-            sprintf(current->s, "%sforfactors(%s_init, %s_body);", start, pre, pre);
-    }
-
-    if (((ptr = strstr(current->s, "if(")) != NULL) &&
-        exp_is_closed(current->s, ptr))
-    {
-        // new if statement
-        char pre[8], start[80], vname[20];
-        sprintf(pre, "if%d", if_cnt++);
-
-        // save the beginning part of the command, if any
-        if (ptr != current->s)
-        {
-            int n = (int)(ptr - current->s);
-            strncpy(start, current->s, MIN(n, 79));
-            start[n] = '\0';
-        }
-        else
-            strcpy(start, "");
-
-        // tokenize the branch
-        char* eptr;
-        ptr = strtok(&current->s[3], ";");
-        if (ptr == NULL)
-        {
-            printf("badly formatted if statement: if(condition; true-body; [false-body])\n");
-            exit(3);
-        }
-        sprintf(vname, "%s_cond", pre);
-        if (set_strvar(vname, ptr))
-            new_strvar(vname, ptr);
-        eptr = strtok(NULL, ";");
-        if (eptr == NULL)
-        {
-            printf("badly formatted if statement: if(condition; true-body; [false-body])\n");
-            exit(3);
-        }
-        else if (eptr[strlen(eptr) + 1] == '\0')
-        {
-            // no else statement and no output suppression character
-            strncpy(str, eptr, strlen(eptr) - 1);
-            str[strlen(eptr) - 1] = '\0';
-            sprintf(vname, "%s_body", pre);
-            if (set_strvar(vname, str))
-                new_strvar(vname, str);
-
-            sprintf(current->s, "%sif(%s_cond, %s_body);", start, pre, pre);
-        }
-        else
-        {
-            // either an else statement or an output suppression character or both
-            if (eptr[strlen(eptr) + 1] == ';')
-            {
-                // both
-                sprintf(str, "%s;", eptr);
-                sprintf(vname, "%s_body", pre);
-                if (set_strvar(vname, str))
-                    new_strvar(vname, str);
-
-                ptr = strtok(NULL, "\0");
-                strncpy(str, ptr, strlen(ptr) - 1);
-                str[strlen(ptr) - 1] = '\0';
-                sprintf(vname, "%s_elsebody", pre);
-                if (set_strvar(vname, str))
-                    new_strvar(vname, str);
-                sprintf(current->s, "%sif(%s_cond, %s_body, %s_elsebody);",
-                    start, pre, pre, pre);
-            }
-            else if (eptr[strlen(eptr) + 1] == ')')
-            {
-                // just the if, with an output suppression character
-                sprintf(str, "%s;", eptr);
-                sprintf(vname, "%s_body", pre);
-                if (set_strvar(vname, str))
-                    new_strvar(vname, str);
-
-                sprintf(current->s, "%sif(%s_cond, %s_body);", start, pre, pre);
-            }
-            else
-            {
-                // an else with no output suppression character
-                sprintf(str, "%s", eptr);
-                sprintf(vname, "%s_body", pre);
-                if (set_strvar(vname, str))
-                    new_strvar(vname, str);
-
-                ptr = strtok(NULL, "\0");
-                strncpy(str, ptr, strlen(ptr) - 1);
-                str[strlen(ptr) - 1] = '\0';
-                sprintf(vname, "%s_elsebody", pre);
-                if (set_strvar(vname, str))
-                    new_strvar(vname, str);
-
-                sprintf(current->s, "%sif(%s_cond, %s_body, %s_elsebody);",
-                    start, pre, pre, pre);
-            }
-        }
-    }
-
-    // search for commas within 'closed' areas and separate them into
-    // a sequence of individual expressions.  A 'closed' area is text
-    // that is not inside any parenthesis or brace.
-    // for example, "i=0,j=0" should be parsed as the two expressions
-    // i=0
-    // j=0
-    // but "for(i=0,j=0;..." is ignored because the comma is inside
-    // an open parenthesis (it will eventually show up here without
-    // the surrounding 'for')
-    // to do this we go through the input string one character at a 
-    // time and count open/closed parens/braces, while looking for
-    // commas.
-    openp = openb = closedp = closedb = 0;
-    k = strlen(current->s);
-    for (i = 0, j = 0; i < k; i++, j++)
-    {
-        if (current->s[i] == '(') openp++;
-        if (current->s[i] == ')') closedp++;
-        if (current->s[i] == '{') openb++;
-        if (current->s[i] == '}') closedb++;
-        if (current->s[i] == ',') {
-            if ((openp == closedp) && (openb == closedb))
-            {
-                (*numlines)++;
-                out = (str_t*)xrealloc(out, *numlines * sizeof(str_t));
-                out[*numlines - 2].s[i] = '\0';
-                sInit(&out[*numlines - 1]);
-                current = &out[*numlines - 1];
-                toStr(&out[*numlines - 2].s[i + 1], &out[*numlines - 1]);
-                k = current->nchars;
-                i = 0;
-            }
-        }
-    }
-    //toStr(current->s, &out[*numlines - 1]);
-
     return out;
 }
-
 int is_new_token(int el_type, int el_type2)
 {
 
@@ -1474,6 +1102,7 @@ char* process_expression(char* input_exp, meta_t* metadata,
     str_t* out;
     int num;
     int i;
+    int failed = 0;
     mpz_t tmp;
     char* outstr = NULL;
 
@@ -1481,30 +1110,20 @@ char* process_expression(char* input_exp, meta_t* metadata,
     sInit(&str);
     toStr(input_exp, &str);
 
-    // multi-line statement blocks:
-    // have the preprocessor check for open '{' while parsing
-    // statement bodies.  If we see an open bracket without
-    // a closing one, create a new variable with the name of
-    // the block.  E.g. if parsing a 2nd for loop, the name
-    // would be 'for1_block'.  Then we return, and get some more
-    // text.  A global will need to keep track of open/closed
-    // brackets to know whether to keep appending to a block 
-    // variable or to finialize it and increment to the next 
-    // statement.
-    // multi-statement lines:
-    // separate with commas?
+    // 按最外层逗号拆分语句，括号中的函数实参保持完整。
     out = preprocess(&str, &num);
 
     for (i = 0; i < num; i++)
     {
-        calc_with_assignment(&out[i], metadata, force_quiet);
+        if (!failed)
+            failed = calc_with_assignment(&out[i], metadata, force_quiet);
         sFree(&out[i]);
     }
 
     // return the last result.  Return a new string
     // since the input string may not be big enough
     // to hold the result.
-    if (!no_convert_result)
+    if (!no_convert_result && !failed)
     {
         get_uvar("ans", tmp);
         outstr = mpz_get_str(NULL, OBASE, tmp);
@@ -1516,17 +1135,18 @@ char* process_expression(char* input_exp, meta_t* metadata,
     return outstr;
 }
 
-void calc_with_assignment(str_t* in, meta_t* metadata, int force_quiet)
+int calc_with_assignment(str_t* in, meta_t* metadata, int force_quiet)
 {
     char* ptr;
     char varname[sizeof(uvars.vars[0].name)];
     int offset = 0;
     int nooutput;
+    int status = 1;
     str_t str;
     mpz_t tmp;
 
     if (in->s[0] == '\0')
-        return;
+        return 0;
 
     mpz_init(tmp);
     sInit(&str);
@@ -1564,20 +1184,25 @@ void calc_with_assignment(str_t* in, meta_t* metadata, int force_quiet)
     }
 
     toStr(in->s + offset, &str);
-    if (!calc(&str, metadata))
+    status = calc(&str, metadata);
+    if (!status)
     {
         if (strcmp(str.s, "") != 0)
         {
             // always set the default variable to the new answer
             mpz_set_str(tmp, str.s, 0);
             sCopy(&str, in);
-            set_uvar("ans", tmp, metadata->fobj);
-
-            // and optionally any assigned variable as well.
-            if (set_uvar(varname, tmp, metadata->fobj))
+            int assigned = set_uvar(varname, tmp, metadata->fobj);
+            if (assigned < 0)
+            {
+                status = 1;
+                goto done;
+            }
+            if (assigned > 0)
             {
                 new_uvar(varname, tmp);
             }
+            set_uvar("ans", tmp, metadata->fobj);
 
             if ((nooutput == 0) && (force_quiet >= 0))
             {
@@ -1605,7 +1230,7 @@ void calc_with_assignment(str_t* in, meta_t* metadata, int force_quiet)
                     printf("\n\n");
                 }
             }
-            else if (force_quiet == -1)
+            else if (force_quiet == -1 && !nooutput)
             {
                 // if -silent, just output the answer.
                 if (OBASE == DEC)
@@ -1636,7 +1261,33 @@ void calc_with_assignment(str_t* in, meta_t* metadata, int force_quiet)
 done:
     mpz_clear(tmp);
     sFree(&str);
-    return;
+    return status;
+}
+
+static int parse_number(mpz_t value, const char* text)
+{
+    int negative = text[0] == '-';
+    int base = IBASE;
+    if (negative) text++;
+    if (get_uvar(text, value) == 0)
+    {
+        if (negative) mpz_neg(value, value);
+        return 0;
+    }
+    if (text[0] == '0' && text[1] != '\0')
+    {
+        switch (text[1])
+        {
+        case 'x': case 'X': base = 16; text += 2; break;
+        case 'b': case 'B': base = 2; text += 2; break;
+        case 'o': case 'O': base = 8; text += 2; break;
+        case 'd': case 'D': base = 10; text += 2; break;
+        }
+    }
+    if (text[0] == '\0' || mpz_set_str(value, text, base) != 0)
+        return -1;
+    if (negative) mpz_neg(value, value);
+    return 0;
 }
 
 int calc(str_t* in, meta_t* metadata)
@@ -1970,7 +1621,18 @@ int calc(str_t* in, meta_t* metadata)
         switch (get_el_type2(tok[0]))
         {
         case NUM:
-            toStr(tok, tmp);
+numeric_token:
+            if (parse_number(tmpz, tok) != 0)
+            {
+                printf("invalid number '%s' for input base %d\n", tok, IBASE);
+                retval = 1;
+                goto free;
+            }
+            {
+                char* number = mpz_get_str(NULL, 10, tmpz);
+                toStr(number, tmp);
+                free(number);
+            }
             push(tmp, &stk);
             break;
         case AMBIG:
@@ -1979,9 +1641,7 @@ int calc(str_t* in, meta_t* metadata)
             // else its an operator
             if (get_el_type2(tok[1]) == NUM)
             {
-                toStr(tok, tmp);
-                push(tmp, &stk);
-                break;
+                goto numeric_token;
             }
 
             // if not a num, proceed into the next switch (function handle)
@@ -2040,20 +1700,12 @@ int calc(str_t* in, meta_t* metadata)
                     }
 
                     // try to make a number out of it
-                    r = mpz_set_str(tmpz, tmp->s, 0);
+                    r = mpz_set_str(tmpz, tmp->s, 10);
                     if (r < 0)
                     {
-                        if (CALC_VERBOSE)
-                        {
-                            printf("adding %s to choperands\n", tmp->s);
-                        }
-                        if (strlen(tmp->s) >= sizeof(choperands[0]))
-                        {
-                            printf("string argument is too long\n");
-                            retval = 1;
-                            goto free;
-                        }
-                        strcpy(choperands[na - j - 1], tmp->s);
+                        printf("function %s requires numeric arguments\n", tok);
+                        retval = 1;
+                        goto free;
                     }
                     else
                     {
@@ -2087,7 +1739,7 @@ int calc(str_t* in, meta_t* metadata)
                     push(tmp, &stk);
                 }
             }
-            else if (get_uvar(tok, tmpz) == 0)
+            else if (parse_number(tmpz, tok) == 0)
             {
                 int sz;
 
@@ -2199,18 +1851,6 @@ int generateDivisors64(uint64_t* divlist, int* numdiv, int curIndex, int current
     return currentCount;
 }
 
-uint64_t sumdiv64(uint64_t n)
-{
-
-
-
-
-
-
-
-}
-
-
 int getFunc(char* s, int* nargs)
 {
     // return the opcode associated with the function, and
@@ -2259,10 +1899,24 @@ int check_args(int funcnum, int nargs)
     }
 }
 
-static const char* check_operands(int funcnum)
+static int fits_uint64(const mpz_t value)
 {
+    return mpz_sgn(value) >= 0 && mpz_sizeinbase(value, 2) <= 64;
+}
+
+static const char* check_operands(int funcnum, int nargs)
+{
+    int first = function_nargs[funcnum] - nargs;
     switch (funcnum)
     {
+    case 0: case 1: case 5: case 18: case 23: case 24: case 46: case 49:
+        if (!mpz_fits_ulong_p(operands[0]))
+            return "argument must be a nonnegative unsigned long";
+        break;
+    case 4:
+        if (mpz_sgn(operands[1]) <= 0 || mpz_even_p(operands[1]))
+            return "Jacobi denominator must be positive and odd";
+        break;
     case 12:
         if (mpz_sgn(operands[0]) < 0)
             return "square root requires a nonnegative input";
@@ -2281,16 +1935,103 @@ static const char* check_operands(int funcnum)
         if (mpz_sgn(operands[0]) < 0 && mpz_even_p(operands[1]))
             return "even root requires a nonnegative input";
         break;
-    case 29:
-        if (!mpz_fits_ulong_p(operands[1]))
-            return "exponent must be a nonnegative unsigned long";
+    case 16:
+        if (!mpz_fits_slong_p(operands[1]))
+            return "shift count must fit a signed long";
         break;
-    case 66:
+    case 26: case 27: case 29: case 48:
+        if (!mpz_fits_ulong_p(operands[1]))
+            return "argument must be a nonnegative unsigned long";
+        break;
+    case 30:
+        if (mpz_sgn(operands[0]) < 0 || mpz_sgn(operands[1]) <= 0 ||
+            mpz_even_p(operands[1]) || !mpz_fits_uint_p(operands[2]) ||
+            mpz_sgn(operands[2]) == 0)
+            return "REDC requires nonnegative T, positive odd n and positive bit count";
+        break;
+    case 47:
+        if (!mpz_fits_ulong_p(operands[0]) ||
+            !mpz_fits_ulong_p(operands[1]) || mpz_sgn(operands[1]) == 0)
+            return "multifactorial requires a nonnegative input and positive step";
+        break;
+    case 52:
+        if (mpz_cmp_ui(operands[0], 65) < 0 || mpz_cmp_ui(operands[0], 4096) > 0)
+            return "RSA bit count must be between 65 and 4096";
+        break;
+    case 55: case 57: case 62:
+        if (nargs == 2 && !mpz_fits_uint_p(operands[1]))
+            return "bound or iteration count must fit an unsigned int";
+        break;
+    case 60:
+        if (!fits_uint64(operands[first]) || !fits_uint64(operands[first + 1]) ||
+            mpz_cmp(operands[first], operands[first + 1]) > 0)
+            return "prime range must be ordered and fit unsigned 64-bit integers";
+        if (nargs == 3 && (!mpz_fits_uint_p(operands[2]) ||
+            mpz_cmp_ui(operands[2], 1) > 0))
+            return "prime count flag must be 0 or 1";
+        break;
+    case 61: case 75:
+        if (!mpz_fits_uint_p(operands[0]) || !mpz_fits_uint_p(operands[1]))
+            return "count and bit length must fit unsigned int";
+        if (funcnum == 75 && mpz_cmp_ui(operands[1], 4) < 0)
+            return "semiprime bit count must be at least 4";
+        break;
+    case 63:
+        if (!mpz_fits_uint_p(operands[0]) || mpz_cmp_ui(operands[0], 2) < 0)
+            return "Lucas-Lehmer exponent must be at least 2 and fit unsigned int";
+        break;
+    case 64:
+        if (nargs && !mpz_fits_uint_p(operands[0]))
+            return "digit limit must fit unsigned int";
+        break;
+    case 65:
+        if (!mpz_fits_ulong_p(operands[1]))
+            return "divisor exponent must be a nonnegative unsigned long";
+        /* 与 totient、divisors 一样，只对正整数计算。 */
+        /* fall through */
+    case 66: case 80:
         if (mpz_sgn(operands[0]) <= 0)
-            return "totient requires a positive integer";
+            return "input must be a positive integer";
+        break;
+    case 68:
+        if (mpz_sgn(operands[0]) <= 0 || !mpz_fits_sint_p(operands[2]) ||
+            mpz_sgn(operands[2]) < 0)
+            return "curve modulus must be positive and bit count nonnegative";
+        break;
+    case 69:
+        if (mpz_sgn(operands[0]) < 0 || mpz_cmp(operands[0], operands[1]) > 0 ||
+            !mpz_fits_uint_p(operands[2]) || mpz_cmp_ui(operands[2], 2) < 0)
+            return "sieve range must be ordered and depth at least 2";
+        break;
+    case 70:
+        if (!fits_uint64(operands[first + 1]) || (nargs == 3 &&
+            (!mpz_fits_uint_p(operands[2]) || mpz_sgn(operands[2]) == 0)))
+            return "Fermat iterations must fit 64 bits and multiplier be positive";
+        break;
+    case 76:
+        return "fftmul is an internal timing experiment; use a*b for exact multiplication";
+    case 78:
+        if (mpz_cmp_ui(operands[2], 2) < 0)
+            return "Toom radix must be at least 2";
         break;
     }
     return NULL;
+}
+
+static int factorization_complete(fact_obj_t* fobj)
+{
+    uint32_t i;
+    compute_factor_types(fobj->factors, fobj->VFLAG, 0);
+    for (i = 0; i < fobj->factors->num_factors; i++)
+    {
+        int type = fobj->factors->factors[i].type;
+        if (type != PRIME && type != PRP)
+        {
+            printf("calculation requires a complete prime factorization\n");
+            return 0;
+        }
+    }
+    return 1;
 }
 
 int feval(int funcnum, int nargs, meta_t *metadata)
@@ -2315,7 +2056,7 @@ int feval(int funcnum, int nargs, meta_t *metadata)
 
     if (check_args(funcnum, nargs))
         return -1;
-    error = check_operands(funcnum);
+    error = check_operands(funcnum, nargs);
     if (error != NULL)
     {
         printf("invalid argument in %s: %s\n", function_names[funcnum], error);
@@ -2475,7 +2216,7 @@ int feval(int funcnum, int nargs, meta_t *metadata)
 		if (mpz_sgn(operands[1]) >= 0)
 			mpz_mul_2exp(operands[0], operands[0], mpz_get_ui(operands[1]));
 		else
-			mpz_tdiv_q_2exp(operands[0], operands[0], -1*mpz_get_si(operands[1]));
+			mpz_tdiv_q_2exp(operands[0], operands[0], mpz_get_ui(operands[1]));
 
 		break;
 	case 17:
@@ -2569,6 +2310,13 @@ int feval(int funcnum, int nargs, meta_t *metadata)
         mpz_set_ui(mp1, 1);
         j = mpz_get_ui(operands[2]);
         mpz_mul_2exp(mp1, mp1, j);
+        mpz_mul(mp3, mp1, operands[1]);
+        if (mpz_cmp(operands[1], mp1) >= 0 || mpz_cmp(operands[0], mp3) >= 0)
+        {
+            printf("invalid REDC range: n < R and T < n*R are required\n");
+            result = -1;
+            break;
+        }
         mpz_invert(mp2, operands[1], mp1);
         mpz_sub(mp2, mp1, mp2);
         mpz_mul(mp3, operands[0], mp2);
@@ -2625,8 +2373,7 @@ int feval(int funcnum, int nargs, meta_t *metadata)
     case 39:
         // popcnt
         if (check_args(funcnum, nargs)) break;
-        j = mpz_popcount(operands[0]);
-        mpz_set_ui(operands[0], j);
+        mpz_set_ui(operands[0], mpz_popcount(operands[0]));
         break;
     case 40:
         // nextprime
@@ -2638,12 +2385,8 @@ int feval(int funcnum, int nargs, meta_t *metadata)
         // print
         if (check_args(funcnum, nargs)) break;
 
-        if (OBASE == DEC)
-            gmp_printf("%Zd\n", operands[0]);
-        else if (OBASE == HEX)
-            gmp_printf("%Zx\n", operands[0]);
-        else if (OBASE == OCT)
-            gmp_printf("%Zo\n", operands[0]);
+        mpz_out_str(stdout, OBASE, operands[0]);
+        putchar('\n');
 
         fflush(stdout);
         break;
@@ -2695,8 +2438,7 @@ int feval(int funcnum, int nargs, meta_t *metadata)
     case 50:
         // hamdist
         if (check_args(funcnum, nargs)) break;
-        j = mpz_hamdist(operands[0], operands[1]);
-        mpz_set_ui(operands[0], j);
+        mpz_set_ui(operands[0], mpz_hamdist(operands[0], operands[1]));
         break;
     case 51:
         // snfs - two arguments
@@ -2725,6 +2467,7 @@ int feval(int funcnum, int nargs, meta_t *metadata)
         if (mpz_divisible_p(fobj->nfs_obj.snfs_fullinput, fobj->nfs_obj.gmp_n) == 0)
         {
             printf("***** warning: co-factor (argument 2) does not divide full input (argument 1)\n");
+            result = -1;
             break;
         }
 
@@ -2964,16 +2707,12 @@ int feval(int funcnum, int nargs, meta_t *metadata)
         upper = mpz_get_64(operands[1]);
         
         {
-            uint64_t* PRIMES, NUM_P, P_MAX, P_MIN;
+            uint64_t* PRIMES, NUM_P;
             soe_staticdata_t* sdata = soe_init(fobj->VFLAG, fobj->THREADS, 32768);
             PRIMES = soe_wrapper(sdata, lower, upper, mpz_get_ui(operands[2]), &NUM_P, 
                 metadata->pfile, metadata->pscreen);
 
-            if (PRIMES != NULL)
-            {
-                P_MIN = PRIMES[0];
-                P_MAX = PRIMES[NUM_P - 1];
-            }
+            free(PRIMES);
             soe_finalize(sdata);
             mpz_set_64(operands[0], NUM_P);
         }
@@ -3092,17 +2831,23 @@ int feval(int funcnum, int nargs, meta_t *metadata)
         new_factorization(fobj, operands[0]);
 
         // customize for this method
-        k = mpz_get_ui(operands[1]);
         factor(fobj);
 
+        if (!factorization_complete(fobj))
+        {
+            fobj->VFLAG = oldvflag;
+            result = -1;
+            break;
+        }
         mpz_set_ui(mp2, 1);
         for (i = 0; i < fobj->factors->num_factors; i++)
         {
             mpz_set_ui(mp1, 1);
+            mpz_pow_ui(mp3, fobj->factors->factors[i].factor, mpz_get_ui(operands[1]));
             for (j = 1; j <= fobj->factors->factors[i].count; j++)
             {
-                mpz_pow_ui(mp3, fobj->factors->factors[i].factor, j * k);
-                mpz_add(mp1, mp1, mp3);
+                mpz_mul(mp1, mp1, mp3);
+                mpz_add_ui(mp1, mp1, 1);
             }
             mpz_mul(mp2, mp2, mp1);
         }
@@ -3129,6 +2874,12 @@ int feval(int funcnum, int nargs, meta_t *metadata)
 
         // customize for this method
         factor(fobj);
+        if (!factorization_complete(fobj))
+        {
+            fobj->VFLAG = oldvflag;
+            result = -1;
+            break;
+        }
         mpz_set(operands[0], mp2);
         for (i = 0; i < fobj->factors->num_factors; i++)
         {
@@ -3319,8 +3070,7 @@ int feval(int funcnum, int nargs, meta_t *metadata)
 
             printf("elapsed time = %6.4f\n", t);
 
-            if (!NULL)
-                free(primes);
+            free(primes);
 
             mpz_clear(lowz);
             mpz_clear(highz);
@@ -3450,23 +3200,24 @@ int feval(int funcnum, int nargs, meta_t *metadata)
             // save to semiprimes.dat
 
             FILE* out;
-            int i;
+            uint32_t i;
             mpz_t tmp1, tmp2, tmp3;
             uint32_t num = mpz_get_ui(operands[0]);
             uint32_t bits = mpz_get_ui(operands[1]);
             char name[80];
 
-            mpz_init(tmp1);
-            mpz_init(tmp2);
-            mpz_init(tmp3);
-
-            snprintf(name, 80, "semiprimes_%02dbit.dat", bits);
+            snprintf(name, sizeof(name), "semiprimes_%02ubit.dat", bits);
             out = fopen(name, "w");
             if (out == NULL)
             {
-                printf("couldn't open semiprimes.dat for writing\n");
+                printf("couldn't open %s for writing\n", name);
+                result = -1;
                 break;
             }
+
+            mpz_init(tmp1);
+            mpz_init(tmp2);
+            mpz_init(tmp3);
 
             for (i = 0; i < num; i++)
             {
@@ -3490,7 +3241,7 @@ int feval(int funcnum, int nargs, meta_t *metadata)
             }
             fclose(out);
 
-            printf("generated %d semiprimes in file semiprimes.dat\n", num);
+            printf("generated %u semiprimes in file %s\n", num, name);
             mpz_clear(tmp1);
             mpz_clear(tmp2);
             mpz_clear(tmp3);
@@ -3498,13 +3249,7 @@ int feval(int funcnum, int nargs, meta_t *metadata)
 
         break;
     case 76:
-        // fftmul
-
-        fftmul(operands[4], operands[0], operands[1], 
-            mpz_get_ui(operands[2]), mpz_get_ui(operands[3]));
-
-        mpz_set(operands[0], operands[4]);
-
+        // 实验性计时入口在参数检查阶段拒绝，避免返回未经保证的乘积。
         break;
 
     case 77:
@@ -4290,6 +4035,12 @@ int feval(int funcnum, int nargs, meta_t *metadata)
             // customize for this method
             factor(fobj);
 
+            if (!factorization_complete(fobj))
+            {
+                result = -1;
+                break;
+            }
+
             int v = fobj->VFLAG;
             fobj->VFLAG = 1;
             print_factors(fobj);
@@ -4363,9 +4114,9 @@ int feval(int funcnum, int nargs, meta_t *metadata)
             for (j = min_p_id; j < num_p; j++)
             {
                 n = (twins[i] + primes[j]) / 2;
-                evens[n >> 5] |= (1 << (n & 31));
+                evens[n >> 5] |= (UINT32_C(1) << (n & 31));
                 n++;    // for the other side of the twin
-                evens[n >> 5] |= (1 << (n & 31));
+                evens[n >> 5] |= (UINT32_C(1) << (n & 31));
             }
             printf("twin %"PRIu64"... ", twins[i]);
 
@@ -4391,6 +4142,7 @@ int feval(int funcnum, int nargs, meta_t *metadata)
 
         free(primes);
         free(twins);
+        free(evens);
 
         mpz_clear(lowz);
         mpz_clear(highz);
@@ -4418,6 +4170,8 @@ int feval(int funcnum, int nargs, meta_t *metadata)
 int new_uvar(const char* name, mpz_t data)
 {
     int i;
+    if (strlen(name) >= sizeof(uvars.vars[0].name))
+        return -1;
     // create a new user variable with name 'name', and return
     // its location in the global uvars structure
     if (uvars.num == uvars.alloc)
@@ -4446,10 +4200,10 @@ int set_uvar(const char* name, mpz_t data, fact_obj_t* fobj)
     // first look if it is a global constant
     if (strcmp(name, "IBASE") == 0)
     {
-        if (i != DEC && i != HEX && i != BIN && i != OCT)
+        if (!mpz_fits_uint_p(data) || (i != DEC && i != HEX && i != BIN && i != OCT))
         {
             printf("unknown base\n");
-            return 1;
+            return -1;
         }
         else
         {
@@ -4459,46 +4213,61 @@ int set_uvar(const char* name, mpz_t data, fact_obj_t* fobj)
     }
     else if (strcmp(name, "OBASE") == 0)
     {
-        if (i != DEC && i != HEX && i != BIN && i != OCT)
+        if (!mpz_fits_uint_p(data) || (i != DEC && i != HEX && i != BIN && i != OCT))
         {
             printf("unknown base\n");
-            return 0;
+            return -1;
         }
         else
         {
             OBASE = i;
-            return 1;
+            return 0;
         }
     }
     else if (strcmp(name, "verbose") == 0)
     {
-        fobj->VFLAG = mpz_get_ui(data);
+        if (fobj == NULL || !mpz_fits_sint_p(data))
+            return -1;
+        fobj->VFLAG = (int)mpz_get_si(data);
     }
     else if (strcmp(name, "B1pm1") == 0) {
-        fobj->pm1_obj.B1 = mpz_get_ui(data);
+        if (fobj == NULL || !fits_uint64(data)) return -1;
+        fobj->pm1_obj.B1 = mpz_get_64(data);
     }
     else if (strcmp(name, "B2pm1") == 0) {
-        fobj->pm1_obj.B2 = mpz_get_ui(data);
+        if (fobj == NULL || !fits_uint64(data)) return -1;
+        fobj->pm1_obj.B2 = mpz_get_64(data);
     }
     else if (strcmp(name, "B1pp1") == 0) {
-        fobj->pp1_obj.B1 = mpz_get_ui(data);
+        if (fobj == NULL || !fits_uint64(data)) return -1;
+        fobj->pp1_obj.B1 = mpz_get_64(data);
     }
     else if (strcmp(name, "B2pp1") == 0) {
-        fobj->pp1_obj.B2 = mpz_get_ui(data);
+        if (fobj == NULL || !fits_uint64(data)) return -1;
+        fobj->pp1_obj.B2 = mpz_get_64(data);
     }
     else if (strcmp(name, "B1ecm") == 0) {
-        fobj->ecm_obj.B1 = mpz_get_ui(data);
+        if (fobj == NULL || !fits_uint64(data)) return -1;
+        fobj->ecm_obj.B1 = mpz_get_64(data);
     }
     else if (strcmp(name, "B2ecm") == 0) {
-        fobj->ecm_obj.B2 = mpz_get_ui(data);
+        if (fobj == NULL || !fits_uint64(data)) return -1;
+        fobj->ecm_obj.B2 = mpz_get_64(data);
     }
     else if (strcmp(name, "rhomax") == 0) {
+        if (fobj == NULL || !mpz_fits_uint_p(data)) return -1;
         fobj->rho_obj.iterations = mpz_get_ui(data);
     }
     else if (strcmp(name, "nprp") == 0) {
+        if (fobj == NULL || !mpz_fits_sint_p(data) || mpz_sgn(data) < 0) return -1;
         fobj->NUM_WITNESSES = mpz_get_ui(data);
     }
     else if (strcmp(name, "threads") == 0) {
+        if (fobj == NULL || !mpz_fits_sint_p(data) || mpz_sgn(data) <= 0)
+        {
+            printf("invalid thread count\n");
+            return -1;
+        }
         fobj->THREADS = mpz_get_ui(data);
     }
     //else if (strcmp(name, "pfile") == 0) {
@@ -4586,6 +4355,8 @@ void free_uvars(void)
 int new_strvar(const char* name, char* data)
 {
     int i;
+    if (strlen(name) >= sizeof(strvars.vars[0].name))
+        return -1;
     // create a new user variable with name 'name', and return
     // its location in the global uvars structure
     if (strvars.num == strvars.alloc)
@@ -4605,6 +4376,7 @@ int new_strvar(const char* name, char* data)
     {
         strvars.vars[strvars.num].data = xrealloc(
             strvars.vars[strvars.num].data, strlen(data) + 2);
+        strvars.vars[strvars.num].alloc = strlen(data) + 2;
     }
     strcpy(strvars.vars[strvars.num].data, data);
     strvars.num++;
@@ -4625,6 +4397,7 @@ int set_strvar(const char* name, char* data)
             if (strvars.vars[i].alloc < (strlen(data) + 1))
             {
                 strvars.vars[i].data = xrealloc(strvars.vars[i].data, strlen(data) + 2);
+                strvars.vars[i].alloc = strlen(data) + 2;
             }
             strcpy(strvars.vars[i].data, data);
             return 0;

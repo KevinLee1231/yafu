@@ -12,6 +12,10 @@ benefit from your work.
 $Id: demo.c 1025 2018-08-19 02:20:28Z jasonp_sf $
 --------------------------------------------------------------------*/
 
+// util.h pins _POSIX_C_SOURCE to 200112L, which hides strdup() from
+// string.h; raise it before the first include to match what we call.
+#define _GNU_SOURCE
+
 #include <ms_msieve.h>
 #include <signal.h>
 
@@ -38,6 +42,7 @@ void handle_signal(int sig) {
 void get_random_seeds(uint32 *seed1, uint32 *seed2) {
 
 	uint32 tmp_seed1, tmp_seed2;
+	int got_random = 0;
 
 	/* In a multithreaded program, every msieve object
 	   should have two unique, non-correlated seeds
@@ -51,13 +56,13 @@ void get_random_seeds(uint32 *seed1, uint32 *seed2) {
 
 		/* Yay! Cryptographic-quality nondeterministic randomness! */
 
-		fread(&tmp_seed1, sizeof(uint32), (size_t)1, rand_device);
-		fread(&tmp_seed2, sizeof(uint32), (size_t)1, rand_device);
+		got_random = fread(&tmp_seed1, sizeof(uint32), (size_t)1, rand_device) == 1 &&
+			fread(&tmp_seed2, sizeof(uint32), (size_t)1, rand_device) == 1;
 		fclose(rand_device);
 	}
-	else
 
 #endif
+	if (!got_random)
 	{
 		/* <Shrug> For everyone else, sample the current time,
 		   the high-res timer (hopefully not correlated to the
@@ -336,6 +341,7 @@ int main(int argc, char **argv) {
 	uint32 flags;
 	char manual_mode = 0;
 	int i;
+	int status = 0;
 	int32 deadline = 0;
 	uint32 max_relations = 0;
 	enum cpu_type cpu;
@@ -560,8 +566,13 @@ int main(int argc, char **argv) {
 			}
 		}
 		else {
-			if (isdigit(argv[i][0]) || argv[i][0] == '(' )
-				strncpy(buf, argv[i], sizeof(buf));
+			if (isdigit((unsigned char)argv[i][0]) || argv[i][0] == '(' ) {
+				if (strlen(argv[i]) >= sizeof(buf)) {
+					fprintf(stderr, "input expression exceeds %zu characters\n", sizeof(buf) - 1);
+					return 1;
+				}
+				strcpy(buf, argv[i]);
+			}
 			i++;
 		}
 	}
@@ -594,7 +605,18 @@ int main(int argc, char **argv) {
 			printf("\n\nnext number: ");
 			fflush(stdout);
 			buf[0] = 0;
-			fgets(buf, (int)sizeof(buf), stdin);
+			if (fgets(buf, (int)sizeof(buf), stdin) == NULL) {
+				status = ferror(stdin) ? 1 : 0;
+				break;
+			}
+			if (strchr(buf, '\n') == NULL && !feof(stdin)) {
+				int next = fgetc(stdin);
+				if (next != EOF && next != '\n') {
+					fprintf(stderr, "input line is too long\n");
+					status = 1;
+					break;
+				}
+			}
 			factor_integer(buf, flags, savefile_name, 
 					logfile_name, nfs_fbfile_name,
 					&seed1, &seed2,
@@ -609,12 +631,24 @@ int main(int argc, char **argv) {
 		FILE *infile = fopen(infile_name, "r");
 		if (infile == NULL) {
 			printf("cannot open input file '%s'\n", infile_name);
-			return 0;
+			status = 1;
+			goto cleanup;
 		}
 
 		while (1) {
 			buf[0] = 0;
-			fgets(buf, (int)sizeof(buf), infile);
+			if (fgets(buf, (int)sizeof(buf), infile) == NULL) {
+				status = ferror(infile) ? 1 : 0;
+				break;
+			}
+			if (strchr(buf, '\n') == NULL && !feof(infile)) {
+				int next = fgetc(infile);
+				if (next != EOF && next != '\n') {
+					fprintf(stderr, "input line is too long\n");
+					status = 1;
+					break;
+				}
+			}
 			factor_integer(buf, flags, savefile_name, 
 					logfile_name, nfs_fbfile_name,
 					&seed1, &seed2,
@@ -624,11 +658,12 @@ int main(int argc, char **argv) {
 			if (feof(infile))
 				break;
 		}
-		fclose(infile);
+		if (fclose(infile) != 0) status = 1;
 	}
 
+cleanup:
 #ifdef HAVE_MPI
 	MPI_Finalize();
 #endif
-	return 0;
+	return status;
 }

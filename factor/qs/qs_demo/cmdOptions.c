@@ -39,6 +39,9 @@ SOFTWARE.
 #include <string.h>
 #include <inttypes.h>
 #include <ctype.h>  // isdigit, isspace
+#include <errno.h>
+#include <limits.h>
+#include <math.h>
 
 // this function prints the help information specified by usageHelp
 // and OptionHelp.
@@ -125,18 +128,46 @@ char LongOptionAliases[NUMOPTIONS][MAXOPTIONLEN] = {
     "" };
 
 // ========================================================================
-int enforce_numeric(char* arg, char *opt)
+static void invalid_argument(const char *opt)
 {
-    int i;
-    for (i = 0; i < (int)strlen(arg); i++)
-    {
-        if (!isdigit((int)arg[i]))
-        {
-            printf("expected numeric input for option %s\n", opt);
-            exit(1);
-        }
-    }
-    return 0;
+    fprintf(stderr, "invalid or out-of-range argument for option %s\n", opt);
+    exit(EXIT_FAILURE);
+}
+
+/* 转换前后都检查，避免空值、部分解析和窄整数截断。 */
+static uint64_t parse_uint(const char *arg, const char *opt, uint64_t limit)
+{
+    char *end;
+    unsigned long long value;
+    if (arg == NULL || !isdigit((unsigned char)arg[0]))
+        invalid_argument(opt);
+    errno = 0;
+    value = strtoull(arg, &end, 10);
+    if (errno == ERANGE || *end != '\0' || value > limit)
+        invalid_argument(opt);
+    return (uint64_t)value;
+}
+
+static double parse_double(const char *arg, const char *opt)
+{
+    char *end;
+    double value;
+    if (arg == NULL || *arg == '\0' || isspace((unsigned char)*arg))
+        invalid_argument(opt);
+    errno = 0;
+    value = strtod(arg, &end);
+    if (errno == ERANGE || end == arg || *end != '\0' ||
+        !isfinite(value) || value < 0)
+        invalid_argument(opt);
+    return value;
+}
+
+static void copy_argument(char *dst, size_t dst_size, const char *arg,
+    const char *opt)
+{
+    if (arg == NULL || strlen(arg) >= dst_size)
+        invalid_argument(opt);
+    memcpy(dst, arg, strlen(arg) + 1);
 }
 
 
@@ -147,8 +178,14 @@ void applyArg(char* arg, int argNum, options_t* options)
 {
     if (argNum == 0)
     {
-        options->inputExpr = (char*)realloc(options->inputExpr, 
-            strlen(arg) * sizeof(char));
+        char *new_expr = (char*)realloc(options->inputExpr,
+            (strlen(arg) + 1) * sizeof(char));
+        if (new_expr == NULL)
+        {
+            fprintf(stderr, "out of memory while copying input expression\n");
+            exit(EXIT_FAILURE);
+        }
+        options->inputExpr = new_expr;
         strcpy(options->inputExpr, arg);
     }
 
@@ -162,51 +199,41 @@ void applyArg(char* arg, int argNum, options_t* options)
 void applyOpt(char* opt, char* arg, options_t* options)
 {
     int i;
-    char** ptr = NULL;
 
     if (strcmp(opt, OptionArray[0]) == 0)
     {
         // qssave
-        if (strlen(arg) < MAXARGLEN)
-            strcpy(options->qssave, arg);
-        else
-            printf("*** argument to savefile too long, ignoring ***\n");
+        copy_argument(options->qssave, sizeof(options->qssave), arg, opt);
     }
     else if (strcmp(opt, OptionArray[1]) == 0)
     {
         // siqsB
-        enforce_numeric(arg, opt);
-        options->siqsB = strtoul(arg, ptr, 10);
+        options->siqsB = (uint32_t)parse_uint(arg, opt, UINT32_MAX);
     }
     else if (strcmp(opt, OptionArray[2]) == 0)
     {
         // siqsTF
-        enforce_numeric(arg, opt);
-        options->siqsTF = strtoul(arg, ptr, 10);
+        options->siqsTF = (uint32_t)parse_uint(arg, opt, UINT32_MAX);
     }
     else if (strcmp(opt, OptionArray[3]) == 0)
     {
         // siqsR
-        enforce_numeric(arg, opt);
-        options->siqsR = strtoul(arg, ptr, 10);
+        options->siqsR = (uint32_t)parse_uint(arg, opt, UINT32_MAX);
     }
     else if (strcmp(opt, OptionArray[4]) == 0)
     {
         // siqsT
-        enforce_numeric(arg, opt);
-        options->siqsT = strtoul(arg, ptr, 10);
+        options->siqsT = (uint32_t)parse_uint(arg, opt, UINT32_MAX);
     }
     else if (strcmp(opt, OptionArray[5]) == 0)
     {
         // siqsNB
-        enforce_numeric(arg, opt);
-        options->siqsNB = strtoul(arg, ptr, 10);
+        options->siqsNB = (uint32_t)parse_uint(arg, opt, UINT32_MAX);
     }
     else if (strcmp(opt, OptionArray[6]) == 0)
     {
         // siqsM
-        enforce_numeric(arg, opt);
-        options->siqsM = strtoul(arg, ptr, 10);
+        options->siqsM = (uint32_t)parse_uint(arg, opt, UINT32_MAX);
     }
     else if (strcmp(opt, OptionArray[7]) == 0)
     {
@@ -220,47 +247,32 @@ void applyOpt(char* opt, char* arg, options_t* options)
         }
         else
         {
-            if (strlen(arg) < MAXARGLEN)
-                strcpy(options->factorlog, arg);
-            else
-                printf("*** argument to logfile too long, ignoring ***\n");
+            copy_argument(options->factorlog, sizeof(options->factorlog), arg, opt);
         }
     }
     else if (strcmp(opt, OptionArray[8]) == 0)
     {
         // batchfile
         // argument is a string
-        if (strlen(arg) < MAXARGLEN)
-        {
-            strcpy(options->batchfile, arg);
-        }
-        else
-            printf("*** argument to batchfile too long, ignoring ***\n");
+        copy_argument(options->batchfile, sizeof(options->batchfile), arg, opt);
     }
     else if (strcmp(opt, OptionArray[9]) == 0)
     {
-        // options->rand_seed = strtoull(arg, ptr, 10);
         printf("attempting to parse user rng seed from %s\n", arg);
-        sscanf(arg, "%"PRIu64"", &options->rand_seed);
+        options->rand_seed = parse_uint(arg, opt, UINT64_MAX);
         printf("read: % "PRIu64"\n", options->rand_seed);
     }
     else if (strcmp(opt, OptionArray[10]) == 0)
     {
         // sessionlog
         // argument is a string
-        if (strlen(arg) < MAXARGLEN)
-        {
-            strcpy(options->sessionlog, arg);
-        }
-        else
-        {
-            printf("*** argument to sessionname too long, ignoring ***\n");
-        }
+        copy_argument(options->sessionlog, sizeof(options->sessionlog), arg, opt);
     }
     else if (strcmp(opt, OptionArray[11]) == 0)
     {
-        enforce_numeric(arg, opt);
-        options->threads = strtoul(arg, NULL, 10);
+        options->threads = (uint32_t)parse_uint(arg, opt, UINT32_MAX);
+        if (options->threads == 0)
+            invalid_argument(opt);
     }
     else if (strcmp(opt, OptionArray[12]) == 0)
     {
@@ -285,13 +297,13 @@ void applyOpt(char* opt, char* arg, options_t* options)
     else if (strcmp(opt, OptionArray[17]) == 0)
     {
         //argument "nprp"
-        options->num_prp_witnesses = strtoul(arg, NULL, 10);
+        options->num_prp_witnesses = (uint32_t)parse_uint(arg, opt, UINT32_MAX);
     }
     else if (strcmp(opt, OptionArray[18]) == 0)
     {
         // argument "aprcl_p", setting the threshold below which numbers
         // are proved prime using APR-CL
-        options->aprcl_p = strtoul(arg, NULL, 10);
+        options->aprcl_p = (uint32_t)parse_uint(arg, opt, UINT32_MAX);
         if (options->aprcl_p > 6021)
         {
             printf("APR-CL primality proving is possible only for numbers less"
@@ -303,22 +315,22 @@ void applyOpt(char* opt, char* arg, options_t* options)
     {
         // argument "aprcl_d", setting the threshold above which numbers
         // that are proved prime using APR-CL have additional verbosity enabled
-        options->aprcl_d = strtoul(arg, NULL, 10);
+        options->aprcl_d = (uint32_t)parse_uint(arg, opt, UINT32_MAX);
     }
     else if (strcmp(opt, OptionArray[20]) == 0)			// NOTE: we skip -e because it is handled 
     {													// specially by process_flags
         //argument "repeat"
-        options->repeat = strtoul(arg, NULL, 10);
+        options->repeat = (uint32_t)parse_uint(arg, opt, UINT32_MAX);
     }
     else if (strcmp(opt, OptionArray[21]) == 0)
     {
         //argument "siqsTFSm"
-        options->siqsTFSm = atoi(arg);
+        options->siqsTFSm = (uint32_t)parse_uint(arg, opt, UINT32_MAX);
     }
     else if (strcmp(opt, OptionArray[22]) == 0)
     {
         //argument "script"
-        sscanf(arg, "%s", options->scriptfile);
+        copy_argument(options->scriptfile, sizeof(options->scriptfile), arg, opt);
     }
     else if (strcmp(opt, OptionArray[23]) == 0)
     {
@@ -329,21 +341,21 @@ void applyOpt(char* opt, char* arg, options_t* options)
     {
         //argument "siqsLPB"
         // the maximum allowed large prime, in bits, in SIQS
-        sscanf(arg, "%d", &options->siqsLPB);
+        options->siqsLPB = (uint32_t)parse_uint(arg, opt, 31);
     }
     else if (strcmp(opt, OptionArray[25]) == 0)
     {
         //argument "siqsMFBD"
         // the exponent of the large prime bound such that residues larger than
         // lpb^siqsMFBD are subjected to double large prime factorization attempts
-        sscanf(arg, "%lf", &options->siqsMFBD);
+        options->siqsMFBD = parse_double(arg, opt);
     }
     else if (strcmp(opt, OptionArray[26]) == 0)
     {
         //argument "siqsMFBT"
         // the exponent of the large prime bound such that residues larger than
         // lpb^siqsMFBT are subjected to triple large prime factorization attempts
-        sscanf(arg, "%lf", &options->siqsMFBT);
+        options->siqsMFBT = parse_double(arg, opt);
     }
     else if (strcmp(opt, OptionArray[27]) == 0)
     {
@@ -351,13 +363,15 @@ void applyOpt(char* opt, char* arg, options_t* options)
         // The divider of large_prime_max as the upper bound for
         // primes to multiply when using batch GCD in TLP factorizations.
         //fobj->qs_obj.gbl_override_bdiv_flag = 1;
-        sscanf(arg, "%lf", &options->siqsBDiv);
+        options->siqsBDiv = parse_double(arg, opt);
     }
     else if (strcmp(opt, OptionArray[28]) == 0)
     {
         //argument "siqsBT" ("Batch Target")
         // How many relations to batch up before they are processed
-        sscanf(arg, "%u", &options->siqsBT);
+        options->siqsBT = (uint32_t)parse_uint(arg, opt, UINT32_MAX);
+        if (options->siqsBT == 0)
+            invalid_argument(opt);
     }
     else if (strcmp(opt, OptionArray[29]) == 0)
     {
@@ -369,7 +383,7 @@ void applyOpt(char* opt, char* arg, options_t* options)
     {
         // argument "inmem"
         // cutoff for processing in-memory
-        sscanf(arg, "%u", &options->inmem_cutoff);
+        options->inmem_cutoff = (uint32_t)parse_uint(arg, opt, UINT32_MAX);
     }
     else
     {
@@ -394,8 +408,14 @@ void applyOpt(char* opt, char* arg, options_t* options)
 // ========================================================================
 options_t* initOpt(void)
 {
-    options_t* options = (options_t*)malloc(sizeof(options_t));
+    options_t* options = (options_t*)calloc(1, sizeof(options_t));
     int i;
+
+    if (options == NULL)
+    {
+        fprintf(stderr, "out of memory while initializing options\n");
+        exit(EXIT_FAILURE);
+    }
 
     for (i = 0; i < NUMOPTIONS; i++)
     {
@@ -415,6 +435,12 @@ options_t* initOpt(void)
     // ========================================================================
     // default values assigned to optional arguments here
     options->inputExpr = (char*)malloc(MAXARGLEN * sizeof(char));
+    if (options->inputExpr == NULL)
+    {
+        free(options);
+        fprintf(stderr, "out of memory while initializing options\n");
+        exit(EXIT_FAILURE);
+    }
     strcpy(options->inputExpr, "");
     // ========================================================================
 
@@ -541,10 +567,11 @@ int processOpts(int argc, char** argv, options_t* options)
         {
             for (j = 0; j < NUMOPTIONS; j++)
             {
-                if (strncmp(options->LongOptionAliases[j], &argv[i][2], MAXOPTIONLEN) == 0)
+                if (options->LongOptionAliases[j][0] != '\0' &&
+                    strcmp(options->LongOptionAliases[j], &argv[i][2]) == 0)
                 {
                     valid = 1;
-                    strncpy(optbuf, options->OptionArray[j], MAXOPTIONLEN);
+                    strcpy(optbuf, options->OptionArray[j]);
                     break;
                 }
             }
@@ -553,10 +580,10 @@ int processOpts(int argc, char** argv, options_t* options)
         {
             for (j = 0; j < NUMOPTIONS; j++)
             {
-                if (strncmp(options->OptionArray[j], &argv[i][1], MAXOPTIONLEN) == 0)
+                if (strcmp(options->OptionArray[j], &argv[i][1]) == 0)
                 {
                     valid = 1;
-                    strncpy(optbuf, &argv[i][1], MAXOPTIONLEN);
+                    strcpy(optbuf, &argv[i][1]);
                     break;
                 }
             }
@@ -578,7 +605,7 @@ int processOpts(int argc, char** argv, options_t* options)
                 printUsage(options);
                 exit(0);
             }
-            strncpy(argbuf, argv[i], MAXARGLEN);
+            copy_argument(argbuf, sizeof(argbuf), argv[i], optbuf);
 
             //now apply -option argument
             applyOpt(optbuf, argbuf, options);
@@ -597,7 +624,7 @@ int processOpts(int argc, char** argv, options_t* options)
             {
                 i++;
                 // an option was supplied, pass it on
-                strncpy(argbuf, argv[i], MAXARGLEN);
+                copy_argument(argbuf, sizeof(argbuf), argv[i], optbuf);
 
                 //now apply -option argument
                 applyOpt(optbuf, argbuf, options);
@@ -696,10 +723,10 @@ void printUsage(options_t* options)
 void readINI(const char* filename, options_t* options)
 {
     FILE* doc;
-    char* str;
+    char str[1024];
     char* key;
     char* value;
-    int len;
+    char* end;
 
     doc = fopen(filename, "r");
 
@@ -709,54 +736,49 @@ void readINI(const char* filename, options_t* options)
         return;
     }
 
-    str = (char*)malloc(1024 * sizeof(char));
-    while (fgets(str, 1024, doc) != NULL)
+    while (fgets(str, sizeof(str), doc) != NULL)
     {
-        //if first character is a % sign, skip this line.
-        if (str[0] == '%')
-            continue;
-
-        //if first character is a blank, skip this line.
-        if (str[0] == ' ')
-            continue;
-
-        //if last character of line is newline, remove it
-        do
+        if (strchr(str, '\n') == NULL && !feof(doc))
         {
-            len = strlen(str);
-            if (str[len - 1] == 10)
-                str[len - 1] = '\0';
-            else if (str[len - 1] == 13)
-                str[len - 1] = '\0';
-            else
-                break;
-        } while (len > 0);
-
-        //if line is now blank, skip it.
-        if (strlen(str) == 0)
-            continue;
-
-        //read keyword by looking for an equal sign
-        key = strtok(str, "=");
-
-        if (key == NULL)
-        {
-            // no longer insist on having an argument
-            key = str;
-            value = NULL;
+            int next = fgetc(doc);
+            if (next != EOF && next != '\n')
+            {
+                fclose(doc);
+                invalid_argument("ini line length");
+            }
         }
-        else
+        key = str;
+        while (isspace((unsigned char)*key))
+            key++;
+        if (*key == '%' || *key == '#' || *key == '\0')
+            continue;
+        end = key + strlen(key);
+        while (end > key && isspace((unsigned char)end[-1]))
+            *--end = '\0';
+
+        /* 只拆第一个等号，路径或表达式内的等号保留。 */
+        value = strchr(key, '=');
+        if (value != NULL)
         {
-            //read value
-            value = strtok((char*)0, "=");
+            *value++ = '\0';
+            end = value - 1;
+            while (end > key && isspace((unsigned char)end[-1]))
+                *--end = '\0';
+            while (isspace((unsigned char)*value))
+                value++;
         }
 
         //apply the option... same routine command line options use
         applyOpt(key, value, options);
     }
 
+    if (ferror(doc))
+    {
+        fclose(doc);
+        fprintf(stderr, "error reading options from %s\n", filename);
+        return;
+    }
     fclose(doc);
-    free(str);
 
     return;
 }

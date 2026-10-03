@@ -86,7 +86,7 @@ void zTrial(fact_obj_t *fobj)
 #if BITS_PER_DIGIT == 64
 				printf("div: found prime factor = %" PRIu64 "\n",q);
 #else
-				printf("div: found prime factor = %u\n",q);
+				printf("div: found prime factor = %" PRIu64 "\n", q);
 #endif
 			if (fobj->autofact_obj.autofact_active && fobj->autofact_obj.stop_strict)
 			{

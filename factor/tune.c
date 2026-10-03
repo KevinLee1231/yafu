@@ -27,8 +27,8 @@ void update_INI(double mult, double exponent, double mult2,
     double exponent2, double xover,
 	double b1slope, double b1intercept, double size_exp, 
 	double cpu_freq, char *cpu_str);
-void make_job_file(char *sname, uint32_t *startq, uint32_t *qrange, char *inputstr, int inputnum, fact_obj_t *fobj);
-void check_siever(fact_obj_t* fobj, char* sname, int siever);
+void make_job_file(char *sname, size_t sname_size, uint32_t *startq, uint32_t *qrange, char *inputstr, int inputnum, fact_obj_t *fobj);
+void check_siever(fact_obj_t* fobj, char* sname, size_t sname_size, int siever);
 
 //----------------------- TUNE ENTRY POINT ------------------------------------//
 void factor_tune(fact_obj_t *inobj)
@@ -76,7 +76,8 @@ void factor_tune(fact_obj_t *inobj)
 	double ecm_extraptime2[3];
 	double ecm_sizes[NUM_ECM_PTS];
 
-	double a, b, a2, b2, a3, b3, fit, xover;
+	double a, b, a2, b2, fit, xover;
+	double a3 = 0.0, b3 = 0.0;
 	double avg_exp = 0.0;
 	uint32_t count;
 	char tmpbuf[GSTR_MAXSIZE];
@@ -91,9 +92,9 @@ void factor_tune(fact_obj_t *inobj)
     if (inobj->VFLAG >= 0)
         printf("checking for NFS sievers... ");
 
-    check_siever(inobj, sievername, 11);
-    check_siever(inobj, sievername, 12);
-    check_siever(inobj, sievername, 13);
+    check_siever(inobj, sievername, sizeof(sievername), 11);
+    check_siever(inobj, sievername, sizeof(sievername), 12);
+    check_siever(inobj, sievername, sizeof(sievername), 13);
 
     if (inobj->VFLAG >= 0)
         printf("done.\n");
@@ -190,7 +191,7 @@ void factor_tune(fact_obj_t *inobj)
 		// 2% of the total sieve time
 		siqs_extraptime[i] += 0.02 * siqs_extraptime[i];
 
-		printf("elapsed time for ~%dk relations of c%d = %6.4f seconds.\n",
+		printf("elapsed time for ~%dk relations of c%zu = %6.4f seconds.\n",
 			siqs_testrels[i] / 1000, mpz_sizeinbase(n, 10), t_time);
 		printf("extrapolated time for complete factorization = %6.4f seconds\n", siqs_extraptime[i]);
 	}
@@ -202,7 +203,7 @@ void factor_tune(fact_obj_t *inobj)
 	// for each of the gnfs inputs
 	for (i=0; i < NUM_GNFS_PTS; i++)
 	{
-		char syscmd[1024];
+		char syscmd[sizeof(sievername) + 64];
 		FILE *in;
 		uint32_t startq, qrange;		
 		double t_time2, d;
@@ -241,14 +242,15 @@ void factor_tune(fact_obj_t *inobj)
 		MySleep(100);
 
 		// make a job file for each input
-		make_job_file(sievername, &startq, &qrange, nfslist[i], i, inobj);
+		make_job_file(sievername, sizeof(sievername), &startq, &qrange, nfslist[i], i, inobj);
 
 		// measure how long it takes to generate the afb... for fun.		
 		gettimeofday(&start, NULL);
 
 		// create the afb - we don't want the time it takes to do this to
 		// pollute the sieve timings
-		sprintf(syscmd,"%s -b tune.job -k -c 0 -F", sievername);
+		snprintf(syscmd, sizeof(syscmd),
+			"%s -b tune.job -k -c 0 -F", sievername);
 
 		printf("nfs: commencing construction of afb\n");
 
@@ -264,7 +266,8 @@ void factor_tune(fact_obj_t *inobj)
 		gettimeofday(&start, NULL);
 
 		// start the test
-		sprintf(syscmd,"%s -f %u -c %u -o tunerels.out -a tune.job",
+		snprintf(syscmd, sizeof(syscmd),
+			"%s -f %u -c %u -o tunerels.out -a tune.job",
 			sievername, startq, qrange);
 		printf("nfs: commencing lattice sieving over range: %u - %u\n",
 			startq, startq + qrange);
@@ -353,7 +356,7 @@ tune_ecm:
 			gettimeofday(&stop, NULL);
 			t_time = ytools_difftime(&start, &stop);
 			
-			printf("elapsed time per curve for B1=%dk on c%d = %6.4f seconds.\n",
+			printf("elapsed time per curve for B1=%" PRIu64 "k on c%zu = %6.4f seconds.\n",
 				fobj->ecm_obj.B1 / 1000, mpz_sizeinbase(n, 10), t_time / curves_run);
 			
 			ecm_extraptime1[0][i] = t_time / curves_run;
@@ -368,7 +371,7 @@ tune_ecm:
 			gettimeofday(&stop, NULL);
 			t_time = ytools_difftime(&start, &stop);
 			
-			printf("elapsed time per curve for B1=%dk on c%d = %6.4f seconds.\n",
+			printf("elapsed time per curve for B1=%" PRIu64 "k on c%zu = %6.4f seconds.\n",
 				fobj->ecm_obj.B1 / 1000, mpz_sizeinbase(n, 10), t_time / curves_run);
 			
 			ecm_extraptime1[1][i] = t_time / curves_run;
@@ -383,7 +386,7 @@ tune_ecm:
 			gettimeofday(&stop, NULL);
 			t_time = ytools_difftime(&start, &stop);
 
-			printf("elapsed time per curve for B1=%dk on c%d = %6.4f seconds.\n",
+			printf("elapsed time per curve for B1=%" PRIu64 "k on c%zu = %6.4f seconds.\n",
 				fobj->ecm_obj.B1 / 1000, mpz_sizeinbase(n, 10), t_time / curves_run);
 
 			ecm_extraptime1[2][i] = t_time / curves_run;
@@ -437,7 +440,7 @@ done:
 }
 
 
-void make_job_file(char *sname, uint32_t *startq, uint32_t *qrange, char *inputstr, int inputnum, fact_obj_t *fobj)
+void make_job_file(char *sname, size_t sname_size, uint32_t *startq, uint32_t *qrange, char *inputstr, int inputnum, fact_obj_t *fobj)
 {
 	FILE *out;
 	int siever;
@@ -601,39 +604,54 @@ void make_job_file(char *sname, uint32_t *startq, uint32_t *qrange, char *inputs
 
 	}
 
-    check_siever(fobj, sname, siever);
+    check_siever(fobj, sname, sname_size, siever);
 	
 	fclose(out);
 
 	return;
 }
 
-void check_siever(fact_obj_t *fobj, char* sname, int siever)
+void check_siever(fact_obj_t *fobj, char *sname, size_t sname_size, int siever)
 {
-    FILE* test;
+    const char *executable;
+    FILE *test;
+    int written;
 
     switch (siever)
     {
     case 11:
-        sprintf(sname, "%sgnfs-lasieve4I11e", fobj->nfs_obj.ggnfs_dir);
+        executable = "gnfs-lasieve4I11e";
         break;
     case 12:
-        sprintf(sname, "%sgnfs-lasieve4I12e", fobj->nfs_obj.ggnfs_dir);
+        executable = "gnfs-lasieve4I12e";
         break;
     case 13:
-        sprintf(sname, "%sgnfs-lasieve4I13e", fobj->nfs_obj.ggnfs_dir);
+        executable = "gnfs-lasieve4I13e";
         break;
     case 14:
-        sprintf(sname, "%sgnfs-lasieve4I14e", fobj->nfs_obj.ggnfs_dir);
+        executable = "gnfs-lasieve4I14e";
         break;
     case 15:
-        sprintf(sname, "%sgnfs-lasieve4I15e", fobj->nfs_obj.ggnfs_dir);
+        executable = "gnfs-lasieve4I15e";
         break;
+    default:
+        fprintf(stderr, "unsupported NFS siever: %d\n", siever);
+        exit(EXIT_FAILURE);
     }
 
 #if defined(WIN32)
-    sprintf(sname, "%s.exe", sname);
+    written = snprintf(sname, sname_size, "%s%s.exe",
+        fobj->nfs_obj.ggnfs_dir, executable);
+#else
+    written = snprintf(sname, sname_size, "%s%s",
+        fobj->nfs_obj.ggnfs_dir, executable);
 #endif
+    if (written < 0 || (size_t)written >= sname_size)
+    {
+        fprintf(stderr, "NFS siever path is too long for a %zu-byte buffer\n",
+            sname_size);
+        exit(EXIT_FAILURE);
+    }
 
     // test for existence of the siever
     test = fopen(sname, "rb");
@@ -641,9 +659,9 @@ void check_siever(fact_obj_t *fobj, char* sname, int siever)
     {
         printf("fopen error: %s\n", strerror(errno));
         printf("could not find %s, bailing\n", sname);
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
-	fclose(test);
+    fclose(test);
 
     return;
 }

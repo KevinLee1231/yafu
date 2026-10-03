@@ -394,7 +394,7 @@ void multiply_relations(bintree_t* tree, uint32_t first, uint32_t last,
         //{
         //    uint32_t node;
         //    node = getNode(tree, first, mid);
-        //    if ((node != -1) && (tree->nodes[node].complete))
+        //    if ((node != UINT32_MAX) && (tree->nodes[node].complete))
         //    {
         //        //printf("getting half-product (prod(%u:%u)\n", first, mid);
         //        mpz_set(prod, tree->nodes[node].prod);
@@ -411,7 +411,7 @@ void multiply_relations(bintree_t* tree, uint32_t first, uint32_t last,
         //{
         //    uint32_t node;
         //    node = getNode(tree, mid + 1, last);
-        //    if ((node != -1) && (tree->nodes[node].complete))
+        //    if ((node != UINT32_MAX) && (tree->nodes[node].complete))
         //    {
         //        //printf("getting half-product (prod(%u:%u)\n", mid + 1, last);
         //        mpz_set(prod, tree->nodes[node].prod);
@@ -433,14 +433,14 @@ void multiply_relations(bintree_t* tree, uint32_t first, uint32_t last,
         //}
 
 
-        if ((pnode >= 0) && ((mid - first) > TREE_CUTOFF))
+        if ((pnode != UINT32_MAX) && ((mid - first) > TREE_CUTOFF))
         {
             // a node exists for the product of relations 'first' to 'last'.
             // check if there is a node for the low-half product.
             uint32_t node;
             node = getNode(tree, first, mid);
 
-            if ((node != -1) && (tree->nodes[node].complete))
+            if ((node != UINT32_MAX) && (tree->nodes[node].complete))
             {
                 //printf("getting half-product (prod(%u:%u)\n", first, mid);
                 // there is a node for the low-half product and the multiplication is complete,
@@ -459,12 +459,12 @@ void multiply_relations(bintree_t* tree, uint32_t first, uint32_t last,
 
             // check if there is a node for the high-half product.
             node = getNode(tree, mid + 1, last);
-            if ((node != -1) && (tree->nodes[node].complete))
+            if ((node != UINT32_MAX) && (tree->nodes[node].complete))
             {
                 //printf("getting half-product (prod(%u:%u)\n", mid + 1, last);
                 // there is a node for the high-half product and the multiplication is complete,
                 // so assign the node's product to the output.
-                mpz_set(prod, tree->nodes[node].prod);
+                mpz_set(half_prod, tree->nodes[node].prod);
             }
             else
             {
@@ -500,7 +500,7 @@ void multiply_relations(bintree_t* tree, uint32_t first, uint32_t last,
         // go find it.
         uint32_t pnode;
         pnode = getNode(tree, first, last);
-        if (pnode == -1)
+        if (pnode == UINT32_MAX)
         {
             printf("could not find parent node for full product (%u:%u)\n", first, last);
             exit(1);
@@ -557,6 +557,14 @@ uint64_t pow2m(uint64_t b, uint64_t n)
     int j;
     int bstr;
 
+    if (n < 2)
+        return 0;
+    if (b < 32)
+    {
+        spModExp(2, b, n, &acc);
+        return acc;
+    }
+
     if (has_bmi1 < 0)
     {
         has_bmi1 = check_bmi1_support();
@@ -567,11 +575,11 @@ uint64_t pow2m(uint64_t b, uint64_t n)
     if (has_bmi1)
     {
 #ifdef __INTEL_COMPILER
-        int bits = 64 - _lead_zcnt64(b);
+        bits = 64 - _lead_zcnt64(b);
 #elif defined(__GNUC__)
-        int bits = 64 - __builtin_clzll(b);
+        bits = 64 - __builtin_clzll(b);
 #elif defined _MSC_VER
-        int bits = 64 - _lead_zcnt64(b);
+        bits = 64 - _lead_zcnt64(b);
 #endif
     }
     else
@@ -832,7 +840,7 @@ process_r:
                 f64 = getfactor_uecm(mpz_get_ui(f1r), 0, lcg_state);
                 rb->num_uecm[0]++;
 
-                printf("failed to find factor of %d-bit f1r %"PRIu64", this should be sent to mpqs\n",
+                printf("failed to find factor of %zu-bit f1r %"PRIu64", this should be sent to mpqs\n",
                     mpz_sizeinbase(f1r, 2), mpz_get_ui(f1r));
                 rb->num_abort[5]++;
                 return;
@@ -876,7 +884,7 @@ process_r:
 
         if (f64 <= 1 || f64 > rb->lp_cutoff_r)
         {
-            if (f64 == 1) printf("failed to find factor of %d-bit f2r %"PRIu64"\n",
+            if (f64 == 1) printf("failed to find factor of %zu-bit f2r %"PRIu64"\n",
                 mpz_sizeinbase(f2r, 2), mpz_get_ui(f2r));
             rb->num_abort[6]++;
             return;
@@ -1654,7 +1662,7 @@ process_a:
 
                 if (f64 == 1)
                 {
-                    printf("failed to find factor of %d-bit f1a %"PRIu64", this should be sent to mpqs\n",
+                    printf("failed to find factor of %zu-bit f1a %"PRIu64", this should be sent to mpqs\n",
                         mpz_sizeinbase(f1a, 2), mpz_get_ui(f1a));
                     rb->num_abort_a[5]++;
                     return;
@@ -2504,10 +2512,16 @@ void relation_batch_init(FILE* logfile, relation_batch_t* rb,
         uint64_t* primes = soe_wrapper(sdata, min_prime, max_prime, 0, &num_primes, 0, 0);
 
         // compute the product of primes
-        printf("multiplying %"PRIu64" primes from %u to %"PRIu64"\n",
-            num_primes, primes[0], primes[num_primes - 1]);
-
-        multiply_primes(0, num_primes, primes, rb->prime_product);
+        if (num_primes > 0)
+        {
+            printf("multiplying %"PRIu64" primes from %"PRIu64" to %"PRIu64"\n",
+                num_primes, primes[0], primes[num_primes - 1]);
+            multiply_primes(0, num_primes, primes, rb->prime_product);
+        }
+        else
+        {
+            mpz_set_ui(rb->prime_product, 1);
+        }
 
         free(primes);
         soe_finalize(sdata);
@@ -2742,10 +2756,10 @@ uint32_t relation_batch_run(relation_batch_t* rb, mpz_t prime_prod, uint64_t* lc
 
         if (0)
         {
-            printf("memory use for relations array is %u MB\n", rb->num_relations_alloc *
+            printf("memory use for relations array is %zu MB\n", rb->num_relations_alloc *
                 sizeof(cofactor_t) / (1 << 20));
 
-            printf("memory use for factors array is %u MB\n", rb->num_factors_alloc *
+            printf("memory use for factors array is %zu MB\n", rb->num_factors_alloc *
                 sizeof(uint32_t) / (1 << 20));
         }
 

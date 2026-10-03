@@ -1571,6 +1571,11 @@ device_ctx_t* gpu_device_init(int which_gpu, int verbose)
 		printf("error: no CUDA-enabled GPUs found\n");
 		exit(-1);
 	}
+	if ((which_gpu < 0) || (which_gpu >= gpu_config.num_gpu)) {
+		printf("error: CUDA device index %d is outside 0..%d\n",
+			which_gpu, gpu_config.num_gpu - 1);
+		exit(-1);
+	}
 
 	d->gpunum = which_gpu;
 	d->gpu_info = gpu_info = (gpu_info_t*)xmalloc(sizeof(gpu_info_t));
@@ -1618,10 +1623,11 @@ device_thread_ctx_t* gpu_ctx_init(device_ctx_t* d) {
 	   with the sort engine, because apparently it
 	   changes the GPU cache size on the fly */
 #if toolkit_version >= 13
-	CUctxCreateParams* ctxCreateParams;
+	/* CUDA 13 要求传入已初始化的上下文参数结构。 */
+	CUctxCreateParams ctxCreateParams = { 0 };
 
 	CUDA_TRY(cuCtxCreate(&t->gpu_context,
-		ctxCreateParams,
+		&ctxCreateParams,
 		CU_CTX_BLOCKING_SYNC,
 		d->gpu_info->device_handle))
 #else
@@ -1694,6 +1700,7 @@ void gpu_ctx_free(device_thread_ctx_t* d)
 		CUDA_TRY(cuStreamDestroy(d->stream))
 		free(d->launch);
 	CUDA_TRY(cuCtxDestroy(d->gpu_context))
+	free(d);
 }
 
 /* external entry point */

@@ -40,9 +40,19 @@ int test_smallmpqs(mpz_t* inputs, int num_inputs)
 {
 	struct timeval gstart;
 	struct timeval gstop;
-	mpz_t n, r;
+	mpz_t n, r, work;
 	mpz_init(n);
 	mpz_init(r);
+	mpz_init(work);
+
+	if ((inputs == NULL) || (num_inputs <= 0))
+	{
+		mpz_clear(n);
+		mpz_clear(r);
+		mpz_clear(work);
+		return 0;
+	}
+
 	gettimeofday(&gstart, NULL);
 
 	int i;
@@ -50,11 +60,12 @@ int test_smallmpqs(mpz_t* inputs, int num_inputs)
 	for (i = 0; i < num_inputs; i++)
 	{
 		int numf;
-		mpz_t* factors = smallmpqs(inputs[i], &numf);
+		mpz_set(n, inputs[i]);
+		mpz_set(work, inputs[i]);
+		mpz_t* factors = smallmpqs(work, &numf);
 
-		if (numf > 0)
+		if ((factors != NULL) && (numf > 0))
 		{
-			mpz_set(n, inputs[i]);
 			int j;
 			for (j = 0; j < numf; j++)
 			{
@@ -71,6 +82,15 @@ int test_smallmpqs(mpz_t* inputs, int num_inputs)
 			}
 		}
 
+		if (factors != NULL)
+		{
+			int j;
+			for (j = 0; j < numf; j++)
+			{
+				mpz_clear(factors[j]);
+			}
+			free(factors);
+		}
 	}
 
 	gettimeofday(&gstop, NULL);
@@ -78,6 +98,7 @@ int test_smallmpqs(mpz_t* inputs, int num_inputs)
 
 	mpz_clear(n);
 	mpz_clear(r);
+	mpz_clear(work);
 	printf("smallmpqs got %d of %d correct in %2.2f sec\n", correct, num_inputs, t_time);
 	printf("percent correct = %.2f\n", 100.0 * (double)correct / (double)num_inputs);
 	printf("average time per input = %1.4f ms\n", 1000 * t_time / (double)num_inputs);
@@ -280,15 +301,20 @@ brent_marker:
 	{
 		in = fopen(filenames[nf], "r");
 
+		if (in == NULL)
+		{
+			printf("couldn't find %s to open\n", filenames[nf]);
+			continue;
+		}
+
 		start = clock();
 		i = 0;
 		totBits = 0;
 		minBits = 999;
 		maxBits = 0;
 		//read in everything
-		while (!feof(in))
+		while ((i < 2000000) && (fscanf(in, "%" PRIu64 ",%u,%u", comp + i, f1 + i, f2 + i) == 3))
 		{
-			fscanf(in, "%" PRIu64 ",%u,%u", comp + i, f1 + i, f2 + i);
             mpz_set_ui(gmptmp, comp[i]);
             j = mpz_sizeinbase(gmptmp, 2);
 			totBits += j;
@@ -298,8 +324,7 @@ brent_marker:
 				minBits = j;
 			i++;
 		}
-		num = i;
-		num = 100000;
+		num = (i < 100000) ? i : 100000;
 		fclose(in);
 		stop = clock();
 		t_time = (double)(stop - start) / (double)CLOCKS_PER_SEC;
@@ -342,15 +367,20 @@ brent_marker:
     {
         in = fopen(filenames[nf], "r");
 
+        if (in == NULL)
+        {
+            printf("couldn't find %s to open\n", filenames[nf]);
+            continue;
+        }
+
         start = clock();
         i = 0;
         totBits = 0;
         minBits = 999;
         maxBits = 0;
         //read in everything
-        while (!feof(in))
+        while ((i < 2000000) && (fscanf(in, "%" PRIu64 ",%u,%u", comp + i, f1 + i, f2 + i) == 3))
         {
-            fscanf(in, "%" PRIu64 ",%u,%u", comp + i, f1 + i, f2 + i);
             mpz_set_ui(gmptmp, comp[i]);
             j = mpz_sizeinbase(gmptmp, 2);
             totBits += j;
@@ -360,8 +390,7 @@ brent_marker:
                 minBits = j;
             i++;
         }
-        num = i;
-        num = 100000;
+        num = (i < 100000) ? i : 100000;
         fclose(in);
         stop = clock();
         t_time = (double)(stop - start) / (double)CLOCKS_PER_SEC;
@@ -416,15 +445,20 @@ brent_marker:
 	{
 		in = fopen(filenames[nf], "r");
 
+		if (in == NULL)
+		{
+			printf("couldn't find %s to open\n", filenames[nf]);
+			continue;
+		}
+
 		start = clock();
 		i = 0;
 		totBits = 0;
 		minBits = 999;
 		maxBits = 0;
 		//read in everything
-		while (!feof(in))
+		while ((i < 2000000) && (fscanf(in, "%" PRIu64 ",%u,%u", comp + i, f1 + i, f2 + i) == 3))
 		{
-			fscanf(in, "%" PRIu64 ",%u,%u", comp + i, f1 + i, f2 + i);
             mpz_set_ui(gmptmp, comp[i]);
             j = mpz_sizeinbase(gmptmp, 2);
 			totBits += j;
@@ -434,8 +468,7 @@ brent_marker:
 				minBits = j;
 			i++;
 		}
-		num = i;
-		num = 100000;
+		num = (i < 100000) ? i : 100000;
 		fclose(in);
 		stop = clock();
 		t_time = (double)(stop - start) / (double)CLOCKS_PER_SEC;
@@ -527,7 +560,11 @@ tinyqs_marker:
 
 			for (i = 0; i < num; i++)
 			{
-				fgets(buf, 1024, in);
+				if (fgets(buf, 1024, in) == NULL)
+				{
+					num = i;
+					break;
+				}
 #ifdef _MSC_VER
 				gmp_sscanf(buf, "%Zd, %"PRIu64", %"PRIu64"",
 					gmp_comp, &known1, &known2);
@@ -558,6 +595,7 @@ tinyqs_marker:
 			{
 				mpz_clear(inputs[i]);
 			}
+			free(inputs);
         }
 
         mpz_clear(gmp_comp);
@@ -586,6 +624,12 @@ tinyqs_marker:
         char buf[1024];
         in = fopen(filenames[nf], "r");
 
+        if (in == NULL)
+        {
+            printf("couldn't find %s to open\n", filenames[nf]);
+            continue;
+        }
+
         mpz_init(gmp_comp);
 
         gettimeofday(&gstart, NULL);
@@ -596,7 +640,11 @@ tinyqs_marker:
         {
             int p;
 
-            fgets(buf, 1024, in);
+            if (fgets(buf, 1024, in) == NULL)
+            {
+                num = i;
+                break;
+            }
             gmp_sscanf(buf, "%Zd", gmp_comp);            
             mpz_set(fobj2->rho_obj.gmp_n, gmp_comp);
             fobj2->rho_obj.iterations = 8192;
@@ -706,6 +754,12 @@ tinyqs_marker:
 
         in = fopen(filenames[nf], "r");
 
+        if (in == NULL)
+        {
+            printf("couldn't find %s to open\n", filenames[nf]);
+            continue;
+        }
+
         mpz_init(gmp_comp);
 
         gettimeofday(&gstart, NULL);
@@ -717,7 +771,11 @@ tinyqs_marker:
             int p;
 			uint64_t f1, f2;
 
-            fgets(buf, 1024, in);
+            if (fgets(buf, 1024, in) == NULL)
+            {
+                num = i;
+                break;
+            }
             gmp_sscanf(buf, "%Zd,%"PRIu64",%"PRIu64"", gmp_comp, &f1, &f2);
             
             for (k = 0; k < curves; k++)
@@ -773,15 +831,20 @@ spfermat_marker:
 
         in = fopen(filenames[nf], "r");
 
+        if (in == NULL)
+        {
+            printf("couldn't find %s to open\n", filenames[nf]);
+            continue;
+        }
+
         start = clock();
         i = 0;
         totBits = 0;
         minBits = 999;
         maxBits = 0;
         //read in everything
-        while (!feof(in))
+        while ((i < 2000000) && (fscanf(in, "%" PRIu64 ",%u,%u", comp + i, f1 + i, f2 + i) == 3))
         {
-            fscanf(in, "%" PRIu64 ",%u,%u", comp + i, f1 + i, f2 + i);
             mpz_set_ui(gmptmp, comp[i]);
             j = mpz_sizeinbase(gmptmp, 2);
             totBits += j;
@@ -791,8 +854,7 @@ spfermat_marker:
                 minBits = j;
             i++;
         }
-        num = i;
-        num = 100000;
+        num = (i < 100000) ? i : 100000;
         fclose(in);
         stop = clock();
         t_time = (double)(stop - start) / (double)CLOCKS_PER_SEC;
@@ -875,6 +937,12 @@ tinyecm_104_list_marker:
 		uint64_t known1, known2, known3;
 
 		in = fopen(filenames[nf], "r");
+
+		if (in == NULL)
+		{
+			printf("couldn't find %s to open\n", filenames[nf]);
+			continue;
+		}
 		printf("testing file: %s\n", filenames[nf]);
 
 		mpz_init(gmp_comp);
@@ -888,7 +956,11 @@ tinyecm_104_list_marker:
 		maxBits = 0;
 		for (i = 0; i < num; i++)
 		{
-			fgets(buf, 1024, in);
+			if (fgets(buf, 1024, in) == NULL)
+			{
+				num = i;
+				break;
+			}
 #ifdef _MSC_VER
 			gmp_sscanf(buf, "%Zd, %"PRIu64", %"PRIu64"",
 				gmp_comp, &known1, &known2);
@@ -935,6 +1007,7 @@ tinyecm_104_list_marker:
 		printf("percent correct = %.2f\n", 100.0 * (double)correct / (double)num);
 		printf("average time per input = %.2f ms\n", 1000 * t_time / (double)num);
 
+		fclose(in);
 		mpz_clear(gmp_comp);
 		mpz_clear(gmp_f);	
 	}
@@ -962,6 +1035,12 @@ tinyecm_128_marker:
 		uint64_t known1, known2, known3;
 
 		in = fopen(filenames[nf], "r");
+
+		if (in == NULL)
+		{
+			printf("couldn't find %s to open\n", filenames[nf]);
+			continue;
+		}
 		printf("testing file: %s\n", filenames[nf]);
 
 		mpz_init(gmp_comp);
@@ -977,7 +1056,11 @@ tinyecm_128_marker:
 		printf("commencing getfactor_tecm test\n");
 		for (i = 0; i < num; i++)
 		{
-			fgets(buf, 1024, in);
+			if (fgets(buf, 1024, in) == NULL)
+			{
+				num = i;
+				break;
+			}
 #ifdef _MSC_VER
 			gmp_sscanf(buf, "%Zd, %"PRIu64", %"PRIu64"",
 				gmp_comp, &known1, &known2);
@@ -1011,6 +1094,7 @@ tinyecm_128_marker:
 		printf("percent correct = %.2f\n", 100.0 * (double)correct / (double)num);
 		printf("average time per input = %.2f ms\n", 1000 * t_time / (double)num);
 
+		fclose(in);
 		mpz_clear(gmp_comp);
 		mpz_clear(gmp_f);
 	}
@@ -1042,6 +1126,12 @@ uecm_52_list_marker:
 		uint64_t known1, known2, known3;
 
 		in = fopen(filenames[nf], "r");
+
+		if (in == NULL)
+		{
+			printf("couldn't find %s to open\n", filenames[nf]);
+			continue;
+		}
 		printf("testing file: %s\n", filenames[nf]);
 
 		mpz_init(gmp_comp);
@@ -1055,7 +1145,11 @@ uecm_52_list_marker:
 		maxBits = 0;
 		for (i = 0; i < num; i++)
 		{
-			fgets(buf, 1024, in);
+			if (fgets(buf, 1024, in) == NULL)
+			{
+				num = i;
+				break;
+			}
 #ifdef _MSC_VER
 			gmp_sscanf(buf, "%Zd, %u, %u",
 				gmp_comp, &known1, &known2);
@@ -1100,6 +1194,7 @@ uecm_52_list_marker:
 		printf("percent correct = %.2f\n", 100.0 * (double)correct / (double)num);
 		printf("average time per input = %.2f ms\n", 1000 * t_time / (double)num);
 
+		fclose(in);
 		mpz_clear(gmp_comp);
 		mpz_clear(gmp_f);
 	}
@@ -1141,6 +1236,12 @@ microecm_marker:
 		uint64_t known1, known2, known3;
 
 		in = fopen(filenames[nf], "r");
+
+		if (in == NULL)
+		{
+			printf("couldn't find %s to open\n", filenames[nf]);
+			continue;
+		}
 		printf("testing file: %s\n", filenames[nf]);
 
 		mpz_init(gmp_comp);
@@ -1155,9 +1256,8 @@ microecm_marker:
 		minBits = 999;
 		maxBits = 0;
 		i = 0;
-		while (!feof(in))
+		while ((i < 2000000) && (fscanf(in, "%" PRIu64 ",%u,%u", comp + i, f1 + i, f2 + i) == 3))
 		{
-			fscanf(in, "%" PRIu64 ",%u,%u", comp + i, f1 + i, f2 + i);
 			mpz_set_ui(gmptmp, comp[i]);
 
 			j = mpz_sizeinbase(gmptmp, 2);
@@ -1168,6 +1268,7 @@ microecm_marker:
 				minBits = j;
 			i++;
 		}
+		num = (i < 100000) ? i : 100000;
 		printf("average bits of input numbers = %.2f\n", (double)totBits / (double)i);
 		printf("minimum bits of input numbers = %d\n", minBits);
 		printf("maximum bits of input numbers = %d\n", maxBits);
@@ -1214,6 +1315,12 @@ mpqs_marker:
 		uint64_t known1, known2, known3;
 
 		in = fopen(filenames[nf], "r");
+
+		if (in == NULL)
+		{
+			printf("couldn't find %s to open\n", filenames[nf]);
+			continue;
+		}
 		printf("testing file: %s\n", filenames[nf]);
 
 		mpz_init(gmp_comp);
@@ -1229,7 +1336,11 @@ mpqs_marker:
 
 		for (i = 0; i < num; i++)
 		{
-			fgets(buf, 1024, in);
+			if (fgets(buf, 1024, in) == NULL)
+			{
+				num = i;
+				break;
+			}
 #ifdef _MSC_VER
 			gmp_sscanf(buf, "%Zd, %"PRIu64", %"PRIu64"",
 				gmp_comp, &known1, &known2);
@@ -1259,14 +1370,14 @@ mpqs_marker:
 		{
 			mpz_clear(inputs[i]);
 		}
+		free(inputs);
+		fclose(in);
 	}
 
 	goto done;
 
 done:
 	
-	return;
-
 	free(outf);
 	free(f1);
 	free(f2);
@@ -1274,5 +1385,7 @@ done:
 	free(f64b);
 	free(comp);
 	mpz_clear(gmptmp);
+	free_factobj(fobj2);
+	free(fobj2);
 	return;
 }
