@@ -1662,6 +1662,14 @@ device_thread_ctx_t* gpu_ctx_init(device_ctx_t* d) {
 		exit(-1);
 	}
 
+	// the PTX is generated into the working directory at build time
+	if (access(ptxfile, R_OK) != 0)
+	{
+		printf("err: kernel file %s not found; build the CUDA target before"
+			" using a GPU\n", ptxfile);
+		return;
+	}
+
 	printf("loading kernel code from %s\n", ptxfile);
 
 	CUDA_TRY(cuModuleLoad(&t->gpu_module, ptxfile))

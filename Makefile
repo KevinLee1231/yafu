@@ -12,8 +12,8 @@
 #   Add to .gitignore: config.mk  .deps/
 #   make yafu                        # build yafu (default compiler: gcc)
 #   make msieve                      # build msieve static library + demo
-#   make all                         # build all four above targets
-#   make lasieve                     # build lasieve5_64 binaries
+#   make all                         # build both of the above
+#   make lasieve                     # build the external lattice sievers
 #   make CC=clang yafu               # use clang
 #   make CC=icc yafu                 # use Intel compiler
 #   make DEBUG=1 yafu                # debug build
@@ -1185,8 +1185,8 @@ yafu: _dep_status $(YAFU_OBJS) libysiqs.a libyecm.a libynfs.a libmsieve.a $(GPU_
 	$(CC) $(CFLAGS) $(YAFU_OBJS) -o yafu$(EXE_EXT) \
 	    -lysiqs -lyecm -lynfs -lmsieve $(LIBS)
 
-msieve: _dep_status libmsieve.a $(GPU_OBJS) demo.c
-	$(CC) $(CFLAGS) demo.c -o msieve$(EXE_EXT) \
+msieve: _dep_status libmsieve.a $(GPU_OBJS) factor/shared/common/demo.c
+	$(CC) $(CFLAGS) factor/shared/common/demo.c -o msieve$(EXE_EXT) \
 	    libmsieve.a $(MSIEVE_LIBS)
 
 
@@ -1447,7 +1447,8 @@ endif
 # -----------------------------------------------------------------------------
 # 28. CLEAN
 # -----------------------------------------------------------------------------
-# NOTE on .ptx: cuda_ecm80.ptx is *committed* to the repo — it ships a prebuilt
+# NOTE on .ptx: the kernel for the target architecture is generated into the
+# working directory at build time and is not tracked.
 # PTX module so that GPU batch factorization works on machines without nvcc.
 # The build also generates .ptx modules (cuda_ecm$(SM).ptx, lanczos_kernel.ptx,
 # stage1_core.ptx), and those should be cleaned. A bare `*.ptx` glob therefore

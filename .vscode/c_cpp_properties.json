@@ -2,7 +2,17 @@
     "configurations": [
         {
             "name": "Default",
-            "includePath": ["${workspaceFolder}", "${workspaceFolder}/include", "."],
+            "includePath": [
+                "${workspaceFolder}",
+                "${workspaceFolder}/factor",
+                "${workspaceFolder}/factor/include",
+                "${workspaceFolder}/factor/shared/aprcl",
+                "${workspaceFolder}/factor/siqs/include",
+                "${workspaceFolder}/factor/ecm/include",
+                "${workspaceFolder}/factor/nfs/gnfs/include",
+                "${workspaceFolder}/factor/core/include",
+                "."
+            ],
             "defines": ["USE_NFS"]
         }
     ],
