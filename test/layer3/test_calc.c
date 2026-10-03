@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 
 /* 直接检查解析器的错误返回，不把旧的 ans 当成新结果。 */
 extern int calc(str_t *in, meta_t *metadata);
@@ -119,7 +120,16 @@ static void t_invalid_expression(tk_ctx *tk)
         "1/0", "1%0", "sqrt(-1)", "nroot(16,0)", "nroot(-16,2)",
         "modexp(2,3,0)", "modexp(2,-1,4)", "modinv(2,4)",
         "2^-1", "nroot(16,-2)", "nroot(16,18446744073709551616)",
-        "totient(0)", "totient(-1)"
+        "totient(0)", "totient(-1)", "facm(8,0)", "facm(-1,2)",
+        "fib(-1)", "luc(-1)", "rand(-1)", "randb(-1)", "randp(-1)",
+        "fac2(-1)", "binom(8,-1)", "jacobi(2,4)", "jacobi(2,-3)",
+        "1<<-1", "1>>18446744073709551616", "shift(1,18446744073709551616)",
+        "redc(1,0,8)", "redc(1,2,8)", "redc(1,3,0)", "redc(1,17,4)",
+        "redc(100,3,4)", "rsa(0)", "rsa(64)", "rsa(4097)", "llt(1)",
+        "primes(20,10)", "primes(-1,10)", "primes(0,10,2)",
+        "bigprimes(10,5,7)", "bigprimes(1,10,0)", "sigma(0,1)",
+        "sigma(5,-1)", "divisors(0)", "semiprimes(1,1)", "toom3(1,2,0)",
+        "fftmul(1,2,0,0)"
     };
     meta_t meta = {0};
     size_t i;
@@ -131,6 +141,63 @@ static void t_invalid_expression(tk_ctx *tk)
     expect_calc(tk, &meta, "nroot(-27,3)", "-3");
     expect_calc(tk, &meta, "modexp(2,-1,5)", "3");
     expect_calc(tk, &meta, "modinv(3,7)", "5");
+    expect_calc(tk, &meta, "facm(8,3)", "80");
+    expect_calc(tk, &meta, "shift(7,-3)", "0");
+    expect_calc(tk, &meta, "redc(10,7,4)", "5");
+    expect_calc(tk, &meta, "0b10+0o10+0d10+0x10", "36");
+    expect_calc(tk, &meta, "08", "8");
+    expect_calc(tk, &meta, "123abc+1", NULL);
+#if ULONG_MAX > 4294967295UL
+    expect_calc(tk, &meta, "shift(7,-9223372036854775808)", "0");
+    expect_calc(tk, &meta, "popcnt(-1)", "18446744073709551615");
+    expect_calc(tk, &meta, "hamdist(0,-1)", "18446744073709551615");
+#endif
+    calc_finalize();
+}
+
+static void t_preprocessor_status(tk_ctx *tk)
+{
+    meta_t meta = {0};
+    char *result;
+    char input[2200];
+    size_t i;
+    calc_init(1);
+    result = process_expression("{ ans = 40, ans=ans+2 }", &meta, 1, 0);
+    TK_CHECK(tk, result != NULL && strcmp(result, "42") == 0);
+    free(result);
+    result = process_expression("ans=41,1/0,ans=99", &meta, 1, 0);
+    TK_CHECK(tk, result == NULL);
+    free(result);
+    expect_calc(tk, &meta, "ans", "41");
+    result = process_expression("OBASE=3", &meta, 1, 0);
+    TK_CHECK(tk, result == NULL);
+    free(result);
+    expect_calc(tk, &meta, "OBASE", "10");
+    result = process_expression("IBASE=16", &meta, 1, 0);
+    TK_CHECK(tk, result != NULL && strcmp(result, "16") == 0);
+    free(result);
+    expect_calc(tk, &meta, "A+10", "26");
+    result = process_expression("IBASE=0d10", &meta, 1, 0);
+    TK_CHECK(tk, result != NULL && strcmp(result, "10") == 0);
+    free(result);
+    result = process_expression("OBASE=16", &meta, 1, 0);
+    TK_CHECK(tk, result != NULL && strcmp(result, "10") == 0);
+    free(result);
+    result = process_expression("OBASE=10", &meta, 1, 0);
+    TK_CHECK(tk, result != NULL && strcmp(result, "10") == 0);
+    free(result);
+    for (i = 0; i < 700; i++) {
+        input[3*i] = '1';
+        input[3*i+1] = ';';
+        input[3*i+2] = ',';
+    }
+    input[2100] = '\0';
+    result = process_expression(input, &meta, 1, 0);
+    TK_CHECK(tk, result != NULL && strcmp(result, "1") == 0);
+    free(result);
+    result = process_expression("if(1,2,3)", &meta, 1, 0);
+    TK_CHECK(tk, result == NULL);
+    free(result);
     calc_finalize();
 }
 
@@ -146,7 +213,7 @@ static void t_assignment_boundary(tk_ctx *tk)
     memset(input, 'a', 120);
     strcpy(input + 120, "=7");
     result = process_expression(input, &meta, -1, 0);
-    TK_CHECK(tk, strcmp(result, "42") == 0);
+    TK_CHECK(tk, result == NULL);
     free(result);
     result = process_expression("{}", &meta, -1, 0);
     TK_CHECK(tk, strcmp(result, "42") == 0);
@@ -205,12 +272,28 @@ static void t_factor_functions(tk_ctx *tk)
     calc_init(1);
     expect_calc(tk, &meta, "1+trial(15)", "2");
     expect_calc(tk, &meta, "gcd(12,trial(15)+5)", "6");
+    expect_calc(tk, &meta, "primes(10,30)", "6");
+    expect_calc(tk, &meta, "primes(10,30,1)", "6");
+    expect_calc(tk, &meta, "primes(10,30,0)", "6");
+    expect_calc(tk, &meta, "primes(14,16,0)", "0");
+    expect_calc(tk, &meta, "llt(2)", "1");
     for (n = 1; n <= 50; n++) {
         unsigned long phi = 0;
+        unsigned long sigma = 0;
+        unsigned long divisors = 0;
         for (k = 1; k <= n; k++)
+        {
             phi += gcd_ref(n, k) == 1;
+            if (n % k == 0) { sigma += k; divisors++; }
+        }
         snprintf(input, sizeof input, "totient(%lu)", n);
         snprintf(expected, sizeof expected, "%lu", phi);
+        expect_calc(tk, &meta, input, expected);
+        snprintf(input, sizeof input, "sigma(%lu,1)", n);
+        snprintf(expected, sizeof expected, "%lu", sigma);
+        expect_calc(tk, &meta, input, expected);
+        snprintf(input, sizeof input, "sigma(%lu,0)", n);
+        snprintf(expected, sizeof expected, "%lu", divisors);
         expect_calc(tk, &meta, input, expected);
     }
     calc_finalize();
@@ -272,6 +355,7 @@ static const tk_test tests[] = {
     {"long_expression", t_long_expression, "fast calc-long"},
     {"nested_expression", t_nested_expression, "fast calc-nested"},
     {"invalid_expression", t_invalid_expression, "fast calc-invalid"},
+    {"preprocessor_status", t_preprocessor_status, "fast calc-preprocessor"},
     {"assignment_boundary", t_assignment_boundary, "fast calc-assignment"},
     {"factor_state", t_factor_state, "fast calc-state"},
     {"factor_list_copy", t_factor_list_copy, "fast calc-copy"},
