@@ -14,8 +14,9 @@ int main(void)
     i64_t a0, b0, a1, b1;
 
     mpz_init(value);
-    assert(string2mpz(value, empty, 10) == 0);
-    assert(mpz_cmp_ui(value, 0) == 0);
+    /* An empty field is malformed, not a silent zero: every caller checks the
+     * return value and reports the error, so string2mpz must fail here. */
+    assert(string2mpz(value, empty, 10) == -1);
     assert(string2mpz(value, crlf, 10) == 0);
     assert(mpz_cmp_ui(value, 123) == 0);
 
