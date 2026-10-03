@@ -389,10 +389,14 @@ CFLAGS += -DVBITS=$(VBITS)
 CFLAGS += \
     -I. \
     -Ifactor/include \
-    -Ifactor/include \
     -Ifactor/shared/aprcl \
     -Itop/cmdParser \
     -Itop \
+    -Ifactor/siqs/include \
+    -Ifactor/ecm/include \
+    -Ifactor/mpqs/include \
+    -Ifactor/nfs/gnfs/include \
+    -Ifactor/core/include \
     -Ifactor/ecm \
     -Ifactor/shared/ytools \
     -Ifactor/shared/ysieve \
