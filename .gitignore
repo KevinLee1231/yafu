@@ -3,6 +3,12 @@
 *.o
 *.a
 /yafu
+/yafu_test
+/yafu_test_full
+/yafu_test.exe
+/yafu_test_full.exe
+/yafu_test_sanitize
+/yafu_test_sanitize.exe
 *.no
 *.qo
 .deps/
@@ -28,5 +34,3 @@ build.vc22/.vs/*
 
 # makefile configuration
 config.mk
-
-
