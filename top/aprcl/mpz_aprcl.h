@@ -23,7 +23,7 @@ typedef long long s64_t;
 typedef unsigned long long u64_t;
 #endif
 
-#include "jacobi_sum.h"
+#include <gmp.h>
 
 /*
  * The PRP functions presented here are based on the paper:
@@ -75,6 +75,7 @@ int mpz_fibonacci_prp(mpz_t n, long int p, long int q);
  * (n,2QD)=1 such that U_(n-(D/n)) == 0 mod n [(D/n) is the Jacobi symbol]
  * *******************************************************************************/
 int mpz_lucas_prp(mpz_t n, long int p, long int q);
+int mpz_lucas_prp_monty(mpz_t n, long int p, long int q);
 
 /* *********************************************************************************************
  * mpz_stronglucas_prp:

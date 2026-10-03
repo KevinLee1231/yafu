@@ -83,46 +83,13 @@ static uint64_t prp_multiplicative_inverse(uint64_t a)
 
 int fermat_prp_64x1(uint64_t n)
 {
+    if (n < 2 || (n & 1) == 0) return n == 2;
 	uint64_t rho = prp_multiplicative_inverse(n);	// pos variant.  neg would be (uint64_t)0ull - multiplicative_inverse(n);
 	uint64_t unityval = ((uint64_t)0 - n) % n;   // unityval == R  (mod n)
 	uint64_t result = unityval;
 	uint64_t e = (n - 1); // / 2;
 
-	// penultimate-hi-bit mask
-#if defined(USE_AVX2) || defined(USE_AVX512F)
-	// technically need to check the ABM flag, but I don't
-	// have that in place anywhere yet.  AVX2 is generally equivalent.
-
-#if defined( __INTEL_COMPILER) || defined(_MSC_VER)
-
-	uint64_t m = 1ULL << (62 - __lzcnt64(n));   // set a mask at the leading bit - 2
-
-#elif defined(__GNUC__) || defined(__INTEL_LLVM_COMPILER)
-
-	uint64_t m = 1ULL << (62 - __builtin_clzll(n));
-
-#endif
-
-#else
-	// these builtin functions will have an efficient implementation
-	// for the current processor architecture.
-#if defined( __INTEL_COMPILER) || defined(_MSC_VER)
-
-	uint32_t pos;
-	if (_BitScanReverse64(&pos, n))
-		return pos;
-	else
-		return 64;
-
-	uint64_t m = 1ULL << (62 - pos);   // set a mask at the leading bit - 2
-
-#elif defined(__GNUC__) || defined(__INTEL_LLVM_COMPILER)
-
-	uint64_t m = 1ULL << (62 - __builtin_clzll(n));
-
-#endif
-
-#endif
+	uint64_t m = UINT64_C(1) << (62 - my_clz64(n));
 
 	result = addmod(result, result, n);
 
@@ -148,6 +115,7 @@ int fermat_prp_64x1(uint64_t n)
 
 int MR_2sprp_64x1(uint64_t n)
 {
+    if (n < 2 || (n & 1) == 0) return n == 2;
 	uint64_t rho = prp_multiplicative_inverse(n);	// pos variant.  neg would be (uint64_t)0ull - multiplicative_inverse(n);
 	uint64_t one = ((uint64_t)0 - n) % n;		// one == R  (mod n)
 	uint64_t result = one;
@@ -157,41 +125,7 @@ int MR_2sprp_64x1(uint64_t n)
 	uint64_t s = my_ctz64(e);
 	uint64_t d = e >> s;
 
-	// penultimate-hi-bit mask of d
-#if defined(USE_AVX2) || defined(USE_AVX512F)
-	// technically need to check the ABM flag, but I don't
-	// have that in place anywhere yet.  AVX2 is generally equivalent.
-
-#if defined( __INTEL_COMPILER) || defined(_MSC_VER)
-
-	uint64_t m = 1ULL << (62 - __lzcnt64(d));   // set a mask at the leading bit - 2
-
-#elif defined(__GNUC__) || defined(__INTEL_LLVM_COMPILER)
-
-	uint64_t m = 1ULL << (62 - __builtin_clzll(d));
-
-#endif
-
-#else
-	// these builtin functions will have an efficient implementation
-	// for the current processor architecture.
-#if defined( __INTEL_COMPILER) || defined(_MSC_VER)
-
-	uint32_t pos;
-	if (_BitScanReverse64(&pos, d))
-		return pos;
-	else
-		return 64;
-
-	uint64_t m = 1ULL << (62 - pos);   // set a mask at the leading bit - 2
-
-#elif defined(__GNUC__) || defined(__INTEL_LLVM_COMPILER)
-
-	uint64_t m = 1ULL << (62 - __builtin_clzll(d));
-
-#endif
-
-#endif
+	uint64_t m = d > 1 ? UINT64_C(1) << (62 - my_clz64(d)) : 0;
 
 	// compute b^d using RL binary exponentiation.  RL because then
 	// exponent 1-bits are adds instead of multiplies.
@@ -227,6 +161,7 @@ int MR_2sprp_64x1(uint64_t n)
 
 int modexp_128x1b(uint64_t* n, uint64_t* e, uint64_t b)
 {
+    if ((n[1] == 0 && n[0] <= 1) || (n[0] & 1) == 0) return 0;
 	// compute b^e % n and check if equal to 1 or n-1 (-1)
 
 	uint64_t rho = prp_multiplicative_inverse(n[0]);
@@ -324,6 +259,8 @@ int modexp_128x1b(uint64_t* n, uint64_t* e, uint64_t b)
 
 int fermat_prp_128x1(uint64_t* n)
 {
+    if (n[1] == 0) return fermat_prp_64x1(n[0]);
+    if ((n[0] & 1) == 0) return 0;
 	// assumes has no small factors.  
 	// assumes n has two 64-bit words, n0 and n1.
 	// do a base-2 fermat prp test using LR binexp.
@@ -363,9 +300,9 @@ int fermat_prp_128x1(uint64_t* n)
 	mpz_mul_2exp(gr, gr, 128);
 	mpz_mod(n128, gr, n128);
 
-	one[0] = gmp2uint64(n128);
+	unityval[0] = gmp2uint64(n128);
 	mpz_tdiv_q_2exp(n128, n128, 64);
-	one[1] = gmp2uint64(n128);
+	unityval[1] = gmp2uint64(n128);
 
 	mpz_clear(n128);
 	mpz_clear(gr);
@@ -439,6 +376,8 @@ int fermat_prp_128x1(uint64_t* n)
 
 int MR_2sprp_128x1(uint64_t *n)
 {
+    if (n[1] == 0) return MR_2sprp_64x1(n[0]);
+    if ((n[0] & 1) == 0) return 0;
 	// assumes has no small factors.  
 	// assumes n has two 64-bit words, n0 and n1.
 	// do a base-2 Miller-Rabin sprp test.
@@ -532,7 +471,7 @@ int MR_2sprp_128x1(uint64_t *n)
 			m >>= 1;
 		}
 
-		m = (d[1] >= 1) ? 1ULL << 63 : 1ULL << (62 - my_clz64(d[0]));   // set a mask at the leading bit - 2
+		m = (d[1] >= 1) ? 1ULL << 63 : (d[0] > 1 ? 1ULL << (62 - my_clz64(d[0])) : 0);
 		while (m > 0)
 		{
 			sqrmod128n(r, r, n, rho);
@@ -554,7 +493,7 @@ int MR_2sprp_128x1(uint64_t *n)
 			m >>= 1;
 		}
 
-		m = (d[1] >= 1) ? 1ULL << 63 : 1ULL << (62 - my_clz64(d[0]));   // set a mask at the leading bit - 2
+		m = (d[1] >= 1) ? 1ULL << 63 : (d[0] > 1 ? 1ULL << (62 - my_clz64(d[0])) : 0);
 		while (m > 0)
 		{
 			sqrmod128n(r, r, n, rho);
@@ -591,6 +530,8 @@ int pull_twos_128(int* n, int* j, uint128_t p)
 {
 	int c = 0;
 	uint32_t p16 = p % 16;
+	if (*n == 0)
+		return 0;
 
 	while (!(*n & 1))
 	{
@@ -652,6 +593,8 @@ int jacobi_128(int n, uint128_t p)
 		t = (uint128_t)nn;
 		nn = p % (uint128_t)nn;
 		p = t;
+		if (nn == 0)
+			return 0;
 
 		pull_twos_128(&nn, &j, p);
 	}
@@ -978,7 +921,7 @@ int selfridge_prp_128x1(uint64_t* n)
 	mpz_t gn;
 	mpz_init(gn);
 	uint64_2gmp(n[1], gn);
-	mpz_mul_2exp(gn, gn, 64);
+	mpz_mul_2exp(gn, gn, 32);
 	mpz_add_ui(gn, gn, n[0] >> 32);
 	mpz_mul_2exp(gn, gn, 32);
 	mpz_add_ui(gn, gn, n[0] & 0xffffffff);
@@ -992,10 +935,10 @@ int selfridge_prp_128x1(uint64_t* n)
 	n128 <<= 64;
 	n128 |= (uint128_t)n[0];
 
-	if ((n[1] == 0) && (n[0] < 2))
+	if ((n[1] == 0) && (n[0] <= 2))
 	{
 		mpz_clear(gn);
-		return 0;
+		return n[0] == 2;
 	}
 
 	if ((n[0] & 1) == 0)
@@ -1012,7 +955,8 @@ int selfridge_prp_128x1(uint64_t* n)
 		/* if d == n, then either n is either prime or 9... */
 		if (jacobi == 0)
 		{
-			if ((d == n128) && (d != 9))
+			uint128_t abs_d = (uint128_t)(d < 0 ? -d : d);
+			if ((abs_d == n128) && (abs_d != 9))
 			{
 				mpz_clear(gn);
 				return 1;
@@ -2438,7 +2382,7 @@ int test_tinyprp(void)
 	return 0;
 }
 #else
-int test_tinyprp()
+int test_tinyprp(void)
 {
 	return 0;
 }
@@ -2694,54 +2638,16 @@ uint8_t fermat_prp_104x8(uint64_t* n)
 // a Miller-Rabin SPRP test on 8x 52-bit inputs using base 2
 uint8_t MR_2sprp_52x8(uint64_t* n)
 {
-	// assumes has no small factors.  assumes n <= 52 bits.
-	// assumes n is a list of 8 52-bit integers
-	// TODO: do a base-2 MR sprp test on each using LR binexp.
-	// as of now this is Fermat test again...
-	__m512i lo52mask = _mm512_set1_epi64(0x000fffffffffffffull);
-	__m512i vrho = multiplicative_inverse104_x8(n);
-	__m512i unity;
-	__m512i r;
-	__m512i nvec;
-	__m512i evec;
-	__m512i m;
-	__m512i zero = _mm512_setzero_si512();
-	__m512i one = _mm512_set1_epi64(1);
+	uint8_t mask = 0;
+	int i;
 
-	vrho = _mm512_and_epi64(_mm512_sub_epi64(zero, vrho), lo52mask);
-	nvec = loadu64(n);
-	evec = _mm512_sub_epi64(nvec, one);
-
-#if defined(INTEL_COMPILER) || defined(INTEL_LLVM_COMPILER)
-	r = _mm512_rem_epu64(_mm512_set1_epi64(1ULL << 52), nvec);
-#else
-	r = rem_epu64_x8(_mm512_set1_epi64(1ULL << 52), nvec);
-#endif
-
-	// penultimate-hi-bit mask
-	m = _mm512_sub_epi64(_mm512_set1_epi64(62), _mm512_lzcnt_epi64(evec));
-	m = _mm512_sllv_epi64(_mm512_set1_epi64(1), m);
-
-	// we know the first bit is set and the first squaring is of unity,
-	// so we can do the first iteration manually with no squaring.
-	unity = r;
-
-	r = _mm512_add_epi64(r, r);
-	__mmask8 ge = _mm512_cmpge_epi64_mask(r, nvec);
-	r = _mm512_mask_sub_epi64(r, ge, r, nvec);
-
-	while (_mm512_cmpgt_epu64_mask(m, zero))
+	/* 先复用已验证的标量强测试；此入口不是 Fermat 兼容别名。 */
+	for (i = 0; i < 8; i++)
 	{
-		__mmask8 bitcmp = _mm512_test_epi64_mask(m, evec);
-		mulredc52_mask_add_vec(&r, bitcmp, r, r, nvec, vrho);
-		m = _mm512_srli_epi64(m, 1);
+		if (MR_2sprp_64x1(n[i]))
+			mask |= (uint8_t)(1U << i);
 	}
-
-	// AMM possibly needs a final correction by n
-	ge = _mm512_cmpge_epi64_mask(r, nvec);
-	r = _mm512_mask_sub_epi64(r, ge, r, nvec);
-
-	return _mm512_cmpeq_epu64_mask(unity, r);
+	return mask;
 }
 
 // a Miller-Rabin SPRP test on 8x 104-bit inputs using base 2
@@ -2928,456 +2834,60 @@ uint8_t MR_2sprp_104x8(uint64_t* n)
 
 
 // a Lucas test on 8x 104-bit inputs
+static void unpack_104_lane(const uint64_t* n, int lane, uint64_t out[2])
+{
+	uint64_t high = n[8 + lane];
+	out[0] = n[lane] | (high << 52);
+	out[1] = high >> 12;
+}
+
 uint8_t lucas_104x8(uint64_t* n, long *p, long *q)
 {
-	// assumes has no small factors.  assumes n >= 54 bits.
-	// assumes n is a list of 8 104-bit integers (16 52-bit words)
-	// in the format: 8 lo-words, 8 hi-words.
-	__m512i vrho = multiplicative_inverse104_x8(n);
-	__m512i mone[2];
-	vec_u104_t unity;
-	vec_u104_t index;
-	__m512i vindex[2];
-	__m512i nv[2];
-	__m512i dv[2];
-	__m512i rv[2];
-	__m512i bv[2];
-	__m512i n1v[2];
-	__m512i tv[2];
-	__m512i m;
-	__m512i zerov = _mm512_setzero_si512();
-	__m512i onev = _mm512_set1_epi64(1);
-	__m512i lo52mask = _mm512_set1_epi64(0x000fffffffffffffull);
-	uint64_t tmp = 0;
-	uint8_t rmask = 0xff;
-	int s[8], sz[8];
-
-	// negative inverse
-	vrho = _mm512_and_epi64(_mm512_sub_epi64(zerov, vrho), lo52mask);
-
-	nv[0] = loadu64(&n[0]);
-	nv[1] = loadu64(&n[8]);
-
-	// compute r % n, n-(D/n) and the loop bounds, and check gcd condition one at a time.
-#ifdef USE_PERIG_128BIT
+	uint8_t mask = 0;
+	mpz_t value_mpz;
 	int i;
+
+	/* Selfridge 的 P=1 路径复用 128 位实现，其他参数由 GMP 参考实现处理。 */
+	mpz_init(value_mpz);
 	for (i = 0; i < 8; i++)
 	{
-		uint64_t res[2];
-		uint128_t n128 = ((uint128_t)n[i + 8] << 52) + n[i];
-		uint64_t n64[2];
-		int j = 0;
-		long int d = p[i] * p[i] - 4 * q[i];
-		int sd = d < 0 ? 1 : 0;
-		int sq = q < 0 ? 1 : 0;
-
-		if (d == 0) /* Does not produce a proper Lucas sequence */
+		uint64_t value[2];
+		int passed;
+		unpack_104_lane(n, i, value);
+		if (p[i] == 1)
 		{
-			rmask &= (~(1 << i));
-			continue;
-		}
-
-		if ((n[8 + i] == 0) && (n[i] < 2))
-		{
-			rmask &= (~(1 << i));
-			continue;
-		}
-
-		if ((n[i] & 1) == 0)
-		{
-			rmask &= (~(1 << i));
-			continue;
-		}
-
-		if (sd)	d *= -1;
-		if (sq) q[i] *= -1;
-
-		res[0] = (uint64_t)((uint64_t)d * (uint64_t)q[i] * 2);
-		res[1] = 0;
-
-		n64[0] = (uint64_t)n128;
-		n64[1] = (uint64_t)(n128 >> 64);
-		my_gcd128(res, n64, res);
-
-		if (((res[1] == n64[1]) && (res[0] == n64[0])) ||
-			((res[1] == 0) && (res[0] == 1)))
-		{
-
+			passed = lucas_prp_128x1(value, p[i], q[i]) > 0;
 		}
 		else
 		{
-			// if the gcd is anything other than 1 or n, return composite.
-			rmask &= (~(1 << i));
-			continue;
+			uint64_2gmp(value[1], value_mpz);
+			mpz_mul_2exp(value_mpz, value_mpz, 32);
+			mpz_add_ui(value_mpz, value_mpz, value[0] >> 32);
+			mpz_mul_2exp(value_mpz, value_mpz, 32);
+			mpz_add_ui(value_mpz, value_mpz, value[0] & UINT64_C(0xffffffff));
+			passed = mpz_lucas_prp(value_mpz, p[i], q[i]) > PRP_COMPOSITE;
 		}
-
-		/* index = n-(D/n), where (D/n) is the Jacobi symbol */
-		index.data[0][i] = n64[0];
-		index.data[1][i] = n64[1];
-		if (sd)	d *= -1;
-
-		if (jacobi_128(d, n128) < 0)
-		{
-			uint64_t c = (n64[0] == 0xffffffffffffffffull) ? 1 : 0;
-			index.data[0][i] += 1;
-			index.data[1][i] += c;
-		}
-		else
-		{
-			uint64_t c = (n64[0] == 0) ? 1 : 0;
-			index.data[0][i] -= 1;
-			index.data[1][i] -= c;
-		}
-
-		s[i] = my_ctz128(index.data[0][i], index.data[1][i]);
-		sz[i] = 128 - my_clz128(index.data[0][i], index.data[1][i]);
-
-		uint128_t one = (uint128_t)1 << 104;
-		one %= n128;
-
-		unity.data[0][i] = (uint64_t)one & 0xfffffffffffffULL;
-		unity.data[1][i] = (uint64_t)(one >> 52) & 0xfffffffffffffULL;
+		if (passed)
+			mask |= (uint8_t)(1U << i);
 	}
-#else
-
-#endif
-
-	mone[0] = loadu64(unity.data[0]);
-	mone[1] = loadu64(unity.data[1]);
-	vindex[0] = loadu64(index.data[0]);
-	vindex[1] = loadu64(index.data[1]);
-
-#if 0
-	// initialize lucas U sequence variables
-	uint64_t uh[2], vl[2], vh[2], ql[2], qh[2], mp[2], mq[2], tmp[2];
-
-	uh[0] = one[0];
-	vl[0] = one[0];
-	vh[0] = one[0]; // p is always 1. p;
-	ql[0] = one[0];
-	qh[0] = one[0];
-	tmp[0] = 0;
-	mp[0] = vh[0];
-
-	uh[1] = one[1];
-	vl[1] = one[1];
-	vh[1] = one[1];
-	ql[1] = one[1];
-	qh[1] = one[1];
-	tmp[1] = 0;
-	mp[1] = vh[1];
-
-	mq[0] = q;
-	mq[1] = 0;
-	if (sq)
-	{
-		submod128(n, mq, mq, n);
-	}
-
-	// to monty-rep
-	uint64_t r[2], dd[2];
-	uint64_t qq = mq[0];
-
-	r[1] = 0;
-	r[0] = 0;
-	dd[0] = one[0];
-	dd[1] = one[1];
-
-	s = 0;
-	while (qq > 0)
-	{
-		if (qq & 1)
-			addmod128(r, dd, r, n);
-		addmod128(dd, dd, dd, n);
-		qq >>= 1;
-		s++;
-	}
-
-	if (mq[1])
-	{
-		while (s < 64)
-		{
-			addmod128(dd, dd, dd, n);
-			s++;
-		}
-
-		qq = mq[1];
-		while (qq > 0)
-		{
-			if (qq & 1)
-				addmod128(r, dd, r, n);
-			addmod128(dd, dd, dd, n);
-			qq >>= 1;
-		}
-	}
-
-	mq[0] = r[0];
-	mq[1] = r[1];
-
-	// vl = 2 = one + one
-	addmod128(one, one, vl, n);
-
-
-
-	// compute d and tzcnt
-	submod104_x8(&n1v[1], &n1v[0], nv[1], nv[0], zerov, onev, nv[1], nv[0]);
-
-	__mmask8 done = 0;
-	dv[1] = n1v[1];
-	dv[0] = n1v[0];
-	__m512i tzcntv = zerov;
-	while (done != 0xff)
-	{
-		__m512i c = _mm512_mask_slli_epi64(dv[1], ~done, dv[1], 51);
-		dv[0] = _mm512_mask_srli_epi64(dv[0], ~done, dv[0], 1);
-		dv[0] = _mm512_mask_or_epi64(dv[0], ~done, c, dv[0]);
-		dv[1] = _mm512_mask_srli_epi64(dv[1], ~done, dv[1], 1);
-		tzcntv = _mm512_mask_add_epi64(tzcntv, ~done, tzcntv, onev);
-		done = done | _mm512_cmpeq_epi64_mask(_mm512_and_epi64(dv[0], onev), onev);
-	}
-	dv[0] = _mm512_and_epi64(dv[0], lo52mask);
-
-	// penultimate-hi-bit mask based on d
-	m = _mm512_sub_epi64(_mm512_set1_epi64(62), _mm512_lzcnt_epi64(dv[1]));
-	m = _mm512_sllv_epi64(_mm512_set1_epi64(1), m);
-	m = _mm512_mask_set1_epi64(m, _mm512_cmple_epi64_mask(dv[1], onev), 0);
-
-	// we know the first bit is set and the first squaring is of unity,
-	// so we can do the first iteration manually (and hence the penultimate mask bit)
-	addmod104_x8(&rv[1], &rv[0], mone[1], mone[0], mone[1], mone[0], nv[1], nv[0]);
-
-	__mmask8 protect = _mm512_cmpgt_epi64_mask(_mm512_srli_epi64(n1v[1], 49), zerov);
-
-	// compute b^d
-	if (protect)
-	{
-		done = _mm512_cmpeq_epu64_mask(m, zerov);
-		while (done != 0xff)
-		{
-			__mmask8 bitcmp = _mm512_test_epi64_mask(m, dv[1]);
-
-			mask_sqrredc104_exact_vec(&rv[1], &rv[0], ~done, rv[1], rv[0], nv[1], nv[0], vrho);
-			mask_dblmod104_x8(&rv[1], &rv[0], (~done) & bitcmp, rv[1], rv[0], nv[1], nv[0]);
-
-			m = _mm512_srli_epi64(m, 1);
-			done = _mm512_cmpeq_epu64_mask(m, zerov);
-		}
-	}
-	else
-	{
-		done = _mm512_cmpeq_epu64_mask(m, zerov);
-		while (done != 0xff)
-		{
-			__mmask8 bitcmp = _mm512_test_epi64_mask(m, dv[1]);
-
-			mask_sqrredc104_vec(&rv[1], &rv[0], ~done, rv[1], rv[0], nv[1], nv[0], vrho);
-			mask_dblmod104_x8(&rv[1], &rv[0], (~done) & bitcmp, rv[1], rv[0], nv[1], nv[0]);
-
-			m = _mm512_srli_epi64(m, 1);
-			done = _mm512_cmpeq_epu64_mask(m, zerov);
-		}
-	}
-
-	m = _mm512_sub_epi64(_mm512_set1_epi64(62), _mm512_lzcnt_epi64(dv[0]));
-	m = _mm512_sllv_epi64(_mm512_set1_epi64(1), m);
-	m = _mm512_mask_set1_epi64(m, _mm512_cmpge_epi64_mask(dv[1], onev), 1ULL << 51);
-
-	if (protect)
-	{
-		done = _mm512_cmpeq_epu64_mask(m, zerov);
-		while (done != 0xff)
-		{
-			__mmask8 bitcmp = _mm512_test_epi64_mask(m, dv[0]);
-
-			mask_sqrredc104_exact_vec(&rv[1], &rv[0], ~done, rv[1], rv[0], nv[1], nv[0], vrho);
-			mask_dblmod104_x8(&rv[1], &rv[0], (~done) & bitcmp, rv[1], rv[0], nv[1], nv[0]);
-
-			m = _mm512_srli_epi64(m, 1);
-			done = _mm512_cmpeq_epu64_mask(m, zerov);
-		}
-	}
-	else
-	{
-		done = _mm512_cmpeq_epu64_mask(m, zerov);
-		while (done != 0xff)
-		{
-			__mmask8 bitcmp = _mm512_test_epi64_mask(m, dv[0]);
-
-			mask_sqrredc104_vec(&rv[1], &rv[0], ~done, rv[1], rv[0], nv[1], nv[0], vrho);
-			mask_dblmod104_x8(&rv[1], &rv[0], (~done) & bitcmp, rv[1], rv[0], nv[1], nv[0]);
-
-			m = _mm512_srli_epi64(m, 1);
-			done = _mm512_cmpeq_epu64_mask(m, zerov);
-		}
-	}
-
-	// AMM possibly needs a final correction by n
-	addmod104_x8(&rv[1], &rv[0], zerov, zerov, rv[1], rv[0], nv[1], nv[0]);
-
-	// check current result == 1
-	__mmask8 is1prp = _mm512_cmpeq_epu64_mask(rv[1], mone[1]) &
-		_mm512_cmpeq_epu64_mask(rv[0], mone[0]);
-
-	// now compute b^(2^s*d) and check for congruence to -1 as we go.
-	// check while tzcnt is > 1 for all inputs or all are already not prp.
-	done = is1prp;
-	__mmask8 ism1prp = 0;
-
-	submod104_x8(&n1v[1], &n1v[0], nv[1], nv[0], mone[1], mone[0], nv[1], nv[0]);
-
-	while (done != 0xff)
-	{
-		tzcntv = _mm512_mask_sub_epi64(tzcntv, ~done, tzcntv, onev);
-
-		// prp by -1 check
-		ism1prp = (_mm512_mask_cmpeq_epu64_mask(~is1prp, rv[1], n1v[1]) &
-			_mm512_mask_cmpeq_epu64_mask(~is1prp, rv[0], n1v[0]));
-
-		is1prp |= ism1prp;	// stop checking it if we've found a prp criteria.
-		done = (is1prp | ism1prp);
-
-		sqrredc104_vec(&rv[1], &rv[0], rv[1], rv[0], nv[1], nv[0], vrho);
-		addmod104_x8(&rv[1], &rv[0], zerov, zerov, rv[1], rv[0], nv[1], nv[0]);
-
-		// definitely not prp by 1 check, stop checking
-		done |= (_mm512_mask_cmpeq_epu64_mask(~is1prp, rv[1], zerov) &
-			_mm512_mask_cmpeq_epu64_mask(~is1prp, rv[0], onev));
-
-		done |= _mm512_mask_cmple_epu64_mask(~done, tzcntv, onev);
-	}
-
-	addmod104_x8(&rv[1], &rv[0], zerov, zerov, rv[1], rv[0], nv[1], nv[0]);
-
-	// check current result == m-1
-	ism1prp |= (_mm512_mask_cmpeq_epu64_mask(~is1prp, rv[1], n1v[1]) &
-		_mm512_mask_cmpeq_epu64_mask(~is1prp, rv[0], n1v[0]));
-
-	return (is1prp | ism1prp);
-#endif
-
-	/* The body above is compiled out, so nothing here has produced a
-	   result.  Report "no lane passed" instead of falling off the end of
-	   a non-void function, which is undefined behaviour.  (The only
-	   caller of this chain, bpsw_104x8(), is itself unreferenced.) */
-	return 0;
+	mpz_clear(value_mpz);
+	return mask;
 }
 
 // a Selfridge test on 8x 104-bit inputs
 uint8_t selfridge_104x8(uint64_t* n)
 {
-	// assumes n is a list of 8 104-bit integers (16 52-bit words)
-	// in the format: 8 lo-words, 8 hi-words.
-	int result;
-	mpz_t gn;
-	mpz_init(gn);
-
-	long p[8];
-	long q[8];
 	uint8_t mask = 0;
 	int i;
 
 	for (i = 0; i < 8; i++)
 	{
-		uint64_2gmp(n[8 + i], gn);
-		mpz_mul_2exp(gn, gn, 64);
-		mpz_add_ui(gn, gn, n[i] >> 32);
-		mpz_mul_2exp(gn, gn, 32);
-		mpz_add_ui(gn, gn, n[i] & 0xffffffff);
-
-		long int d = 5;
-		int max_d = 1000000;
-		int jacobi = 0;
-		int status = 0;
-
-#ifdef USE_PERIG_128BIT
-		uint128_t n128;
-
-		p[i] = 1;
-		q[i] = 0;
-
-		n128 = n[1];
-		n128 <<= 64;
-		n128 |= (uint128_t)n[0];
-
-		if ((n[1] == 0) && (n[0] < 2))
-			continue;
-
-		if ((n[0] & 1) == 0)
-			continue;
-		
-		while (1)
-		{
-			jacobi = jacobi_128(d, n128);
-
-			/* if jacobi == 0, d is a factor of n, therefore n is composite... */
-			/* if d == n, then either n is either prime or 9... */
-			if (jacobi == 0)
-			{
-				if ((d == n128) && (d != 9))
-				{
-					// confirmed prime
-					mask |= (1 << i);
-					status = 1;
-					break;
-				}
-				else
-				{
-					// confirmed composite
-					status = -1;
-					break;
-				}
-			}
-
-			if (jacobi == -1)
-				break;
-
-			/* if we get to the 5th d, make sure we aren't dealing with a square... */
-			if (d == 13)
-			{
-				if (mpz_perfect_square_p(gn))
-				{
-					// confirmed composite
-					status = -1;
-					break;
-				}
-			}
-
-			if (d < 0)
-			{
-				d *= -1;
-				d += 2;
-			}
-			else
-			{
-				d += 2;
-				d *= -1;
-			}
-
-			/* make sure we don't search forever */
-			if (d >= max_d)
-			{
-				// error
-				status = -2;
-				break;
-			}
-		}
-
-#else
-
-#endif
-		// if status != 0, then this lane is confirmed prime or composite.
-		// otherwise, proceed to the lucas test
-		if (status == 0)
-			mask |= (1 << i);
-
-		q[i] = (1 - d) / 4;
+		uint64_t value[2];
+		unpack_104_lane(n, i, value);
+		if (selfridge_prp_128x1(value) > 0)
+			mask |= (uint8_t)(1U << i);
 	}
-
-	mpz_clear(gn);
-
-	if (mask == 0) return 0;
-	else return (mask & lucas_104x8(n, p, q));
-
+	return mask;
 }
 
 // a Baillie-Pomerance-Selfridge-Wagstaff (bpsw) test on 8x 104-bit inputs
@@ -3980,4 +3490,3 @@ uint8_t MR_sprp_104x8base(uint64_t* n, uint64_t* one, uint64_t* bases)
 }
 
 #endif
-

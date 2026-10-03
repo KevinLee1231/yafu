@@ -56,17 +56,22 @@ int selfridge_prp_128x1(uint64_t* n);
 // a BPSW test on 1 128-bit input (two 64-bit words) (in-progress)
 int bpsw_prp_128x1(uint64_t* n);
 
-// a Fermat PRP test on 8x 52-bit inputs
+// 对 8 个大于 1 的 52 位奇数执行 Fermat 检查。
 uint8_t fermat_prp_52x8(uint64_t* n);
 
-// a Fermat PRP test on 8x 104-bit inputs
+// 对 8 个 54 至 104 位奇数执行 Fermat 检查，每个 limb 保存 52 位。
 uint8_t fermat_prp_104x8(uint64_t* n);
 
-// a Miller-Rabin SPRP test on 8x 52-bit inputs using base 2
+// 对 8 个 52 位输入执行以 2 为底的 Miller-Rabin 检查。
 uint8_t MR_2sprp_52x8(uint64_t* n);
 
-// a Miller-Rabin SPRP test on 8x 104-bit inputs using base 2
+// 对 8 个 54 至 104 位奇数执行以 2 为底的 Miller-Rabin 检查。
 uint8_t MR_2sprp_104x8(uint64_t* n);
+
+// 对 8 个 104 位输入逐通道执行标量 Lucas、Selfridge 和 BPSW 检查。
+uint8_t lucas_104x8(uint64_t* n, long* p, long* q);
+uint8_t selfridge_104x8(uint64_t* n);
+uint8_t bpsw_104x8(uint64_t* n);
 
 // a Miller-Rabin SPRP test on 8x 104-bit inputs using an
 // independent arbitrary 52-bit base on each
@@ -80,12 +85,6 @@ uint8_t MR_sprp_104x8base(uint64_t* n, uint64_t* one, uint64_t* bases);
 
 // test routine for the above
 int test_tinyprp(void);
-
-
-
-
-
-
 
 
 
