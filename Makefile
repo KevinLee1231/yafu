@@ -12,8 +12,6 @@
 #   Add to .gitignore: config.mk  .deps/
 #   make yafu                        # build yafu (default compiler: gcc)
 #   make msieve                      # build msieve static library + demo
-#   make siqs                        # build siqs_demo standalone binary
-#   make ecm                         # build ecm_demo standalone binary
 #   make all                         # build all four above targets
 #   make lasieve                     # build lasieve5_64 binaries
 #   make CC=clang yafu               # use clang
@@ -953,20 +951,6 @@ YAFU_SIQS_SRCS += \
 
 
 # -----------------------------------------------------------------------------
-# 17. Demo binary sources
-# -----------------------------------------------------------------------------
-SIQS_BIN_SRCS = \
-    factor/qs/qs_demo/siqs_demo.c \
-    factor/qs/qs_demo/cmdOptions.c \
-    factor/qs/qs_demo/calc.c
-
-ECM_BIN_SRCS = \
-    factor/ecm_demo/ecm_demo.c \
-    factor/ecm_demo/cmdOptions.c \
-    factor/ecm_demo/calc.c
-
-
-# -----------------------------------------------------------------------------
 # 18. NFS sources
 # -----------------------------------------------------------------------------
 YAFU_NFS_SRCS = \
@@ -1112,8 +1096,6 @@ YAFU_SIQS_OBJS    = $(YAFU_SIQS_SRCS:.c=$(OBJ_EXT))
 YAFU_ECM_OBJS     = $(ECM_SRCS:.c=$(OBJ_EXT))
 YAFU_COMMON_OBJS  = $(COMMON_SRCS:.c=$(OBJ_EXT))
 YAFU_NFS_OBJS     = $(YAFU_NFS_SRCS:.c=$(OBJ_EXT))
-SIQS_BIN_OBJS     = $(SIQS_BIN_SRCS:.c=$(OBJ_EXT))
-ECM_BIN_OBJS      = $(ECM_BIN_SRCS:.c=$(OBJ_EXT))
 MSIEVE_COMMON_OBJS = $(MSIEVE_COMMON_SRCS:.c=$(OBJ_EXT))
 NFS_OBJS          = $(NFS_SRCS:.c=.no)
 NFS_GPU_OBJS      = $(NFS_GPU_SRCS:.c=.no)
@@ -1131,8 +1113,7 @@ QS_OBJS = \
 DEPS_DIR      := .deps
 ALL_OBJS      := $(YAFU_OBJS) $(YAFU_SIQS_OBJS) $(YAFU_ECM_OBJS) \
                  $(YAFU_COMMON_OBJS) $(YAFU_NFS_OBJS) \
-                 $(MSIEVE_YAFU_OBJS) $(MSIEVE_COMMON_OBJS) \
-                 $(SIQS_BIN_OBJS) $(ECM_BIN_OBJS)
+                 $(MSIEVE_YAFU_OBJS) $(MSIEVE_COMMON_OBJS)
 
 # All compiled objects across all extensions — used to derive the full set
 # of .deps subdirectories that need to exist before compilation starts.
@@ -1169,12 +1150,12 @@ endif
 # -----------------------------------------------------------------------------
 # 22. PHONY TARGETS
 # -----------------------------------------------------------------------------
-.PHONY: all yafu msieve siqs ecm lasieve lasieve-clean clean info help _dep_status
+.PHONY: all yafu msieve lasieve lasieve-clean clean info help _dep_status
 
 # -----------------------------------------------------------------------------
 # 23. DEFAULT GOAL
 # -----------------------------------------------------------------------------
-all: yafu msieve siqs ecm
+all: yafu msieve
 
 # -----------------------------------------------------------------------------
 # 24. DEPENDENCY STATUS  (printed at the start of every real build)
@@ -1203,12 +1184,6 @@ yafu: _dep_status $(YAFU_OBJS) libysiqs.a libyecm.a libynfs.a libmsieve.a $(GPU_
 msieve: _dep_status libmsieve.a $(GPU_OBJS) demo.c
 	$(CC) $(CFLAGS) demo.c -o msieve$(EXE_EXT) \
 	    libmsieve.a $(MSIEVE_LIBS)
-
-siqs: _dep_status $(SIQS_BIN_OBJS) libysiqs.a libmsieve.a
-	$(CC) $(CFLAGS) $(SIQS_BIN_OBJS) -o siqs_demo$(EXE_EXT) -lysiqs -lmsieve $(LIBS)
-
-ecm: _dep_status $(ECM_BIN_OBJS) libyecm.a
-	$(CC) $(CFLAGS) $(ECM_BIN_OBJS) -o ecm_demo$(EXE_EXT) -lyecm $(LIBS)
 
 
 # -----------------------------------------------------------------------------
@@ -1481,12 +1456,11 @@ clean:
 	    $(MSIEVE_YAFU_OBJS) \
 	    $(YAFU_OBJS) $(YAFU_NFS_OBJS) $(YAFU_SIQS_OBJS) \
 	    $(YAFU_ECM_OBJS) $(YAFU_COMMON_OBJS) \
-	    $(SIQS_BIN_OBJS) $(ECM_BIN_OBJS) \
 	    $(MSIEVE_COMMON_OBJS) \
 	    $(QS_OBJS) $(NFS_OBJS) $(NFS_GPU_OBJS) $(NFS_NOGPU_OBJS) \
 	    $(DEPS_DIR) \
 	    libmsieve.a libysiqs.a libyecm.a libynfs.a \
-	    yafu$(EXE_EXT) msieve$(EXE_EXT) siqs_demo$(EXE_EXT) ecm_demo$(EXE_EXT) \
+	    yafu$(EXE_EXT) msieve$(EXE_EXT) \
 	    $(GENERATED_PTX)
 	$(RM_RF) $(TEST_OBJS) libyafu_common.a $(TEST_BIN) $(TEST_FULL_BIN) $(TEST_SAN_BIN)
 	@echo "Note: use 'make lasieve-clean' to also clean factor/lasieve5_64"
@@ -1551,8 +1525,6 @@ help:
 	@echo "  Targets:"
 	@echo "    make yafu            build the main yafu binary"
 	@echo "    make msieve          build libmsieve.a + msieve demo"
-	@echo "    make siqs            build siqs_demo standalone binary"
-	@echo "    make ecm             build ecm_demo standalone binary"
 	@echo "    make all             build all four targets above"
 	@echo "    make test            build the test suite (yafu_test)"
 	@echo "    make test-run        build and run the test suite"

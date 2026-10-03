@@ -4,15 +4,10 @@
 *.a
 /yafu
 /msieve
-/siqs_demo
-/ecm_demo
-/ysieve_demo
 /factor/lasieve5_64/bin/local/
 /factor/lasieve5_64/asm/ls-defs-os.asm
 /yafu_test
 /yafu_test_full
-/yafu_test.exe
-/yafu_test_full.exe
 /yafu_test_sanitize
 /yafu_test_sanitize.exe
 *.no
@@ -30,13 +25,6 @@ nfs.*
 *.obj
 *.tlog
 *.last_spq*
-
-# visual studio build
-build.vc22/.vs/*
-*.idb
-*.pdb
-*.user
-*.recipe
 
 # makefile configuration
 config.mk

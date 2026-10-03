@@ -8,11 +8,11 @@
 #          Makefile's default SYS_INC_PATHS / SYS_LIB_PATHS for Linux.
 #          GMP_PREFIX is passed explicitly to remove any ambiguity.
 #
-# GMP-ECM: Built from source and cached, same approach as build-windows.yml.
+# GMP-ECM: Built from source and cached.
 #          libecm-dev on Ubuntu is often an older version, so building from
 #          source ensures consistency between Linux and Windows builds.
 #
-# 产物使用下面指定的 -static 选项链接。
+# The binary is linked with the -static option below.
 # They are uploaded alongside the Windows .exe files on each release.
 
 name: Build YAFU Linux (Ubuntu)
@@ -27,7 +27,6 @@ on:
 
 env:
   # GMP-ECM — GitHub mirror of https://gitlab.inria.fr/zimmerma/ecm
-  # Keep in sync with build-windows.yml.
   ECM_REPO:   https://github.com/sethtroisi/gmp-ecm.git
   ECM_COMMIT: 0ab79ad
 
@@ -178,7 +177,7 @@ jobs:
 
   # ─────────────────────────────────────────────────────────────────────────────
   # RELEASE — only on version tags (e.g. git tag v2.1.0 && git push --tags)
-  # Uploads Linux binaries to the same GitHub Release created by build-windows.yml.
+  # Uploads the Linux binary to the GitHub Release.
   # Both workflows target the same tag so GitHub merges uploads into one release.
   # ─────────────────────────────────────────────────────────────────────────────
   release:
