@@ -546,6 +546,9 @@ uint32 find_poly_roots(dd_t *poly, uint32 degree, dd_complex_t *roots) {
 	complex_t dcoeffs[MAX_ROOTFINDER_DEGREE + 1];
 	complex_t droots[MAX_ROOTFINDER_DEGREE + 1];
 
+	if (degree == 0 || degree > MAX_ROOTFINDER_DEGREE)
+		return 3;
+
 	if (degree == 1) {
 		roots[0].r = dd_div_dd(dd_neg(poly[0]), poly[1]);
 		roots[0].i = dd_set_d(0.0);

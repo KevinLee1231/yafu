@@ -12,6 +12,7 @@
 
 #include <thread.h>
 
+#include <limits.h>
 #include <pthread.h>
 
 #define THREAD_POOL_DEBUG
@@ -189,11 +190,6 @@ static task_control_t * threadpool_task_get_task(struct threadpool *pool)
 {
 	task_control_t * task;
 
-	if (pool->stop_flag) {
-		/* The pool should shut down return NULL. */
-		return NULL;
-	}
-
 	/* Obtain a task */
 	if (pthread_mutex_lock(&(pool->mutex))) {
 		perror("pthread_mutex_lock: ");
@@ -265,16 +261,8 @@ static void *worker_thr_routine(void *data)
 	while (1) {
 		task = threadpool_task_get_task(pool);
 		if (task == NULL) {
-			if (pool->stop_flag) {
-				/* Worker thr needs to exit (thread pool was shutdown). */
-				break;
-			}
-			else {
-				/* An error has occurred. */
-				REPORT_ERROR("Warning an error has occurred when trying to obtain a worker task.");
-				REPORT_ERROR("The worker thread has exited.");
-				break;
-			}
+			/* 停止请求或同步原语错误都会结束当前工作线程。 */
+			break;
 		}
 
 		/* Execute task */
@@ -361,7 +349,8 @@ void threadpool_free(struct threadpool *pool)
 {
 	int i;
 
-	pool->stop_flag = 1;
+	if (pool == NULL)
+		return;
 
 	/* Wakeup all worker threads (broadcast operation). */
 	if (pthread_mutex_lock(&(pool->mutex))) {
@@ -370,9 +359,11 @@ void threadpool_free(struct threadpool *pool)
 		REPORT_ERROR("Warning: Some of the worker threads may have failed to exit.");
 		return;
 	}
+	pool->stop_flag = 1;
 
 	if (pthread_cond_broadcast(&(pool->new_tasks_cond))) {
 		perror("pthread_cond_broadcast: ");
+		(void)pthread_mutex_unlock(&(pool->mutex));
 		REPORT_ERROR("Warning: Memory was not released.");
 		REPORT_ERROR("Warning: Some of the worker threads may have failed to exit.");
 		return;
@@ -406,6 +397,11 @@ void threadpool_free(struct threadpool *pool)
 	/* Free all allocated memory. */
 	threadpool_queue_free(&(pool->tasks_queue));
 	threadpool_queue_free(&(pool->free_tasks_queue));
+	pthread_cond_destroy(&(pool->new_tasks_cond));
+	pthread_cond_destroy(&(pool->tasks_done_cond));
+	pthread_cond_destroy(&(pool->free_tasks_cond));
+	pthread_mutex_destroy(&(pool->mutex));
+	pthread_mutex_destroy(&(pool->free_tasks_mutex));
 	free(pool->tasks);
 	free(pool->thr_arr);
 	free(pool->thr_init);
@@ -417,35 +413,47 @@ struct threadpool* threadpool_init(int num_of_threads,
 				thread_control_t *t)
 {
 	int i;
+	int free_tasks_mutex_init = 0;
+	int mutex_init = 0;
+	int free_tasks_cond_init = 0;
+	int tasks_done_cond_init = 0;
+	int new_tasks_cond_init = 0;
 	struct threadpool *pool = (struct threadpool *)xcalloc(1,
 					sizeof(struct threadpool));
+
+	if (num_of_threads <= 0 || num_of_threads > USHRT_MAX ||
+		queue_size <= 0 || t == NULL) {
+		REPORT_ERROR("Invalid thread pool configuration.");
+		free(pool);
+		return NULL;
+	}
 
 	/* Init the mutex and cond vars. */
 	if (pthread_mutex_init(&(pool->free_tasks_mutex),NULL)) {
 		perror("pthread_mutex_init: ");
-		free(pool);
-		return NULL;
+		goto init_failed;
 	}
+	free_tasks_mutex_init = 1;
 	if (pthread_mutex_init(&(pool->mutex),NULL)) {
 		perror("pthread_mutex_init: ");
-		free(pool);
-		return NULL;
+		goto init_failed;
 	}
+	mutex_init = 1;
 	if (pthread_cond_init(&(pool->free_tasks_cond),NULL)) {
-		perror("pthread_mutex_init: ");
-		free(pool);
-		return NULL;
+		perror("pthread_cond_init: ");
+		goto init_failed;
 	}
+	free_tasks_cond_init = 1;
 	if (pthread_cond_init(&(pool->tasks_done_cond),NULL)) {
-		perror("pthread_mutex_init: ");
-		free(pool);
-		return NULL;
+		perror("pthread_cond_init: ");
+		goto init_failed;
 	}
+	tasks_done_cond_init = 1;
 	if (pthread_cond_init(&(pool->new_tasks_cond),NULL)) {
-		perror("pthread_mutex_init: ");
-		free(pool);
-		return NULL;
+		perror("pthread_cond_init: ");
+		goto init_failed;
 	}
+	new_tasks_cond_init = 1;
 
 	/* Init the queues. */
 	threadpool_queue_init(&(pool->tasks_queue), queue_size);
@@ -458,21 +466,19 @@ struct threadpool* threadpool_init(int num_of_threads,
 		threadpool_task_clear((pool->tasks) + i);
 		if (threadpool_queue_enqueue(&(pool->free_tasks_queue),(pool->tasks) + i)) {
 			REPORT_ERROR("Failed to a task to the free tasks queue during initialization.");
-			return NULL;
+			goto allocation_failed;
 		}
 	}
 
 	/* Create the thr_arr. */
 	if ((pool->thr_arr = malloc(sizeof(pthread_t) * num_of_threads)) == NULL) {
 		perror("malloc: ");
-		free(pool);
-		return NULL;
+		goto allocation_failed;
 	}
 
 	if ((pool->thr_init = malloc(sizeof(struct thread_init) * num_of_threads)) == NULL) {
 		perror("malloc: ");
-		free(pool);
-		return NULL;
+		goto allocation_failed;
 	}
 
 	/* Start the worker threads. */
@@ -495,6 +501,26 @@ struct threadpool* threadpool_init(int num_of_threads,
 	}
 
 	return pool;
+
+allocation_failed:
+	free(pool->thr_init);
+	free(pool->thr_arr);
+	free(pool->tasks);
+	threadpool_queue_free(&(pool->free_tasks_queue));
+	threadpool_queue_free(&(pool->tasks_queue));
+init_failed:
+	if (new_tasks_cond_init)
+		pthread_cond_destroy(&(pool->new_tasks_cond));
+	if (tasks_done_cond_init)
+		pthread_cond_destroy(&(pool->tasks_done_cond));
+	if (free_tasks_cond_init)
+		pthread_cond_destroy(&(pool->free_tasks_cond));
+	if (mutex_init)
+		pthread_mutex_destroy(&(pool->mutex));
+	if (free_tasks_mutex_init)
+		pthread_mutex_destroy(&(pool->free_tasks_mutex));
+	free(pool);
+	return NULL;
 }
 
 int threadpool_add_task(struct threadpool *pool, task_control_t *new_task, int blocking)
@@ -587,6 +613,11 @@ int threadpool_add_task(struct threadpool *pool, task_control_t *new_task, int b
 
 int threadpool_drain(struct threadpool *pool, int blocking)
 {
+	if (pool == NULL) {
+		REPORT_ERROR("The threadpool received as argument is NULL.");
+		return -1;
+	}
+
 	if (pthread_mutex_lock(&(pool->free_tasks_mutex))) {
 		perror("pthread_mutex_lock: ");
 		return -1;
@@ -622,4 +653,3 @@ int threadpool_drain(struct threadpool *pool, int blocking)
 
 	return 0;
 }
-
