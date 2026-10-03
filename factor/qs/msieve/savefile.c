@@ -19,6 +19,8 @@ Purpose:	Port into Yafu-1.14.
 #include "qs_impl.h"
 #include "ytools.h"
 
+void qs_savefile_flush(qs_savefile_t *s);
+
 /* we need a generic interface for reading and writing lines
    of data to the savefile while a factorization is in progress.
    This is necessary for two reasons: first, early msieve 
@@ -157,6 +159,8 @@ uint32_t qs_savefile_exists(qs_savefile_t *s) {
 
 /*--------------------------------------------------------------------*/
 void qs_savefile_read_line(char *buf, size_t max_len, qs_savefile_t *s) {
+	if (max_len == 0)
+		return;
 
 #if defined(WIN32) || defined(_WIN64)
 	size_t i, j;
@@ -203,11 +207,24 @@ void qs_savefile_read_line(char *buf, size_t max_len, qs_savefile_t *s) {
 
 /*--------------------------------------------------------------------*/
 void qs_savefile_write_line(qs_savefile_t *s, char *buf) {
+	size_t remaining = strlen(buf);
+	const char *src = buf;
 
-	if (s->buf_off + strlen(buf) + 1 >= SAVEFILE_BUF_SIZE)
-		qs_savefile_flush(s);
+	while (remaining > 0) {
+		size_t available = SAVEFILE_BUF_SIZE - 1 - s->buf_off;
+		size_t chunk;
 
-	s->buf_off += sprintf(s->buf + s->buf_off, "%s", buf);
+		if (available == 0) {
+			qs_savefile_flush(s);
+			available = SAVEFILE_BUF_SIZE - 1;
+		}
+		chunk = remaining < available ? remaining : available;
+		memcpy(s->buf + s->buf_off, src, chunk);
+		s->buf_off += (uint32_t)chunk;
+		s->buf[s->buf_off] = 0;
+		src += chunk;
+		remaining -= chunk;
+	}
 }
 
 /*--------------------------------------------------------------------*/
@@ -243,4 +260,3 @@ void qs_savefile_rewind(qs_savefile_t *s) {
 	rewind(s->fp);
 #endif
 }
-

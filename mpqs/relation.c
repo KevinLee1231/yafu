@@ -18,7 +18,6 @@ $Id: relation.c 23 2009-07-20 02:59:07Z jasonp_sf $
 
 #define HASH_MULT ((uint32)(2654435761UL))
 #define HASH(a) (((a) * HASH_MULT) >> (32 - LOG2_CYCLE_HASH))
-
 /*--------------------------------------------------------------------*/
 void qs_free_relation_list(relation_t *list, uint32 num_relations) {
 
@@ -116,7 +115,7 @@ void save_relation(sieve_conf_t *conf, uint32 sieve_offset,
 	   factorization */
 
 	uint32 i, j;
-	char buf[LINE_BUF_SIZE];
+	char *buf = (char *)xmalloc((size_t)MPQS_RELATION_BUF_SIZE);
 
 	i = sprintf(buf, "R ");
 
@@ -136,6 +135,7 @@ void save_relation(sieve_conf_t *conf, uint32 sieve_offset,
 		i += sprintf(buf + i, "L %x %x\n", large_prime2, large_prime1);
 
 	savefile_write_line(&conf->obj->savefile, buf);
+	free(buf);
 
 	/* for partial relations, also update the bookeeping for
 	   tracking the number of fundamental cycles */
@@ -204,7 +204,7 @@ static int32 read_relation(sieve_conf_t *conf,
 	char *next_field;
 	uint32 sieve_offset;
 	uint32 sign_of_offset;
-	uint32 fb_offsets[64];
+	uint32 fb_offsets[MAX_RELATION_FACTORS];
 	signed_mp_t t0, t1;
 	uint32 num_poly_factors = conf->num_poly_factors;
 	uint32 *poly_factors = conf->poly_factors;
@@ -245,13 +245,15 @@ static int32 read_relation(sieve_conf_t *conf,
 	   base) until an 'L' is encountered or a failure occurs */
 
 	num_factors = 0;
-	while (num_factors < 64 && *relation_buf != 'L') {
+	while (num_factors < MAX_RELATION_FACTORS && *relation_buf != 'L') {
 		if (isxdigit(*relation_buf)) {
 			i = strtoul(relation_buf, &next_field, 16);
 
 			/* factor base offsets must be sorted into
 			   ascending order */
 
+			if (i >= conf->fb_size)
+				return -4;
 			if (num_factors > 0 && i < fb_offsets[num_factors-1])
 				return -4;
 			else
@@ -807,7 +809,7 @@ void qs_filter_relations(sieve_conf_t *conf) {
 	uint32 total_poly_a;
 	uint32 poly_saved;
 	uint32 cycle_bins[NUM_CYCLE_BINS+1] = {0};
-	char buf[LINE_BUF_SIZE];
+	char buf[MPQS_RELATION_BUF_SIZE];
 
  	/* Rather than reading all the relations in and 
 	   then removing singletons, read only the large 
@@ -921,6 +923,10 @@ void qs_filter_relations(sieve_conf_t *conf) {
 			/* handle a new relation. First find the 
 			   large primes; these will determine
 	     		   if a relation is full or partial */
+
+			/* 关系必须隶属于前面已经读取的多项式。 */
+			if (curr_a_idx == (uint32)(-1))
+				break;
 
 			tmp = strchr(buf, 'L');
 			if (tmp == NULL)
@@ -1214,6 +1220,8 @@ void qs_filter_relations(sieve_conf_t *conf) {
 	}
 	if (cycle_bins[i])
 		logprintf(obj, "   length %u+: %u\n", i + 1, cycle_bins[i]);
-	logprintf(obj, "largest cycle: %u relations\n",
-			cycle_list[num_cycles-1].cycle.num_relations);
+	if (num_cycles > 0) {
+		logprintf(obj, "largest cycle: %u relations\n",
+				cycle_list[num_cycles-1].cycle.num_relations);
+	}
 }

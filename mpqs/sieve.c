@@ -504,7 +504,7 @@ static uint32 do_sieving_internal(sieve_conf_t *conf,
 	uint32 update;
 	msieve_obj *obj = conf->obj;
 	savefile_t *savefile = &obj->savefile;
-	char buf[300];
+	char buf[MPQS_RELATION_BUF_SIZE];
 
 	/* open the savefile; if the file already
 	   exists and the first line contains n in base 16,
@@ -593,7 +593,7 @@ static uint32 do_sieving_internal(sieve_conf_t *conf,
 		update = 100;
 	else
 		update = 200;
-	update = MIN(update, max_relations / 10);
+	update = MAX(1, MIN(update, max_relations / 10));
 
 	if (num_relations < max_relations &&
 	    (obj->flags & (MSIEVE_FLAG_USE_LOGFILE |
@@ -730,7 +730,7 @@ uint32 check_sieve_val(sieve_conf_t *conf, int32 sieve_offset,
 	uint32 i, j;
 	uint32 num_factors = 0;
 	uint32 sign_of_offset;
-	uint32 fb_offsets[32 * MAX_MP_WORDS / 4];
+	uint32 fb_offsets[MAX_RELATION_FACTORS];
 	mp_t res;
 	signed_mp_t polyval;
 	fb_t *factor_base = conf->factor_base;

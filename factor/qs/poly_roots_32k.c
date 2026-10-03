@@ -533,8 +533,8 @@ void ss_search_setup(static_conf_t* sconf, dynamic_conf_t* dconf)
 	{
 		if (dconf->ss_slices_p[i].numbuckets > (2 * num_bpoly))
 		{
-			int a = dconf->ss_slices_p[i].alloc;
-			int nb = 2 * num_bpoly;
+			size_t a = dconf->ss_slices_p[i].alloc;
+			size_t nb = 2 * (size_t)num_bpoly;
 			dconf->ss_slices_p[i].numbuckets = nb;
 			dconf->ss_slices_p[i].elements = 
 				(uint32_t*)xrealloc(dconf->ss_slices_p[i].elements, a * nb * sizeof(uint32_t));

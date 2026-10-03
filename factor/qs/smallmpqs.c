@@ -136,7 +136,7 @@ void smpqs_computeRoots(sm_mpqs_poly *poly, fb_list_sm_mpqs *fb, uint32_t *modsq
 uint8_t smpqs_choose_multiplier(mpz_t n, uint32_t fb_size);
 int smpqs_BlockGauss(sm_mpqs_rlist *full, sm_mpqs_rlist *partial, uint64_t *apoly, uint64_t *bpoly,
 			fb_list_sm_mpqs *fb, mpz_t n, int mul, 
-			mpz_t *factors, uint32_t *num_factor);
+			mpz_t *factors, int *num_factor);
 int sm_check_relation(mpz_t a, mpz_t b, sm_mpqs_r *r, fb_list_sm_mpqs *fb, mpz_t n);
 
 __inline void sm_zcopy(mpz_t src, mpz_t dest)
@@ -1573,7 +1573,7 @@ uint32_t u32div(uint32_t c, uint32_t n)
 #define SM_SCAN_MASK 0x8080808080808080ULL
 
 sm_mpqs_params sm_sieve_params;
-#define SM_MAX_SMOOTH_PRIMES 100
+#define SM_MAX_SMOOTH_PRIMES 255
 
 void smpqs_make_fb_mpqs(fb_list_sm_mpqs *fb, uint32_t *modsqrt, mpz_t n)
 {
@@ -2144,9 +2144,9 @@ done:
 	else
 	{
 		*num_factors = 0;
-		factors = (mpz_t *)malloc(8 * sizeof(mpz_t));
+		factors = (mpz_t *)malloc(MAX_FACTORS * sizeof(mpz_t));
 
-		for (i = 0; i < 8; i++)
+		for (i = 0; i < MAX_FACTORS; i++)
 		{
 			mpz_init(factors[i]);
 		}
@@ -2159,9 +2159,18 @@ done:
 			printf("Gauss elapsed time = %6.4f seconds.\n", t_time);
 		}
 
-		for (i = 7; i >= *num_factors; i--)
+		/* factors is NULL on the too-many-polys path, and *num_factors is
+		   negative when BlockGauss bails out early; the old unsigned cast
+		   happened to skip the loop in both cases.  Be explicit instead. */
+		if (factors != NULL)
 		{
-			mpz_clear(factors[i]);
+			int nf = (int)*num_factors;
+			if (nf < 0)
+				nf = 0;
+			for (i = nf; i < MAX_FACTORS; i++)
+			{
+				mpz_clear(factors[i]);
+			}
 		}
 	}
 
@@ -2492,10 +2501,18 @@ int smpqs_check_relations(uint32_t sieve_interval, uint32_t blocknum, uint8_t *s
 	return full->num_r;
 }
 
+#define SAVE_SMPQS_FACTOR(factor_index) \
+	do { \
+		/* num_factors 是 uint8_t，255项是可表示的上限。 */ \
+		if (smooth_num + 1 >= SM_MAX_SMOOTH_PRIMES) \
+			return; \
+		fboffset[++smooth_num] = (factor_index); \
+	} while (0)
+
 #define DIVIDE_ONE_PRIME \
 	while (mpz_tdiv_ui(Q, prime) == 0) \
 	{						\
-		fboffset[++smooth_num] = i;	\
+		SAVE_SMPQS_FACTOR(i); \
 		mpz_tdiv_q_ui(Q, Q, prime); 	\
 	}
 
@@ -2529,7 +2546,7 @@ void smpqs_trial_divide_Q(mpz_t Q, smpqs_sieve_fb *fb, sm_mpqs_rlist *full, sm_m
 	while (mpz_even_p(Q))
 	{
 		mpz_tdiv_q_2exp(Q,Q,1);
-		fboffset[++smooth_num] = 1;
+		SAVE_SMPQS_FACTOR(1);
 	}
 
 	// completely unrolled trial division by primes that we have not 
@@ -2552,7 +2569,7 @@ void smpqs_trial_divide_Q(mpz_t Q, smpqs_sieve_fb *fb, sm_mpqs_rlist *full, sm_m
 		{
 			do
 			{
-				fboffset[++smooth_num] = 2;
+				SAVE_SMPQS_FACTOR(2);
 				mpz_tdiv_q_ui(Q,Q,prime);
 				bits += logp;
 			} while (mpz_tdiv_ui(Q,prime) == 0);
@@ -2573,7 +2590,7 @@ void smpqs_trial_divide_Q(mpz_t Q, smpqs_sieve_fb *fb, sm_mpqs_rlist *full, sm_m
 		{
 			do
 			{
-				fboffset[++smooth_num] = 3;
+				SAVE_SMPQS_FACTOR(3);
 				mpz_tdiv_q_ui(Q,Q,prime);
 				bits += logp;
 			} while (mpz_tdiv_ui(Q,prime) == 0);
@@ -2594,7 +2611,7 @@ void smpqs_trial_divide_Q(mpz_t Q, smpqs_sieve_fb *fb, sm_mpqs_rlist *full, sm_m
 		{
 			do
 			{
-				fboffset[++smooth_num] = 4;
+				SAVE_SMPQS_FACTOR(4);
 				mpz_tdiv_q_ui(Q,Q,prime);
 				bits += logp;
 			} while (mpz_tdiv_ui(Q,prime) == 0);
@@ -2615,7 +2632,7 @@ void smpqs_trial_divide_Q(mpz_t Q, smpqs_sieve_fb *fb, sm_mpqs_rlist *full, sm_m
 		{
 			do
 			{
-				fboffset[++smooth_num] = 5;
+				SAVE_SMPQS_FACTOR(5);
 				mpz_tdiv_q_ui(Q,Q,prime);
 				bits += logp;
 			} while (mpz_tdiv_ui(Q,prime) == 0);
@@ -2636,7 +2653,7 @@ void smpqs_trial_divide_Q(mpz_t Q, smpqs_sieve_fb *fb, sm_mpqs_rlist *full, sm_m
 		{
 			do
 			{
-				fboffset[++smooth_num] = 6;
+				SAVE_SMPQS_FACTOR(6);
 				mpz_tdiv_q_ui(Q,Q,prime);
 				bits += logp;
 			} while (mpz_tdiv_ui(Q,prime) == 0);
@@ -3145,7 +3162,7 @@ static uint64_t smpqs_bitValRead64(uint64_t **m, int row, int col);
 
 int smpqs_BlockGauss(sm_mpqs_rlist *full, sm_mpqs_rlist *partial, uint64_t *apoly, uint64_t *bpoly,
 			fb_list_sm_mpqs *fb, mpz_t n, int mul, 
-			mpz_t *factors,uint32_t *num_factor)
+			mpz_t *factors, int *num_factor)
 {
 	int i,j,k,l,a,q,polynum;
 	int *bl;
@@ -3506,14 +3523,13 @@ int smpqs_BlockGauss(sm_mpqs_rlist *full, sm_mpqs_rlist *partial, uint64_t *apol
 									if (set_continue)
 										continue;
 
-									mpz_set(factors[*num_factor],nn);
-
-									(*num_factor)++;
-									if (*num_factor > MAX_FACTORS)
+									if (*num_factor >= MAX_FACTORS)
 									{
 										printf("max number of factors found in block gauss\n");
 										goto free;
 									}
+									mpz_set(factors[*num_factor],nn);
+									(*num_factor)++;
 
 									//check if we're done by accumulating all factors and comparing to n
 									mpz_set(nn,factors[0]);
@@ -3557,14 +3573,13 @@ int smpqs_BlockGauss(sm_mpqs_rlist *full, sm_mpqs_rlist *partial, uint64_t *apol
 									if (set_continue)
 										continue;
 
-									mpz_set(factors[*num_factor],tmp);
-
-									(*num_factor)++;
-									if (*num_factor > MAX_FACTORS)
+									if (*num_factor >= MAX_FACTORS)
 									{
 										printf("max number of factors found in block gauss\n");
 										goto free;
 									}
+									mpz_set(factors[*num_factor],tmp);
+									(*num_factor)++;
 
 									//check if we're done by accumulating all factors and comparing to n
 									mpz_set(tmp,factors[0]);
@@ -3588,7 +3603,7 @@ int smpqs_BlockGauss(sm_mpqs_rlist *full, sm_mpqs_rlist *partial, uint64_t *apol
 
 	//printf("matrix exhausted\n");
 	mpz_tdiv_q_ui(tmp, n, mul);
-	for (i=0;(uint32_t)i<*num_factor;i++)
+	for (i = 0; i < *num_factor; i++)
 	{
 		//sm_zcopy(&tmp,&nn);
 		//zDiv(&nn,&factors[i],&tmp,&tmp2);

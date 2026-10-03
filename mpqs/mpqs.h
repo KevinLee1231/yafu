@@ -30,6 +30,8 @@ extern "C" {
    SIQS polynomials */
 
 #define MAX_POLY_FACTORS 20
+#define MAX_RELATION_FACTORS (32 * MAX_MP_WORDS + 1)
+#define MPQS_RELATION_BUF_SIZE (10 * MAX_RELATION_FACTORS + 64)
 
 /* The size of a factor base prime is limited too */
 
