@@ -23,7 +23,7 @@ uint32_t do_msieve_filtering(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job)
 	FILE *tmp, *logfile;
 	uint32_t relations_needed;
 	uint32_t flags = 0;
-	char nfs_args[100];
+	char nfs_args[100] = {0};
 
 	flags = flags | MSIEVE_FLAG_USE_LOGFILE;
 	if (fobj->VFLAG > 0)
@@ -80,6 +80,7 @@ uint32_t do_msieve_filtering(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job)
 	{
 		char line[GSTR_MAXSIZE];
 		mpz_t num, r;
+		int fb_matches = 0;
 		mpz_init(num);
 		mpz_init(r);
 		
@@ -88,22 +89,20 @@ uint32_t do_msieve_filtering(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job)
 		{
 			if (line[0] == 'N')
 			{
-				mpz_set_str(num, line + 2, 0);
-				mpz_tdiv_r(r, fobj->nfs_obj.gmp_n, num);
-				if (mpz_cmp_ui(r, 0) == 0) // match, do nothing
-				{	
-					fclose(tmp);
-					break;
-				}
-				else
+				if (mpz_set_str(num, line + 2, 0) == 0 && mpz_sgn(num) != 0)
 				{
-					if (fobj->VFLAG > 0)
-						printf("nfs: warning: .fb file didn't match current job, overwriting\n");
-					fclose(tmp);
-					ggnfs_to_msieve(fobj, job);
-					break;
+					mpz_tdiv_r(r, fobj->nfs_obj.gmp_n, num);
+					fb_matches = (mpz_cmp_ui(r, 0) == 0);
 				}
+				break;
 			}
+		}
+		fclose(tmp);
+		if (!fb_matches)
+		{
+			if (fobj->VFLAG > 0)
+				printf("nfs: warning: .fb file didn't match current job, overwriting\n");
+			ggnfs_to_msieve(fobj, job);
 		}
 		mpz_clear(r);
 		mpz_clear(num);

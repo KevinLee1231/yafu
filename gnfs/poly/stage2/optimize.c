@@ -1003,7 +1003,10 @@ optimize_initial(curr_poly_t* c, uint32 deg, double* pol_norm, uint32 skew_only)
 	case 4: objective = poly_rotate_callback_deg4_radial; break;
 	case 5: objective = poly_rotate_callback_deg5_radial; break;
 	case 6: objective = poly_rotate_callback_deg6_radial; break;
-	default: printf("unhandled poly degree %d in optimize_initial\n", deg);
+	default:
+		printf("unhandled poly degree %u in optimize_initial\n", deg);
+		*pol_norm = 1e200;
+		return;
 	}
 #else
 	objective = poly_rotate_callback;

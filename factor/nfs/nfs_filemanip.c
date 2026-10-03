@@ -84,11 +84,27 @@ void win_file_concat(char *filein, char *fileout)
 		tmpptr = fgets(tmpline, GSTR_MAXSIZE, in);
 		if (tmpptr == NULL)
 			break;
-		else
-			fputs(tmpline, out);
+		else if (fputs(tmpline, out) == EOF)
+		{
+			printf("could not append %s: %s\n", fileout, strerror(errno));
+			fclose(in);
+			fclose(out);
+			exit(-1);
+		}
+	}
+	if (ferror(in))
+	{
+		printf("could not read %s: %s\n", filein, strerror(errno));
+		fclose(in);
+		fclose(out);
+		exit(-1);
 	}
 	fclose(in);
-	fclose(out);
+	if (fclose(out) != 0)
+	{
+		printf("could not finish appending %s: %s\n", fileout, strerror(errno));
+		exit(-1);
+	}
 
 	return;
 }
@@ -168,8 +184,8 @@ enum nfs_state_e check_existing_files(fact_obj_t *fobj, uint32_t*last_spq, nfs_j
 	}
 
 	// 1b) same thing with .ranges file
-	char buf[1024];
-	sprintf(buf, "%s.ranges", fobj->nfs_obj.outputfile);
+	char buf[GSTR_MAXSIZE + sizeof(".ranges")];
+	snprintf(buf, sizeof(buf), "%s.ranges", fobj->nfs_obj.outputfile);
 	FILE *fid = fopen(buf, "r");
 	if (fid != NULL)
 	{
@@ -242,7 +258,15 @@ enum nfs_state_e check_existing_files(fact_obj_t *fobj, uint32_t*last_spq, nfs_j
 					mpz_init(tmp);
 					mpz_init(g);
 
-					mpz_set_str(tmp, line + 3, 0);
+					if (mpz_set_str(tmp, line + 3, 0) != 0 || mpz_sgn(tmp) == 0)
+					{
+						do_poly_check = 1;
+						if (fobj->VFLAG > 0)
+							printf("nfs: malformed input number in job file\n");
+						mpz_clear(tmp);
+						mpz_clear(g);
+						break;
+					}
 					if (resume_check_input_match(tmp, fobj->nfs_obj.gmp_n, g, fobj->VFLAG))
 					{
 						// divide out any common factor and copy the result to
@@ -304,8 +328,9 @@ enum nfs_state_e check_existing_files(fact_obj_t *fobj, uint32_t*last_spq, nfs_j
 			ptr = fgets(line,GSTR_MAXSIZE,in);
 			if (ptr == NULL)
 			{
-				if (fobj->VFLAG > 0) 
+				if (fobj->VFLAG > 0)
 					printf("poly file empty\n");
+				fclose(in);
 				return NFS_STATE_STARTNEW;		// .p file empty.
 			}
 			else
@@ -324,7 +349,14 @@ enum nfs_state_e check_existing_files(fact_obj_t *fobj, uint32_t*last_spq, nfs_j
 					mpz_t tmp, g;
 					mpz_init(tmp);
 					mpz_init(g);
-					mpz_set_str(tmp, line + 3, 0);
+					if (mpz_set_str(tmp, line + 3, 0) != 0 || mpz_sgn(tmp) == 0)
+					{
+						if (fobj->VFLAG > 0)
+						printf("nfs: malformed input number in poly file\n");
+					mpz_clear(tmp);
+					mpz_clear(g);
+					return NFS_STATE_STARTNEW;
+					}
 					if (resume_check_input_match(tmp, fobj->nfs_obj.gmp_n, g, fobj->VFLAG))
 					{
 						// divide out any common factor and copy the result to
@@ -945,7 +977,7 @@ void msieve_to_ggnfs(fact_obj_t *fobj, nfs_job_t *job)
 {
 	// convert a msieve.fb polynomial into a ggnfs polynomial file
 	FILE *in, *out;
-	char line[GSTR_MAXSIZE], outline[GSTR_MAXSIZE], *ptr;
+	char line[GSTR_MAXSIZE], *ptr;
 
 	in = fopen(fobj->nfs_obj.fbfile,"r");
 	if (in == NULL)
@@ -972,17 +1004,15 @@ void msieve_to_ggnfs(fact_obj_t *fobj, nfs_job_t *job)
 			break;
 
 		if (line[0] == 'N')
-			sprintf(outline, "n: %s",line + 2);
+			fprintf(out, "n: %s", line + 2);
 		else if(line[0] == 'S')
-			sprintf(outline, "skew: %s",line + 5);
+			fprintf(out, "skew: %s", line + 5);
 		else if (line[0] == 'R')
-			sprintf(outline, "Y%c: %s",line[1], line + 3);
+			fprintf(out, "Y%c: %s", line[1], line + 3);
 		else if (line[0] == 'A')
-			sprintf(outline, "c%c: %s",line[1], line + 3);
+			fprintf(out, "c%c: %s", line[1], line + 3);
 		else
-			strcpy(outline, line);	//copy the line (probably white space)
-
-		fputs(outline,out);
+			fputs(line, out);	//copy the line (probably white space)
 	}
 
 	// and copy in the job parameters
@@ -1005,7 +1035,7 @@ void ggnfs_to_msieve(fact_obj_t *fobj, nfs_job_t *job)
 {
 	// convert a ggnfs.job file into a msieve.fb polynomial file
 	FILE *in, *out;
-	char line[GSTR_MAXSIZE], outline[GSTR_MAXSIZE], *ptr;
+	char line[GSTR_MAXSIZE], *ptr;
 	// sometimes reading rat.degree doesn't work... does it get set?
 	char rats_printed = 2; //job->poly->rat.degree+1; 
 
@@ -1034,24 +1064,20 @@ void ggnfs_to_msieve(fact_obj_t *fobj, nfs_job_t *job)
 			break;
 
 		if (line[0] == 'n')
-			sprintf(outline, "N %s",line + 3);
+			fprintf(out, "N %s", line + 3);
 		else if (line[0] == 'Y' && rats_printed > 0) 
 		{
 			rats_printed--; 
-			sprintf(outline, "R%c %s",line[1], line + 4);
+			fprintf(out, "R%c %s", line[1], line + 4);
 		}
 		else if (line[0] == 'c')
-			sprintf(outline, "A%c %s",line[1], line + 4);
+			fprintf(out, "A%c %s", line[1], line + 4);
 		else if (line[0] == 'm' && line[1] == ':' && rats_printed > 0) 
 		{
 			rats_printed=0;
 			// need to do something different here for non-linear rational poly...
-			sprintf(outline, "R1 1\nR0 -%s", line + 3);
+			fprintf(out, "R1 1\nR0 -%s", line + 3);
 		}
-		else
-			strcpy(outline, "");
-
-		fputs(outline,out);
 	}
 
 	fclose(in);
@@ -1173,21 +1199,23 @@ uint32_t parse_job_file(fact_obj_t *fobj, nfs_job_t *job)
         {
             int coeff;
             int found = 0;
-            for (coeff = 0; coeff < MAX_POLY_DEGREE; coeff++)
+			for (coeff = 0; coeff <= MAX_POLY_DEGREE; coeff++)
             {
                 char cstr[8];
                 sprintf(cstr, "c%d:", coeff);
                 substr = strstr(line, cstr);
                 if (substr != NULL)
                 {
-                    gmp_sscanf(line + 3, "%Zd", job->poly->alg.coeff[coeff]);
+					if (gmp_sscanf(substr + strlen(cstr), "%Zd",
+						job->poly->alg.coeff[coeff]) != 1)
+						continue;
                     if (fobj->VFLAG > 0)
                     {
                         gmp_printf("nfs: found c[%d]: %Zd\n", coeff, job->poly->alg.coeff[coeff]);
                     }
                     found = 1;
                     if ((coeff > job->poly->alg.degree) &&
-                        (mpz_cmp_ui(job->poly->alg.coeff[coeff], 0) > 0))
+						(mpz_sgn(job->poly->alg.coeff[coeff]) != 0))
                     {
                         job->poly->alg.degree = coeff;
                     }
@@ -1376,11 +1404,11 @@ uint32_t parse_job_file(fact_obj_t *fobj, nfs_job_t *job)
 			double a, r;
 			int numa, numr;
 			numa = sscanf(substr + 6, "%lf", &a);
-			
-			substr = strstr(line, "rnorm");
-			numr = sscanf(substr + 6, "%lf", &r);
 
-			if ((numa < 0) || (numr < 0))
+			substr = strstr(line, "rnorm");
+			numr = (substr == NULL) ? 0 : sscanf(substr + 6, "%lf", &r);
+
+			if ((numa != 1) || (numr != 1))
 			{
 				if (fobj->VFLAG > 0)
 				{

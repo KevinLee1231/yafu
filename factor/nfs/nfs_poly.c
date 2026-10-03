@@ -798,10 +798,17 @@ void split_file(int nthreads, char* base_filename, const char* file_extension)
 	char line[8192];
 	int count = 0;
 	int lines_per_file = 0;
-	char fname[80];
+	char fname[GSTR_MAXSIZE + 32];
 	char* strptr;
 
-	sprintf(fname, "%s.%s", base_filename, file_extension);
+	{
+		int n = snprintf(fname, sizeof(fname), "%s.%s", base_filename, file_extension);
+		if ((n < 0) || ((size_t)n >= sizeof(fname)))
+		{
+			printf("nfs: split file name is too long\n");
+			return;
+		}
+	}
 	FILE* fid = fopen(fname, "r");
 	if (fid != NULL)
 	{
@@ -837,7 +844,14 @@ void split_file(int nthreads, char* base_filename, const char* file_extension)
 			// it's not a big deal but that makes me nervous somehow.
 			// so we do it one file at a time with a good-enough
 			// load balancing.
-			sprintf(fname, "%s.%d.%s", base_filename, i, file_extension);
+			{
+				int n = snprintf(fname, sizeof(fname), "%s.%d.%s", base_filename, i, file_extension);
+				if ((n < 0) || ((size_t)n >= sizeof(fname)))
+				{
+					printf("nfs: split file name is too long\n");
+					return;
+				}
+			}
 			FILE* fid_out = fopen(fname, "w");
 			if (fid_out != NULL)
 			{
@@ -864,11 +878,18 @@ void split_file(int nthreads, char* base_filename, const char* file_extension)
 			}
 
 		}
-		sprintf(fname, "%s.%d.%s", base_filename, i, file_extension);
+		{
+			int n = snprintf(fname, sizeof(fname), "%s.%d.%s", base_filename, i, file_extension);
+			if ((n < 0) || ((size_t)n >= sizeof(fname)))
+			{
+				printf("nfs: split file name is too long\n");
+				return;
+			}
+		}
 		FILE* fid_out = fopen(fname, "w");
 		if (fid_out != NULL)
 		{
-			for (j = 0; j < lines_per_file; j++)
+			while (1)
 			{
 				// need the ability to parse an arbitrary length line
 				char line[8192];
@@ -878,10 +899,6 @@ void split_file(int nthreads, char* base_filename, const char* file_extension)
 					break;
 				}
 				fputs(line, fid_out);
-				if (feof(fid))
-				{
-					break;
-				}
 			}
 			fclose(fid_out);
 		}
@@ -890,6 +907,8 @@ void split_file(int nthreads, char* base_filename, const char* file_extension)
 			printf("could not open %s to write\n", fname);
 		}
 	}
+	if (fid != NULL)
+		fclose(fid);
 
 
 	return;
@@ -941,7 +960,6 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
 	   iteration which wasn't TASK_POLY doesn't read a stale value */
 	double t_time = 0;
     double e0;
-    int sysreturn;
 
 	//file into which we will combine all of the thread results
 	strcpy(polyfile_extension, "p");
@@ -1008,9 +1026,21 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
 	// as "no polynomial found".
 	if ((params.stage2_norm == 0.0) || (params.deadline == 0))
 	{
+		/* report the table that was actually consulted, not always deg4 */
+		const poly_params_t *used_table;
+		double used_min_digits;
+
+		if (fobj->nfs_obj.pref_degree == 6)
+			used_table = params_deg6;
+		else if (fobj->nfs_obj.pref_degree == 5)
+			used_table = params_deg5;
+		else
+			used_table = params_deg4;
+		used_min_digits = used_table[0].digits;
+
 		printf("nfs: no polynomial-search parameters for a %1.2f-digit input "
 			"(degree-%d table starts at %.0f digits) - input too small for GNFS\n",
-			digits, fobj->nfs_obj.pref_degree, params_deg4[0].digits);
+			digits, fobj->nfs_obj.pref_degree, used_min_digits);
 		logprint_oc(fobj->flogname, "a",
 			"nfs: no polynomial-search parameters for a %1.2f-digit input\n", digits);
 		return;
@@ -1489,28 +1519,9 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
 						fclose(fid);
 
 					// combine thread's output with main file
-#if defined(WIN32)
-					{
-						int a;
-
-						// test for cat
-						sprintf(syscmd, "cat %s.%s >> %s 2> nul",
-							t->polyfilename, polyfile_extension, master_polyfile);
-						a = system(syscmd);
-
-						if (a)
-						{
-							char tmp[80];
-							sprintf(tmp, "%s.%s", t->polyfilename, polyfile_extension);
-							win_file_concat(tmp, master_polyfile);
-						}
-					}
-
-#else
-					sprintf(syscmd, "cat %s.%s >> %s",
-						t->polyfilename, polyfile_extension, master_polyfile);
-					sysreturn = system(syscmd);
-#endif
+					snprintf(syscmd, sizeof(syscmd), "%s.%s",
+						t->polyfilename, polyfile_extension);
+					win_file_concat(syscmd, master_polyfile);
 					// then stick on the current total elasped time
 					// this is used to help restart jobs in the polyfind phase
 					if (!special_polyfind)
