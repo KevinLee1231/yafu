@@ -29,6 +29,7 @@
 #include "testkit.h"
 #include "test_data.h"
 #include <gmp.h>
+#include <stdlib.h>
 #include "monty.h"          /* if monty128* moved to limb2.h in your tree, include that too */
 
 /* set an mpz from a uint64[2] little-endian pair (lo, hi) */
@@ -104,6 +105,7 @@ static void t_monty_mpz(tk_ctx *tk)
     gmp_randclear(gmp_rng_state);
     mpz_clears(n, x, y, X, Y, Z, ref, want, NULL);
     monty_free(md);
+    free(md);
 }
 
 /* ================================================================== *
