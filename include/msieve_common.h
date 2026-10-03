@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include "savefile.h"
+#include "ytools.h"
 
 #ifdef __MINGW32__
 #include <Windows.h>

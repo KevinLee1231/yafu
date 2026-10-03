@@ -205,37 +205,8 @@ __inline static uint64_t mulredc_pos_alt(uint64_t x, uint64_t y, uint64_t N, uin
 static UNUSED_FUNC uint64_t bin_gcd64(uint64_t u, uint64_t v);
 static UNUSED_FUNC uint64_t bin_gcd64(uint64_t u, uint64_t v)
 {
-#if 1
-	if (u == 0) {
-		return v;
-	}
-	if (v != 0) {
-		int j = _trail_zcnt64(v);
-		v = (uint64_t)(v >> j);
-		while (1) {
-			uint64_t tmp = u;
-			uint64_t sub1 = (uint64_t)(v - tmp);
-			uint64_t sub2 = (uint64_t)(tmp - v);
-			if (tmp == v)
-				break;
-			u = (tmp >= v) ? v : tmp;
-			v = (tmp >= v) ? sub2 : sub1;
-			// For the line below, the standard way to write this algorithm
-			// would have been to use _trail_zcnt64(v)  (instead of
-			// _trail_zcnt64(sub1)).  However, as pointed out by
-			// https://gmplib.org/manual/Binary-GCD, "in twos complement the
-			// number of low zero bits on u-v is the same as v-u, so counting or
-			// testing can begin on u-v without waiting for abs(u-v) to be
-			// determined."  Hence we are able to use sub1 for the argument.
-			// By removing the dependency on abs(u-v), the CPU can execute
-			// _trail_zcnt64(void) at the same time as abs(u-v).
-			j = _trail_zcnt64(sub1);
-			v = (uint64_t)(v >> j);
-		}
-	}
-	return u;
-#else
-	// For reference, or if in the future we need to allow an even u,
+
+	// 保留公共的 2 的幂因子，支持零、奇数和偶数。
 	// this version allows u to be even or odd.
 	if (u == 0) {
 		return v;
@@ -269,7 +240,7 @@ static UNUSED_FUNC uint64_t bin_gcd64(uint64_t u, uint64_t v)
 		u = (uint64_t)(u << k);
 	}
 	return u;
-#endif
+
 }
 
 // full strength mul/sqr redc
@@ -326,27 +297,24 @@ __inline static uint64_t mfma64(uint64_t x, uint64_t y, uint64_t c, uint64_t N, 
 #if defined(_MSC_VER)
 	uint64_t T_hi;
 	uint64_t T_lo = _umul128(x, y, &T_hi);
-	uint64_t m = T_lo * invN;
-	uint64_t mN_hi = __umulh(m, N);
 #else
 	__uint128_t z = (__uint128_t)x * y;
-	uint64_t u = (uint64_t)(z >> 64);
-	uint64_t v = (uint64_t)z;
-	uint64_t w = (u < N - c) ? u + c : u + c - N;  // modular add
-	uint64_t T_hi = w;
-	uint64_t T_lo = v;
-
+	uint64_t T_hi = (uint64_t)(z >> 64);
+	uint64_t T_lo = (uint64_t)z;
+#endif
+	T_hi = (T_hi < N - c) ? T_hi + c : T_hi + c - N;
 	uint64_t m = T_lo * invN;
+#if defined(_MSC_VER)
+	uint64_t mN_hi = __umulh(m, N);
+#else
 	__uint128_t mN = (__uint128_t)m * N;
 	uint64_t mN_hi = (uint64_t)(mN >> 64);
+#endif
 	uint64_t tmp = T_hi + N;
 	tmp = tmp - mN_hi;
 	uint64_t result = T_hi - mN_hi;
 	result = (T_hi < mN_hi) ? tmp : result;
 	return result;
-
-#endif
-
 }
 
 /* --- end Hurchalla functions --- */
@@ -862,16 +830,13 @@ FORCE_INLINE static void mul52lohi(__m512i b, __m512i c, __m512i* l, __m512i* h)
 
 #else
 
-static __m512d dbias;
-static __m512i vbias1;
-static __m512i vbias2;
-static __m512i vbias3;
-
 #define mul52lo(b, c) \
 	_mm512_and_si512(_mm512_mullo_epi64(b, c), _mm512_set1_epi64(0x000fffffffffffffull))
 
 __inline static __m512i mul52hi(__m512i b, __m512i c)
 {
+	const __m512d dbias = _mm512_castsi512_pd(_mm512_set1_epi64(0x4670000000000000ULL));
+	const __m512i vbias1 = _mm512_set1_epi64(0x4670000000000000ULL);
 	__m512d prod1_ld = _mm512_cvtepu64_pd(b);
 	__m512d prod2_ld = _mm512_cvtepu64_pd(c);
 	prod1_ld = _mm512_fmadd_round_pd(prod1_ld, prod2_ld, dbias, (_MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC));
@@ -879,6 +844,9 @@ __inline static __m512i mul52hi(__m512i b, __m512i c)
 }
 __inline static void mul52lohi(__m512i b, __m512i c, __m512i* l, __m512i* h)
 {
+	const __m512d dbias = _mm512_castsi512_pd(_mm512_set1_epi64(0x4670000000000000ULL));
+	const __m512i vbias1 = _mm512_set1_epi64(0x4670000000000000ULL);
+	const __m512i vbias2 = _mm512_set1_epi64(0x4670000000000001ULL);
 	__m512d prod1_ld = _mm512_cvtepu64_pd(b);
 	__m512d prod2_ld = _mm512_cvtepu64_pd(c);
 	__m512d prod1_hd = _mm512_fmadd_round_pd(prod1_ld, prod2_ld, dbias, (_MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC));
@@ -1018,7 +986,7 @@ __inline static __m512i _mm512_addcarry_epi52(__m512i a, __mmask8 c, __mmask8* c
 __inline static __m512i _mm512_subborrow_epi52(__m512i a, __mmask8 c, __mmask8* cout)
 {
     __m512i t = _mm512_sub_epi64(a, _mm512_maskz_set1_epi64(c, 1));
-    *cout = _mm512_cmpeq_epu64_mask(a, _mm512_set1_epi64(0));
+    *cout = c & _mm512_cmpeq_epu64_mask(a, _mm512_set1_epi64(0));
     t = _mm512_and_epi64(t, _mm512_set1_epi64(0xfffffffffffffULL));
     return t;
 }
@@ -1542,8 +1510,8 @@ __inline static void mask_sqrredc104_exact_vec(__m512i* c1, __m512i* c0, __mmask
 	//carryprop(t2, C2, lo52mask);
 	//scarry = _mm512_cmp_epu64_mask(C2, zero, _MM_CMPINT_GT);
 
-	scarry = _mm512_cmpge_epu64_mask(t2, n1);
-	//scarry |= (_mm512_cmpeq_epu64_mask(t2, n1) & _mm512_cmpgt_epu64_mask(t1, n0));
+	scarry = _mm512_cmpgt_epu64_mask(t2, n1);
+	scarry |= (_mm512_cmpeq_epu64_mask(t2, n1) & _mm512_cmpge_epu64_mask(t1, n0));
 
 	if (scarry > 0) {
 		// conditionally subtract when result >= n
@@ -1729,65 +1697,25 @@ static UNUSED_FUNC void gcd128(uint64_t* u, uint64_t* v, uint64_t* w)
 static UNUSED_FUNC void bin_gcd128(uint64_t *u, uint64_t *v, uint64_t *w);
 static UNUSED_FUNC void bin_gcd128(uint64_t *u, uint64_t *v, uint64_t *w)
 {
-	//w = gcd(u, v);
-	if ((u[1] == 0) && (u[0] == 0))
-	{
-		w[1] = v[1];
-		w[0] = v[0];
-		return;
-	}
-	if ((v[1] != 0) || (v[0] != 0)) {
-		int j = (int)my_ctz128(v[0], v[1]);
-		//v = (uint64_t)(v >> j);
-		//if (j > 64) printf("j overflow\n");
-		v[0] >>= j;
-		v[0] |= (v[1] << (64 - j));
-		v[1] >>= j;
-		while (1) {
-
-			//uint64_t tmp = u;
-			//uint64_t sub1 = (uint64_t)(v - tmp);
-			//uint64_t sub2 = (uint64_t)(tmp - v);
-			//if (tmp == v)
-			//	break;
-			//u = (tmp >= v) ? v : tmp;
-			//v = (tmp >= v) ? sub2 : sub1;
-
-
-			uint128_t t = (uint128_t)u[1] << 64 | (uint128_t)u[0];
-			uint128_t v128 = ((uint128_t)v[1] << 64 | (uint128_t)v[0]);
-			uint128_t s1 = v128 - t;
-			uint128_t s2 = t - v128;
-
-			if (t == v128)
-				break;
-
-
-			u[0] = (t >= v128) ? (uint64_t)v128 : (uint64_t)t;
-			u[1] = (t >= v128) ? (uint64_t)(v128 >> 64) : (uint64_t)(t >> 64);
-
-			v[0] = (t >= v128) ? (uint64_t)s2 : (uint64_t)s1;
-			v[1] = (t >= v128) ? (uint64_t)(s2 >> 64) : (uint64_t)(s1 >> 64);
-
-			// For the line below, the standard way to write this algorithm
-			// would have been to use _trail_zcnt64(v)  (instead of
-			// _trail_zcnt64(sub1)).  However, as pointed out by
-			// https://gmplib.org/manual/Binary-GCD, "in twos complement the
-			// number of low zero bits on u-v is the same as v-u, so counting or
-			// testing can begin on u-v without waiting for abs(u-v) to be
-			// determined."  Hence we are able to use sub1 for the argument.
-			// By removing the dependency on abs(u-v), the CPU can execute
-			// _trail_zcnt64() at the same time as abs(u-v).
-			j = (int)my_ctz128((uint64_t)s1, (uint64_t)(s1 >> 64));
-			//v = (uint64_t)(v >> j);
-			//if (j > 64) printf("j overflow\n");
-			v[0] >>= j;
-			v[0] |= (v[1] << (64 - j));
-			v[1] >>= j;
-		}
-	}
-	w[1] = u[1];
-	w[0] = u[0];
+    uint128_t a = ((uint128_t)u[1] << 64) | u[0];
+    uint128_t b = ((uint128_t)v[1] << 64) | v[0];
+    if (a == 0) a = b;
+    else if (b != 0)
+    {
+        unsigned int sa = (unsigned int)my_ctz128((uint64_t)a, (uint64_t)(a >> 64));
+        unsigned int sb = (unsigned int)my_ctz128((uint64_t)b, (uint64_t)(b >> 64));
+        unsigned int common = sa < sb ? sa : sb;
+        a >>= sa;
+        do
+        {
+            b >>= my_ctz128((uint64_t)b, (uint64_t)(b >> 64));
+            if (a > b) { uint128_t tmp = a; a = b; b = tmp; }
+            b -= a;
+        } while (b != 0);
+        a <<= common;
+    }
+    w[0] = (uint64_t)a;
+    w[1] = (uint64_t)(a >> 64);
 }
 #endif
 

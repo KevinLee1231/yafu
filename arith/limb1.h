@@ -82,7 +82,7 @@ __inline static uint64_t mulredc_pos_alt(uint64_t x, uint64_t y, uint64_t N, uin
    loop, so inlining stays the compiler's call, matching the original monty.h. */
 static UNUSED_FUNC uint64_t bingcd64(uint64_t u, uint64_t v)
 {
-#if 1
+#if 0
 	if (u == 0) {
 		return v;
 	}
@@ -721,16 +721,13 @@ FORCE_INLINE static void mul52lohi(__m512i b, __m512i c, __m512i* l, __m512i* h)
 
 #else
 
-static __m512d dbias;
-static __m512i vbias1;
-static __m512i vbias2;
-static __m512i vbias3;
-
 #define mul52lo(b, c) \
 	_mm512_and_si512(_mm512_mullo_epi64(b, c), _mm512_set1_epi64(0x000fffffffffffffull))
 
 __inline static __m512i mul52hi(__m512i b, __m512i c)
 {
+	__m512d dbias = _mm512_castsi512_pd(_mm512_set1_epi64(0x4670000000000000ULL));
+	__m512i vbias1 = _mm512_set1_epi64(0x4670000000000000ULL);
 	__m512d prod1_ld = _mm512_cvtepu64_pd(b);
 	__m512d prod2_ld = _mm512_cvtepu64_pd(c);
 	prod1_ld = _mm512_fmadd_round_pd(prod1_ld, prod2_ld, dbias, (_MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC));
@@ -738,6 +735,9 @@ __inline static __m512i mul52hi(__m512i b, __m512i c)
 }
 __inline static void mul52lohi(__m512i b, __m512i c, __m512i* l, __m512i* h)
 {
+	__m512d dbias = _mm512_castsi512_pd(_mm512_set1_epi64(0x4670000000000000ULL));
+	__m512i vbias1 = _mm512_set1_epi64(0x4670000000000000ULL);
+	__m512i vbias2 = _mm512_set1_epi64(0x4670000000000001ULL);
 	__m512d prod1_ld = _mm512_cvtepu64_pd(b);
 	__m512d prod2_ld = _mm512_cvtepu64_pd(c);
 	__m512d prod1_hd = _mm512_fmadd_round_pd(prod1_ld, prod2_ld, dbias, (_MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC));
@@ -764,28 +764,40 @@ __inline static void mul52lohi(__m512i b, __m512i c, __m512i* l, __m512i* h)
 #else
 
 #define VEC_MUL_ACCUM_LOHI_PD(a, b, lo, hi) \
+	do { \
+	__m512d _dbias = _mm512_castsi512_pd(_mm512_set1_epi64(0x4670000000000000ULL)); \
+	__m512i _vbias1 = _mm512_set1_epi64(0x4670000000000000ULL); \
+	__m512i _vbias2 = _mm512_set1_epi64(0x4670000000000001ULL); \
+	__m512i _vbias3 = _mm512_set1_epi64(0x4330000000000000ULL); \
 	prod1_ld = _mm512_cvtepu64_pd(a);		\
 	prod2_ld = _mm512_cvtepu64_pd(b);		\
-    prod1_hd = _mm512_fmadd_round_pd(prod1_ld, prod2_ld, dbias, (_MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC)); \
-    hi = _mm512_add_epi64(hi, _mm512_sub_epi64(castepu(prod1_hd), vbias1)); \
-    prod1_hd = _mm512_sub_pd(castpd(vbias2), prod1_hd); \
+	prod1_hd = _mm512_fmadd_round_pd(prod1_ld, prod2_ld, _dbias, (_MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC)); \
+	hi = _mm512_add_epi64(hi, _mm512_sub_epi64(castepu(prod1_hd), _vbias1)); \
+	prod1_hd = _mm512_sub_pd(castpd(_vbias2), prod1_hd); \
 	prod1_ld = _mm512_fmadd_round_pd(prod1_ld, prod2_ld, prod1_hd, (_MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC)); \
-	lo = _mm512_add_epi64(lo, _mm512_sub_epi64(castepu(prod1_ld), vbias3));
+	lo = _mm512_add_epi64(lo, _mm512_sub_epi64(castepu(prod1_ld), _vbias3)); \
+	} while (0)
 
 #define VEC_MUL2_ACCUM_LOHI_PD(c, a, b, lo1, hi1, lo2, hi2) \
+	do { \
+	__m512d _dbias = _mm512_castsi512_pd(_mm512_set1_epi64(0x4670000000000000ULL)); \
+	__m512i _vbias1 = _mm512_set1_epi64(0x4670000000000000ULL); \
+	__m512i _vbias2 = _mm512_set1_epi64(0x4670000000000001ULL); \
+	__m512i _vbias3 = _mm512_set1_epi64(0x4330000000000000ULL); \
 	prod1_ld = _mm512_cvtepu64_pd(a);		\
 	prod2_ld = _mm512_cvtepu64_pd(b);		\
 	prod3_ld = _mm512_cvtepu64_pd(c);		\
-    prod1_hd = _mm512_fmadd_round_pd(prod1_ld, prod3_ld, dbias, (_MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC)); \
-	prod2_hd = _mm512_fmadd_round_pd(prod2_ld, prod3_ld, dbias, (_MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC)); \
-    hi1 = _mm512_add_epi64(hi1, _mm512_sub_epi64(castepu(prod1_hd), vbias1)); \
-	hi2 = _mm512_add_epi64(hi2, _mm512_sub_epi64(castepu(prod2_hd), vbias1)); \
-    prod1_hd = _mm512_sub_pd(castpd(vbias2), prod1_hd); \
-	prod2_hd = _mm512_sub_pd(castpd(vbias2), prod2_hd); \
+	prod1_hd = _mm512_fmadd_round_pd(prod1_ld, prod3_ld, _dbias, (_MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC)); \
+	prod2_hd = _mm512_fmadd_round_pd(prod2_ld, prod3_ld, _dbias, (_MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC)); \
+	hi1 = _mm512_add_epi64(hi1, _mm512_sub_epi64(castepu(prod1_hd), _vbias1)); \
+	hi2 = _mm512_add_epi64(hi2, _mm512_sub_epi64(castepu(prod2_hd), _vbias1)); \
+	prod1_hd = _mm512_sub_pd(castpd(_vbias2), prod1_hd); \
+	prod2_hd = _mm512_sub_pd(castpd(_vbias2), prod2_hd); \
 	prod1_ld = _mm512_fmadd_round_pd(prod1_ld, prod3_ld, prod1_hd, (_MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC)); \
 	prod2_ld = _mm512_fmadd_round_pd(prod2_ld, prod3_ld, prod2_hd, (_MM_FROUND_TO_ZERO | _MM_FROUND_NO_EXC)); \
-	lo1 = _mm512_add_epi64(lo1, _mm512_sub_epi64(castepu(prod1_ld), vbias3)); \
-	lo2 = _mm512_add_epi64(lo2, _mm512_sub_epi64(castepu(prod2_ld), vbias3));
+	lo1 = _mm512_add_epi64(lo1, _mm512_sub_epi64(castepu(prod1_ld), _vbias3)); \
+	lo2 = _mm512_add_epi64(lo2, _mm512_sub_epi64(castepu(prod2_ld), _vbias3)); \
+	} while (0)
 
 #define _mm512_mullo_epi52(c, a, b) \
     c = _mm512_and_si512(_mm512_mullo_epi64(a, b), _mm512_set1_epi64(0x000fffffffffffffull));
@@ -877,7 +889,7 @@ __inline static __m512i _mm512_addcarry_epi52(__m512i a, __mmask8 c, __mmask8* c
 __inline static __m512i _mm512_subborrow_epi52(__m512i a, __mmask8 c, __mmask8* cout)
 {
     __m512i t = _mm512_sub_epi64(a, _mm512_maskz_set1_epi64(c, 1));
-    *cout = _mm512_cmpeq_epu64_mask(a, _mm512_set1_epi64(0));
+    *cout = c & _mm512_cmpeq_epu64_mask(a, _mm512_set1_epi64(0));
     t = _mm512_and_epi64(t, _mm512_set1_epi64(0xfffffffffffffULL));
     return t;
 }

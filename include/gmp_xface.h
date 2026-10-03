@@ -39,6 +39,10 @@ static INLINE void mp_t2gmp(mp_t *src, mpz_t dest) {
 static INLINE void gmp2mp_t(mpz_t src, mp_t *dest) {
 
 	size_t count;
+	if (mpz_sizeinbase(src, 2) > MAX_MP_WORDS * 32u) {
+		fprintf(stderr, "integer exceeds mp_t capacity\n");
+		exit(EXIT_FAILURE);
+	}
 
 	memset(dest->val, 0, MAX_MP_WORDS * sizeof(uint32_t)); //mp_clear(dest);
 	mpz_export(dest->val, &count, -1, sizeof(uint32_t),
@@ -52,4 +56,3 @@ static INLINE void gmp2mp_t(mpz_t src, mp_t *dest) {
 #endif
 
 #endif //  _GMP_XFACE_H_ 
-
