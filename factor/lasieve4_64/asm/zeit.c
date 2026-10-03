@@ -17,6 +17,7 @@
 #include <sys/timeb.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 #include "siever-config.h"
 #include "../if.h"
 #include "zeit.h"
@@ -79,7 +80,7 @@ void printzeit(void)
 #if 1
   printf("\nCycles: ");
   for (i=0; i<zeitcounteranz; i++)
-    printf("%ld: %llu  ",i,asmzeitcounter[i]);
+    printf("%zu: %" PRIu64 "  ",i,(uint64_t)asmzeitcounter[i]);
   printf("\n");
 #endif
 }
@@ -87,10 +88,11 @@ void printzeit(void)
 void printzeit(size_t i)
 {
   if(i>=zeitcounteranz) {
-    fprintf(stderr,"Attempt to print time %zd of %zd\n",i,zeitcounteranz);
+    fprintf(stderr,"Attempt to print time %zu of %zu\n",i,zeitcounteranz);
     abort();
   }
-  printf("%zu: %.3fs (%llu) ",i,zeitsum[i]/CLOCKS_PER_SEC,asmzeitcounter[i]);
+  printf("%zu: %.3fs (%" PRIu64 ") ",i,zeitsum[i]/CLOCKS_PER_SEC,
+         (uint64_t)asmzeitcounter[i]);
 }
 
 #endif
