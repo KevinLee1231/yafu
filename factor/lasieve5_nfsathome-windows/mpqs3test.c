@@ -16,10 +16,14 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include <unistd.h>
 #include <limits.h>
 #include <math.h>
+#include <inttypes.h>
+#include <string.h>
 #include <gmp.h>
 #include "asm/siever-config.h"
 #include "if.h"
 #include "gmp-aux.h"
+#include "mpqs3.h"
+#include "asm/zeit.h"
 
 int iter=0;
 u64_t stat_asm_eval=0, stat_asm_td=0;
@@ -72,9 +76,10 @@ int main(int argc, char **argv)
 #endif
   zeitb(0);
   if (stat_retry) printf("Warning: %u retries\n",stat_retry);
-  printf("Stat: sieves %Lu, td %Lu->%Lu->%Lu\n",
+  printf("Stat: sieves %" PRIu64 ", td %" PRIu64 "->%" PRIu64 "->%" PRIu64 "\n",
 	 stat_asm_eval,stat_td_cand,stat_asm_td,stat_td_surv);
-  printf("  ff %llu, pf %llu->%llu (%llu)\n",stat_ff,stat_pf,stat_comb,stat_pp);
+  printf("  ff %" PRIu64 ", pf %" PRIu64 "->%" PRIu64 " (%" PRIu64 ")\n",
+         stat_ff,stat_pf,stat_comb,stat_pp);
   for (i=0; i<15; i++) if (stat_size[i])
     printf("size %d: %u  ",i,stat_size[i]); printf("\n");
 
@@ -93,4 +98,3 @@ printzeit(11); printzeit(29); printzeit(40); printzeit(41); printzeit(42); print
 // printzeit(32); printzeit(33); printzeit(34); printzeit(35); printzeit(36);
 printf("\n");
 }
-

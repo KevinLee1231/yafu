@@ -30,74 +30,83 @@ void
 input_poly(mpz_t N,mpz_t **A,i32_t *adeg,mpz_t **B,i32_t *bdeg,mpz_t m,
 	FILE *fp)
 { char  token[256], value[512], thisLine[1024];
-  int   i, j, cont=1;
-  mpz_t tmp, tmp2, mpow;
+  int   i, fields, have_n=0, have_m=0, have_a=0, have_b=0;
+  unsigned line=0;
+  mpz_t tmpA, tmpB;
 
-  *adeg = *bdeg = 0;                                                    
+  *adeg = *bdeg = 0;
   *A = xmalloc(9*sizeof(**A)); /* plenty o' room. */
   *B = xmalloc(9*sizeof(**B));
   for (i=0; i<9; i++) {
     mpz_init_set_ui((*A)[i], 0);
     mpz_init_set_ui((*B)[i], 0);
   }
-  while (cont) {
-    thisLine[0] = 0;
-    fgets(thisLine, 1023, fp);
-    if ((sscanf(thisLine, "%255s %511s", token, value)==2) &&
-                (thisLine[0] != '#')) {
-	  token[sizeof(token)-1] = 0;
-      if (strncmp(token, "n:", 2)==0) {
-        mpz_set_str(N, value, 10);
-      } else if (strncmp(token, "m:", 2)==0) {
-        mpz_set_str(m, value, 10);
-      } else if ((token[0]=='c') && (token[1] >= '0') && (token[1] <= '8')) {
-        mpz_set_str((*A)[token[1]-'0'], value, 10);
-        *adeg = MAX(*adeg, token[1]-'0');
-      } else if ((token[0]=='Y') && (token[1] >= '0') && (token[1] <= '8')) {
-        mpz_set_str((*B)[token[1]-'0'], value, 10);
-        *bdeg = MAX(*bdeg, token[1]-'0');
-      } else if (strncmp(token, "END_POLY", 8)==0) {
-        cont=0;
-      }
+  while (fgets(thisLine, sizeof(thisLine), fp) != NULL) {
+    line++;
+    if (strchr(thisLine, '\n') == NULL && !feof(fp))
+      complain("Polynomial input line %u is too long\n", line);
+    fields=sscanf(thisLine, "%255s %511s", token, value);
+    if (fields < 1 || token[0] == '#') continue;
+    if (strcmp(token, "END_POLY") == 0) break;
+    if (fields != 2)
+      complain("Missing value on polynomial input line %u\n", line);
+    if (strcmp(token, "n:") == 0) {
+      if (mpz_set_str(N, value, 10) != 0)
+        complain("Invalid modulus on polynomial input line %u\n", line);
+      have_n=1;
+    } else if (strcmp(token, "m:") == 0) {
+      if (mpz_set_str(m, value, 10) != 0)
+        complain("Invalid root on polynomial input line %u\n", line);
+      have_m=1;
+    } else if ((token[0]=='c') && (token[1] >= '0') &&
+               (token[1] <= '8') && token[2]==':' && token[3]=='\0') {
+      if (mpz_set_str((*A)[token[1]-'0'], value, 10) != 0)
+        complain("Invalid coefficient on polynomial input line %u\n", line);
+      *adeg = MAX(*adeg, token[1]-'0');
+      have_a=1;
+    } else if ((token[0]=='Y') && (token[1] >= '0') &&
+               (token[1] <= '8') && token[2]==':' && token[3]=='\0') {
+      if (mpz_set_str((*B)[token[1]-'0'], value, 10) != 0)
+        complain("Invalid coefficient on polynomial input line %u\n", line);
+      *bdeg = MAX(*bdeg, token[1]-'0');
+      have_b=1;
     }
-    if (feof(fp)) cont=0;
   }
-  if (*bdeg == 0) {
+  if (ferror(fp)) complain("Error reading polynomial input\n");
+  if (!have_n || mpz_sgn(N) <= 0) complain("Missing or invalid modulus n\n");
+  if (!have_a || *adeg == 0 || mpz_sgn((*A)[*adeg]) == 0)
+    complain("Missing or invalid first polynomial\n");
+
+  if (!have_m) {
+    if (have_b && *bdeg == 1 && mpz_invert(m, (*B)[1], N) != 0) {
+      mpz_mul(m, m, (*B)[0]);
+      mpz_neg(m, m);
+      mpz_mod(m, m, N);
+    } else {
+      complain("Could not recover m from the second polynomial\n");
+    }
+  } else if (!have_b) {
     mpz_set_ui((*B)[1], 1);
     mpz_neg((*B)[0], m);
     *bdeg=1;
   }
+  if (*bdeg == 0 || mpz_sgn((*B)[*bdeg]) == 0)
+    complain("Missing or invalid second polynomial\n");
 
   /* Verify the polynomials: */
-  mpz_init(tmp); mpz_init(tmp2); mpz_init(mpow);
-  mpz_set_ui(tmp, 0);
-  mpz_set_ui(mpow, 1);
-  
-  if (*bdeg) {
-    mpz_neg(m, (*B)[0]);  /* m for temporary use */
-    for(i=0; i<=*adeg; i++) {
-      mpz_mul(tmp2, mpow, (*A)[i]);
-        for(j=i; j <= *adeg; j++)
-          mpz_mul(tmp2, tmp2, (*B)[1]);
-      mpz_add(tmp, tmp, tmp2);
-      mpz_mul(mpow, mpow, m);
-    }
-  } else {
-    for (i=*adeg; i>=0; i--) {
-      mpz_mul(tmp, tmp, m);
-      mpz_add(tmp, tmp, (*A)[i]);
-    }
+  mpz_init_set(tmpA, (*A)[*adeg]);
+  for (i=*adeg-1; i>=0; i--) {
+    mpz_mul(tmpA, tmpA, m);
+    mpz_add(tmpA, tmpA, (*A)[i]);
+    mpz_mod(tmpA, tmpA, N);
   }
-  mpz_mod(tmp, tmp, N);
-  if (mpz_sgn(tmp)) {
-    printf("Error: the polynomials don't have a common root:\n");
-    for (i=0; i<=*adeg; i++) 
-      printf("c%d: %s\n", i, mpz_get_str(token, 10, (*A)[i]));
-    for (i=0; i<=*bdeg; i++) 
-      printf("Y%d: %s\n", i, mpz_get_str(token, 10, (*B)[i]));
-    printf("n: ");
-    mpz_out_str(NULL,10,N);
-    exit(-1);
+  mpz_init_set(tmpB, (*B)[*bdeg]);
+  for (i=*bdeg-1; i>=0; i--) {
+    mpz_mul(tmpB, tmpB, m);
+    mpz_add(tmpB, tmpB, (*B)[i]);
+    mpz_mod(tmpB, tmpB, N);
   }
-  mpz_clear(tmp2); mpz_clear(mpow); mpz_clear(tmp);
+  if (mpz_sgn(tmpA) || mpz_sgn(tmpB))
+    complain("m is not a common root of the NFS polynomials\n");
+  mpz_clear(tmpB); mpz_clear(tmpA);
 }

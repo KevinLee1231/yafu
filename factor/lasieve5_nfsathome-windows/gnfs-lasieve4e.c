@@ -617,6 +617,7 @@ void logTotalTime()
 double t= sTime()-sieveStartTime;
 FILE*fp= fopen("ggnfs.log","ab");
 
+if(fp==NULL)return;
 fprintf(fp,"\tLatSieveTime: "UL_FMTSTR"\n",(u64_t)t);
 fclose(fp);
 }
@@ -874,54 +875,49 @@ break;
 }
 }
 
-char features[1024],avx512_features[1024];
-sprintf(features,"with asm64");
-sprintf(avx512_features,"avx-512 ");
-int has_avx512_features= 0;
+char features[1024];
+char*p= features;
+char*base_end,*avx_list_start;
+p+= sprintf(p,"with asm64");
+base_end= p;
+p+= sprintf(p,",avx-512 ");
+avx_list_start= p;
 
 #ifdef AVX512_TD
-sprintf(avx512_features,"%smmx-td,",avx512_features);
-has_avx512_features= 1;
+p+= sprintf(p,"mmx-td,");
 #endif
 #line 1059 "gnfs-lasieve4e.w"
 #ifdef AVX512_LASIEVE_SETUP
-sprintf(avx512_features,"%slasetup,",avx512_features);
-has_avx512_features= 1;
+p+= sprintf(p,"lasetup,");
 #endif
 #line 1063 "gnfs-lasieve4e.w"
 #ifdef AVX512_LASCHED
-sprintf(avx512_features,"%slasched,",avx512_features);
-has_avx512_features= 1;
+p+= sprintf(p,"lasched,");
 #endif
 #line 1067 "gnfs-lasieve4e.w"
 #ifdef AVX512_SIEVE1
-sprintf(avx512_features,"%ssieve1,",avx512_features);
-has_avx512_features= 1;
+p+= sprintf(p,"sieve1,");
 #endif
 #line 1071 "gnfs-lasieve4e.w"
 #ifdef AVX512_ECM
-sprintf(avx512_features,"%secm,",avx512_features);
-has_avx512_features= 1;
+p+= sprintf(p,"ecm,");
 #endif
 #line 1075 "gnfs-lasieve4e.w"
 #ifdef AVX512_TDS0
-sprintf(avx512_features,"%stds0,",avx512_features);
-has_avx512_features= 1;
+p+= sprintf(p,"tds0,");
 #endif
 #line 1079 "gnfs-lasieve4e.w"
 #ifdef AVX512_SIEVE_SEARCH
-sprintf(avx512_features,"%ssearch0,",avx512_features);
-has_avx512_features= 1;
+p+= sprintf(p,"search0,");
 #endif
 #line 1083 "gnfs-lasieve4e.w"
 #ifdef AVX512_TDSCHED
-sprintf(avx512_features,"%stdsched",avx512_features);
-has_avx512_features= 1;
+p+= sprintf(p,"tdsched,");
 #endif
 #line 1087 "gnfs-lasieve4e.w"
 
-if(has_avx512_features)
-sprintf(features,"%s,%s",features,avx512_features);
+if(p==avx_list_start)*base_end= '\0';
+else p[-1]= '\0';
 
 if(verbose){
 fprintf(stderr,"gnfs-lasieve4I%de (%s): L1_BITS=%d\n",

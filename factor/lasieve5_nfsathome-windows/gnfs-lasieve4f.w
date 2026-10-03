@@ -702,7 +702,7 @@ void spq_init(mpz_t spq, mpz_t last)
     nr=root_finder64(rhelp64,poly[special_q_side],poldeg[special_q_side],
        tmpf[k]);
     if (!nr) break;
-    if (rhelp[nr-1]==tmpf[k]) nr--;
+    if (rhelp64[nr-1]==tmpf[k]) nr--;
     if (!nr) break;
   }
   if (k<nf) continue;
