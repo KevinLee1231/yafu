@@ -937,15 +937,21 @@ void compute_roots_work_fcn(void *vptr)
 
     if (sdata->VFLAG > 2)
     {
-        printf("starting root computation over %u to %u\n", t->startid, t->stopid);
+        printf("starting root computation over %" PRIu64 " to %" PRIu64 "\n",
+            t->startid, t->stopid);
     }
+
+	if (t->startid >= t->stopid)
+	{
+		return;
+	}
 
     uint32_t numclasses = sdata->numclasses;
     
     // this function requires the full residue class table.
     // (if we're using twins residues we need to re-find them.)
     res_table = malloc(sdata->prodN * sizeof(int));
-    memset(res_table, -1, sizeof(int));
+	memset(res_table, -1, sdata->prodN * sizeof(int));
     if (sdata->numclasses == 30)
     {
         uint32_t rclass[48];
@@ -1352,7 +1358,7 @@ void getRoots(soe_staticdata_t *sdata, thread_soedata_t *thread_data)
             {
                 printf("bucket start id = %u, bitmap start id = %u\n",
                     sdata->bucket_start_id, sdata->bitmap_start_id);
-                printf("assigning thread %d root computation over %u to %u\n",
+                printf("assigning thread %d root computation over %" PRIu64 " to %" PRIu64 "\n",
                     j, t->startid, t->stopid); fflush(stdout);
             }
         }
@@ -1396,5 +1402,3 @@ void getRoots(soe_staticdata_t *sdata, thread_soedata_t *thread_data)
 
 	return;
 }
-
-

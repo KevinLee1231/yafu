@@ -75,9 +75,9 @@ typedef struct
     uint32_t alloc;
 } bintree_t;
 
-uint32_t getNode(bintree_t* tree, uint32_t low, uint32_t high)
+int getNode(bintree_t* tree, uint32_t low, uint32_t high)
 {
-    uint32_t nodeid = 0;
+    int nodeid = 0;
     bintree_element_t* node = &tree->nodes[nodeid];
 
     //printf("commencing tree search for (%u:%u)\n", low, high);
@@ -116,8 +116,7 @@ uint32_t getNode(bintree_t* tree, uint32_t low, uint32_t high)
 
 void addNode(bintree_t* tree, int id, int side, uint32_t low, uint32_t high, mpz_t prod)
 {
-    uint32_t nodeid = 0;
-    bintree_element_t* node = &tree->nodes[id];
+    bintree_element_t* node;
 
     if (tree->size == tree->alloc)
     {
@@ -126,6 +125,7 @@ void addNode(bintree_t* tree, int id, int side, uint32_t low, uint32_t high, mpz
         tree->nodes = (bintree_element_t*)xrealloc(tree->nodes,
             tree->alloc * sizeof(bintree_element_t));
     }
+    node = &tree->nodes[id];
 
     if ((side == 0) && (node->left_id != -1))
     {
@@ -261,7 +261,7 @@ void relation_to_gmp(relation_batch_t *rb,
 	   NFS relation, then convert to an mpz_t */
 
     int j;
-	uint32_t i, nwords;
+	uint32_t nwords;
 	cofactor_t *c = rb->relations + index;
 	uint32_t *f = rb->factors + c->factor_list_word + 
 			c->num_factors_r + c->num_factors_a;
@@ -344,7 +344,7 @@ void multiply_relations(bintree_t* tree, uint32_t first, uint32_t last,
         uint32_t mid = (last + first) / 2;
 
 #ifdef USE_TREE
-        uint32_t pnode;
+        int pnode;
 
         // get a node associated with the product of relations 'first' to 'last'
         pnode = getNode(tree, first, last);
@@ -398,7 +398,7 @@ void multiply_relations(bintree_t* tree, uint32_t first, uint32_t last,
         {
             // a node exists for the product of relations 'first' to 'last'.
             // check if there is a node for the low-half product.
-            uint32_t node;
+            int node;
             node = getNode(tree, first, mid);
 
             if ((node != -1) && (tree->nodes[node].complete))
@@ -459,7 +459,7 @@ void multiply_relations(bintree_t* tree, uint32_t first, uint32_t last,
     {
         // if the list is big enough to have a node in the tree then
         // go find it.
-        uint32_t pnode;
+        int pnode;
         pnode = getNode(tree, first, last);
         if (pnode == -1)
         {
@@ -503,8 +503,6 @@ uint64_t pow2m(uint64_t b, uint64_t n)
 {
     // compute 2^b mod n
     uint64_t acc, x, rho, am, g[8], mask;
-    int i;
-    int j;
     int bstr;
     
 
@@ -570,7 +568,7 @@ uint64_t pow2m(uint64_t b, uint64_t n)
     }
 
     bstr = (b & mask);
-    for (j = 0; mask > 0; j++)
+    while (mask > 0)
     {
         acc = sqrredc(acc, n, rho);
         mask >>= 1;
@@ -805,7 +803,7 @@ process_r:
                 f64 = getfactor_uecm(mpz_get_ui(f1r), 0, lcg_state);
                 rb->num_uecm[0]++;
 
-                printf("failed to find factor of %d-bit f1r %lu, this should be sent to mpqs\n",
+                printf("failed to find factor of %zu-bit f1r %lu, this should be sent to mpqs\n",
                     mpz_sizeinbase(f1r, 2), mpz_get_ui(f1r));
                 rb->num_abort[5]++;
                 return;
@@ -853,7 +851,7 @@ process_r:
 
         if (f64 <= 1 || f64 > rb->lp_cutoff_r)
         {
-            if (f64 == 1) printf("failed to find factor of %d-bit f2r %lu\n",
+            if (f64 == 1) printf("failed to find factor of %zu-bit f2r %lu\n",
                 mpz_sizeinbase(f2r, 2), mpz_get_ui(f2r));
             rb->num_abort[6]++;
             return;
@@ -1545,7 +1543,7 @@ process_a:
 
                 if (f64 == 1)
                 {
-                    printf("failed to find factor of %d-bit f1a %lu, this should be sent to mpqs\n",
+                    printf("failed to find factor of %zu-bit f1a %lu, this should be sent to mpqs\n",
                         mpz_sizeinbase(f1a, 2), mpz_get_ui(f1a));
                     rb->num_abort_a[5]++;
                     return;
@@ -2311,7 +2309,7 @@ void relation_batch_free(relation_batch_t *rb) {
 }
 
 /*------------------------------------------------------------------*/
-void relation_batch_add(uint64_t a, uint32_t b,
+void relation_batch_add(int64_t a, uint32_t b,
 			uint32_t *factors_r, uint32_t num_factors_r, 
 			mpz_t unfactored_r_in,
 			uint32_t *factors_a, uint32_t num_factors_a, 
@@ -2409,7 +2407,7 @@ uint32_t relation_batch_run(relation_batch_t *rb, uint64_t *lcg_state) {
 	if (rb->num_relations > 0) {
 
         bintree_t tree;
-        int i;
+        uint32_t i;
 
         tree.nodes = (bintree_element_t*)xmalloc(16 * sizeof(bintree_element_t));
         tree.alloc = 16;
@@ -2424,10 +2422,10 @@ uint32_t relation_batch_run(relation_batch_t *rb, uint64_t *lcg_state) {
         tree.nodes[0].right_id = -1;
         tree.nodes[0].complete = 0;
 
-        printf("memory use for relations array is %u bytes\n", rb->num_relations_alloc *
+        printf("memory use for relations array is %zu bytes\n", (size_t)rb->num_relations_alloc *
             sizeof(cofactor_t));
 
-        printf("memory use for factors array is %u bytes\n", rb->num_factors_alloc *
+        printf("memory use for factors array is %zu bytes\n", (size_t)rb->num_factors_alloc *
             sizeof(uint32_t));
 
         // this already traverses the tree... just build in
@@ -2436,13 +2434,13 @@ uint32_t relation_batch_run(relation_batch_t *rb, uint64_t *lcg_state) {
 		compute_remainder_tree(&tree, 0, rb->num_relations - 1,
 			rb, lcg_state, rb->prime_product);
 
-        uint32_t bytes = 0;
+        size_t bytes = 0;
         for (i = 0; i < tree.size; i++)
         {
             bytes += mpz_sizeinbase(tree.nodes[i].prod, 2) / 8;
             mpz_clear(tree.nodes[i].prod);
         }
-        printf("final tree had %u nodes with products occupying %u total bytes\n", tree.size, bytes);
+        printf("final tree had %u nodes with products occupying %zu total bytes\n", tree.size, bytes);
         
         free(tree.nodes);
 	}
@@ -2453,5 +2451,3 @@ uint32_t relation_batch_run(relation_batch_t *rb, uint64_t *lcg_state) {
 	//rb->num_factors = 0;
 	return rb->num_success;
 }
-
-

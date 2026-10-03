@@ -13,6 +13,7 @@ $Id: relation.c 1025 2018-08-19 02:20:28Z jasonp_sf $
 --------------------------------------------------------------------*/
 
 #include <ms_common.h>
+#include <inttypes.h>
 #include "gnfs.h"
 #include "savefile.h"
 
@@ -143,7 +144,7 @@ int32 nfs_read_relation(char *buf, factor_base_t *fb,
 
 		if (test_primality && !mp_is_prime_1((uint32)p))
 		{
-			printf("error -98: 'a' is not prime\n", p);
+			printf("error -98: 'a' (%"PRIu64") is not prime\n", p);
 			return -98;
 		}
 
@@ -210,7 +211,8 @@ int32 nfs_read_relation(char *buf, factor_base_t *fb,
 				p < ((uint64)1 << 32) &&
 				!mp_is_prime_1((uint32)p))
 			{
-				printf("error -98: 'p' is > RELATION_TF_BOUND (%u) and not prime\n", RELATION_TF_BOUND, p);
+				printf("error -98: 'p' (%"PRIu64") is > RELATION_TF_BOUND (%u) and not prime\n",
+					p, RELATION_TF_BOUND);
 				return -98;
 			}
 
@@ -219,7 +221,7 @@ int32 nfs_read_relation(char *buf, factor_base_t *fb,
 						&num_factors_r, compress,
 						rpoly->tmp1, rpoly->tmp2,
 						rpoly->tmp3)) {
-				printf("error -8: problem dividing factor %u out\n", p);
+				printf("error -8: problem dividing factor %"PRIu64" out\n", p);
 				return -8;
 			}
 			tmp = next_field;
@@ -246,7 +248,7 @@ int32 nfs_read_relation(char *buf, factor_base_t *fb,
 				&array_size, &num_factors_r, 
 				compress, rpoly->tmp1, 
 				rpoly->tmp2, rpoly->tmp3)) {
-			printf("error -10: problem dividing factor %u out\n", p);
+			printf("error -10: problem dividing factor %"PRIu64" out\n", p);
 			return -10;
 		}
 	}
@@ -278,7 +280,8 @@ int32 nfs_read_relation(char *buf, factor_base_t *fb,
 				p < ((uint64)1 << 32) &&
 				!mp_is_prime_1((uint32)p))
 			{
-				printf("error -98: 'p' is > RELATION_TF_BOUND (%u) and not prime\n", RELATION_TF_BOUND, p);
+				printf("error -98: 'p' (%"PRIu64") is > RELATION_TF_BOUND (%u) and not prime\n",
+					p, RELATION_TF_BOUND);
 				return -98;
 			}
 
@@ -287,7 +290,7 @@ int32 nfs_read_relation(char *buf, factor_base_t *fb,
 						&num_factors_a, compress,
 						apoly->tmp1, apoly->tmp2,
 						apoly->tmp3)) {
-				printf("error -13: problem dividing factor %u out\n", p);
+				printf("error -13: problem dividing factor %"PRIu64" out\n", p);
 				return -13;
 			}
 			tmp = next_field;
@@ -305,7 +308,7 @@ int32 nfs_read_relation(char *buf, factor_base_t *fb,
 				&array_size, &num_factors_a, 
 				compress, apoly->tmp1,
 				apoly->tmp2, apoly->tmp3)) {
-			printf("error -14: problem dividing factor %u out\n", p);
+			printf("error -14: problem dividing factor %"PRIu64" out\n", p);
 			return -14;
 		}
 	}
@@ -878,4 +881,3 @@ void nfs_convert_cado_cycles(msieve_obj *obj) {
 	free_cycle_list(cycle_list, num_cycles);
 	free(convert);
 }
-

@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <limits.h>
+#include <stdint.h>
 #include <cuda.h>
 #include <cub/cub.cuh>
 
@@ -62,6 +64,28 @@ sort_engine_free(void * e)
 SORT_ENGINE_DECL void 
 sort_engine_run(void * e, sort_data_t * data)
 {
+	size_t total_elements;
+
+	if (e == 0 || data == 0 || data->key_bits <= 0 ||
+		data->key_bits > 64 || data->num_elements > INT_MAX ||
+		(data->num_elements != 0 &&
+			data->num_arrays > SIZE_MAX / data->num_elements)) {
+		printf("sort_engine: invalid sort parameters\n");
+		exit(-1);
+	}
+	if (data->num_elements == 0 || data->num_arrays == 0)
+		return;
+	total_elements = data->num_elements * data->num_arrays;
+	if (total_elements > SIZE_MAX / sizeof(uint64)) {
+		printf("sort_engine: sort buffers are too large\n");
+		exit(-1);
+	}
+	if (data->keys_in == 0 || data->keys_in_scratch == 0 ||
+		data->data_in == 0 || data->data_in_scratch == 0) {
+		printf("sort_engine: invalid sort parameters\n");
+		exit(-1);
+	}
+
 	// arrays are assumed packed together; check
 	// they would all start on a power-of-two boundary
 
@@ -73,6 +97,8 @@ sort_engine_run(void * e, sort_data_t * data)
 	sort_engine *engine = (sort_engine *)e;
 
 	if (data->key_bits <= 32) {
+		int key_selector = 0;
+		int value_selector = 0;
 		for (size_t i = 0; i < data->num_arrays; i++) {
 
 			cub::DoubleBuffer<uint32> keys(
@@ -91,7 +117,7 @@ sort_engine_run(void * e, sort_data_t * data)
 
 			size_t temp_size;
 
-			cub::DeviceRadixSort::SortPairs(
+			CUDA_TRY(cub::DeviceRadixSort::SortPairs(
 						0,
 						temp_size,
 						keys,
@@ -99,7 +125,7 @@ sort_engine_run(void * e, sort_data_t * data)
 						data->num_elements,
 						0,
 						data->key_bits,
-						data->stream);
+						data->stream))
 
 			if (temp_size > engine->temp_size) {
 				if (engine->temp_size)
@@ -111,7 +137,7 @@ sort_engine_run(void * e, sort_data_t * data)
 
 			// sort for real
 
-			cub::DeviceRadixSort::SortPairs(
+			CUDA_TRY(cub::DeviceRadixSort::SortPairs(
 						engine->temp_data,
 						temp_size,
 						keys,
@@ -119,15 +145,19 @@ sort_engine_run(void * e, sort_data_t * data)
 						data->num_elements,
 						0,
 						data->key_bits,
-						data->stream);
+						data->stream))
 
-			if (keys.selector)
-				std::swap(data->keys_in, data->keys_in_scratch);
-			if (values.selector)
-				std::swap(data->data_in, data->data_in_scratch);
+			key_selector = keys.selector;
+			value_selector = values.selector;
 		}
+		if (key_selector)
+			std::swap(data->keys_in, data->keys_in_scratch);
+		if (value_selector)
+			std::swap(data->data_in, data->data_in_scratch);
 	}
 	else {
+		int key_selector = 0;
+		int value_selector = 0;
 		for (size_t i = 0; i < data->num_arrays; i++) {
 
 			cub::DoubleBuffer<uint64> keys(
@@ -146,7 +176,7 @@ sort_engine_run(void * e, sort_data_t * data)
 
 			size_t temp_size;
 
-			cub::DeviceRadixSort::SortPairs(
+			CUDA_TRY(cub::DeviceRadixSort::SortPairs(
 						0,
 						temp_size,
 						keys,
@@ -154,7 +184,7 @@ sort_engine_run(void * e, sort_data_t * data)
 						data->num_elements,
 						0,
 						data->key_bits,
-						data->stream);
+						data->stream))
 
 			if (temp_size > engine->temp_size) {
 				if (engine->temp_size)
@@ -166,7 +196,7 @@ sort_engine_run(void * e, sort_data_t * data)
 
 			// sort for real
 
-			cub::DeviceRadixSort::SortPairs(
+			CUDA_TRY(cub::DeviceRadixSort::SortPairs(
 						engine->temp_data,
 						temp_size,
 						keys,
@@ -174,13 +204,15 @@ sort_engine_run(void * e, sort_data_t * data)
 						data->num_elements,
 						0,
 						data->key_bits,
-						data->stream);
+						data->stream))
 
-			if (keys.selector)
-				std::swap(data->keys_in, data->keys_in_scratch);
-			if (values.selector)
-				std::swap(data->data_in, data->data_in_scratch);
+			key_selector = keys.selector;
+			value_selector = values.selector;
 		}
+		if (key_selector)
+			std::swap(data->keys_in, data->keys_in_scratch);
+		if (value_selector)
+			std::swap(data->data_in, data->data_in_scratch);
 	}
 }
 

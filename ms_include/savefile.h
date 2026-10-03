@@ -63,7 +63,7 @@ typedef struct {
 /*---------------- SAVEFILE RELATED DECLARATIONS ---------------------*/
 
 #define BIGNUM_BUF_SIZE 500
-#define LINE_BUF_SIZE 300
+#define LINE_BUF_SIZE 8192
 #define SAVEFILE_READ 0x01
 #define SAVEFILE_WRITE 0x02
 #define SAVEFILE_APPEND 0x04

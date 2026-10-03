@@ -239,27 +239,27 @@ void pollard_loop(fact_obj_t *fobj)
 void pm1_print_B1_B2(fact_obj_t *fobj)
 {
 	char suffix;
-	char stg1str[20];
-	char stg2str[20];
+	char stg1str[32];
+	char stg2str[32];
 
 	if (fobj->pm1_obj.B1 % 1000000000 == 0)
 	{
 		suffix = 'B';
-		sprintf(stg1str,"%u%c",fobj->pm1_obj.B1 / 1000000000, suffix);
+		sprintf(stg1str,"%" PRIu64 "%c",fobj->pm1_obj.B1 / 1000000000, suffix);
 	}
 	else if (fobj->pm1_obj.B1 % 1000000 == 0)
 	{
 		suffix = 'M';
-		sprintf(stg1str,"%u%c",fobj->pm1_obj.B1 / 1000000, suffix);
+		sprintf(stg1str,"%" PRIu64 "%c",fobj->pm1_obj.B1 / 1000000, suffix);
 	}
 	else if (fobj->pm1_obj.B1 % 1000 == 0)
 	{
 		suffix = 'K';
-		sprintf(stg1str,"%u%c",fobj->pm1_obj.B1 / 1000, suffix);
+		sprintf(stg1str,"%" PRIu64 "%c",fobj->pm1_obj.B1 / 1000, suffix);
 	}
 	else
 	{
-		sprintf(stg1str,"%u",fobj->pm1_obj.B1);
+		sprintf(stg1str,"%" PRIu64,fobj->pm1_obj.B1);
 	}
 
 	if (fobj->pm1_obj.stg2_is_default == 0)

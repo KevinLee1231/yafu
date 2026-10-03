@@ -634,7 +634,7 @@ void tdiv_LP_avx2(uint32_t report_num,  uint8_t parity, uint32_t bnum,
 
             DIVIDE_RESIEVED_PRIME(i);
 #else
-            DIVIDE_ONE_PRIME(i);
+            DIVIDE_ONE_PRIME;
 #endif
 
         }

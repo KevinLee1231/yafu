@@ -668,7 +668,7 @@ static INLINE void mp_d2mp(double *d, mp_t *x) {
 	   Reading it in as a uint64 makes this process
 	   endian-independent */
 
-	int_mant = *(uint64 *)(d);
+	memcpy(&int_mant, d, sizeof(int_mant));
 	exponent = ((int32)(int_mant >> 52) & 0x7ff) - 1023;
 	int_mant &= ~((uint64)(0xfff) << 52);
 	int_mant |= (uint64)(1) << 52;

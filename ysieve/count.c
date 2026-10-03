@@ -213,107 +213,38 @@ void count_twins_work_fcn(void* vptr)
 
 uint64_t count_line(soe_staticdata_t *sdata, uint32_t current_line)
 {
-	// extract stuff from the thread data structure
-	uint8_t *line = sdata->lines[current_line];
-	uint64_t numlinebytes = sdata->numlinebytes;
-	uint64_t lowlimit = sdata->lowlimit;
-	uint64_t prodN = sdata->prodN;
-	uint8_t *flagblock = line;
-	uint64_t i, it = 0;
-    uint64_t stopcount;
+    uint64_t *words = (uint64_t *)sdata->lines[current_line];
+    uint64_t nwords = sdata->numlinebytes / sizeof(uint64_t);
+    uint64_t count = 0;
+    uint64_t i;
 
-#ifdef USE_AVX2
-
-    __m256i v5, v3, v0f, v3f;
-    uint32_t* tmp;
-
-    v5 = _mm256_set1_epi32(0x55555555);
-    v3 = _mm256_set1_epi32(0x33333333);
-    v0f = _mm256_set1_epi32(0x0F0F0F0F);
-    v3f = _mm256_set1_epi32(0x0000003F);
-    tmp = (uint32_t*)xmalloc_align(8 * sizeof(uint32_t));
-
-    uint64_t numchunks = (sdata->orig_hlimit - lowlimit) / (512 * prodN) + 1;
-
-    stopcount = numchunks * 2; // i / 32;
-    for (i = 0; i < stopcount; i += 2)
+    for (i = 0; i < nwords; i++)
     {
-        __m256i t1, t2, t3, t4;
-        __m256i x = _mm256_load_si256((__m256i*)(&flagblock[32 * i]));
-        __m256i y = _mm256_load_si256((__m256i*)(&flagblock[32 * i + 32]));
-        t1 = _mm256_srli_epi64(x, 1);
-        t3 = _mm256_srli_epi64(y, 1);
-        t1 = _mm256_and_si256(t1, v5);
-        t3 = _mm256_and_si256(t3, v5);
-        x = _mm256_sub_epi64(x, t1);
-        y = _mm256_sub_epi64(y, t3);
-        t1 = _mm256_and_si256(x, v3);
-        t3 = _mm256_and_si256(y, v3);
-        t2 = _mm256_srli_epi64(x, 2);
-        t4 = _mm256_srli_epi64(y, 2);
-        t2 = _mm256_and_si256(t2, v3);
-        t4 = _mm256_and_si256(t4, v3);
-        x = _mm256_add_epi64(t2, t1);
-        y = _mm256_add_epi64(t4, t3);
-        t1 = _mm256_srli_epi64(x, 4);
-        t3 = _mm256_srli_epi64(y, 4);
-        x = _mm256_add_epi64(x, t1);
-        y = _mm256_add_epi64(y, t3);
-        x = _mm256_and_si256(x, v0f);
-        y = _mm256_and_si256(y, v0f);
-        t1 = _mm256_srli_epi64(x, 8);
-        t3 = _mm256_srli_epi64(y, 8);
-        x = _mm256_add_epi64(x, t1);
-        y = _mm256_add_epi64(y, t3);
-        t1 = _mm256_srli_epi64(x, 16);
-        t3 = _mm256_srli_epi64(y, 16);
-        x = _mm256_add_epi64(x, t1);
-        y = _mm256_add_epi64(y, t3);
-        t1 = _mm256_srli_epi64(x, 32);
-        t3 = _mm256_srli_epi64(y, 32);
-        x = _mm256_add_epi64(x, t1);
-        y = _mm256_add_epi64(y, t3);
-        x = _mm256_and_si256(x, v3f);
-        y = _mm256_and_si256(y, v3f);
-        _mm256_store_si256((__m256i*)tmp, x);
-        it += tmp[0] + tmp[2] + tmp[4] + tmp[6];
-        _mm256_store_si256((__m256i*)tmp, y);
-        it += tmp[0] + tmp[2] + tmp[4] + tmp[6];
+        uint64_t flags = words[i];
+        uint64_t base = sdata->lowlimit +
+            i * 64 * sdata->prodN + sdata->rclass[current_line];
+        uint64_t last = base + 63 * sdata->prodN;
 
+        if (base > sdata->orig_hlimit)
+            break;
+        if ((base >= sdata->orig_llimit) && (last <= sdata->orig_hlimit))
+        {
+            count += (uint64_t)__builtin_popcountll(flags);
+            continue;
+        }
+
+        // 首尾 word 可能只部分落在请求区间内，逐位核对实际数值。
+        while (flags != 0)
+        {
+            uint64_t bit = _trail_zcnt64(flags);
+            uint64_t value = base + bit * sdata->prodN;
+            if ((value >= sdata->orig_llimit) && (value <= sdata->orig_hlimit))
+                count++;
+            flags = _reset_lsb64(flags);
+        }
     }
 
-    align_free(tmp);
-
-#else
-
-    // process 64 bits at a time by using Warren's algorithm
-    uint64_t numchunks = (sdata->orig_hlimit - lowlimit) / (64 * prodN) + 1;
-    uint64_t* flagblock64 = (uint64_t*)line;
-
-    for (i = 0; i < numchunks; i++)
-    {
-        /* Convert to 64-bit unsigned integer */
-        uint64_t x = flagblock64[i];
-
-        /*  Employ bit population counter algorithm from Henry S. Warren's
-        *  "Hacker's Delight" book, chapter 5.   Added one more shift-n-add
-        *  to accomdate 64 bit values.
-        */
-
-        x = x - ((x >> 1) & 0x5555555555555555ULL);
-        x = (x & 0x3333333333333333ULL) + ((x >> 2) & 0x3333333333333333ULL);
-        x = (x + (x >> 4)) & 0x0F0F0F0F0F0F0F0FULL;
-        x = x + (x >> 8);
-        x = x + (x >> 16);
-        x = x + (x >> 32);
-
-        it += (x & 0x000000000000003FULL);
-
-    }
-
-#endif
-
-	return it;
+    return count;
 }
 
 uint64_t count_twins(soe_staticdata_t* sdata, thread_soedata_t* thread_data)

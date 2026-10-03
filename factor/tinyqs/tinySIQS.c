@@ -666,7 +666,7 @@ void tiny_get_params(static_conf_t *sconf)
 	}
 	else
 	{
-		for (i=0;i<TINY_PARAM_ROWS;i++)
+		for (i = 0; i < TINY_PARAM_ROWS - 1; i++)
 		{
 			if (bits > param_table[i][0] && bits <= param_table[i+1][0])
 			{
@@ -677,6 +677,7 @@ void tiny_get_params(static_conf_t *sconf)
 				
 				sconf->large_mult = (uint32)((param_table[i+1][2] + param_table[i][2])/2.0 + 0.5);
 				sconf->num_blocks = (uint32)((param_table[i+1][3] + param_table[i][3])/2.0 + 0.5);
+				break;
 			}
 		}
 	}

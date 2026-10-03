@@ -1,123 +1,84 @@
 # YAFU modular test system
 
-A single, layered test runner for YAFU, replacing the scattered ad-hoc
-`test_*` routines with one harness that reports a pass/fail table and exits
-non-zero on any failure (CI-wireable).
+Run the test targets from the repository root. They use the same compiler,
+GMP paths, ISA selection and optional libraries as the main build, as
+configured in `config.mk`.
 
-## Layout
-
-```
-test/
-  testkit.h / testkit.c     the framework: registration, assertions,
-                            deterministic RNG, micro-benchmarks, CLI runner
-  test_data.h / test_data.c shared known-answer corpus (primes, composites,
-                            strong pseudoprimes, Carmichaels, semiprimes) +
-                            an exact uint64 primality oracle + generators,
-                            plus a corpus self-check module
-  test_main.c               lists the modules to run
-  layer0/                   primitive tests (mp_platform.h)
-    test_mp_arith.c           umul128 / udiv128 / add-/sub-carry chains
-    test_mp_bitscan.c         lead/trail zero-count, reset-lsb
-  layer1/                   kernel tests (link YAFU + GMP)
-    test_sp_arith.c           arith.h single-word mul/div/mulmod/modexp/modinv
-    test_modular.c            Montgomery (mpz + 128-bit) vs GMP
-    test_primality.c          APRCL/BPSW/MR + tinyprp vs the corpus
-  layer2/
-    test_ecm.c                microecm / tinyecm on known semiprimes
-    test_ocl_ecm.c            OpenCL kernels gbl_ecm / gbl_ecm96 / gbl_pm196
-                              (only built with WITH_OPENCL=1, see below)
-  Makefile
-```
-
-## The layer model
-
-- **Layer 0 — primitives.** The platform arithmetic in `mp_platform.h`.
-  Checked against self-contained portable-C reference oracles; no external
-  dependencies. This is where the `mp_arith` / `mp_bitscan` harnesses now live.
-- **Layer 1 — kernels.** Arithmetic and number-theory building blocks
-  (single-word arith, Montgomery, primality). GMP is the reference oracle;
-  these link against YAFU objects.
-- **Layer 2 — factorization routines** (rho, squfof, ecm, siqs, tinyqs, …)
-  and **Layer 3 — integration** (the `factor()` dispatcher, `calc`, black-box
-  binary) are the next passes and are not included here.
-
-Adding a module is: write `t_*` test functions taking `tk_ctx *`, list them
-in a `tk_test[]`, expose one `const tk_module`, and add its `extern` to
-`test_main.c`. No registration macros or linker tricks.
-
-## Building
-
-Default (framework + Layer 0). Needs only your include path so it can find
-`mp_platform.h`; no GMP, no YAFU objects:
-
-```
-make subset            # or just: make
+```sh
+make test                 # 构建测试框架与第 0-2 层测试
 ./yafu_test
+make test-full            # 加入第 3 层测试
+./yafu_test_full calc      # 运行计算器与因数分解对象的回归测试
+./yafu_test_full --tag fast
+make test-cli             # 独立工作目录中的命令行、管道、脚本与批处理检查
+make test-standalone      # NFS/lasieve 的解析、文件拆分和批量因子树回归
 ```
 
-Full (adds Layer 1). Point it at your tree and the YAFU objects to link:
+`make test-run` and `make test-full-run` build and run their respective
+executables. The latter includes the 50-, 60- and 70-digit SIQS cases, which
+can take longer than the other tests. `make test-clean` removes the test
+executables, test objects and the common test archive.
 
-```
-make full YAFU_ROOT=/path/to/yafu YAFU_OBJS="...objects except the driver..."
-./yafu_test
-```
+## Modules
 
-See the Makefile header for the variables. Layer 1 is gated behind
-`-DTK_NO_LAYER1` (the subset build defines it), so the framework and Layer 0
-always build even without GMP.
+| Layer | Modules | Checks |
+| --- | --- | --- |
+| Framework | `meta`, shared data self-check | Assertions, deterministic RNG and known-answer corpus |
+| 0 | `mp_arith`, `mp_bitscan` | Platform arithmetic and bit operations |
+| 1 | `sp_arith`, `modular`, `primality`, `sieve` | Arithmetic, modular operations, primality and prime generation |
+| 1 | `monty_review`, `aprcl_review`, `tinyprp_review` | 算术边界、GMP 对照、Jacobi 表边界和并发素性判断 |
+| 2 | `microecm`, `tinyecm` | Small-factor routines |
+| 3 | `siqs` | Complete factorizations of 50-, 60- and 70-digit inputs |
+| 3 | `calc` | String/stack growth, long expressions, nested calls, optional argument scopes, unary operators, invalid-input recovery, assignment limits, totient values, and factor-object copying/lifetime |
+| 3 | `options`, `ecm_review`, `qs_review` | 参数/INI 解析、筛选边界、线程资源、队列、排序与 small MPQS |
 
-## OpenCL kernel tests
+Layer 3 links the factoring archives. Calculator tests also link the
+frontend objects except `top/driver.o`, since the test runner supplies its
+own `main()`. `make test-cli` checks the separately linked command-line
+program, including pipes, missing final newlines, long expressions and
+preservation of batch input when its temporary file cannot be created.
 
-`layer2/test_ocl_ecm.c` runs the production OpenCL kernels
-(`factor/opencl_tinyecm.cl`) on a GPU and checks every factor they return
-against known-structure inputs. It is only part of the build when OpenCL is
-enabled, from the top-level Makefile:
+## Running selected tests
 
-```
-make WITH_OPENCL=1 test
-./yafu_test ocl_ecm -v          # run from the yafu source root
-```
-
-- With no OpenCL GPU the module prints a note and passes.
-- `YAFU_OCL_PLATFORM=<substring>` picks a platform by name;
-  `YAFU_OCL_KERNEL_DIR=<dir>` points at the `.cl` files if you do not run from
-  the source root (default `factor`).
-- The first run compiles the kernels, which can take tens of seconds on some
-  drivers (later runs are cached by the driver).
-
-## Running
-
-```
-./yafu_test                     run everything
-./yafu_test --list              list modules and tests with their tags
-./yafu_test mp_arith modular    run only these modules (bare args = names)
-./yafu_test --tag primitives    run only tests carrying a tag
-./yafu_test --seed 12345        set the RNG seed (printed so failures reproduce)
-./yafu_test --bench             also run micro-benchmarks (never affects pass/fail)
-./yafu_test --stop              stop after the first failing test
+```sh
+./yafu_test_full --list
+./yafu_test_full calc --tag calc-long
+./yafu_test_full calc --tag calc-copy
+./yafu_test_full mp_arith modular
+./yafu_test_full --seed 12345
+./yafu_test_full --stop
+./yafu_test_full --bench
+./yafu_test_full siqs --tag siqs-c50
 ```
 
-Assertions are non-aborting by default (`TK_CHECK*`): a test reports every
-failure it finds in one run. `TK_REQUIRE` aborts just the current test when
-continuing is pointless. Each test gets an independent, reproducible RNG
-stream derived from the seed.
+Bare arguments select modules. `--tag` selects tests by their listed tags;
+`--bench` additionally runs optional timing measurements. Assertion
+failures cause a nonzero exit status. Each test uses an independent RNG
+stream derived from the printed seed.
 
-## Status of this pass (for review)
+For GCC or Clang builds with AddressSanitizer and UndefinedBehaviorSanitizer
+available, use the complete instrumentation target:
 
-- **Framework, shared data, Layer 0** are compile-clean (`-Wall -Wextra
-  -Wpedantic`) and were run: the corpus self-check, `meta`, `mp_arith`, and
-  `mp_bitscan` all pass. Layer 0 was exercised here against a portable stand-in
-  for `mp_platform.h`; in your tree it includes the real header unchanged, so
-  it then measures the actual intrinsics (visible under `--bench`).
-- **Layer 1** is written against the real YAFU/GMP signatures and passes a
-  `-Wall -Wextra` syntax check against those prototypes, but has **not** been
-  run here (no GMP/YAFU objects in the scratch environment). Expect to build
-  it in-tree first. A few call conventions I couldn't compile against are
-  flagged inline with `NOTE:` / `[LIMB-ORDER]` / `[PRP-CONV]` — grep for those
-  and confirm on first build.
+```sh
+make -j4 test-sanitize
+```
 
-### Deliberately deferred
-`test.sh`, `testbench.txt`, all NFS, and the `lasieve*` sievers are out of
-scope for now. Layer 2 (factorization routines, incl. the `microecm` harness)
-and Layer 3 (integration) come after this is reviewed. A `sieve` module
-(ysieve `soe` vs known π(x)) is the natural next Layer-1 addition.
+它为参与测试链接的全部项目 C 对象启用 ASan/UBSan，并运行 `fast` 测试。
+GMP 等外部库仍使用系统提供的二进制。随后运行普通 `make` 会自动恢复普通
+编译选项；这两种配置应顺序构建，避免同时写同一组对象。
+
+也保留较小的计算器检查入口：
+
+```sh
+make test-calc-sanitize
+```
+
+This builds and runs the `calc` regressions with instrumentation in the
+test sources, `top/cmdParser/calc.c` and `factor/factor_common.c`. Other
+archives and frontend objects retain the normal build flags. The target
+does not replace the normal objects or executables.
+
+To add a module, define `tk_test` entries and a `tk_module` in a source file,
+register it in `test_main.c`, and add it to the appropriate source list in
+the root `Makefile`. Use independent expected results and include failure
+paths as well as successful calculations.

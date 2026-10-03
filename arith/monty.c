@@ -1551,6 +1551,10 @@ void mulredc52_mask_add_vec(__m512i* c0, __mmask8 addmsk, __m512i a0, __m512i b0
 #ifndef IFMA
 	__m512d prod1_hd, prod2_hd;
 	__m512d prod1_ld, prod2_ld;
+	const __m512d dbias = _mm512_castsi512_pd(_mm512_set1_epi64(0x4670000000000000ULL));
+	const __m512i vbias1 = _mm512_set1_epi64(0x4670000000000000ULL);
+	const __m512i vbias2 = _mm512_set1_epi64(0x4670000000000001ULL);
+	const __m512i vbias3 = _mm512_set1_epi64(0x4330000000000000ULL);
 	UNUSED_VAR __m512i i0, i1;
 #endif
 
@@ -1619,16 +1623,8 @@ __m512i multiplicative_inverse104_x8(uint64_t* a)
 	return x4;
 }
 
-void init_monty104()
+void init_monty104(void)
 {
-
-#ifndef IFMA
-	dbias = _mm512_castsi512_pd(set64(0x4670000000000000ULL));
-	vbias1 = set64(0x4670000000000000ULL);
-	vbias2 = set64(0x4670000000000001ULL);
-	vbias3 = _mm512_set1_epi64(0x4330000000000000ULL);
-#endif
-
 }
 
 #endif

@@ -494,6 +494,9 @@ void tpool_go(tpool_t *thread_data)
 tpool_t * tpool_setup(int num_threads, void *start_fcn, void *stop_fcn, 
     void *sync_fcn, void *dispatch_fcn, void *udata)
 {
+    if (num_threads < 1)
+        num_threads = 1;
+
     tpool_t *t = (tpool_t *)malloc(num_threads * sizeof(tpool_t));
     int i;
 
@@ -520,6 +523,15 @@ void tpool_add_work_fcn(tpool_t *tdata, void *work_fcn)
 {
     int i;
 
+    if ((tdata == NULL) || (work_fcn == NULL))
+        return;
+
+    if (tdata[0].num_work_fcn >= 16)
+    {
+        printf("tpool: cannot register more than 16 work functions\n");
+        return;
+    }
+
     // to make it easier on the user, could add a "call by name" feature
     // where the user can pass in a name associated with this function.
     // then in the dispatch function they can set a name instead of work_fcn_id;
@@ -531,4 +543,3 @@ void tpool_add_work_fcn(tpool_t *tdata, void *work_fcn)
 
     return;
 }
-

@@ -57,6 +57,12 @@
  *     gpu_args[N].ptr_arg = t->gpu_xxx_array;
  *--------------------------------------------------------------------*/
 
+// mpqs builds in msys2 but crashes right away when run.
+// something to figure out later.
+#if defined(__GNUC__) && !defined(__MINGW32__)
+#define HAVE_LASIEVE_MPQS
+#endif
+
 // posix feature-test macros to enable things in posix headers.
 // this one is for clock_gettime and others in time.h
 #define _POSIX_C_SOURCE 200809L
@@ -67,20 +73,19 @@
 #include "gmp.h"
 #include "microecm.h"
 #include "batch_factor.h"
-#include "arith.h"
-#include <pthread.h>
 #include "gpu_cofactorization_cl.h"
-// lasieve's mpqs is optional (-DHAVE_LASIEVE_MPQS, and it must be linked in);
-// otherwise tinysiqs is used.  Same includes as factor/batch_factor.c.
+#include "gmp-aux.h"
 #ifdef HAVE_LASIEVE_MPQS
-#include "../factor/lasieve5_64/mpqs.h"
-#include "../factor/lasieve5_64/mpqs3.h"
-#include "../factor/lasieve5_64/if.h"
-#include "../factor/lasieve5_64/gmp-aux.h"
+#include "mpqs3/mpqs.h"
+#include "mpqs3/mpqs3.h"
+#include "mpqs3/if.h"
+#ifdef ULL_NO_UL
+#include "mpqs3/gmp-aux.h"
+#endif
 #endif
 #include "cofactorize.h"
 
-
+//#define HAVE_CUDA_BATCH_FACTOR
 
 #ifdef HAVE_OCL_BATCH_FACTOR
 
@@ -207,7 +212,7 @@ int handle_96b_factorization(device_thread_ctx_t* t, int idx,
         if (bits2 <= 64)
         {
             cofactor_t* c = t->rb->relations + t->rb_idx_3lp[idx];
-            uint64_t cofactor = mpz_get_64(zc);
+            uint64_t cofactor = mpz_get_ull(zc);
 
             // check if cofactor is composite and small enough to
             // possibly yield 2 correctly-sized primes
@@ -217,11 +222,11 @@ int handle_96b_factorization(device_thread_ctx_t* t, int idx,
                 // record the factor we found
                 if (t->first_side == 0)
                 {
-                    c->lp_a[0] = mpz_get_64(zf);
+                    c->lp_a[0] = mpz_get_ull(zf);
                 }
                 else
                 {
-                    c->lp_r[0] = mpz_get_64(zf);
+                    c->lp_r[0] = mpz_get_ull(zf);
                 }
                 // and load the cofactor for further factorization
                 t->modulus_in[num2lp_retest] = cofactor;
@@ -238,12 +243,12 @@ int handle_96b_factorization(device_thread_ctx_t* t, int idx,
                 // we just factored a 2LP larger than 64 bits.
                 if (t->first_side == 0)
                 {
-                    c->lp_a[0] = mpz_get_64(zf);
+                    c->lp_a[0] = mpz_get_ull(zf);
                     c->lp_a[1] = cofactor;
                 }
                 else
                 {
-                    c->lp_r[0] = mpz_get_64(zf);
+                    c->lp_r[0] = mpz_get_ull(zf);
                     c->lp_r[1] = cofactor;
                 }
                 c->success |= 0x0f;
@@ -275,15 +280,15 @@ int handle_96b_factorization(device_thread_ctx_t* t, int idx,
                     cofactor_t* c = t->rb->relations + t->rb_idx_3lp[idx];
                     if (t->first_side == 0)
                     {
-                        c->lp_a[0] = mpz_get_64(zf);
-                        c->lp_a[1] = mpz_get_64(flist[0]);
-                        c->lp_a[2] = mpz_get_64(flist[1]);
+                        c->lp_a[0] = mpz_get_ull(zf);
+                        c->lp_a[1] = mpz_get_ull(flist[0]);
+                        c->lp_a[2] = mpz_get_ull(flist[1]);
                     }
                     else
                     {
-                        c->lp_r[0] = mpz_get_64(zf);
-                        c->lp_r[1] = mpz_get_64(flist[0]);
-                        c->lp_r[2] = mpz_get_64(flist[1]);
+                        c->lp_r[0] = mpz_get_ull(zf);
+                        c->lp_r[1] = mpz_get_ull(flist[0]);
+                        c->lp_r[2] = mpz_get_ull(flist[1]);
                     }
                     c->success |= 0x0f;
                 }
@@ -321,7 +326,7 @@ int handle_96b_factorization(device_thread_ctx_t* t, int idx,
         if (bits1 <= 64)
         {
             cofactor_t* c = t->rb->relations + t->rb_idx_3lp[idx];
-            uint64_t cofactor = mpz_get_64(zf);
+            uint64_t cofactor = mpz_get_ull(zf);
             // check if cofactor is composite and small enough to
             // possibly yield 2 correctly-sized primes
             //if (prp_uecm(cofactor) == 0)
@@ -330,11 +335,11 @@ int handle_96b_factorization(device_thread_ctx_t* t, int idx,
                 // record the factor we found
                 if (t->first_side == 0)
                 {
-                    c->lp_a[0] = mpz_get_64(zc);
+                    c->lp_a[0] = mpz_get_ull(zc);
                 }
                 else
                 {
-                    c->lp_r[0] = mpz_get_64(zc);
+                    c->lp_r[0] = mpz_get_ull(zc);
                 }
 
                 // and load the cofactor for further factorization
@@ -352,12 +357,12 @@ int handle_96b_factorization(device_thread_ctx_t* t, int idx,
                 // we just factored a 2LP larger than 64 bits.
                 if (t->first_side == 0)
                 {
-                    c->lp_a[0] = mpz_get_64(zc);
+                    c->lp_a[0] = mpz_get_ull(zc);
                     c->lp_a[1] = cofactor;
                 }
                 else
                 {
-                    c->lp_r[0] = mpz_get_64(zc);
+                    c->lp_r[0] = mpz_get_ull(zc);
                     c->lp_r[1] = cofactor;
                 }
                 c->success |= 0x0f;
@@ -390,15 +395,15 @@ int handle_96b_factorization(device_thread_ctx_t* t, int idx,
                     (*mpqs_success)++;
                     if (t->first_side == 0)
                     {
-                        c->lp_a[0] = mpz_get_64(zc);
-                        c->lp_a[1] = mpz_get_64(flist[0]);
-                        c->lp_a[2] = mpz_get_64(flist[1]);
+                        c->lp_a[0] = mpz_get_ull(zc);
+                        c->lp_a[1] = mpz_get_ull(flist[0]);
+                        c->lp_a[2] = mpz_get_ull(flist[1]);
                     }
                     else
                     {
-                        c->lp_r[0] = mpz_get_64(zc);
-                        c->lp_r[1] = mpz_get_64(flist[0]);
-                        c->lp_r[2] = mpz_get_64(flist[1]);
+                        c->lp_r[0] = mpz_get_ull(zc);
+                        c->lp_r[1] = mpz_get_ull(flist[0]);
+                        c->lp_r[2] = mpz_get_ull(flist[1]);
                     }
                     c->success |= 0x0f;
                 }
@@ -429,11 +434,6 @@ int handle_96b_factorization(device_thread_ctx_t* t, int idx,
 uint32_t
 do_gpu_ecm64(device_thread_ctx_t *t)
 {
-    /* OpenCL rejects zero-sized buffer transfers (CL_INVALID_VALUE), unlike
-     * CUDA's memcpy, so an empty input list must not reach the enqueues. */
-    if (t->array_sz == 0)
-        return 0;
-
     uint32_t     quit = 0;
     gpu_arg_t    gpu_args[GPU_MAX_KERNEL_ARGS];
     gpu_launch_t *launch;
@@ -520,12 +520,12 @@ do_gpu_ecm64(device_thread_ctx_t *t)
         int n = t->array_sz;
         int c = 0;
         for (i = 0; i < n; i++) {
-            mpz_set_64(zn, t->modulus_in[i]);
+            mpz_set_ull(zn, t->modulus_in[i]);
             uint64_t factor = t->a[i];
 
             if ((factor > 1) && (factor < t->modulus_in[i])) {
 
-                mpz_set_64(rsq, factor);
+                mpz_set_ull(rsq, factor);
 
                 int bits1 = mpz_sizeinbase(rsq, 2);
                 mpz_tdiv_q(rsq, zn, rsq);
@@ -689,11 +689,6 @@ do_gpu_ecm64(device_thread_ctx_t *t)
 uint32_t
 do_gpu_ecm_96b(device_thread_ctx_t *t)
 {
-    /* OpenCL rejects zero-sized buffer transfers (CL_INVALID_VALUE), unlike
-     * CUDA's memcpy, so an empty input list must not reach the enqueues. */
-    if (t->array_sz == 0)
-        return 0;
-
     uint32_t     quit = 0;
     gpu_arg_t    gpu_args[GPU_MAX_KERNEL_ARGS];
     gpu_launch_t *launch;
@@ -912,11 +907,6 @@ do_gpu_ecm_96b(device_thread_ctx_t *t)
 uint32_t
 do_gpu_pm1_96b(device_thread_ctx_t *t)
 {
-    /* OpenCL rejects zero-sized buffer transfers (CL_INVALID_VALUE), unlike
-     * CUDA's memcpy, so an empty input list must not reach the enqueues. */
-    if (t->array_sz == 0)
-        return 0;
-
     uint32_t     quit = 0;
     gpu_arg_t    gpu_args[GPU_MAX_KERNEL_ARGS];
     gpu_launch_t *launch;
@@ -1073,203 +1063,122 @@ do_gpu_pm1_96b(device_thread_ctx_t *t)
 
 uint32_t gpu_cofactorization(device_thread_ctx_t* t)
 {
-	uint32_t quit = 0;
-	int i;
-	int j;
-	int do_2lp = 1;
-	int do_3lp = 1;
+    uint32_t quit = 0;
+    int i;
+    int j;
 
-	// which list is 2LP?
-	// load the residues into the 64-bit input array.
-	//if (t->first_side == 0)
-	//{
-	//	// 2LP side is r-side
-	//	printf("setting up gpu to factor %d r-side 2LPs\n", t->numres_r);
-	//	for (i = 0; i < t->numres_r; i++) {
-	//		t->modulus_in[i] = ((uint64_t)t->residues_r_in[i * 2 + 1] << 32) |
-	//			(uint64_t)t->residues_r_in[i * 2 + 0];
-	//	}
-	//
-	//	// the 2LP factorization code is agnostic to side, so
-	//	// point it to which side it should be tracking.
-	//	t->array_sz = t->numres_r;
-	//
-	//	memcpy(t->rb_idx_2lp, t->rb_idx_r, t->numres_r * sizeof(uint32_t));
-	//}
-	//else if (t->first_side == 1)
-	//{
-	//	// 2LP side is a-side
-	//	printf("setting up gpu to factor %d a-side 2LPs\n", t->numres_a);
-	//	for (i = 0; i < t->numres_a; i++) {
-	//		t->modulus_in[i] = ((uint64_t)t->residues_a_in[i * 2 + 1] << 32) |
-	//			(uint64_t)t->residues_a_in[i * 2 + 0];
-	//	}
-	//	// the 2LP factorization code is agnostic to side, so
-	//	// point it to which side it should be tracking.
-	//	t->array_sz = t->numres_a;
-	//
-	//	memcpy(t->rb_idx_2lp, t->rb_idx_a, t->numres_a * sizeof(uint32_t));
-	//}
-	//else
-	{
-		// first side not equal to 0 or 1 means there is only
-		// one side to factor
-		switch (t->first_side)
-		{
-			// r-side 2LP cases
-		case -2:
-			// here we are only doing this side
-			do_3lp = 0;
-			t->first_side = 0;
-		case 0:
+    // which list is 2LP?
+    // load the residues into the 64-bit input array.
+    if (t->first_side == 0)
+    {
+        // 2LP side has 2 words per input
+        printf("setting up gpu to factor %d r-side 2LPs\n", t->numres_r);
+        for (i = 0; i < t->numres_r; i++) {
+            t->modulus_in[i] = ((uint64_t)t->residues_r_in[i * 2 + 1] << 32) |
+                (uint64_t)t->residues_r_in[i * 2 + 0];
+        }
 
-			printf("setting up gpu to factor %d r-side 2LPs\n", t->numres_r);
-			for (i = 0; i < t->numres_r; i++) {
-				t->modulus_in[i] = ((uint64_t)t->residues_r_in[i * 2 + 1] << 32) |
-					(uint64_t)t->residues_r_in[i * 2 + 0];
-			}
+        // the 2LP factorization code is agnostic to side, so
+        // point it to which side it should be tracking.
+        t->array_sz = t->numres_r;
 
-			// the 2LP factorization code is agnostic to side, so
-			// point it to which side it should be tracking.
-			t->array_sz = t->numres_r;
+        memcpy(t->rb_idx_2lp, t->rb_idx_r, t->numres_r * sizeof(uint32_t));
+        //t->rb_idx_2lp = t->rb_idx_r;		
+    }
+    else
+    {
+        // 2LP side has 2 words per input
+        printf("setting up gpu to factor %d a-side 2LPs\n", t->numres_a);
+        for (i = 0; i < t->numres_a; i++) {
+            t->modulus_in[i] = ((uint64_t)t->residues_a_in[i * 2 + 1] << 32) |
+                (uint64_t)t->residues_a_in[i * 2 + 0];
+        }
+        // the 2LP factorization code is agnostic to side, so
+        // point it to which side it should be tracking.
+        t->array_sz = t->numres_a;
 
-			memcpy(t->rb_idx_2lp, t->rb_idx_r, t->numres_r * sizeof(uint32_t));
-			break;
+        memcpy(t->rb_idx_2lp, t->rb_idx_a, t->numres_a * sizeof(uint32_t));
+        //t->rb_idx_2lp = t->rb_idx_a;
+    }
 
-			// a-side 2LP cases
-		case -4:
-			// here we are only doing this side
-			do_3lp = 0;
-			t->first_side = 1;
-		case 1:
-			// a-side 2LPs
-			printf("setting up gpu to factor %d a-side 2LPs\n", t->numres_a);
-			for (i = 0; i < t->numres_a; i++) {
-				t->modulus_in[i] = ((uint64_t)t->residues_a_in[i * 2 + 1] << 32) |
-					(uint64_t)t->residues_a_in[i * 2 + 0];
-			}
-			// the 2LP factorization code is agnostic to side, so
-			// point it to which side it should be tracking.
-			t->array_sz = t->numres_a;
+    // try to completely factor the 2LP list.  The last handful
+    // of curves don't typically make sense to run on the gpu (only
+    // a few inputs left) but it also doesn't take much time, so
+    // to be lazy we just finish it all here.
+    t->mode_2lp = 0;
+    t->num_factors_2lp = 0;
+    do_gpu_ecm64(t);
 
-			memcpy(t->rb_idx_2lp, t->rb_idx_a, t->numres_a * sizeof(uint32_t));
-			break;
+    // sometimes the factors of a 2LP are not correctly sized.
+    // when that happens, we can ignore the corresponding 3LP side cofactor.
+    // here we build up a list of 3lp candidates to try to factor
+    // with 96-bit ecm code.
+    j = 0;
 
-		case -3:
-			// only r-side 3LPs.  Flag as having done a (non-existant) a-side 2LP first pass.
-			t->first_side = 1;
-			do_2lp = 0;
-			break;
-		case -5:
-			// only a-side 3LPs.  Flag as having done a (non-existant) r-side 2LP first pass.
-			t->first_side = 0;
-			do_2lp = 0;
-			break;
-		}
-	}
+    for (i = 0; i < t->rb->num_relations; i++)
+    {
+        if (t->rb->relations[i].success == 0)
+        {
+            // skip relations in the rb that didn't have a 
+            // valid 2LP factorization.
+        }
+        else
+        {
+            // the 3lp factorization code needs to know the
+            // moduli to factor and the indices of those moduli in
+            // the rb structure.  Copy from whichever side has
+            // the 3lps for this successful 2lp-side factorization.
+            if (t->first_side == 0)
+            {
+                t->modulus96_in[3 * j + 0] = t->residues_a_in[3 * i + 0];
+                t->modulus96_in[3 * j + 1] = t->residues_a_in[3 * i + 1];
+                t->modulus96_in[3 * j + 2] = t->residues_a_in[3 * i + 2];
+                t->rb_idx_3lp[j] = t->rb_idx_a[i];
+            }
+            else
+            {
+                t->modulus96_in[3 * j + 0] = t->residues_r_in[3 * i + 0];
+                t->modulus96_in[3 * j + 1] = t->residues_r_in[3 * i + 1];
+                t->modulus96_in[3 * j + 2] = t->residues_r_in[3 * i + 2];
+                t->rb_idx_3lp[j] = t->rb_idx_r[i];
+            }
 
-	t->mode_2lp = 0;
-	t->num_factors_2lp = 0;
-	if (do_2lp)
-	{
-		// try to completely factor the 2LP list.  The last handful
-		// of curves don't typically make sense to run on the gpu (only
-		// a few inputs left) but it also doesn't take much time, so
-		// to be lazy we just finish it all here.
-		do_gpu_ecm64(t);
-	}
+            // 2LP factorization was good
+            j++;
+        }
+    }
 
-	// sometimes the factors of a 2LP are not correctly sized.
-	// when that happens, we can ignore the corresponding 3LP side cofactor.
-	// here we build up a list of 3lp candidates to try to factor
-	// with 96-bit ecm code.
-	j = 0;
+    t->array_sz = j;
+    printf("ignoring %d 3LP-side cofactors due to invalid 2LP-side factorizations\n",
+        t->rb->num_relations - j);
 
-	for (i = 0; i < t->rb->num_relations; i++)
-	{
-		if (t->rb->relations[i].success == 0)
-		{
-			// skip relations in the rb that didn't have a 
-			// valid 2LP factorization.
-		}
-		else
-		{
-			// the 3lp factorization code needs to know the
-			// moduli to factor and the indices of those moduli in
-			// the rb structure.  Copy from whichever side has
-			// the 3lps for this successful 2lp-side factorization.
-			if (t->first_side == 0)
-			{
-				// cases where we have already factored a list of r-side 2LPs,
-				// or there was no r-side to factor.
-				// in the latter case all relations default to initial 2LP success,
-				// so we won't be rejecting anything in this loop.
-				t->modulus96_in[3 * j + 0] = t->residues_a_in[3 * i + 0];
-				t->modulus96_in[3 * j + 1] = t->residues_a_in[3 * i + 1];
-				t->modulus96_in[3 * j + 2] = t->residues_a_in[3 * i + 2];
-				t->rb_idx_3lp[j] = t->rb_idx_a[i];
-			}
-			else if (t->first_side == 1)
-			{
-				// cases where we have already factored a list of a-side 2LPs,
-				// or there was no a-side to factor.
-				// in the latter case all relations default to initial 2LP success,
-				// so we won't be rejecting anything in this loop.
-				t->modulus96_in[3 * j + 0] = t->residues_r_in[3 * i + 0];
-				t->modulus96_in[3 * j + 1] = t->residues_r_in[3 * i + 1];
-				t->modulus96_in[3 * j + 2] = t->residues_r_in[3 * i + 2];
-				t->rb_idx_3lp[j] = t->rb_idx_r[i];
-			}
+    // now run the 3LP kernels
+    t->num_factors_3lp = 0;
 
-			// 2LP factorization was good
-			j++;
-		}
-	}
+    do_gpu_pm1_96b(t);
+    do_gpu_ecm_96b(t);
 
-	t->array_sz = j;
-	if (do_2lp)
-	{
-		printf("ignoring %d 3LP-side cofactors due to invalid 2LP-side factorizations\n",
-			t->rb->num_relations - j);
-	}
+    // any survivors have now survived both sides (had factors 
+    // found on both R and A sides). 
+    // double check the number that have success fully flagged
+    t->num_factors_3lp = 0;
+    t->rb->num_success = 0;
+    for (i = 0; i < t->rb->num_relations; i++)
+    {
+        if (t->rb->relations[i].success == 0xff)
+        {
+            t->num_factors_3lp++;
+            t->rb->relations[i].success = 1;
+            t->rb->num_success++;
+        }
+        else
+        {
+            t->rb->relations[i].success = 0;
+        }
+    }
+    printf("%d relations have been flagged as completely factored\n", t->rb->num_success);
 
-	// now run the 3LP kernels
-	t->num_factors_3lp = 0;
-
-	if (do_3lp)
-	{
-		if (t->rb->do_pm1)
-		{
-			do_gpu_pm1_96b(t);
-		}
-		do_gpu_ecm_96b(t);
-	}
-
-	// any survivors have now survived both sides (had factors 
-	// found on both R and A sides). 
-	// double check the number that have success fully flagged
-	for (i = 0; i < t->rb->num_relations; i++)
-	{
-		// if there was only a 2LP list to do, then one side
-		// success is a full success.  only 3LP lists still
-		// require a full 0xff, indicating that both 3LP and
-		// the corresponding 2LP cofactorization were successful.
-		if ((do_3lp == 0) && (t->rb->relations[i].success))
-			t->rb->relations[i].success = 0xff;
-
-		if (t->rb->relations[i].success == 0xff)
-		{
-			t->rb->relations[i].success = 1;
-			t->rb->num_success++;
-		}
-		else
-		{
-			t->rb->relations[i].success = 0;
-		}
-	}
-	printf("%d relations have been flagged as completely factored\n", t->rb->num_success);
-
-	return quit;
+    return quit;
 }
 
 /* -----------------------------------------------------------------------
@@ -1290,6 +1199,11 @@ gpu_device_init(int which_gpu, int verbose)
     gpu_init(&gpu_config);
     if (gpu_config.num_gpu == 0) {
         printf("error: no OpenCL-capable GPUs found\n");
+        exit(-1);
+    }
+    if ((which_gpu < 0) || (which_gpu >= gpu_config.num_gpu)) {
+        printf("error: OpenCL device index %d is outside 0..%d\n",
+            which_gpu, gpu_config.num_gpu - 1);
         exit(-1);
     }
 
@@ -1327,6 +1241,7 @@ void
 gpu_dev_free(device_ctx_t *d)
 {
     free(d->gpu_info);
+    pthread_mutex_unlock(&gpu_ctx_lock);
     free(d);
 }
 
@@ -1382,19 +1297,9 @@ read_file(const char *path)
     return buf;
 }
 
-/* Only one thread context may exist at a time.  NFS and SIQS give every
- * batch thread its own context, and with several of them creating, running
- * and releasing contexts on the same GPU at once ROCm faulted the whole GPU
- * (an instruction fetch from address 0, followed by a GPU reset).  gpu_ctx_init
- * takes this lock and gpu_ctx_free releases it, so GPU batches run one at a
- * time; the CPU-side work of the other threads is unaffected. */
-static pthread_mutex_t gpu_ctx_lock = PTHREAD_MUTEX_INITIALIZER;
-
 device_thread_ctx_t*
 gpu_ctx_init(device_ctx_t* d)
 {
-    pthread_mutex_lock(&gpu_ctx_lock);
-
     device_thread_ctx_t* t;
     cl_int               err;
     cl_device_id         dev = d->gpu_info->device_handle;
@@ -1632,8 +1537,8 @@ gpu_ctx_free(device_thread_ctx_t *d)
     clReleaseCommandQueue(d->queue);    /* was: cuStreamDestroy    */
     clReleaseProgram(d->gpu_program);   /* was: part of cuCtxDestroy */
     clReleaseContext(d->gpu_context);   /* was: cuCtxDestroy       */
-
     pthread_mutex_unlock(&gpu_ctx_lock);
+    free(d);
 }
 
 /* -----------------------------------------------------------------------
@@ -1686,19 +1591,6 @@ do_gpu_cofactorization(device_thread_ctx_t *t, relation_batch_t* rb, uint64_t *l
     t->first_side = -1;
     int max_words[2] = { 0,0 };
     int j;
-    // The consumers below index each side's residue array with a fixed
-    // stride: 3 words per input on a side that carries 3LPs, otherwise 2.
-    // A side can mix 2- and 3-word cofactors (SIQS with TLP does), so pack
-    // with that fixed stride and zero-pad the shorter ones instead of packing
-    // exactly lp_*_num_words words, which would shift everything after the
-    // first short residue.
-    int stride_r = 2, stride_a = 2;
-    for (i = 0; i < rb->num_relations; i++)
-    {
-        if (rb->relations[i].lp_r_num_words == 3) stride_r = 3;
-        if (rb->relations[i].lp_a_num_words == 3) stride_a = 3;
-    }
-
     for (i = 0; i < rb->num_relations; i++)
     {
         // metadata for this relation
@@ -1734,11 +1626,10 @@ do_gpu_cofactorization(device_thread_ctx_t *t, relation_batch_t* rb, uint64_t *l
                 t->first_side = 1;		// so do the a-side first.
                 max_words[0] = MAX(c->lp_r_num_words, max_words[0]);
             }
-            for (j = 0; j < stride_r; j++)
+            for (j = 0; j < c->lp_r_num_words; j++)
             {
-                t->residues_r_in[kr + j] = (j < c->lp_r_num_words) ? factors[j] : 0;
+                t->residues_r_in[kr++] = factors[j];
             }
-            kr += stride_r;
             factors += c->lp_r_num_words;
             // assign an index back to this cofactor position in the relation_batch_t 
             t->rb_idx_r[t->numres_r] = i;
@@ -1767,11 +1658,10 @@ do_gpu_cofactorization(device_thread_ctx_t *t, relation_batch_t* rb, uint64_t *l
                 t->first_side = 0;		// so do the r-side first.
                 max_words[1] = MAX(c->lp_a_num_words, max_words[1]);
             }
-            for (j = 0; j < stride_a; j++)
+            for (j = 0; j < c->lp_a_num_words; j++)
             {
-                t->residues_a_in[ka + j] = (j < c->lp_a_num_words) ? factors[j] : 0;
+                t->residues_a_in[ka++] = factors[j];
             }
-            ka += stride_a;
             factors += c->lp_a_num_words;
             // assign an index back to this cofactor position in the relation_batch_t 
             t->rb_idx_a[t->numres_a] = i;
@@ -1789,15 +1679,13 @@ do_gpu_cofactorization(device_thread_ctx_t *t, relation_batch_t* rb, uint64_t *l
         exit(1);
     }
 
-    if (max_words[1] == 0)
+    if (max_words[0] == 0)
     {
-        printf("only r-side has unfactored residues of max size %d\n", max_words[1]);
-        t->lpb_3lp = t->lpbr;        // 3lp's are on the r-side
-        t->lpb_2lp = t->lpbr;        // 2lp's are on the r-side
-        if (max_words[0] == 2)
-            t->first_side = -2;            // flag for only 2LP on r-side
-        else if (max_words[0] == 3)
-            t->first_side = -3;            // flag for only 3LP on r-side
+        printf("only one side has unfactored residues of max size %d\n", max_words[1]);
+        if (max_words[1] == 2)
+            t->first_side = -2;
+        else if (max_words[1] == 3)
+            t->first_side = -3;
         else
         {
             printf("could not find a list of unfactored residues to process\n");
@@ -1805,15 +1693,13 @@ do_gpu_cofactorization(device_thread_ctx_t *t, relation_batch_t* rb, uint64_t *l
         }
     }
 
-    if (max_words[0] == 0)
+    if (max_words[1] == 0)
     {
-        printf("only a-side has unfactored residues of max size %d\n", max_words[0]);
-        t->lpb_3lp = t->lpba;        // 3lp's are on the a-side
-        t->lpb_2lp = t->lpba;        // 2lp's are on the a-side
-        if (max_words[1] == 2)
-            t->first_side = -4;            // flag for only 2LP on a-side
-        else if (max_words[1] == 3)
-            t->first_side = -5;            // flag for only 3LP on a-side
+        printf("only one side has unfactored residues of max size %d\n", max_words[0]);
+        if (max_words[0] == 2)
+            t->first_side = -4;
+        else if (max_words[0] == 3)
+            t->first_side = -5;
         else
         {
             printf("could not find a list of unfactored residues to process\n");
@@ -1950,4 +1836,4 @@ do_gpu_cofactorization(device_thread_ctx_t *t, relation_batch_t* rb, uint64_t *l
     return 0;
 }
 
-#endif /* HAVE_OCL_BATCH_FACTOR */
+#endif /* HAVE_CUDA_BATCH_FACTOR */

@@ -62,12 +62,20 @@ uint32 find_factors(msieve_obj *obj, mp_t *n,
 	uint32 i, j, k, m;
 	uint64 mask;
 	uint32 *fb_counts;
-	uint32 large_primes[200], num_large_primes;
+	uint32 *large_primes, num_large_primes;
+	uint32 max_cycle_relations;
 	uint32 num_relations, prime;
 	relation_t *relation;
 	uint32 factor_found = 0;
 
 	fb_counts = (uint32 *)xmalloc(fb_size * sizeof(uint32));
+	max_cycle_relations = 1;
+	for (i = 0; i < vsize; i++) {
+		max_cycle_relations = MAX(max_cycle_relations,
+					vectors[i].cycle.num_relations);
+	}
+	large_primes = (uint32 *)xmalloc((size_t)4 * max_cycle_relations *
+								sizeof(uint32));
 	mp_clear(&factor);
 	factor.nwords = 1;
 
@@ -237,6 +245,6 @@ uint32 find_factors(msieve_obj *obj, mp_t *n,
 	}
 
 	free(fb_counts);
+	free(large_primes);
 	return factor_found;
 }
-

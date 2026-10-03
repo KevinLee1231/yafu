@@ -134,7 +134,7 @@ static void pp1_dup(vec_bignum_t* P, vec_bignum_t* Q, vec_monty_t* mdata)
 }
 
 // P <- V_{m+n} where Q = V_m, R = V_n, S = V_{m-n}.
-static void pp1_add(vec_bignum_t* P, vec_bignum_t* Q, vec_bignum_t* R, 
+static void pp1_add(vec_bignum_t* P, vec_bignum_t* Q, vec_bignum_t* R,
     vec_bignum_t* S, vec_monty_t* mdata)
 {
     vecmulmod_ptr(Q, R, mdata->mtmp1, mdata->n, mdata->mtmp3, mdata);
@@ -349,7 +349,7 @@ unsigned int compute_s(mpz_t s, uint64_t * primes, uint64_t nump, uint64_t B1)
     return it;
 }
 
-int validate_op(vec_bignum_t* in1, vec_bignum_t* in2, vec_bignum_t* nvec, 
+int validate_op(vec_bignum_t* in1, vec_bignum_t* in2, vec_bignum_t* nvec,
     vec_bignum_t* ref, int numwords)
 {
     mpz_t t1, t2, t3, t4, n;
@@ -1811,7 +1811,7 @@ void vecPM1(fact_obj_t* fobj)
 
         gettimeofday(&stopt, NULL);
         t_time = ytools_difftime(&start1, &stopt);
-        printf("pm1: primes product took %1.2f sec, exponent has %u bits\n", 
+        printf("pm1: primes product took %1.2f sec, exponent has %zu bits\n",
             t_time, mpz_sizeinbase(e, 2));
 
         //vecmodexp(A, vecV, e, montyconst->n, T, montyconst->one, montyconst);

@@ -20,7 +20,7 @@ typedef unsigned long long ullong;
 
 #define mpz_add_si(r,o,s) \
   ({ int _s; _s= (s); \
-     _s>=0 ? mpz_add_ui(r,o,(mp_limb_t)(_s)) : mpz_sub_ui(r,o,(mp_limb_t)(-_s)); })
+     _s>=0 ? mpz_add_ui(r,o,(mp_limb_t)(_s)) : mpz_sub_ui(r,o,(mp_limb_t)(0u-(unsigned int)_s)); })
 
 
 void mpz_set_ull(mpz_t targ, ullong src);
@@ -52,4 +52,3 @@ void mpz_tdiv_q_ull(mpz_t rop, mpz_t op1, ullong op2);
 #define mpz_add_ull mpz_add_ui
 #define mpz_tdiv_q_ull mpz_tdiv_q_ui
 #endif
-

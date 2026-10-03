@@ -1668,10 +1668,11 @@ uint64_t spBinGCD_odd(uint64_t u, uint64_t v)
     return u;
 }
 
-// much faster version: assuming u is odd
+// binary GCD; the same even-tolerant implementation as arith/limb1.h and
+// include/monty.h, so all three copies agree
 uint64_t bingcd64(uint64_t u, uint64_t v)
 {
-#if 1
+#if 0
     if (u == 0) {
         return v;
     }
@@ -1780,6 +1781,12 @@ int llt(uint32_t exp, int VFLAG)
         mpz_clear(tmp);
         printf("exponent is not prime\n");
         return 0;
+    }
+
+    if (exp == 2)
+    {
+        mpz_clear(tmp);
+        return 1;
     }
 
     start = clock();
@@ -1969,14 +1976,14 @@ void build_RSA(int bits, mpz_t in, gmp_randstate_t gmp_randstate)
     int words, subwords;
     mpz_t p, q;
 
-    mpz_init(p);
-    mpz_init(q);
-
     if (bits < 65)
     {
         printf("bitlength too small\n");
         return;
     }
+
+    mpz_init(p);
+    mpz_init(q);
 
     i = 0;
     while (mpz_sizeinbase(in, 2) != bits)

@@ -141,8 +141,6 @@ static uint32 qs_merge_relations(uint32 *merge_array,
 }
 
 /*------------------------------------------------------------------*/
-#define MAX_COL_WEIGHT 1000
-
 static void build_matrix(uint32 ncols, la_col_t *cols, 
 			   relation_t *relation_list) {
 
@@ -160,14 +158,26 @@ static void build_matrix(uint32 ncols, la_col_t *cols,
 	   anyway */
 
 	for (i = 0; i < ncols; i++) {
-		uint32 buf[MAX_COL_WEIGHT];
-		uint32 accum[MAX_COL_WEIGHT];
+		uint32 *buf;
+		uint32 *accum;
+		uint32 max_weight;
 		uint32 weight;
 
 		/* merge each succeeding relation into the accumulated
 		   matrix column */
 
 		col = cols + i;
+		max_weight = 0;
+		for (j = 0; j < col->cycle.num_relations; j++) {
+			relation_t *r = relation_list + col->cycle.list[j];
+			if (UINT32_MAX - max_weight < r->num_factors) {
+				fprintf(stderr, "matrix column is too large\n");
+				exit(EXIT_FAILURE);
+			}
+			max_weight += r->num_factors;
+		}
+		buf = (uint32 *)xmalloc(MAX(max_weight, 1) * sizeof(uint32));
+		accum = (uint32 *)xmalloc(MAX(max_weight, 1) * sizeof(uint32));
 
 		for (j = weight = 0; j < col->cycle.num_relations; j++) {
 			relation_t *r = relation_list + col->cycle.list[j];
@@ -179,5 +189,7 @@ static void build_matrix(uint32 ncols, la_col_t *cols,
 		col->weight = weight;
 		col->data = (uint32 *)xmalloc(weight * sizeof(uint32));
 		memcpy(col->data, buf, weight * sizeof(uint32));
+		free(accum);
+		free(buf);
 	}
 }

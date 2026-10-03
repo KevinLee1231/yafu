@@ -182,19 +182,19 @@ reduce2gmp(i64_t *a0_ptr,i64_t *b0_ptr,i64_t *a1_ptr,i64_t *b1_ptr,
     mpz_swap(r2_b0,r2_b1);
   }
 #if 0
-  if (!mpz_sizeinbase(r2_a0,2)>31) return 1;
-  if (!mpz_sizeinbase(r2_b0,2)>31) return 1;
-  if (!mpz_sizeinbase(r2_a1,2)>31) return 1;
-  if (!mpz_sizeinbase(r2_b1,2)>31) return 1;
+  if (mpz_sizeinbase(r2_a0,2)>31) return 1;
+  if (mpz_sizeinbase(r2_b0,2)>31) return 1;
+  if (mpz_sizeinbase(r2_a1,2)>31) return 1;
+  if (mpz_sizeinbase(r2_b1,2)>31) return 1;
   *a0_ptr=(i32_t)mpz_get_si(r2_a0);
   *b0_ptr=(i32_t)mpz_get_si(r2_b0);
   *a1_ptr=(i32_t)mpz_get_si(r2_a1);
   *b1_ptr=(i32_t)mpz_get_si(r2_b1);
 #else
-  if (!mpz_sizeinbase(r2_a0,2)>63) return 1;
-  if (!mpz_sizeinbase(r2_b0,2)>63) return 1;
-  if (!mpz_sizeinbase(r2_a1,2)>63) return 1;
-  if (!mpz_sizeinbase(r2_b1,2)>63) return 1;
+  if (mpz_sizeinbase(r2_a0,2)>63) return 1;
+  if (mpz_sizeinbase(r2_b0,2)>63) return 1;
+  if (mpz_sizeinbase(r2_a1,2)>63) return 1;
+  if (mpz_sizeinbase(r2_b1,2)>63) return 1;
   *a0_ptr=(i64_t)mpz_get_sll(r2_a0);
   *b0_ptr=(i64_t)mpz_get_sll(r2_b0);
   *a1_ptr=(i64_t)mpz_get_sll(r2_a1);
@@ -203,4 +203,3 @@ reduce2gmp(i64_t *a0_ptr,i64_t *b0_ptr,i64_t *a1_ptr,i64_t *b1_ptr,
   return 0;
 }
 #endif
-

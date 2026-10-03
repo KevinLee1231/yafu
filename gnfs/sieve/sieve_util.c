@@ -14,6 +14,22 @@ $Id: sieve_util.c 638 2011-09-11 15:31:19Z jasonp_sf $
 
 #include "sieve.h"
 #include "savefile.h"
+#include <stdarg.h>
+
+static int append_relation_text(char **cursor, size_t *remaining,
+			const char *format, ...) {
+	int written;
+	va_list args;
+
+	va_start(args, format);
+	written = vsnprintf(*cursor, *remaining, format, args);
+	va_end(args);
+	if (written < 0 || (size_t)written >= *remaining)
+		return 0;
+	*cursor += written;
+	*remaining -= (size_t)written;
+	return 1;
+}
 
 /*------------------------------------------------------------------*/
 void print_relation(savefile_t *savefile, int64 a, uint32 b, 
@@ -25,41 +41,57 @@ void print_relation(savefile_t *savefile, int64 a, uint32 b,
 	uint32 i, j;
 	char buf[LINE_BUF_SIZE];
 	char *tmp = buf;
+	size_t remaining = sizeof(buf);
+	int appended;
 
-	tmp += sprintf(buf, "%" PRId64 ",%u", a, b);
+	if (!append_relation_text(&tmp, &remaining, "%" PRId64 ",%u", a, b))
+		goto too_long;
 	for (i = 0; i < num_factors_r; i++) {
 		if (i == 0)
-			tmp += sprintf(tmp, ":%x", factors_r[i]);
+			appended = append_relation_text(&tmp, &remaining, ":%x", factors_r[i]);
 		else
-			tmp += sprintf(tmp, ",%x", factors_r[i]);
+			appended = append_relation_text(&tmp, &remaining, ",%x", factors_r[i]);
+		if (!appended)
+			goto too_long;
 	}
 	for (j = 0; j < MAX_LARGE_PRIMES; j++) {
 		if (large_prime_r[j] == 1)
 			continue;
 		if (i == 0)
-			tmp += sprintf(tmp, ":%x", large_prime_r[j]);
+			appended = append_relation_text(&tmp, &remaining, ":%x", large_prime_r[j]);
 		else
-			tmp += sprintf(tmp, ",%x", large_prime_r[j]);
+			appended = append_relation_text(&tmp, &remaining, ",%x", large_prime_r[j]);
+		if (!appended)
+			goto too_long;
 		i++;
 	}
 
 	for (i = 0; i < num_factors_a; i++) {
 		if (i == 0)
-			tmp += sprintf(tmp, ":%x", factors_a[i]);
+			appended = append_relation_text(&tmp, &remaining, ":%x", factors_a[i]);
 		else
-			tmp += sprintf(tmp, ",%x", factors_a[i]);
+			appended = append_relation_text(&tmp, &remaining, ",%x", factors_a[i]);
+		if (!appended)
+			goto too_long;
 	}
 	for (j = 0; j < MAX_LARGE_PRIMES; j++) {
 		if (large_prime_a[j] == 1)
 			continue;
 		if (i == 0)
-			tmp += sprintf(tmp, ":%x", large_prime_a[j]);
+			appended = append_relation_text(&tmp, &remaining, ":%x", large_prime_a[j]);
 		else
-			tmp += sprintf(tmp, ",%x", large_prime_a[j]);
+			appended = append_relation_text(&tmp, &remaining, ",%x", large_prime_a[j]);
+		if (!appended)
+			goto too_long;
 		i++;
 	}
-	sprintf(tmp, "\n");
+	if (!append_relation_text(&tmp, &remaining, "\n"))
+		goto too_long;
 	savefile_write_line(savefile, buf);
+	return;
+
+too_long:
+	fprintf(stderr, "nfs: relation is too long to save\n");
 }
 
 /*------------------------------------------------------------------*/

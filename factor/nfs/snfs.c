@@ -5882,7 +5882,7 @@ int tdiv_int(int x, int *factors, uint64_t* primes, uint64_t num_p)
 	int i;
 
 	i=0;
-	while ((xx > 1) && (primes[i] < 1000))
+	while ((xx > 1) && ((uint64_t)i < num_p) && (primes[i] < 1000))
 	{
 		int q = (int)primes[i];
 		
@@ -5908,7 +5908,8 @@ int tdiv_mpz(mpz_t x, int *factors, uint64_t* primes, uint64_t num_p)
 	mpz_set(xx, x);
 
 	i=0;
-	while ((mpz_cmp_ui(xx,1) > 0) && (primes[i] < 1000))
+	while ((mpz_cmp_ui(xx,1) > 0) && ((uint64_t)i < num_p) &&
+		(primes[i] < 1000))
 	{
 		int q = (int)primes[i];
 		
@@ -5931,5 +5932,6 @@ int tdiv_mpz(mpz_t x, int *factors, uint64_t* primes, uint64_t num_p)
 			numf = 0;
 	}
 
+	mpz_clear(xx);
 	return numf;
 }

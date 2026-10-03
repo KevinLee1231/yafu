@@ -5009,6 +5009,7 @@ void vecsubmod52_mersenne2(vec_bignum_t* a, vec_bignum_t* b, vec_bignum_t* c, ve
             (1ULL << (uint64_t)(bshift_a[5])) - 1ULL,
             (1ULL << (uint64_t)(bshift_a[6])) - 1ULL,
             (1ULL << (uint64_t)(bshift_a[7])) - 1ULL);
+        vbpshift = _mm512_add_epi64(vbshift, _mm512_set1_epi64(1));
     }
     else
     {
