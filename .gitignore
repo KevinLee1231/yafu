@@ -2,10 +2,11 @@
 # Build artifacts
 *.o
 *.a
+/build/
 /yafu
 /msieve
-/factor/lasieve5_64/bin/local/
-/factor/lasieve5_64/asm/ls-defs-os.asm
+/factor/nfs/lasieve/bin/local/
+/factor/nfs/lasieve/asm/ls-defs-os.asm
 /yafu_test
 /yafu_test_full
 /yafu_test_sanitize
@@ -26,5 +27,3 @@ nfs.*
 *.tlog
 *.last_spq*
 
-# makefile configuration
-config.mk

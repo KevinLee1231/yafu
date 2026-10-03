@@ -5,7 +5,7 @@
 #                 path (for mp_platform.h). No GMP, no YAFU objects. This is
 #                 the quick "does the harness run" build.  [default]
 #   make full     framework + Layer 0 + Layer 1. Links GMP and the YAFU
-#                 objects that provide arith/monty/aprcl/tinyprp.
+#                 objects that provide factor/shared/arith/monty/factor/shared/aprcl/tinyprp.
 #
 # Point the variables below at your tree, then `make full`. Everything is
 # overridable on the command line, e.g.:  make full YAFU_ROOT=/path/to/yafu

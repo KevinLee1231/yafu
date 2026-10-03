@@ -13,7 +13,7 @@
  convention. Each check runs under THREADS=1 and THREADS=2 and asserts the
  two agree, covering the threaded path.
 
- API (ysieve/soe.h, defined in ysieve/wrapper.c):
+ API (factor/shared/ysieve/soe.h, defined in factor/shared/ysieve/wrapper.c):
    soe_staticdata_t *soe_init(int vflag, int threads, int blocksize);
    uint64_t *soe_wrapper(sdata, lowlimit, highlimit, count, *num_p,
                          PRIMES_TO_FILE, PRIMES_TO_SCREEN);

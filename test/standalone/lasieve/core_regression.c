@@ -1,10 +1,10 @@
 #include <assert.h>
 #include <gmp.h>
 
-#include "factor/lasieve5_64/asm/siever-config.h"
-#include "factor/lasieve5_64/if.h"
-#include "factor/lasieve5_64/gmp-aux.h"
-#include "factor/lasieve5_64/redu2.h"
+#include "factor/nfs/lasieve/asm/siever-config.h"
+#include "factor/nfs/lasieve/if.h"
+#include "factor/nfs/lasieve/gmp-aux.h"
+#include "factor/nfs/lasieve/redu2.h"
 
 int main(void)
 {

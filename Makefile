@@ -11,9 +11,8 @@
 #   cp config.mk.example config.mk   # first time only; edit paths as needed
 #   Add to .gitignore: config.mk  .deps/
 #   make yafu                        # build yafu (default compiler: gcc)
-#   make msieve                      # build msieve static library + demo
-#   make all                         # build all four above targets
-#   make lasieve                     # build lasieve5_64 binaries
+#   make all                         # build yafu
+#   make lasieve                     # build the external lattice sievers
 #   make CC=clang yafu               # use clang
 #   make CC=icc yafu                 # use Intel compiler
 #   make DEBUG=1 yafu                # debug build
@@ -30,7 +29,6 @@
 #                  (mutually exclusive with BATCH_CUDA / CUDA_POLY)
 #   CUDA_POLY=1    GPU NFS polynomial selection       (requires CUDA)
 #   MPI=1          MPI parallel processing
-#   NO_ZLIB=1      Disable zlib
 #   VBITS=N        Linear algebra vector width: 64 (default), 128, 256
 #   USE_SSE41=1      SSE 4.1
 #   USE_AVX2=1       AVX2  (implies SSE 4.1)
@@ -133,7 +131,7 @@ Set GMP_PREFIX or GMP_INCDIR in config.mk or on the command line.)
 endif
 
 # Normalise to absolute paths so sub-makes at deeper directory levels
-# (factor/lasieve5_64/ and factor/lasieve5_64/asm/) receive correct paths
+# (factor/nfs/lasieve/ and factor/nfs/lasieve/asm/) receive correct paths
 # even when config.mk used a relative value like ../gmp-install/mingw.
 GMP_INCDIR := $(abspath $(GMP_INCDIR))
 GMP_LIBDIR := $(abspath $(GMP_LIBDIR))
@@ -142,7 +140,7 @@ GMP_INC   := -I$(GMP_INCDIR)
 GMP_LPATH := $(if $(GMP_LIBDIR),-L$(GMP_LIBDIR))
 
 
-# ---- 4b. GMP-ECM  (optional) -----------------------------------------------
+# ---- 4b. GMP-ECM  (required) -----------------------------------------------
 ifdef ECM_PREFIX
     ECM_INCDIR ?= $(ECM_PREFIX)/include
     ECM_LIBDIR ?= $(ECM_PREFIX)/lib
@@ -427,19 +425,23 @@ CFLAGS += -DVBITS=$(VBITS)
 # Include paths — project-internal
 CFLAGS += \
     -I. \
-    -Iinclude \
-    -Ims_include \
-    -Itop/aprcl \
+    -Ifactor/shared/include \
     -Itop/cmdParser \
     -Itop \
-    -Ifactor/gmp-ecm \
-    -Iytools \
-    -Iysieve \
-    -Iaprcl \
-    -Ignfs \
-    -Ignfs/poly \
-    -Ignfs/poly/stage1 \
-    -Ifactor/avx-ecm \
+    -Ifactor/siqs/include \
+    -Ifactor/ecm/include \
+    -Ifactor/mpqs/include \
+    -Ifactor/nfs/gnfs/include \
+    -Ifactor/core/include \
+    -Ifactor/ecm \
+    -Ifactor/shared/ytools \
+    -Ifactor/shared/ysieve \
+    -Ifactor/shared/common \
+    -Ifactor/shared/aprcl \
+    -Ifactor/nfs/gnfs \
+    -Ifactor/nfs/gnfs/poly \
+    -Ifactor/nfs/gnfs/poly/stage1 \
+    -Ifactor/ecm \
     -Ifactor
 
 # External dependency includes
@@ -700,13 +702,10 @@ endif
 # -----------------------------------------------------------------------------
 # 10. OPTIONAL FEATURE FLAGS
 # -----------------------------------------------------------------------------
-ifeq ($(OMP),1)
-    CFLAGS += -fopenmp -DHAVE_OMP
-endif
-
-ifeq ($(ECM),1)
-    CFLAGS += -DHAVE_GMP_ECM
-endif
+# OpenMP drives the parallel ECM and sieve stages, and HAVE_GMP_ECM selects
+# the gmp-ecm implementation; neither is optional here.
+CFLAGS += -fopenmp -DHAVE_OMP
+CFLAGS += -DHAVE_GMP_ECM
 
 ifdef BATCH_CUDA
     CFLAGS += -DHAVE_CUDA_BATCH_FACTOR -DTOOLKIT_VERSION=$(TOOLKIT_VERSION)
@@ -719,7 +718,7 @@ ifdef WITH_OPENCL
 endif
 
 ifdef CUDA_POLY
-    CFLAGS += -DHAVE_CUDA_POLY -DTOOLKIT_VERSION=$(TOOLKIT_VERSION) -Icub
+    CFLAGS += -DHAVE_CUDA_POLY -DTOOLKIT_VERSION=$(TOOLKIT_VERSION) -Ifactor/shared/cub
 	CUDA_PTX_ARCH ?= compute_$(SM)
 	CUB_ENGINE_ARCH ?= -gencode arch=compute_$(SM),code=sm_$(SM)
     ifeq ($(DETECTED_OS),Windows)
@@ -785,62 +784,43 @@ CFLAGS += $(USER_CFLAGS)
 # 11. LINKER FLAG ASSEMBLY
 #
 #    LIBS       — libraries linked into yafu and the demo binaries
-#    MSIEVE_LIBS — libraries linked into msieve (slightly different set)
 # -----------------------------------------------------------------------------
 
 # Base library search paths
 LIBS        := -L. $(GMP_LPATH) $(ECM_LPATH) $(CUDA_LPATH) $(OCL_LPATH)
-MSIEVE_LIBS := -L. $(GMP_LPATH) $(ECM_LPATH)
 
-# ECM
-ifeq ($(ECM),1)
-    ifneq (,$(HAVE_ECM_LIB))
-        LIBS        += -lecm
-        MSIEVE_LIBS += -lecm
-    else
-        $(error ECM=1 requires ecm.h; set ECM_PREFIX or ECM_INCDIR, or use ECM=0)
-    endif
+# ECM.  The elliptic-curve method is one of the two ways this program finds
+# medium-sized factors, so gmp-ecm is required rather than a build option.
+ifneq (,$(HAVE_ECM_LIB))
+    LIBS        += -lecm
+else
+    $(error ecm.h not found: the ECM factoring method needs gmp-ecm.             Install libecm-dev, or point ECM_PREFIX / ECM_INCDIR + ECM_LIBDIR at it)
 endif
 
 # CUDA (batch cofactorisation)
 ifdef BATCH_CUDA
     LIBS        += $(CUDA_LPATH) -lcuda -lcudart
-    MSIEVE_LIBS += $(CUDA_LPATH) -lcuda -lcudart
 endif
 
 # CUDA (polynomial selection)
 ifdef CUDA_POLY
 	LIBS        += $(CUDA_LPATH) $(CUDA_POLY_LIBS)
-    MSIEVE_LIBS += $(CUDA_POLY_LIBS)
 endif
 
 # OpenCL
 ifneq (,$(HAVE_OPENCL))
     LIBS        += $(OCL_LPATH) $(OCL_LIBS)
-    MSIEVE_LIBS += $(OCL_LPATH) $(OCL_LIBS)
 endif
 
-# MPI / BOINC / zlib
-ifeq ($(BOINC),1)
-    MSIEVE_LIBS += -L$(BOINC_LIB_DIR) -lboinc_api -lboinc
-endif
-
-ifeq ($(NO_ZLIB),1)
-    CFLAGS += -DNO_ZLIB
-else
-    MSIEVE_LIBS += -lz
-endif
-
+# MPI / BOINC
 # GMP, math, threading
 LIBS        += -lgmp -lpthread -lm
-MSIEVE_LIBS += -lgmp -lm -lpthread
 
 # Static Windows build needs extra libs that are normally pulled in implicitly
 # by the shared runtime, plus winpthread for the static pthreads implementation.
 ifeq ($(DETECTED_OS),Windows)
     ifdef STATIC_WIN
         LIBS        += -lwinpthread -lws2_32 -lssp
-        MSIEVE_LIBS += -lwinpthread -lws2_32 -lssp
     endif
 endif
 
@@ -848,18 +828,15 @@ endif
 ifneq ($(MINGW),1)
     ifneq ($(DETECTED_OS),Windows)
         LIBS        += -ldl
-        MSIEVE_LIBS += -ldl
     endif
 endif
 
 # ICC: SVML
 ifeq ($(COMPILER_FAMILY),icc)
     LIBS        += -lsvml
-    MSIEVE_LIBS += -lsvml
 endif
 
 LIBS        += $(USER_LDFLAGS) $(LDFLAGS_EXTRA)
-MSIEVE_LIBS += $(USER_LDFLAGS) $(LDFLAGS_EXTRA)
 
 
 # =============================================================================
@@ -872,13 +849,13 @@ OBJ_EXT := .o
 # 12. MSIEVE / YAFU shared sources
 # -----------------------------------------------------------------------------
 MSIEVE_YAFU_SRCS = \
-    factor/qs/msieve/lanczos.c \
-    factor/qs/msieve/lanczos_matmul0.c \
-    factor/qs/msieve/lanczos_matmul1.c \
-    factor/qs/msieve/lanczos_matmul2.c \
-    factor/qs/msieve/lanczos_pre.c \
-    factor/qs/msieve/sqrt.c \
-    factor/qs/msieve/gf2.c
+    factor/siqs/msieve/lanczos.c \
+    factor/siqs/msieve/lanczos_matmul0.c \
+    factor/siqs/msieve/lanczos_matmul1.c \
+    factor/siqs/msieve/lanczos_matmul2.c \
+    factor/siqs/msieve/lanczos_pre.c \
+    factor/siqs/msieve/sqrt.c \
+    factor/siqs/msieve/gf2.c
 
 MSIEVE_YAFU_OBJS = $(MSIEVE_YAFU_SRCS:.c=$(OBJ_EXT))
 
@@ -889,8 +866,8 @@ MSIEVE_YAFU_OBJS = $(MSIEVE_YAFU_SRCS:.c=$(OBJ_EXT))
 YAFU_SRCS = \
     top/driver.c \
     top/test.c \
-    factor/tune.c \
-    factor/autofactor.c \
+    factor/core/tune.c \
+    factor/core/autofactor.c \
     top/cmdParser/cmdOptions.c \
     top/cmdParser/calc.c
 
@@ -899,38 +876,38 @@ YAFU_SRCS = \
 # 14. COMMON (shared across yafu targets)
 # -----------------------------------------------------------------------------
 COMMON_SRCS = \
-    factor/batch_factor.c \
-    factor/factor_common.c \
-    factor/rho.c \
-    factor/squfof.c \
-    factor/trialdiv.c \
-    arith/arith.c \
-    arith/monty.c \
-    arith/fftmul.c \
-    top/aprcl/tinyprp.c \
-    factor/gmp-ecm/tinyecm.c \
-    factor/gmp-ecm/micropm1.c \
-    factor/gmp-ecm/microecm.c \
-    ytools/threadpool.c \
-    ytools/ytools.c \
-    ysieve/presieve.c \
-    ysieve/count.c \
-    ysieve/offsets.c \
-    ysieve/primes.c \
-    ysieve/roots.c \
-    ysieve/linesieve.c \
-    ysieve/soe.c \
-    ysieve/tiny.c \
-    ysieve/worker.c \
-    ysieve/soe_util.c \
-    ysieve/wrapper.c \
-    top/aprcl/mpz_aprcl.c \
-    factor/gpu_cofactorization.c \
-	common/vec_bitonic_sort.c
+    factor/core/batch_factor.c \
+    factor/core/factor_common.c \
+    factor/trialdiv/rho.c \
+    factor/trialdiv/squfof.c \
+    factor/trialdiv/trialdiv.c \
+    factor/shared/arith/arith.c \
+    factor/shared/arith/monty.c \
+    factor/shared/arith/fftmul.c \
+    factor/shared/aprcl/tinyprp.c \
+    factor/ecm/tinyecm.c \
+    factor/ecm/micropm1.c \
+    factor/ecm/microecm.c \
+    factor/shared/ytools/threadpool.c \
+    factor/shared/ytools/ytools.c \
+    factor/shared/ysieve/presieve.c \
+    factor/shared/ysieve/count.c \
+    factor/shared/ysieve/offsets.c \
+    factor/shared/ysieve/primes.c \
+    factor/shared/ysieve/roots.c \
+    factor/shared/ysieve/linesieve.c \
+    factor/shared/ysieve/soe.c \
+    factor/shared/ysieve/tiny.c \
+    factor/shared/ysieve/worker.c \
+    factor/shared/ysieve/soe_util.c \
+    factor/shared/ysieve/wrapper.c \
+    factor/shared/aprcl/mpz_aprcl.c \
+    factor/core/gpu_cofactorization.c \
+	factor/shared/common/vec_bitonic_sort.c
 
 COMMON_BATCH_GPU_SRCS = \
-    factor/cuda_tinyecm.cu \
-    factor/cuda_intrinsics.h
+    factor/core/cuda_tinyecm.cu \
+    factor/core/cuda_intrinsics.h
 
 # OpenCL batch cofactorisation backend.  Its kernels (factor/opencl_*.cl) are
 # compiled by the OpenCL runtime at run time, so only host code is built here.
@@ -945,60 +922,60 @@ endif
 # 15. ECM sources
 # -----------------------------------------------------------------------------
 ECM_SRCS = \
-    factor/gmp-ecm/ecm.c \
-    factor/gmp-ecm/pp1.c \
-    factor/gmp-ecm/pm1.c \
-    factor/avx-ecm/avxecm.c \
-    factor/avx-ecm/avx_ecm_main.c \
-    factor/avx-ecm/vec_common.c \
-    factor/avx-ecm/vecarith.c \
-    factor/avx-ecm/vecarith52.c \
-    factor/avx-ecm/vecarith52_special.c \
-    factor/avx-ecm/vecarith52_common.c
+    factor/ecm/ecm.c \
+    factor/ecm/pp1.c \
+    factor/ecm/pm1.c \
+    factor/ecm/avxecm.c \
+    factor/ecm/avx_ecm_main.c \
+    factor/ecm/vec_common.c \
+    factor/ecm/vecarith.c \
+    factor/ecm/vecarith52.c \
+    factor/ecm/vecarith52_special.c \
+    factor/ecm/vecarith52_common.c
 
 
 # -----------------------------------------------------------------------------
 # 16. SIQS sources  (base + ISA-specific additions)
 # -----------------------------------------------------------------------------
 YAFU_SIQS_SRCS = \
-    factor/qs/filter.c \
-    factor/qs/tdiv.c \
-    factor/qs/tdiv_small.c \
-    factor/qs/tdiv_large.c \
-    factor/qs/tdiv_scan.c \
-    factor/qs/large_sieve.c \
-    factor/qs/new_poly.c \
-    factor/qs/siqs_test.c \
-    factor/qs/siqs_aux.c \
-    factor/qs/smallmpqs.c \
-    factor/qs/SIQS.c \
-    factor/qs/med_sieve_32k.c \
-    factor/qs/poly_roots_32k.c \
-    factor/qs/cofactorize_siqs.c
+    factor/siqs/filter.c \
+    factor/siqs/tdiv.c \
+    factor/siqs/tdiv_small.c \
+    factor/siqs/tdiv_large.c \
+    factor/siqs/tdiv_scan.c \
+    factor/siqs/large_sieve.c \
+    factor/siqs/new_poly.c \
+    factor/siqs/siqs_test.c \
+    factor/siqs/siqs_aux.c \
+    factor/smallmpqs/smallmpqs.c \
+    factor/siqs/SIQS.c \
+    factor/siqs/med_sieve_32k.c \
+    factor/siqs/poly_roots_32k.c \
+    factor/siqs/cofactorize_siqs.c
 
 ifeq ($(USE_SSE41),1)
     YAFU_SIQS_SRCS += \
-        factor/qs/update_poly_roots_32k_sse4.1.c \
-        factor/qs/med_sieve_32k_sse4.1.c
+        factor/siqs/update_poly_roots_32k_sse4.1.c \
+        factor/siqs/med_sieve_32k_sse4.1.c
 endif
 
 ifeq ($(USE_AVX2),1)
     YAFU_SIQS_SRCS += \
-        factor/qs/tdiv_med_32k_avx2.c \
-        factor/qs/update_poly_roots_32k_avx2.c \
-        factor/qs/med_sieve_32k_avx2.c \
-        factor/qs/tdiv_resieve_32k_avx2.c
+        factor/siqs/tdiv_med_32k_avx2.c \
+        factor/siqs/update_poly_roots_32k_avx2.c \
+        factor/siqs/med_sieve_32k_avx2.c \
+        factor/siqs/tdiv_resieve_32k_avx2.c
 endif
 
 ifeq ($(USE_AVX512),1)
-    YAFU_SIQS_SRCS += factor/qs/update_poly_roots_32k_knl.c
+    YAFU_SIQS_SRCS += factor/siqs/update_poly_roots_32k_knl.c
 endif
 
 # Always-included generic SIQS files (appended after any ISA variants)
 YAFU_SIQS_SRCS += \
-    factor/qs/update_poly_roots_32k.c \
-    factor/qs/tdiv_med_32k.c \
-    factor/qs/tdiv_resieve_32k.c
+    factor/siqs/update_poly_roots_32k.c \
+    factor/siqs/tdiv_med_32k.c \
+    factor/siqs/tdiv_resieve_32k.c
 
 
 # -----------------------------------------------------------------------------
@@ -1014,49 +991,49 @@ YAFU_NFS_SRCS = \
     factor/nfs/nfs.c
 
 ifdef BATCH_CUDA
-    YAFU_NFS_SRCS += common/cuda_xface.c
+    YAFU_NFS_SRCS += factor/shared/common/cuda_xface.c
 endif
 
 NFS_SRCS = \
-    gnfs/poly/poly.c \
-    gnfs/poly/poly_param.c \
-    gnfs/poly/poly_skew.c \
-	gnfs/poly/poly_stats.c \
-    gnfs/poly/polyutil.c \
-    gnfs/poly/root_score.c \
-    gnfs/poly/size_score.c \
-	gnfs/poly/stage1/stage1_sieve_cpu_hashtable.c \
-	gnfs/poly/stage1/stage1_sieve_cpu.c \
-	gnfs/poly/stage1/stage1_engine.c \
-    gnfs/poly/stage1/stage1.c \
-    gnfs/poly/stage1/stage1_roots.c \
-    gnfs/poly/stage2/optimize.c \
-    gnfs/poly/stage2/optimize_deg6.c \
-    gnfs/poly/stage2/root_sieve.c \
-    gnfs/poly/stage2/root_sieve_deg45_x.c \
-    gnfs/poly/stage2/root_sieve_deg5_xy.c \
-    gnfs/poly/stage2/root_sieve_deg6_x.c \
-    gnfs/poly/stage2/root_sieve_deg6_xy.c \
-    gnfs/poly/stage2/root_sieve_deg6_xyz.c \
-    gnfs/poly/stage2/root_sieve_line.c \
-    gnfs/poly/stage2/root_sieve_util.c \
-    gnfs/poly/stage2/stage2.c \
-    gnfs/filter/duplicate.c \
-    gnfs/filter/filter.c \
-    gnfs/filter/singleton.c \
-    gnfs/sieve/sieve_line.c \
-    gnfs/sieve/sieve_util.c \
-    gnfs/sqrt/sqrt.c \
-    gnfs/sqrt/sqrt_a.c \
-    gnfs/fb.c \
-    gnfs/ffpoly.c \
-    gnfs/gf2.c \
-    gnfs/gnfs.c \
-    gnfs/relation.c
+    factor/nfs/gnfs/poly/poly.c \
+    factor/nfs/gnfs/poly/poly_param.c \
+    factor/nfs/gnfs/poly/poly_skew.c \
+	factor/nfs/gnfs/poly/poly_stats.c \
+    factor/nfs/gnfs/poly/polyutil.c \
+    factor/nfs/gnfs/poly/root_score.c \
+    factor/nfs/gnfs/poly/size_score.c \
+	factor/nfs/gnfs/poly/stage1/stage1_sieve_cpu_hashtable.c \
+	factor/nfs/gnfs/poly/stage1/stage1_sieve_cpu.c \
+	factor/nfs/gnfs/poly/stage1/stage1_engine.c \
+    factor/nfs/gnfs/poly/stage1/stage1.c \
+    factor/nfs/gnfs/poly/stage1/stage1_roots.c \
+    factor/nfs/gnfs/poly/stage2/optimize.c \
+    factor/nfs/gnfs/poly/stage2/optimize_deg6.c \
+    factor/nfs/gnfs/poly/stage2/root_sieve.c \
+    factor/nfs/gnfs/poly/stage2/root_sieve_deg45_x.c \
+    factor/nfs/gnfs/poly/stage2/root_sieve_deg5_xy.c \
+    factor/nfs/gnfs/poly/stage2/root_sieve_deg6_x.c \
+    factor/nfs/gnfs/poly/stage2/root_sieve_deg6_xy.c \
+    factor/nfs/gnfs/poly/stage2/root_sieve_deg6_xyz.c \
+    factor/nfs/gnfs/poly/stage2/root_sieve_line.c \
+    factor/nfs/gnfs/poly/stage2/root_sieve_util.c \
+    factor/nfs/gnfs/poly/stage2/stage2.c \
+    factor/nfs/gnfs/filter/duplicate.c \
+    factor/nfs/gnfs/filter/filter.c \
+    factor/nfs/gnfs/filter/singleton.c \
+    factor/nfs/gnfs/sieve/sieve_line.c \
+    factor/nfs/gnfs/sieve/sieve_util.c \
+    factor/nfs/gnfs/sqrt/sqrt.c \
+    factor/nfs/gnfs/sqrt/sqrt_a.c \
+    factor/nfs/gnfs/fb.c \
+    factor/nfs/gnfs/ffpoly.c \
+    factor/nfs/gnfs/gf2.c \
+    factor/nfs/gnfs/gnfs.c \
+    factor/nfs/gnfs/relation.c
 
-NFS_GPU_SRCS  = gnfs/poly/stage1/stage1_sieve_gpu.c
+NFS_GPU_SRCS  = factor/nfs/gnfs/poly/stage1/stage1_sieve_gpu.c
 NFS_NOGPU_SRCS = 
-#gnfs/poly/stage1/stage1_sieve_cpu.c
+#factor/nfs/gnfs/poly/stage1/stage1_sieve_cpu.c
 
 ifeq ($(CUDA_POLY),1)
     NFS_SRCS += $(NFS_GPU_SRCS)
@@ -1069,55 +1046,55 @@ endif
 # 19. Msieve common sources
 # -----------------------------------------------------------------------------
 MSIEVE_COMMON_SRCS = \
-    common/filter/clique.c \
-    common/filter/filter.c \
-    common/filter/merge.c \
-    common/filter/merge_post.c \
-    common/filter/merge_pre.c \
-    common/filter/merge_util.c \
-    common/filter/singleton.c \
-    common/lanczos/lanczos.c \
-    common/lanczos/lanczos_io.c \
-    common/lanczos/lanczos_matmul.c \
-    common/lanczos/lanczos_pre.c \
-    common/lanczos/matmul_util.c \
-    common/smallfact/gmp_ecm.c \
-    common/smallfact/smallfact.c \
-    common/smallfact/squfof.c \
-    common/smallfact/tinyqs.c \
-    common/cuda_xface.c \
-    common/cuda_xface_la.c \
-    common/dickman.c \
-    common/driver.c \
-    common/expr_eval.c \
-    common/hashtable.c \
-    common/integrate.c \
-    common/minimize.c \
-    common/minimize_global.c \
-    common/mp.c \
-    common/ms_batch_factor.c \
-    common/polyroot.c \
-    common/prime_delta.c \
-    common/prime_sieve.c \
-    common/savefile.c \
-    common/strtoll.c \
-    common/thread.c \
-    common/util.c \
-    aprcl/mpz_aprcl32.c
+    factor/shared/common/filter/clique.c \
+    factor/shared/common/filter/filter.c \
+    factor/shared/common/filter/merge.c \
+    factor/shared/common/filter/merge_post.c \
+    factor/shared/common/filter/merge_pre.c \
+    factor/shared/common/filter/merge_util.c \
+    factor/shared/common/filter/singleton.c \
+    factor/shared/common/lanczos/lanczos.c \
+    factor/shared/common/lanczos/lanczos_io.c \
+    factor/shared/common/lanczos/lanczos_matmul.c \
+    factor/shared/common/lanczos/lanczos_pre.c \
+    factor/shared/common/lanczos/matmul_util.c \
+    factor/shared/common/smallfact/gmp_ecm.c \
+    factor/shared/common/smallfact/smallfact.c \
+    factor/shared/common/smallfact/squfof.c \
+    factor/shared/common/smallfact/tinyqs.c \
+    factor/shared/common/cuda_xface.c \
+    factor/shared/common/cuda_xface_la.c \
+    factor/shared/common/dickman.c \
+    factor/shared/common/driver.c \
+    factor/shared/common/expr_eval.c \
+    factor/shared/common/hashtable.c \
+    factor/shared/common/integrate.c \
+    factor/shared/common/minimize.c \
+    factor/shared/common/minimize_global.c \
+    factor/shared/common/mp.c \
+    factor/shared/common/ms_batch_factor.c \
+    factor/shared/common/polyroot.c \
+    factor/shared/common/prime_delta.c \
+    factor/shared/common/prime_sieve.c \
+    factor/shared/common/savefile.c \
+    factor/shared/common/strtoll.c \
+    factor/shared/common/thread.c \
+    factor/shared/common/util.c \
+    factor/shared/aprcl/mpz_aprcl32.c
 	
 ifeq ($(OS),Windows_NT)
-	MSIEVE_COMMON_SRCS += common/mpz-ull.c
+	MSIEVE_COMMON_SRCS += factor/shared/common/mpz-ull.c
 endif
 
 COMMON_GPU_SRCS = \
-    common/lanczos/gpu/lanczos_matmul_gpu.c \
-    common/lanczos/gpu/lanczos_vv.c
+    factor/shared/common/lanczos/gpu/lanczos_matmul_gpu.c \
+    factor/shared/common/lanczos/gpu/lanczos_vv.c
 
 COMMON_NOGPU_SRCS = \
-    common/lanczos/cpu/lanczos_matmul0.c \
-    common/lanczos/cpu/lanczos_matmul1.c \
-    common/lanczos/cpu/lanczos_matmul2.c \
-    common/lanczos/cpu/lanczos_vv.c
+    factor/shared/common/lanczos/cpu/lanczos_matmul0.c \
+    factor/shared/common/lanczos/cpu/lanczos_matmul1.c \
+    factor/shared/common/lanczos/cpu/lanczos_matmul2.c \
+    factor/shared/common/lanczos/cpu/lanczos_vv.c
 
 ifdef CUDA_LA
     MSIEVE_COMMON_SRCS += $(COMMON_GPU_SRCS)
@@ -1127,16 +1104,18 @@ endif
 
 
 # -----------------------------------------------------------------------------
-# 20. QS sources  (msieve's quadratic sieve)
+# 20. QS sources  (the multi-polynomial quadratic sieve;
+#     compiled and linked, but not on any live call path -- its only
+#     caller was the msieve demo, which is gone)
 # -----------------------------------------------------------------------------
 QS_SRCS = \
-    mpqs/gf2.c \
-    mpqs/mpqs.c \
-    mpqs/poly.c \
-    mpqs/relation.c \
-    mpqs/sieve.c \
-    mpqs/sieve_core.c \
-    mpqs/sqrt.c
+    factor/mpqs/gf2.c \
+    factor/mpqs/mpqs.c \
+    factor/mpqs/poly.c \
+    factor/mpqs/relation.c \
+    factor/mpqs/sieve.c \
+    factor/mpqs/sieve_core.c \
+    factor/mpqs/sqrt.c
 
 
 # -----------------------------------------------------------------------------
@@ -1152,14 +1131,14 @@ NFS_OBJS          = $(NFS_SRCS:.c=.no)
 NFS_GPU_OBJS      = $(NFS_GPU_SRCS:.c=.no)
 NFS_NOGPU_OBJS    = $(NFS_NOGPU_SRCS:.c=.no)
 QS_OBJS = \
-    mpqs/gf2.qo \
-    mpqs/mpqs.qo \
-    mpqs/poly.qo \
-    mpqs/relation.qo \
-    mpqs/sieve.qo \
-    mpqs/sqrt.qo \
-    mpqs/sieve_core_generic_32k.qo \
-    mpqs/sieve_core_generic_64k.qo
+    factor/mpqs/gf2.qo \
+    factor/mpqs/mpqs.qo \
+    factor/mpqs/poly.qo \
+    factor/mpqs/relation.qo \
+    factor/mpqs/sieve.qo \
+    factor/mpqs/sqrt.qo \
+    factor/mpqs/sieve_core_generic_32k.qo \
+    factor/mpqs/sieve_core_generic_64k.qo
 
 DEPS_DIR      := .deps
 ALL_OBJS      := $(YAFU_OBJS) $(YAFU_SIQS_OBJS) $(YAFU_ECM_OBJS) \
@@ -1185,7 +1164,7 @@ ifdef CUDA_LA
     GPU_OBJS += lanczos_kernel.ptx
 endif
 ifeq ($(CUDA_POLY),1)
-    GPU_OBJS += stage1_core.ptx cub/built
+    GPU_OBJS += stage1_core.ptx factor/shared/cub/built
 endif
 ifdef BATCH_CUDA
     BATCH_GPU_OBJS := cuda_ecm$(SM).ptx
@@ -1201,12 +1180,12 @@ endif
 # -----------------------------------------------------------------------------
 # 22. PHONY TARGETS
 # -----------------------------------------------------------------------------
-.PHONY: all yafu msieve lasieve lasieve-clean clean info help _dep_status
+.PHONY: all yafu lasieve lasieve-clean clean info help _dep_status
 
 # -----------------------------------------------------------------------------
 # 23. DEFAULT GOAL
 # -----------------------------------------------------------------------------
-all: yafu msieve
+all: yafu
 
 # -----------------------------------------------------------------------------
 # 24. DEPENDENCY STATUS  (printed at the start of every real build)
@@ -1214,7 +1193,7 @@ all: yafu msieve
 _dep_status:
 	@echo "--- Dependency status -----------------------------------------------"
 	@echo "  GMP     : found ($(GMP_INCDIR))"
-	@echo "  GMP-ECM : $(if $(HAVE_ECM_LIB),found ($(ECM_INCDIR)),DISABLED — ecm.h not found; set ECM_PREFIX in config.mk)"
+	@echo "  GMP-ECM : found ($(ECM_INCDIR)) — required for the ECM method"
 	@echo "  CUDA    : $(if $(HAVE_CUDA_TOOLKIT),found ($(CUDA_INCDIR)),DISABLED — cuda.h not found; set CUDA_PREFIX in config.mk)"
 	@echo "  OpenCL  : $(if $(HAVE_OPENCL),found ($(OCL_INCDIR)),DISABLED — CL/cl.h not found; set OCL_PREFIX in config.mk)"
 	@echo "---------------------------------------------------------------------"
@@ -1224,17 +1203,18 @@ $(DEPS_SUBDIRS):
 	$(MKDIR) $@
 
 
+# 静态库是链接中间产物：放在 build/ 下，根目录不留生成文件
+BUILD_DIR   := build
+ARCHIVES    := $(BUILD_DIR)/libysiqs.a $(BUILD_DIR)/libyecm.a \
+               $(BUILD_DIR)/libynfs.a $(BUILD_DIR)/libmsieve.a
+
 # -----------------------------------------------------------------------------
 # 25. LINK TARGETS
 # -----------------------------------------------------------------------------
 
-yafu: _dep_status $(YAFU_OBJS) libysiqs.a libyecm.a libynfs.a libmsieve.a $(GPU_OBJS)
+yafu: _dep_status $(YAFU_OBJS) $(ARCHIVES) $(GPU_OBJS)
 	$(CC) $(CFLAGS) $(YAFU_OBJS) -o yafu$(EXE_EXT) \
-	    -lysiqs -lyecm -lynfs -lmsieve $(LIBS)
-
-msieve: _dep_status libmsieve.a $(GPU_OBJS) demo.c
-	$(CC) $(CFLAGS) demo.c -o msieve$(EXE_EXT) \
-	    libmsieve.a $(MSIEVE_LIBS)
+	    $(ARCHIVES) $(LIBS)
 
 
 # -----------------------------------------------------------------------------
@@ -1250,7 +1230,7 @@ msieve: _dep_status libmsieve.a $(GPU_OBJS) demo.c
 # framework headers testkit.h / test_data.h.
 #
 # Layer 1 exercises the arithmetic / number-theory kernels, which live in
-# COMMON_SRCS (arith.c, monty.c, top/aprcl/{mpz_aprcl,tinyprp}.c, ysieve/*).
+# COMMON_SRCS (arith.c, monty.c, factor/shared/aprcl/{mpz_aprcl,tinyprp}.c, factor/shared/ysieve/*).
 # We bundle YAFU_COMMON_OBJS into a static archive and let the linker pull only
 # the members the tests actually reference, so the other COMMON objects
 # (factor_common, microecm, gpu_cofactorization, ...) and their SIQS/NFS/CUDA
@@ -1295,20 +1275,21 @@ $(TEST_DIR)/%.o: $(TEST_DIR)/%.c $(TEST_DIR)/testkit.h $(TEST_DIR)/test_data.h
 
 -include $(patsubst %.c,$(DEPS_DIR)/%.d,$(TEST_SRCS))
 
-libyafu_common.a: $(TEST_KERNEL_OBJS)
+$(BUILD_DIR)/libyafu_common.a: $(TEST_KERNEL_OBJS)
+	@mkdir -p $(@D)
 	rm -f $@
 	ar r  $@ $(TEST_KERNEL_OBJS)
 	ranlib $@
 
-test: _dep_status $(TEST_OBJS) libyafu_common.a
-	$(CC) $(CFLAGS) $(TEST_OBJS) -o $(TEST_BIN) libyafu_common.a $(LIBS)
+test: _dep_status $(TEST_OBJS) $(BUILD_DIR)/libyafu_common.a
+	$(CC) $(CFLAGS) $(TEST_OBJS) -o $(TEST_BIN) $(BUILD_DIR)/libyafu_common.a $(LIBS)
 	@echo "built $(TEST_BIN) — run it:  ./$(TEST_BIN)   (try --list, --bench, --help)"
 
 test-run: test
 	./$(TEST_BIN)
 
 test-clean:
-	$(RM_RF) $(TEST_OBJS) libyafu_common.a $(TEST_BIN) $(TEST_FULL_BIN) $(TEST_SAN_BIN)
+	$(RM_RF) $(TEST_OBJS) $(BUILD_DIR) $(TEST_BIN) $(TEST_FULL_BIN) $(TEST_SAN_BIN)
 
 
 # -----------------------------------------------------------------------------
@@ -1327,34 +1308,37 @@ test-clean:
 TEST_L3_SRCS  := $(TEST_DIR)/layer3/test_siqs.c $(TEST_DIR)/layer3/test_calc.c \
     $(TEST_DIR)/layer3/test_options.c \
     $(TEST_DIR)/layer3/test_ecm_review.c $(TEST_DIR)/layer3/test_qs_review.c \
-    common/vec_bitonic_sort.c
+    factor/shared/common/vec_bitonic_sort.c
 TEST_FRONTEND_OBJS := $(filter-out top/driver$(OBJ_EXT),$(YAFU_OBJS))
 TEST_FULL_BIN := yafu_test_full$(EXE_EXT)
 TEST_SAN_BIN := yafu_test_sanitize$(EXE_EXT)
-TEST_ARCHIVES := libysiqs.a libyecm.a libynfs.a libmsieve.a
 
 # 每个静态库只由一条规则生成，允许主程序、演示程序和测试并行链接。
-libysiqs.a: $(YAFU_SIQS_OBJS) $(YAFU_COMMON_OBJS) $(MSIEVE_YAFU_OBJS)
+$(BUILD_DIR)/libysiqs.a: $(YAFU_SIQS_OBJS) $(YAFU_COMMON_OBJS) $(MSIEVE_YAFU_OBJS)
+	@mkdir -p $(@D)
 	rm -f $@
 	ar r  $@ $(YAFU_SIQS_OBJS) $(YAFU_COMMON_OBJS) $(MSIEVE_YAFU_OBJS)
 	ranlib $@
-libyecm.a: $(YAFU_ECM_OBJS) $(YAFU_COMMON_OBJS)
+$(BUILD_DIR)/libyecm.a: $(YAFU_ECM_OBJS) $(YAFU_COMMON_OBJS)
+	@mkdir -p $(@D)
 	rm -f $@
 	ar r  $@ $(YAFU_ECM_OBJS) $(YAFU_COMMON_OBJS)
 	ranlib $@
-libynfs.a: $(YAFU_NFS_OBJS) $(YAFU_COMMON_OBJS) $(BATCH_GPU_OBJS)
+$(BUILD_DIR)/libynfs.a: $(YAFU_NFS_OBJS) $(YAFU_COMMON_OBJS) $(BATCH_GPU_OBJS)
+	@mkdir -p $(@D)
 	rm -f $@
 	ar r  $@ $(YAFU_NFS_OBJS) $(YAFU_COMMON_OBJS) $(BATCH_GPU_OBJS)
 	ranlib $@
-libmsieve.a: $(MSIEVE_COMMON_OBJS) $(QS_OBJS) $(NFS_OBJS)
+$(BUILD_DIR)/libmsieve.a: $(MSIEVE_COMMON_OBJS) $(QS_OBJS) $(NFS_OBJS)
+	@mkdir -p $(@D)
 	rm -f $@
 	ar r  $@ $(MSIEVE_COMMON_OBJS) $(QS_OBJS) $(NFS_OBJS)
 	ranlib $@
 
-test-full: _dep_status $(TEST_ARCHIVES) $(TEST_FRONTEND_OBJS)
+test-full: _dep_status $(ARCHIVES) $(TEST_FRONTEND_OBJS)
 	$(CC) $(CFLAGS) -DTK_WITH_LAYER3 -I$(TEST_DIR) \
 	    $(TEST_SRCS) $(TEST_L3_SRCS) $(TEST_FRONTEND_OBJS) -o $(TEST_FULL_BIN) \
-	    $(TEST_ARCHIVES) $(LIBS)
+	    $(ARCHIVES) $(LIBS)
 	@echo "built $(TEST_FULL_BIN) -- Layers 0-3 (incl. SIQS integration)"
 
 test-full-run: test-full
@@ -1377,17 +1361,17 @@ test-sanitize:
 
 # 只为本次回归涉及的源码和测试启用运行时检查，不覆盖常规对象文件。
 .PHONY: test-calc-sanitize
-test-calc-sanitize: _dep_status $(TEST_ARCHIVES) $(TEST_FRONTEND_OBJS)
+test-calc-sanitize: _dep_status $(ARCHIVES) $(TEST_FRONTEND_OBJS)
 	$(CC) $(CFLAGS) -O1 -fsanitize=address,undefined -fno-omit-frame-pointer \
 	    -DTK_WITH_LAYER3 -I$(TEST_DIR) $(TEST_SRCS) $(TEST_L3_SRCS) \
-	    top/cmdParser/calc.c factor/factor_common.c \
+	    top/cmdParser/calc.c factor/core/factor_common.c \
 	    $(filter-out top/cmdParser/calc$(OBJ_EXT),$(TEST_FRONTEND_OBJS)) \
-	    -o $(TEST_SAN_BIN) $(TEST_ARCHIVES) $(LIBS)
+	    -o $(TEST_SAN_BIN) $(ARCHIVES) $(LIBS)
 	./$(TEST_SAN_BIN) calc
 
 
 # -----------------------------------------------------------------------------
-# lasieve — NFS sieve binaries (factor/lasieve5_64)
+# lasieve — NFS sieve binaries (factor/nfs/lasieve)
 #
 # Built separately from the main yafu targets since the sieve programs are
 # standalone binaries invoked at runtime, not linked into yafu.
@@ -1398,7 +1382,7 @@ test-calc-sanitize: _dep_status $(TEST_ARCHIVES) $(TEST_FRONTEND_OBJS)
 # 本地可执行文件写入独立目录，yafu.ini 的 ggnfs_dir 与此目录对应。
 # asm/ 中只生成供链接使用的库。
 # -----------------------------------------------------------------------------
-LASIEVE_DIR  := factor/lasieve5_64
+LASIEVE_DIR  := factor/nfs/lasieve
 LASIEVE_BINDIR ?= bin/local
 LASIEVE_VARS := \
     CC=$(CC) \
@@ -1438,54 +1422,54 @@ $(sort $(ALL_COMPILED) $(TEST_OBJS)): $(BUILD_CONFIG)
 	$(CC) $(CFLAGS) -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
 
 # QS objects (.qo) — also get dependency files now
-mpqs/sieve_core_generic_32k.qo: mpqs/sieve_core.c | $(DEPS_SUBDIRS)
+factor/mpqs/sieve_core_generic_32k.qo: factor/mpqs/sieve_core.c | $(DEPS_SUBDIRS)
 	$(CC) $(CFLAGS) -DBLOCK_KB=32 -DHAS_SSE2 \
 	    -DROUTINE_NAME=qs_core_sieve_generic_32k \
-	    -MMD -MP -MF $(DEPS_DIR)/mpqs/sieve_core_generic_32k.d \
+	    -MMD -MP -MF $(DEPS_DIR)/factor/mpqs/sieve_core_generic_32k.d \
 	    -c -o $@ $<
 
-mpqs/sieve_core_generic_64k.qo: mpqs/sieve_core.c | $(DEPS_SUBDIRS)
+factor/mpqs/sieve_core_generic_64k.qo: factor/mpqs/sieve_core.c | $(DEPS_SUBDIRS)
 	$(CC) $(CFLAGS) -DBLOCK_KB=64 -DHAS_SSE2 \
 	    -DROUTINE_NAME=qs_core_sieve_generic_64k \
-	    -MMD -MP -MF $(DEPS_DIR)/mpqs/sieve_core_generic_64k.d \
+	    -MMD -MP -MF $(DEPS_DIR)/factor/mpqs/sieve_core_generic_64k.d \
 	    -c -o $@ $<
 
 %.qo: %.c | $(DEPS_SUBDIRS)
 	$(CC) $(CFLAGS) -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
 
-# NFS objects (.no) — add -Ignfs for NFS-internal includes
+# NFS objects (.no) — add -Ifactor/nfs/gnfs for NFS-internal includes
 %.no: %.c | $(DEPS_SUBDIRS)
-	$(CC) $(CFLAGS) -Ignfs -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
+	$(CC) $(CFLAGS) -Ifactor/nfs/gnfs -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
 
 # GPU / PTX rules
-stage1_core.ptx: gnfs/poly/stage1/stage1_core_gpu/stage1_core.cu $(NFS_GPU_HDR)
-	$(NVCC) -arch $(CUDA_PTX_ARCH) -ptx -I. -Icub -Ignfs -Ignfs/poly/stage1 -o $@ $<
+stage1_core.ptx: factor/nfs/gnfs/poly/stage1/stage1_core_gpu/stage1_core.cu $(NFS_GPU_HDR)
+	$(NVCC) -arch $(CUDA_PTX_ARCH) -ptx -I. -Ifactor/shared/cub -Ifactor/nfs/gnfs -Ifactor/nfs/gnfs/poly/stage1 -o $@ $<
 	
-#stage1_core.ptx: gnfs/poly/stage1/stage1_core_gpu/stage1_core.cu
+#stage1_core.ptx: factor/nfs/gnfs/poly/stage1/stage1_core_gpu/stage1_core.cu
 #	$(NVCC) -arch sm_$(SM) -ptx -o $@ $<
 
-lanczos_kernel.ptx: common/lanczos/gpu/lanczos_kernel.cu
+lanczos_kernel.ptx: factor/shared/common/lanczos/gpu/lanczos_kernel.cu
 	$(NVCC) -arch sm_$(SM) -ptx -DVBITS=$(VBITS) -o $@ $<
 
 cuda_ecm$(SM).ptx: $(COMMON_BATCH_GPU_SRCS)
 	$(NVCC) -arch sm_$(SM) -ptx -o $@ $<
 
-# cub/built:
+# factor/shared/cub/built:
 # 	cd cub && $(MAKE) WIN=$(WIN) WIN64=$(WIN64) VBITS=$(VBITS) sm=$(SM)0 && cd ..
 
-cub/built: cub/sort_engine.cu cub/collision_engine.cu cub/collision_engine.h cub/collision_bucket.h
-	$(NVCC) $(CUB_ENGINE_ARCH) --shared -Xcompiler -fPIC -o cub/sort_engine.so cub/sort_engine.cu
+factor/shared/cub/built: factor/shared/cub/sort_engine.cu factor/shared/cub/collision_engine.cu factor/shared/cub/collision_engine.h factor/shared/cub/collision_bucket.h
+	$(NVCC) $(CUB_ENGINE_ARCH) --shared -Xcompiler -fPIC -o factor/shared/cub/sort_engine.so factor/shared/cub/sort_engine.cu
 # The Gerbicz collision engine uses __match_any_sync, which requires
 # compute capability 7.0 (Volta) or newer. For older GPUs, skip building it;
 # the sort engine is the default and works on sm_60. (Do not pass
 # collengine=gerbicz on such a build - see load_collision_engine().)
 ifeq ($(shell [ -n "$(SM)" ] && [ "$(SM)" -ge 70 ] && echo yes),yes)
-	$(NVCC) $(CUB_ENGINE_ARCH) --shared -Xcompiler -fPIC -I. -Icub -Ignfs -Ignfs/poly/stage1 -o cub/collision_engine.so cub/collision_engine.cu
+	$(NVCC) $(CUB_ENGINE_ARCH) --shared -Xcompiler -fPIC -I. -Ifactor/shared/cub -Ifactor/nfs/gnfs -Ifactor/nfs/gnfs/poly/stage1 -o factor/shared/cub/collision_engine.so factor/shared/cub/collision_engine.cu
 else
 	@echo "NOTE: SM=$(SM) < 70 (pre-Volta); skipping the Gerbicz collision engine (requires sm_70+). Building the sort engine only - do not pass collengine=gerbicz."
-	@rm -f cub/collision_engine.so
+	@rm -f factor/shared/cub/collision_engine.so
 endif
-	touch cub/built
+	touch factor/shared/cub/built
 	
 # -----------------------------------------------------------------------------
 # 27. AUTOMATIC DEPENDENCY INCLUSION  (.d files from .deps/)
@@ -1498,7 +1482,8 @@ endif
 # -----------------------------------------------------------------------------
 # 28. CLEAN
 # -----------------------------------------------------------------------------
-# NOTE on .ptx: cuda_ecm80.ptx is *committed* to the repo — it ships a prebuilt
+# NOTE on .ptx: the kernel for the target architecture is generated into the
+# working directory at build time and is not tracked.
 # PTX module so that GPU batch factorization works on machines without nvcc.
 # The build also generates .ptx modules (cuda_ecm$(SM).ptx, lanczos_kernel.ptx,
 # stage1_core.ptx), and those should be cleaned. A bare `*.ptx` glob therefore
@@ -1514,11 +1499,11 @@ clean:
 	    $(MSIEVE_COMMON_OBJS) \
 	    $(QS_OBJS) $(NFS_OBJS) $(NFS_GPU_OBJS) $(NFS_NOGPU_OBJS) \
 	    $(DEPS_DIR) \
-	    libmsieve.a libysiqs.a libyecm.a libynfs.a \
-	    yafu$(EXE_EXT) msieve$(EXE_EXT) \
+	    $(ARCHIVES) $(BUILD_DIR) \
+	    yafu$(EXE_EXT) \
 	    $(GENERATED_PTX)
-	$(RM_RF) $(TEST_OBJS) libyafu_common.a $(TEST_BIN) $(TEST_FULL_BIN) $(TEST_SAN_BIN)
-	@echo "Note: use 'make lasieve-clean' to also clean factor/lasieve5_64"
+	$(RM_RF) $(TEST_OBJS) $(BUILD_DIR) $(TEST_BIN) $(TEST_FULL_BIN) $(TEST_SAN_BIN)
+	@echo "Note: use 'make lasieve-clean' to also clean factor/nfs/lasieve"
 
 
 # -----------------------------------------------------------------------------
@@ -1546,7 +1531,7 @@ info:
 	@echo "  Dependencies"
 	@echo "    GMP     inc    : $(GMP_INCDIR)"
 	@echo "    GMP     lib    : $(GMP_LIBDIR)"
-	@echo "    GMP-ECM        : $(if $(HAVE_ECM_LIB),enabled ($(ECM_INCDIR)),disabled)"
+	@echo "    GMP-ECM        : required ($(ECM_INCDIR))"
 	@echo "    CUDA           : $(if $(HAVE_CUDA_TOOLKIT),enabled ($(CUDA_INCDIR)),disabled)"
 	@echo "    CUDA root src  : $(if $(CUDA_ROOT),CUDA_ROOT env,$(if $(CUDA_PATH),CUDA_PATH env,$(if $(_NVCC_ON_PATH),nvcc on PATH,$(if $(CUDA_PREFIX),config.mk/cmdline,not found))))"
 	@echo "    OpenCL         : $(if $(HAVE_OPENCL),enabled ($(OCL_INCDIR)),disabled)"
@@ -1554,18 +1539,15 @@ info:
 	@echo "    SM target      : $(SM)$(if $(_SMS_RAW), (all cards: $(_SMS_RAW)))"
 	@echo "----------------------------------------------------------------"
 	@echo "  Optional features"
-	@echo "    OMP            : $(if $(filter 1,$(OMP)),yes,no)"
-	@echo "    ECM            : $(if $(filter 1,$(ECM)),yes,no)"
+	@echo "    OMP            : yes (required)"
 	@echo "    BATCH_CUDA     : $(if $(BATCH_CUDA),yes,no)"
 	@echo "    WITH_OPENCL    : $(if $(WITH_OPENCL),yes,no)"
 	@echo "    CUDA_POLY      : $(if $(CUDA_POLY),yes,no)"
 	@echo "    MPI            : $(if $(filter 1,$(MPI)),yes,no)"
-	@echo "    NO_ZLIB        : $(if $(filter 1,$(NO_ZLIB)),yes,no)"
 	@echo "    STATIC_WIN     : $(if $(STATIC_WIN),yes,no)"
 	@echo "----------------------------------------------------------------"
 	@echo "  CFLAGS           : $(CFLAGS)"
 	@echo "  LIBS             : $(LIBS)"
-	@echo "  MSIEVE_LIBS      : $(MSIEVE_LIBS)"
 	@echo "----------------------------------------------------------------"
 	@echo "  lasieve (NFS sieve — separate target)"
 	@echo "    Directory      : $(LASIEVE_DIR)"
@@ -1580,7 +1562,6 @@ help:
 	@echo ""
 	@echo "  Targets:"
 	@echo "    make yafu            build the main yafu binary"
-	@echo "    make msieve          build libmsieve.a + msieve demo"
 	@echo "    make all             build all four targets above"
 	@echo "    make test            build the test suite (yafu_test)"
 	@echo "    make test-run        build and run the test suite"
@@ -1591,7 +1572,7 @@ help:
 	@echo "    make test-sanitize   rebuild all test dependencies with ASan/UBSan and run fast tests"
 	@echo "    make test-calc-sanitize  build+run calculator regressions with ASan/UBSan"
 	@echo "    make test-full-run   build and run Layers 0-3"
-	@echo "    make lasieve         build NFS sieve executables (factor/lasieve5_64/bin/local)"
+	@echo "    make lasieve         build NFS sieve executables (factor/nfs/lasieve/bin/local)"
 	@echo "    make clean           remove yafu build artefacts (not lasieve)"
 	@echo "    make lasieve-clean   remove lasieve build artefacts"
 	@echo "    make info            show resolved flags and dependency paths"
@@ -1632,7 +1613,6 @@ help:
 	@echo "    make WITH_OPENCL=1   GPU cofactorisation via OpenCL (no CUDA needed)"
 	@echo "    make CUDA_POLY=1     GPU NFS polynomial selection"
 	@echo "    make MPI=1           MPI parallel processing"
-	@echo "    make NO_ZLIB=1       disable zlib"
 	@echo "    make VBITS=128       linear algebra vector width (64/128/256)"
 	@echo "    make SMALLINT=1      small SIQS intervals"
 	@echo "    make PROFILE=1       gprof profiling"

@@ -23,35 +23,35 @@ compile()
     "$cc" $cflags -D_GNU_SOURCE -UNDEBUG "$@"
 }
 
-compile -I. -Ifactor/lasieve5_64 -Ifactor/lasieve5_64/asm -Iinclude \
+compile -I. -Ifactor/nfs/lasieve -Ifactor/nfs/lasieve/asm -Ifactor/shared/include \
     test/standalone/lasieve/core_regression.c \
-    factor/lasieve5_64/gmp-aux.c factor/lasieve5_64/redu2.c \
-    factor/lasieve5_64/if.c -lgmp -lm -o "$build_dir/core_regression"
+    factor/nfs/lasieve/gmp-aux.c factor/nfs/lasieve/redu2.c \
+    factor/nfs/lasieve/if.c -lgmp -lm -o "$build_dir/core_regression"
 "$build_dir/core_regression"
 
-compile -DNEED_ASPRINTF -I. -Ifactor/lasieve5_64 \
-    -Ifactor/lasieve5_64/asm -Iinclude \
+compile -DNEED_ASPRINTF -I. -Ifactor/nfs/lasieve \
+    -Ifactor/nfs/lasieve/asm -Ifactor/shared/include \
     test/standalone/lasieve/asprintf_regression.c \
-    factor/lasieve5_64/if.c -lgmp -o "$build_dir/asprintf_regression"
+    factor/nfs/lasieve/if.c -lgmp -o "$build_dir/asprintf_regression"
 "$build_dir/asprintf_regression"
 
 compile -fsanitize=address -ffunction-sections -fdata-sections \
-    -I. -Ifactor/lasieve5_64 -Ifactor/lasieve5_64/asm -Iinclude \
-    -Ims_include -Iytools -Itop/aprcl \
+    -I. -Ifactor/nfs/lasieve -Ifactor/nfs/lasieve/asm -Ifactor/shared/include \
+    -Ifactor/shared/include -Ifactor/shared/ytools -Ifactor/shared/aprcl \
     test/standalone/lasieve/batch_tree_regression.c \
-    factor/lasieve5_64/if.c -Wl,--gc-sections -lgmp -lm \
+    factor/nfs/lasieve/if.c -Wl,--gc-sections -lgmp -lm \
     -o "$build_dir/batch_tree_regression"
 ASAN_OPTIONS=detect_leaks=1 "$build_dir/batch_tree_regression"
 
-compile -Wformat=2 -I. -Ifactor/lasieve5_64 \
-    -Ifactor/lasieve5_64/asm -Iinclude \
+compile -Wformat=2 -I. -Ifactor/nfs/lasieve \
+    -Ifactor/nfs/lasieve/asm -Ifactor/shared/include \
     test/standalone/lasieve/input_poly_regression.c \
-    factor/lasieve5_64/input-poly.c factor/lasieve5_64/if.c \
+    factor/nfs/lasieve/input-poly.c factor/nfs/lasieve/if.c \
     -lgmp -o "$build_dir/input_poly_regression"
 "$build_dir/input_poly_regression"
 
 compile -ffunction-sections -fdata-sections -I. \
-    -Ifactor/lasieve5_64 -Ifactor/lasieve5_64/asm -Iinclude -Iytools \
+    -Ifactor/nfs/lasieve -Ifactor/nfs/lasieve/asm -Ifactor/shared/include -Ifactor/shared/ytools \
     test/standalone/lasieve/process_batch_helpers_regression.c \
     -Wl,--gc-sections -lgmp -o "$build_dir/process_batch_helpers_regression"
 "$build_dir/process_batch_helpers_regression"

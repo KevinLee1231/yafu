@@ -958,11 +958,15 @@ void helpfunc(char *s)
 
 	//func now points to a string with the desired help topic
 	//open the doc file and search matching topics
+	// the help text lives in top/ now; look in the working directory first so
+	// an installed copy still wins, then fall back to the source tree
 	doc = fopen("docfile.txt","r");
 	if (doc == NULL)
+		doc = fopen("top/docfile.txt","r");
+	if (doc == NULL)
 	{
-		printf("fopen error: %s\n", strerror(errno));
-		printf("documentation file not found\n");
+		printf("documentation file not found (looked for docfile.txt and"
+			" top/docfile.txt)\n");
 		return;
 	}
 
