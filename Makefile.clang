@@ -21,6 +21,7 @@
 WIN = 0
 WIN64 = 0
 VBITS = 64
+.DEFAULT_GOAL := help
 
 CC = clang
 CFLAGS = -fno-common -g -m64 -std=gnu99 -fPIE -DUSE_NFS
@@ -63,7 +64,8 @@ ifeq ($(WIN),1)
 else
 	MSIEVE_LIBS += -ldl
 endif
-ifdef CUDA
+ifneq ($(filter-out 0,$(strip $(CUDA))),)
+	HAVE_CUDA = 1
 ifeq ($(CUDA),1)
 	SM = 80
 else
@@ -325,7 +327,7 @@ COMMON_SRCS = \
 	factor/gmp-ecm/micropm1.c \
     factor/gmp-ecm/microecm.c \
 	ytools/threadpool.c \
-	ytools/util.c \
+	ytools/ytools.c \
 	ysieve/presieve.c \
 	ysieve/count.c \
 	ysieve/offsets.c \
@@ -447,7 +449,6 @@ COMMON_HEAD = include/gmp_xface.h \
 	
 ECM_HEAD = include/yafu_ecm.h \
 	factor/avx-ecm/avx_ecm.h \
-	factor/avx-ecm/avx_ecm_impl.h \
 	factor/gmp-ecm/microecm.h
 
 SIQS_HEAD = include/batch_factor.h \
@@ -461,9 +462,9 @@ SIQS_HEAD = include/batch_factor.h \
     include/cofactorize.h
 	
 	
-SIQS_BIN_HEAD = factor/qs_demo/siqs_demo.h \
-	factor/qs_demo/calc.h \
-	factor/qs_demo/cmdOptions.h
+SIQS_BIN_HEAD = factor/qs/qs_demo/siqs_demo.h \
+	factor/qs/qs_demo/calc.h \
+	factor/qs/qs_demo/cmdOptions.h
 	
 YSIEVE_BIN_HEAD = ysieve/demo/calc.h \
 	ysieve/demo/cmdOptions.h
@@ -571,7 +572,7 @@ COMMON_NOGPU_SRCS = \
 		common/lanczos/cpu/lanczos_matmul2.c \
 		common/lanczos/cpu/lanczos_vv.c
 
-ifdef CUDA
+ifeq ($(HAVE_CUDA),1)
 	MSIEVE_COMMON_SRCS += $(COMMON_GPU_SRCS)
 	COMMON_HDR += $(COMMON_GPU_HDR)
 	GPU_OBJS += \
@@ -679,7 +680,7 @@ NFS_NOGPU_SRCS = \
 
 NFS_NOGPU_OBJS = $(NFS_NOGPU_SRCS:.c=.no)
 
-ifeq ($(CUDA),1)
+ifeq ($(HAVE_CUDA),1)
 	NFS_HDR += $(NFS_GPU_HDR)
 	NFS_SRCS += $(NFS_GPU_SRCS)
 	NFS_OBJS += $(NFS_GPU_OBJS)
@@ -696,8 +697,8 @@ help:
 	@echo ""
 	@echo "to build msieve:"
 	@echo "make -f Makefile.clang msieve"
-	@echo "add 'WIN=1 if building on windows"
-	@echo "add 'WIN64=1 if building on 64-bit windows"
+	@echo "add 'WIN=1' if building on windows"
+	@echo "add 'WIN64=1' if building on 64-bit windows"
 	@echo "add 'ECM=1' if GMP-ECM is available (enables ECM)"
 	@echo "add 'CUDA=1' for Nvidia graphics card support"
 	@echo "add 'MPI=1' for parallel processing using MPI"
@@ -766,7 +767,7 @@ siqs: $(MSIEVE_COMMON_OBJS) $(MSIEVE_YAFU_OBJS) $(YAFU_SIQS_OBJS) $(YAFU_COMMON_
 	$(CC) $(CFLAGS) $(SIQS_BIN_OBJS) -o siqs_demo -lysiqs  $(LIBS)
 	
 ysieve: $(YAFU_COMMON_OBJS) $(YSIEVE_BIN_OBJS) 
-	$(CC) $(CFLAGS) $(YAFU_COMMON_OBJS) $(YSIEVE_BIN_OBJS) $(LIBS)
+	$(CC) $(CFLAGS) $(YAFU_COMMON_OBJS) $(YSIEVE_BIN_OBJS) -o ysieve_demo $(LIBS)
 	
 ecm: $(YAFU_ECM_OBJS) $(YAFU_COMMON_OBJS) $(ECM_BIN_OBJS) 
 	rm -f libyecm.a
@@ -775,8 +776,8 @@ ecm: $(YAFU_ECM_OBJS) $(YAFU_COMMON_OBJS) $(ECM_BIN_OBJS)
 	$(CC) $(CFLAGS) $(ECM_BIN_OBJS) -o ecm_demo  -lyecm  $(LIBS)
 
 clean:
-	rm -f $(MSIEVE_YAFU_OBJS) $(YAFU_OBJS) $(YAFU_NFS_OBJS) $(YAFU_SIQS_OBJS) $(YAFU_ECM_OBJS) $(YAFU_COMMON_OBJS) \
-	msieve msieve.exe libmsieve.a $(MSIEVE_COMMON_OBJS) $(QS_OBJS) \
+	rm -f $(MSIEVE_YAFU_OBJS) $(YAFU_OBJS) $(YAFU_NFS_OBJS) $(YAFU_SIQS_OBJS) $(YAFU_ECM_OBJS) $(YAFU_COMMON_OBJS) $(SIQS_BIN_OBJS) $(ECM_BIN_OBJS) $(YSIEVE_BIN_OBJS) \
+	msieve msieve.exe yafu siqs_demo ecm_demo ysieve_demo libmsieve.a libysiqs.a libyecm.a libynfs.a $(MSIEVE_COMMON_OBJS) $(QS_OBJS) \
 		$(NFS_OBJS) $(NFS_GPU_OBJS) $(NFS_NOGPU_OBJS) *.ptx
 
 #---------------------------Build Rules -------------------------

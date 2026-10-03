@@ -21,6 +21,7 @@
 WIN = 0
 WIN64 = 0
 VBITS = 64
+.DEFAULT_GOAL := help
 
 CC = icc
 CFLAGS = -fno-common -g -m64 -std=gnu99 -fPIE -DUSE_NFS
@@ -71,7 +72,8 @@ ifeq ($(WIN),1)
 else
 	MSIEVE_LIBS += -ldl
 endif
-ifdef CUDA
+ifneq ($(filter-out 0,$(strip $(CUDA))),)
+	HAVE_CUDA = 1
 ifeq ($(CUDA),1)
 	SM = 80
 else
@@ -269,7 +271,7 @@ COMMON_SRCS = \
 	factor/gmp-ecm/micropm1.c \
     factor/gmp-ecm/microecm.c \
 	ytools/threadpool.c \
-	ytools/util.c \
+	ytools/ytools.c \
 	ysieve/presieve.c \
 	ysieve/count.c \
 	ysieve/offsets.c \
@@ -352,6 +354,7 @@ YAFU_SIQS_OBJS = $(YAFU_SIQS_SRCS:.c=$(OBJ_EXT))
 YAFU_ECM_OBJS = $(ECM_SRCS:.c=$(OBJ_EXT))
 YAFU_COMMON_OBJS = $(COMMON_SRCS:.c=$(OBJ_EXT))
 SIQS_BIN_OBJS = $(SIQS_BIN_SRCS:.c=$(OBJ_EXT))
+ECM_BIN_OBJS = $(ECM_BIN_SRCS:.c=$(OBJ_EXT))
 
 #---------------------------YAFU NFS file lists -----------------------
 
@@ -385,7 +388,6 @@ COMMON_HEAD = include/gmp_xface.h \
 	
 ECM_HEAD = include/yafu_ecm.h \
 	factor/avx-ecm/avx_ecm.h \
-	factor/avx-ecm/avx_ecm_impl.h \
 	factor/gmp-ecm/microecm.h
 
 SIQS_HEAD = include/batch_factor.h \
@@ -399,9 +401,9 @@ SIQS_HEAD = include/batch_factor.h \
     include/cofactorize.h
 	
 	
-SIQS_BIN_HEAD = factor/qs_demo/siqs_demo.h \
-	factor/qs_demo/calc.h \
-	factor/qs_demo/cmdOptions.h
+SIQS_BIN_HEAD = factor/qs/qs_demo/siqs_demo.h \
+	factor/qs/qs_demo/calc.h \
+	factor/qs/qs_demo/cmdOptions.h
 
 YAFU_HEAD = include/yafu.h \
 	top/cmdParser/cmdOptions.h \
@@ -506,7 +508,7 @@ COMMON_NOGPU_SRCS = \
 		common/lanczos/cpu/lanczos_matmul2.c \
 		common/lanczos/cpu/lanczos_vv.c
 
-ifdef CUDA
+ifeq ($(HAVE_CUDA),1)
 	MSIEVE_COMMON_SRCS += $(COMMON_GPU_SRCS)
 	COMMON_HDR += $(COMMON_GPU_HDR)
 	GPU_OBJS += \
@@ -614,7 +616,7 @@ NFS_NOGPU_SRCS = \
 
 NFS_NOGPU_OBJS = $(NFS_NOGPU_SRCS:.c=.no)
 
-ifeq ($(CUDA),1)
+ifeq ($(HAVE_CUDA),1)
 	NFS_HDR += $(NFS_GPU_HDR)
 	NFS_SRCS += $(NFS_GPU_SRCS)
 	NFS_OBJS += $(NFS_GPU_OBJS)
@@ -629,9 +631,9 @@ endif
 
 help:
 	@echo "to build msieve:"
-	@echo "make msieve"
-	@echo "add 'WIN=1 if building on windows"
-	@echo "add 'WIN64=1 if building on 64-bit windows"
+	@echo "make -f Makefile.icc msieve"
+	@echo "add 'WIN=1' if building on windows"
+	@echo "add 'WIN64=1' if building on 64-bit windows"
 	@echo "add 'ECM=1' if GMP-ECM is available (enables ECM)"
 	@echo "add 'CUDA=1' for Nvidia graphics card support"
 	@echo "add 'MPI=1' for parallel processing using MPI"
@@ -639,14 +641,14 @@ help:
 	@echo "add 'NO_ZLIB=1' if you don't have zlib"
 	@echo "add 'VBITS=X' for linear algebra with X-bit vectors (64, 128, 256)"
 	@echo "to build yafu:"
-	@echo "make yafu"
+	@echo "make -f Makefile.icc yafu"
 	@echo "add 'USE_SSE41=1' to include sse4.1 vectorization instruction support"
 	@echo "add 'USE_AVX2=1' to include AVX2 vectorization instruction support"
 	@echo "add 'USE_BMI2=1' to include BMI2 instruction support"
 	@echo "add 'SKYLAKEX=1' to include AVX512F,VL,DQ,BW vectorization instruction support"
 	@echo "add 'ICELAKE=1' to include SKYLAKEX + AVX512IFMA vectorization instruction support"
 	@echo ""
-	@echo "For either build, add COMPILER=icc to build with the icc compiler (if installed)"
+	@echo "This build file requires the classic icc compiler"
 
 
 msieve: $(MSIEVE_COMMON_OBJS) $(QS_OBJS) $(NFS_OBJS) $(GPU_OBJS)
@@ -662,7 +664,7 @@ yafu: $(MSIEVE_YAFU_OBJS) $(YAFU_SIQS_OBJS) $(YAFU_OBJS) $(YAFU_NFS_OBJS) $(YAFU
 	ar r libmsieve.a $(MSIEVE_COMMON_OBJS) $(QS_OBJS) $(NFS_OBJS)
 	ranlib libmsieve.a
 	rm -f libysiqs.a
-	ar r libysiqs.a $(YAFU_SIQS_OBJS) $(YAFU_COMMON_OBJS) $(MSIEVE_YAFU_OBJS) 
+	ar r libysiqs.a $(MSIEVE_COMMON_OBJS) $(YAFU_SIQS_OBJS) $(YAFU_COMMON_OBJS) $(MSIEVE_YAFU_OBJS)
 	ranlib libysiqs.a
 	rm -f libyecm.a
 	ar r libyecm.a $(YAFU_ECM_OBJS) $(YAFU_COMMON_OBJS)
@@ -672,9 +674,9 @@ yafu: $(MSIEVE_YAFU_OBJS) $(YAFU_SIQS_OBJS) $(YAFU_OBJS) $(YAFU_NFS_OBJS) $(YAFU
 	ranlib libynfs.a
 	$(CC) $(CFLAGS) $(YAFU_OBJS) -o yafu -lysiqs  -lyecm  -lynfs -lmsieve $(LIBS)
 
-siqs: $(MSIEVE_YAFU_OBJS) $(YAFU_SIQS_OBJS) $(YAFU_COMMON_OBJS) $(SIQS_BIN_OBJS) 
+siqs: $(MSIEVE_COMMON_OBJS) $(MSIEVE_YAFU_OBJS) $(YAFU_SIQS_OBJS) $(YAFU_COMMON_OBJS) $(SIQS_BIN_OBJS)
 	rm -f libysiqs.a
-	ar r libysiqs.a $(YAFU_SIQS_OBJS) $(YAFU_COMMON_OBJS) $(MSIEVE_YAFU_OBJS) 
+	ar r libysiqs.a $(MSIEVE_COMMON_OBJS) $(YAFU_SIQS_OBJS) $(YAFU_COMMON_OBJS) $(MSIEVE_YAFU_OBJS)
 	ranlib libysiqs.a
 	$(CC) $(CFLAGS) $(SIQS_BIN_OBJS) -o siqs_demo -lysiqs  $(LIBS)
 	
@@ -682,11 +684,11 @@ ecm: $(YAFU_ECM_OBJS) $(YAFU_COMMON_OBJS) $(ECM_BIN_OBJS)
 	rm -f libyecm.a
 	ar r libyecm.a $(YAFU_ECM_OBJS) $(YAFU_COMMON_OBJS)
 	ranlib libyecm.a
-	$(CC) $(CFLAGS) $(ECM_BIN_OBJS) -o ecm_demo -libyecm.a  $(LIBS)
+	$(CC) $(CFLAGS) $(ECM_BIN_OBJS) -o ecm_demo -lyecm $(LIBS)
 
 clean:
-	rm -f $(MSIEVE_YAFU_OBJS) $(YAFU_OBJS) $(YAFU_NFS_OBJS) $(YAFU_SIQS_OBJS) $(YAFU_ECM_OBJS) $(YAFU_COMMON_OBJS) \
-	msieve msieve.exe libmsieve.a libysiqs.a libyecm.a libynfs.a $(MSIEVE_COMMON_OBJS) $(QS_OBJS) \
+	rm -f $(MSIEVE_YAFU_OBJS) $(YAFU_OBJS) $(YAFU_NFS_OBJS) $(YAFU_SIQS_OBJS) $(YAFU_ECM_OBJS) $(YAFU_COMMON_OBJS) $(SIQS_BIN_OBJS) $(ECM_BIN_OBJS) \
+	msieve msieve.exe yafu siqs_demo ecm_demo ysieve_demo libmsieve.a libysiqs.a libyecm.a libynfs.a $(MSIEVE_COMMON_OBJS) $(QS_OBJS) \
 		$(NFS_OBJS) $(NFS_GPU_OBJS) $(NFS_NOGPU_OBJS) *.ptx
 
 #---------------------------Build Rules -------------------------
