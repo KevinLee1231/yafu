@@ -78,10 +78,14 @@ void compute_prps_work_fcn(void *vptr)
     soe_userdata_t *udata = (soe_userdata_t *)tdata->user_data;
     soe_staticdata_t *sdata = udata->sdata;
     thread_soedata_t *t = &udata->ddata[tdata->tindex];
-	int witnesses = sdata->witnesses;
     uint64_t i;
 
 	t->linecount = 0;
+
+	if (t->startid >= t->stopid)
+	{
+		return;
+	}
 
 #if USE_AVX512F
 	// if we have avx512 functions
@@ -93,7 +97,7 @@ void compute_prps_work_fcn(void *vptr)
 	{
 		// use fast sprp functions
 		t->linecount = 0;
-		for (i = t->startid; i < t->stopid - 8; i += 8)
+		for (i = t->startid; (t->stopid - i) >= 8; i += 8)
 		{
 			if ((((i - t->startid) & 8191) == 0) && (sdata->VFLAG > 0))
 			{
@@ -120,12 +124,13 @@ void compute_prps_work_fcn(void *vptr)
 			}
 
 			uint8_t prpmask = valid_msk & MR_2sprp_104x8(n8);
-			t->linecount += _mm_popcnt_u32(prpmask);
-
 			for (j = 0; j < 8; j++)
 			{
-
-
+				if ((prpmask & (1u << j)) != 0)
+				{
+					t->ddata.primes[t->linecount++] =
+						t->ddata.primes[i + j - t->startid];
+				}
 			}
 		}
 	}
@@ -147,9 +152,9 @@ void compute_prps_work_fcn(void *vptr)
             fflush(stdout);
         }
 
+		mpz_add_ui(t->tmpz, t->offset, t->ddata.primes[i - t->startid]);
 		if (mpz_sizeinbase(t->tmpz, 2) < 128)
 		{
-			mpz_add_ui(t->tmpz, t->offset, t->ddata.primes[i - t->startid]);
 			if ((mpz_cmp(t->tmpz, t->lowlimit) >= 0) && (mpz_cmp(t->highlimit, t->tmpz) >= 0))
 			{
 				//gmp_printf("candidate %Zd... ", t->tmpz);
@@ -193,7 +198,6 @@ void compute_prps_work_fcn(void *vptr)
 		}
 		else
 		{
-			mpz_add_ui(t->tmpz, t->offset, t->ddata.primes[i - t->startid]);
 			if ((mpz_cmp(t->tmpz, t->lowlimit) >= 0) && (mpz_cmp(t->highlimit, t->tmpz) >= 0))
 			{
 				//gmp_printf("candidate %Zd = offset %Zd + idx %lu (witnesses: %d) is \n", 
@@ -230,7 +234,15 @@ soe_staticdata_t* soe_init(int vflag, int threads, int blocksize)
 {
     soe_staticdata_t* sdata;
 
-    sdata = (soe_staticdata_t*)malloc(sizeof(soe_staticdata_t));
+	sdata = (soe_staticdata_t*)xcalloc(1, sizeof(soe_staticdata_t));
+	if (threads < 1)
+	{
+		threads = 1;
+	}
+	if (blocksize <= 0)
+	{
+		blocksize = 32;
+	}
 
 	//int i;
 	//int pn = 2310 * 13;
@@ -259,10 +271,14 @@ soe_staticdata_t* soe_init(int vflag, int threads, int blocksize)
 
     sdata->VFLAG = vflag;
     sdata->THREADS = threads;
-    if (blocksize > 1024)
-        sdata->SOEBLOCKSIZE = blocksize;
-    else
-        sdata->SOEBLOCKSIZE = blocksize << 10;
+	if (blocksize > 1024)
+	{
+		sdata->SOEBLOCKSIZE = blocksize;
+	}
+	else
+	{
+		sdata->SOEBLOCKSIZE = blocksize << 10;
+	}
 
 	mpz_init(sdata->offset);
 
@@ -281,48 +297,32 @@ uint64_t *GetPRIMESRange(soe_staticdata_t* sdata,
 	mpz_t offset, uint64_t lowlimit, uint64_t highlimit, uint64_t *num_p)
 {
 	uint64_t i;
-	uint64_t hi_est, lo_est;
 	uint64_t maxrange = 10000000000ULL;
 	uint64_t *primes = NULL;
 	
-	//reallocate output array based on conservative estimate of the number of 
-	//primes in the interval
-	if (mpz_cmp_ui(offset, 0) > 0)
+	/*
+	 * 浅筛返回的是候选数而不是素数数目，素数定理估算不能作为容量上界。
+	 * 轮筛已排除偶数，所以半个闭区间再留两个位置足以容纳候选和素数2。
+	 * sieve_range 在 spSOE 内才更新，不能使用上一轮的状态决定本轮容量。
+	 */
+	if ((mpz_sgn(offset) != 0) || ((highlimit - lowlimit) < 1000000))
 	{
-		mpz_t a, b;
-		mpz_init(a);
-		mpz_init(b);
-		uint64_2gmp(lowlimit, a);
-		uint64_2gmp(highlimit, b);
-		mpz_add(a, a, offset);
-		mpz_add(b, b, offset);
-		i = mpz_estimate_primes_in_range(a, b);
-		mpz_clear(a);
-		mpz_clear(b);
-		primes = (uint64_t *)realloc(primes, (size_t) (i * sizeof(uint64_t)));
-
-		printf("allocating space for an estimated %"PRIu64" primes in requested range\n", i);
-
-		if (primes == NULL)
-		{
-            if (mpz_cmp_ui(offset, 0) > 0)
-            {
-                printf("unable to allocate %" PRIu64 " bytes for range %" PRIu64 " to %" PRIu64 "\n",
-                    (uint64_t)(i * sizeof(uint64_t)), lowlimit, highlimit);
-            }
-            else
-            {
-                printf("unable to allocate %" PRIu64 " bytes \n",
-                    (uint64_t)(i * sizeof(uint64_t)));
-            }
-			exit(1);
-		}
+		i = (highlimit - lowlimit) / 2 + 2;
 	}
 	else
 	{
 		i = estimate_primes_in_range(lowlimit, highlimit);
-		primes = (uint64_t *)xrealloc(primes, (size_t) (i * sizeof(uint64_t)));
 	}
+	if (i > SIZE_MAX / sizeof(*primes))
+	{
+		printf("requested sieve output is too large to allocate\n");
+		*num_p = 0;
+		return NULL;
+	}
+	primes = (uint64_t *)xrealloc(primes, (size_t)(i * sizeof(uint64_t)));
+
+	if (mpz_cmp_ui(offset, 0) > 0)
+		printf("allocating space for up to %" PRIu64 " primes in requested range\n", i);
 
 	//check for really big ranges ('big' is different here than when we are counting
 	//primes because there are higher memory demands when computing primes)
@@ -530,9 +530,9 @@ uint64_t *sieve_to_depth(soe_staticdata_t* sdata,
 	printf("sizeof(long int) = %"PRIu64", sizeof(long) = %"PRIu64"\n",
 		sizeof(long int), sizeof(long));
 
-	if (mpz_cmp(highlimit, lowlimit) <= 0)
+	if ((mpz_sgn(lowlimit) < 0) || (mpz_cmp(highlimit, lowlimit) <= 0))
 	{
-		printf("error: lowlimit must be less than highlimit\n");
+		printf("error: expected 0 <= lowlimit < highlimit\n");
 		*num_p = 0;
 		return values;
 	}	
@@ -541,6 +541,14 @@ uint64_t *sieve_to_depth(soe_staticdata_t* sdata,
 	mpz_init(offset);
 	mpz_set(offset, lowlimit);
 	mpz_sub(tmpz, highlimit, lowlimit);
+	if (mpz_sizeinbase(tmpz, 2) > 64)
+	{
+		printf("error: sieve interval exceeds 64 bits\n");
+		*num_p = 0;
+		mpz_clear(tmpz);
+		mpz_clear(offset);
+		return NULL;
+	}
 	range = gmp2uint64(tmpz);
 	sdata->witnesses = num_witnesses;
 
@@ -576,7 +584,7 @@ uint64_t *sieve_to_depth(soe_staticdata_t* sdata,
 
 		if (sdata->VFLAG > 1)
 		{
-			printf("generating more sieving primes in range 0 : %u \n", sieve_limit);
+			printf("generating more sieving primes in range 0 : %" PRIu64 "\n", sieve_limit);
 			printf("allocating %u bytes \n", range_est);
 		}
 
@@ -611,7 +619,7 @@ uint64_t *sieve_to_depth(soe_staticdata_t* sdata,
 
 		if (sdata->VFLAG > 1)
 		{
-			printf("found %u sieving primes, max prime = %u\n", 
+			printf("found %u sieving primes, max prime = %" PRIu64 "\n",
 				(uint32_t)num_sp_needed, primes[num_sp_needed - 1]);
 		}
 
@@ -633,8 +641,8 @@ uint64_t *sieve_to_depth(soe_staticdata_t* sdata,
 	if (count)
 	{
 		gmp_printf("commencing sieve over interval %Zd ", offset);
-		printf("+ (% "PRIu64": % "PRIu64") with %u sieve primes\n",
-			0, range, sdata->num_sp);
+		printf("+ (%" PRIu64 ": %" PRIu64 ") with %u sieve primes\n",
+			(uint64_t)0, range, sdata->num_sp);
 
 		if (num_witnesses > 0)
 		{
@@ -652,8 +660,8 @@ uint64_t *sieve_to_depth(soe_staticdata_t* sdata,
 	else
 	{
 		gmp_printf("generating primes in interval %Zd ", offset);
-		printf("+ (% "PRIu64": % "PRIu64") with %u sieve primes\n",
-			0, range, sdata->num_sp);
+		printf("+ (%" PRIu64 ": %" PRIu64 ") with %u sieve primes\n",
+			(uint64_t)0, range, sdata->num_sp);
 	}
 
 	if (count)
@@ -666,7 +674,7 @@ uint64_t *sieve_to_depth(soe_staticdata_t* sdata,
 		sdata->is_main_sieve = 1;
 		values = GetPRIMESRange(sdata, offset, 0, range, num_p);
 
-		if (num_witnesses > 0)
+		if ((num_witnesses > 0) && (*num_p > 0))
 		{
 			thread_soedata_t *thread_data;
 			uint64_t lastid;
@@ -721,7 +729,7 @@ uint64_t *sieve_to_depth(soe_staticdata_t* sdata,
 				if ((mpz_sizeinbase(tmpz_local, 2) < 104) && (sdata->analysis == 1))
 				{
 					// use fast sprp function
-					for (i = 0; i < range - 8; i += 8)
+					for (i = 0; (range - i) >= 8; i += 8)
 					{
 						if (((i & 8191) == 0) && (sdata->VFLAG > 0))
 						{
@@ -731,7 +739,6 @@ uint64_t *sieve_to_depth(soe_staticdata_t* sdata,
 						}
 
 						ALIGNED_MEM uint64_t n8[16];
-						uint8_t loc_msk = 0;
 						int j;
 
 						for (j = 0; j < 8; j++)
@@ -746,7 +753,13 @@ uint64_t *sieve_to_depth(soe_staticdata_t* sdata,
 						}
 
 						uint8_t prpmask = MR_2sprp_104x8(n8);
-						retval += _mm_popcnt_u32(prpmask);
+						for (j = 0; j < 8; j++)
+						{
+							if ((prpmask & (1u << j)) != 0)
+							{
+								values[retval++] = values[i + j];
+							}
+						}
 					}
 				}
 				else
@@ -1020,5 +1033,3 @@ uint64_t *sieve_to_depth(soe_staticdata_t* sdata,
 
 	return values;
 }
-
-

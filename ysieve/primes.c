@@ -624,11 +624,17 @@ uint32_t compute_8_bytes_bmi2(soe_staticdata_t *sdata,
 
     // compute the minimum/maximum prime we could encounter in this range
         // and execute either a branch-free innermost loop or not.
-    uint64_t plow = (byte_offset + 0) * 8 * sdata->prodN + 0 * sdata->prodN +
+    uint64_t plow = byte_offset * 8 * sdata->prodN +
         sdata->rclass[0] + lowlimit;
+    uint64_t phigh = (byte_offset * 8 + 63) * sdata->prodN +
+        sdata->rclass[nc - 1] + lowlimit;
 
     if (plow > ohigh)
         return pcount;
+
+    // BMI2 快速路径按完整 64-bit word 输出；首尾 word 必须逐项裁到请求区间。
+    if ((plow < olow) || (phigh > ohigh))
+        return compute_8_bytes(sdata, pcount, primes, byte_offset);
 
     // here is the 2 line version
     if (nc == 2)
@@ -1387,4 +1393,3 @@ uint32_t compute_8_bytes_bmi2(soe_staticdata_t *sdata,
 }
 
 #endif
-

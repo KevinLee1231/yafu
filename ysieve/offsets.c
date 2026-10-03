@@ -145,22 +145,24 @@ void get_offsets(thread_soedata_t *thread_data)
 
             // if the prime is greater than the limit at which it is necessary to sieve
             // a block, start that prime in the next block.
-            if (sdata->sieve_p[i] > ddata->blk_b_sqrt)
+            while ((block < sdata->blocks) &&
+                (sdata->sieve_p[i] > ddata->blk_b_sqrt))
             {
                 //printf("lblk_b = %"PRIu64", blk_b_sqrt = %"PRIu64", pbounds block %"PRIu64" = %"PRIu64" (%u)\n", 
                 //    ddata->lblk_b, ddata->blk_b_sqrt, block, i, sdata->sieve_p[i]);
                 ddata->pbounds[block] = i;
+                block++;
 
-                // if (block < (sdata->blocks - 0)) // <-- sometimes crashes, but correct ranges
-                // if (block < (sdata->blocks - 1)) // <-- no crashes, but incorrect ranges
-                if (block < (sdata->blocks - 1))
-                    block++;
-                ddata->lblk_b = ddata->ublk_b + prodN;
-                ddata->ublk_b += sdata->blk_r;
-                //ddata->blk_b_sqrt = (uint64_t)(sqrt((int64_t)(ddata->ublk_b + prodN))) + 1;
-                uint64_2gmp(ddata->ublk_b + prodN, gmp_sqrt);
-                mpz_sqrt(gmp_sqrt, gmp_sqrt);
-                ddata->blk_b_sqrt = gmp2uint64(gmp_sqrt) + 1;
+                // 最后一个 block 已记录完毕，不能再推进边界或写到 pbounds 末尾之外。
+                if (block < sdata->blocks)
+                {
+                    ddata->lblk_b = ddata->ublk_b + prodN;
+                    ddata->ublk_b += sdata->blk_r;
+                    //ddata->blk_b_sqrt = (uint64_t)(sqrt((int64_t)(ddata->ublk_b + prodN))) + 1;
+                    uint64_2gmp(ddata->ublk_b + prodN, gmp_sqrt);
+                    mpz_sqrt(gmp_sqrt, gmp_sqrt);
+                    ddata->blk_b_sqrt = gmp2uint64(gmp_sqrt) + 1;
+                }
             }
 
             s = sdata->root[i];
@@ -196,15 +198,21 @@ void get_offsets(thread_soedata_t *thread_data)
             prime = sdata->sieve_p[i];
             s = sdata->root[i];
 
-            if (mpz_cmp_ui(sqrtz, sdata->sieve_p[i]) <= 0)
+            while ((block < sdata->blocks) &&
+                (mpz_cmp_ui(sqrtz, sdata->sieve_p[i]) <= 0))
             {
                 ddata->pbounds[block] = i;
                 block++;
-                mpz_add_ui(lowz, lowz, sdata->blk_r);
-                mpz_set(sqrtz, lowz);
-                mpz_add_ui(sqrtz, sqrtz, sdata->blk_r);
-                mpz_sqrt(sqrtz, sqrtz);
-                mpz_add_ui(sqrtz, sqrtz, 1);
+
+                // 同一个素数可能同时跨过多个短 block 的平方根界限。
+                if (block < sdata->blocks)
+                {
+                    mpz_add_ui(lowz, lowz, sdata->blk_r);
+                    mpz_set(sqrtz, lowz);
+                    mpz_add_ui(sqrtz, sqrtz, sdata->blk_r);
+                    mpz_sqrt(sqrtz, sqrtz);
+                    mpz_add_ui(sqrtz, sqrtz, 1);
+                }
             }
 
             modp = mpz_tdiv_ui(lowz, prime);
