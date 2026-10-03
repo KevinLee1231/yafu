@@ -397,6 +397,7 @@ CFLAGS += \
     -Ifactor/ecm \
     -Ifactor/shared/ytools \
     -Ifactor/shared/ysieve \
+    -Ifactor/shared/common \
     -Ifactor/shared/aprcl \
     -Ifactor/nfs/gnfs \
     -Ifactor/nfs/gnfs/poly \
