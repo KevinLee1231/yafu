@@ -27,7 +27,7 @@
 - `factor/siqs/` 自初始化二次筛
 - `factor/ecm/` 椭圆曲线分解，标量与 AVX-512 两套实现合并到一处
 - `factor/nfs/` 作业编排，`factor/nfs/gnfs/` 数域筛本体
-- `factor/siqs/mpqs/` 多项式二次筛
+- `factor/mpqs/` 多项式二次筛
 - `factor/siqs/` 小输入的捷径
 - `factor/nfs/lasieve/` 外部格点筛
 

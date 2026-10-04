@@ -101,7 +101,7 @@ make yafu DEBUG=1             # 调试构建
 | `factor/ecm/` | 椭圆曲线分解，标量与 AVX-512 两套实现 |
 | `factor/nfs/` | NFS 作业编排 |
 | `factor/nfs/gnfs/` | 数域筛本体：多项式选择、筛选、关系、线性代数、开方 |
-| `factor/siqs/mpqs/` | 多项式二次筛 |
+| `factor/mpqs/` | 多项式二次筛 |
 | `factor/siqs/` | 小输入的捷径 |
 | `factor/nfs/lasieve/` | 外部格点筛（NFS 必需） |
 | `factor/shared/include/` | 全部头文件 |

@@ -166,7 +166,7 @@ static char function_names[NUM_FUNC][11] = {
     "hamdist", "snfs", "rsa", "factor", "pm1",
     "pp1", "rho", "trial", "shanks", "siqs",
     "primes", "torture", "ecm", "llt", "siqsbench",
-    "sigma", "totient", "smallmpqs", "testrange", "bigprimes",
+    "sigma", "totient", "tinysiqs", "testrange", "bigprimes",
     "fermat", "nfs", "tune", "bpsw", "aprcl",
     "semiprimes", "fftmul", "tinyprp", "toom3", "special",
     "divisors", "expansion"};
@@ -2891,7 +2891,7 @@ int feval(int funcnum, int nargs, meta_t *metadata)
         break;
 
     case 67:
-        // smallmpqs - 1 argument
+        // tinysiqs - 1 argument
         if (check_args(funcnum, nargs)) break;
 
         {
