@@ -66,7 +66,7 @@ rwildcard=$(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2) $(filter $(subst 
 
 CUB_DEPS = 	$(call rwildcard, cub,*.cuh)
 
-INC = -I"$(CUDA_ROOT)/include" -I.
+INC = -I"$(CUDA_ROOT)/include" -I. -Iinclude
 
 DEPS = ./Makefile \
 	sort_engine.cu \

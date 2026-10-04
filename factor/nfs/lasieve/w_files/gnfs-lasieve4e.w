@@ -94,8 +94,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include <gmp.h>
 #include <signal.h>
 #include <setjmp.h>
-
-#include "asm/siever-config.h"
+#include "siever-config.h"
 #ifndef TDS_MPQS
 #define TDS_MPQS TDS_SPECIAL_Q
 #endif
@@ -111,8 +110,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 @c
 #include "if.h"
 #include "primgen32.h"
-#include "asm/32bit.h"
-#include "asm/64bit.h"
+#include "32bit.h"
+#include "64bit.h"
 #include "redu2.h"
 #include "recurrence6.h"
 #include "fbgen.h"
@@ -140,10 +139,9 @@ division survivors are done.
 @c
 #define GCD_SIEVE_BOUND 10
 #include "asm/siever-config.c"
-
-#include "asm/lasched.h"
-#include "asm/medsched.h"
-#include "asm/MMX-TD.h"
+#include "lasched.h"
+#include "medsched.h"
+#include "MMX-TD.h"
 
 #define L1_SIZE (1UL<<L1_BITS)
 
@@ -288,7 +286,6 @@ u32_t I_bits;
 u32_t J_bits,i_shift,n_I,n_J;
 u32_t root_no;
 float sigma;
-
 #include "strategy.h"
 strat_t strat;
 

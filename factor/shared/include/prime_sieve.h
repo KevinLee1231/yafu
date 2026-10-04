@@ -3,8 +3,10 @@
 /* many separate places in the code need a list
    of primes. Include such a list pregenerated, with
    the differences between primes stored */
-#include "qs_impl.h"
-#include "ytools.h"
+
+#ifndef _PRIME_SIEVE_H_
+#define _PRIME_SIEVE_H_
+
 #include <stdint.h>
 
 #define PRECOMPUTED_PRIME_BOUND 100000
@@ -40,3 +42,5 @@ typedef struct {
 void fill_prime_list(prime_list_t *prime_list,
     uint32_t max_size,
     uint32_t max_prime);
+
+#endif /* _PRIME_SIEVE_H_ */

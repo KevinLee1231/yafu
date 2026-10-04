@@ -6,8 +6,7 @@
 #include <string.h> 
 #include <gmp.h> 
 #include <stdlib.h> 
-
-#include "asm/siever-config.h"
+#include "siever-config.h"
 #include "input-poly.h"
 #include "if.h"
 #define MAX(_a, _b) ((_a) >  (_b) ? (_a) : (_b))

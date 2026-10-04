@@ -12,7 +12,7 @@ benefit from your work.
 $Id: lanczos_matmul.c 1025 2018-08-19 02:20:28Z jasonp_sf $
 --------------------------------------------------------------------*/
 
-#include "lanczos.h"
+#include "ms_lanczos.h"
 
 /*-------------------------------------------------------------------*/
 void mul_unpacked(packed_matrix_t *matrix,

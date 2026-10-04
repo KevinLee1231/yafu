@@ -11,8 +11,7 @@ benefit from your work.
 
 $Id: filter.c 1023 2018-08-19 00:30:42Z jasonp_sf $
 --------------------------------------------------------------------*/
-
-#include "filter.h"
+#include "gnfs_filter.h"
 
 /*--------------------------------------------------------------------*/
 static void find_fb_size(factor_base_t *fb, 

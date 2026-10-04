@@ -25,11 +25,10 @@
 #include <unistd.h>
 #include <math.h>
 #include <gmp.h>
-
-#include "asm/siever-config.h"
+#include "siever-config.h"
 #include "if.h"
 #include "gmp-aux.h"
-#include "asm/32bit.h"
+#include "32bit.h"
 #include "primgen32.h"
 #include "fbgen.h"
 

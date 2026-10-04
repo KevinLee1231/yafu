@@ -112,6 +112,8 @@ make yafu DEBUG=1             # 调试构建
 
 `/usr/include` 之外的 GMP 位置、指令集档位等，在 `config.mk` 里覆盖；其余走 Makefile 自动探测。
 
+每个方法目录下的 `README.md` 说明该方法的数学原理、代价函数、以及本仓库里哪些文件对应算法的哪一步。
+
 ---
 
 ## 持续集成

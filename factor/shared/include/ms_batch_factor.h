@@ -12,8 +12,8 @@ benefit from your work.
 $Id: batch_factor.h 638 2011-09-11 15:31:19Z jasonp_sf $
 --------------------------------------------------------------------*/
 
-#ifndef _BATCH_FACTOR_H_
-#define _BATCH_FACTOR_H_
+#ifndef _MS_MS_BATCH_FACTOR_H_
+#define _MS_MS_BATCH_FACTOR_H_
 
 #include <ms_common.h>
 #include "savefile.h"
@@ -134,4 +134,4 @@ uint32 ms_relation_batch_run(ms_relation_batch_t *rb);
 }
 #endif
 
-#endif /* _BATCH_FACTOR_H_ */
+#endif /* _MS_BATCH_FACTOR_H_ */

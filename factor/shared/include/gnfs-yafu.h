@@ -12,8 +12,8 @@ benefit from your work.
 $Id$
 --------------------------------------------------------------------*/
 
-#ifndef _GNFS_GNFS_H_
-#define _GNFS_GNFS_H_
+#ifndef _YAFU_GNFS_H_
+#define _YAFU_GNFS_H_
 
 /* An implementation of the General Number Field
    Sieve algorithm for integer factorization. */
@@ -21,7 +21,6 @@ $Id$
 /* include basic stuff */
 
 #include "common.h"
-#include "msieve.h"
 #include "factor.h"
 #include "gmp.h"
 
@@ -407,4 +406,4 @@ void nfs_free_relation_list(relation_t *rlist, uint32_t num_relations);
 }
 #endif
 
-#endif /* _GNFS_GNFS_H_ */
+#endif /* _YAFU_GNFS_H_ */

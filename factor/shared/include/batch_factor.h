@@ -18,8 +18,8 @@ improved to handle relations with LPB larger than 32 bits on
 either or both sides.
 --------------------------------------------------------------------*/
 
-#ifndef _BATCH_FACTOR_H_
-#define _BATCH_FACTOR_H_
+#ifndef _YAFU_YAFU_BATCH_FACTOR_H_
+#define _YAFU_YAFU_BATCH_FACTOR_H_
 
 #include <stdint.h>
 #include "ytools.h"
@@ -195,4 +195,4 @@ extern "C" {
 }
 #endif
 
-#endif /* _BATCH_FACTOR_H_ */
+#endif /* _YAFU_BATCH_FACTOR_H_ */

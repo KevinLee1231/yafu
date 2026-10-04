@@ -15,7 +15,7 @@ $Id: stage1_sieve_gpu.c 1056 2024-06-09 13:04:11Z brgladman $
 #include <sort_engine.h> /* interface to GPU sorting library */
 #include <collision_engine.h> /* interface to GPU collision library */
 #include <stage1.h>
-#include <stage1_core_gpu/stage1_core.h>
+#include <stage1_core.h>
 #include "stage1_engine.h"
 
 /* On an interactive terminal we can rewrite the progress line in

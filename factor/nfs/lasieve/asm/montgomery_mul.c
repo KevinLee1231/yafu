@@ -7,8 +7,8 @@
 #include <math.h>
 #include <gmp.h>
 #include "siever-config.h"
-#include "../if.h"
-#include "../gmp-aux.h"
+#include "if.h"
+#include "gmp-aux.h"
 #include "montgomery_mul.h"
 
 #define uchar   unsigned char

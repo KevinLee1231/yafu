@@ -12,7 +12,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include <stdlib.h>
 #include <gmp.h>
 #include "siever-config.h"
-#include "../if.h"
+#include "if.h"
 
 u64_t ASM_ATTR pt64(u64_t);
 

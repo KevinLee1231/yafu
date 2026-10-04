@@ -16,7 +16,7 @@
 #include <limits.h>
 typedef unsigned long long ullong;
 #include <gmp.h>
-#include "asm/siever-config.h"
+#include "siever-config.h"
 #include "gmp-aux.h"
 
 

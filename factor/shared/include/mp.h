@@ -12,6 +12,15 @@ benefit from your work.
 $Id: mp.h 967 2014-06-26 02:48:22Z jasonp_sf $
 --------------------------------------------------------------------*/
 
+/* mp.h — 多项式选择与 MPQS 模块的定长大数
+ *
+ * 这里定义 mp_t，容量 MAX_MP_WORDS = 32（1024 位），经 ms_common.h
+ * 进入 factor/nfs/gnfs、factor/mpqs、factor/shared/common 这几个编译单元。
+ * 32 字是筛法热循环里内存敏感所致。
+ *
+ * 另有一处同名 mp_t，容量 64 字，见 factor/shared/include/core_types.h。
+ * 那个供 SIQS、nfs 编排与 gmp 桥接使用。两者不能合并，理由见那里。
+ */
 #ifndef _MP_H_
 #define _MP_H_
 

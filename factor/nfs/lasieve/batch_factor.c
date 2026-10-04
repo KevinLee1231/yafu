@@ -11,13 +11,12 @@ benefit from your work.
 
 $Id: batch_factor.c 638 2011-09-11 15:31:19Z jasonp_sf $
 --------------------------------------------------------------------*/
-
-#include <batch_factor.h>
+#include <lasieve_batch_factor.h>
 #include <stdint.h>
 #include "monty.h"
 #include "prime_sieve.h"
 #include "yafu_ecm.h"
-#include "microecm.h"
+#include "lasieve_microecm.h"
 #include "tinyecm.h"
 #include "mpz_aprcl.h"
 #include <math.h>

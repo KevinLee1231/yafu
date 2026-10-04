@@ -19,7 +19,7 @@
 #include <string.h>
 #include <inttypes.h>
 #include "siever-config.h"
-#include "../if.h"
+#include "if.h"
 #include "zeit.h"
 
 clock_t *zeitcounter;

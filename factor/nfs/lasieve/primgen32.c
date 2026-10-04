@@ -9,8 +9,7 @@
 #include <stdlib.h> 
 #include <stdio.h> 
 #include <gmp.h> 
-
-#include "asm/siever-config.h"
+#include "siever-config.h"
 #include "primgen32.h"
 #include "if.h"
 

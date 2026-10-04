@@ -22,7 +22,7 @@ code to the public domain.
 #include "qs_impl.h"
 #include "ytools.h"
 #include "common.h"
-#include "msieve_common.h"
+#include "core_types.h"
 
 /*
 this file contains code to implement filtering of relation sets prior

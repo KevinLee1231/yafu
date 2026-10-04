@@ -12,7 +12,7 @@ benefit from your work.
 $Id: lanczos_pre.c 387 2010-09-06 21:26:05Z jasonp_sf $
 --------------------------------------------------------------------*/
 
-#include "lanczos.h"
+#include "ms_lanczos.h"
 
 typedef struct {
 	uint32 index;

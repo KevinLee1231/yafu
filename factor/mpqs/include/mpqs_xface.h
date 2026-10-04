@@ -2,7 +2,7 @@
 GMP-level entry point for the MPQS module.
 
 yafu code must not include mpqs.h directly.  mpqs.h reaches msieve's mp.h,
-which defines mp_t with MAX_MP_WORDS 32, while yafu's msieve_common.h defines
+which defines mp_t with MAX_MP_WORDS 32, while yafu's core_types.h defines
 the same name with 64 -- same name, different size, so the two cannot share a
 translation unit.  Everything on the yafu side of the boundary speaks mpz_t
 and reaches MPQS only through here.

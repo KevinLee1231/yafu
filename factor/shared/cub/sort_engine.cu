@@ -3,7 +3,7 @@
 #include <limits.h>
 #include <stdint.h>
 #include <cuda.h>
-#include <factor/shared/cub/cub.cuh>
+#include <factor/shared/cub/cub/cub.cuh>
 
 #include "sort_engine.h"
 

@@ -25,7 +25,7 @@ code to the public domain.
 #include "ytools.h"
 #include "monty.h"
 #include "gmp.h"
-#include "msieve_common.h"
+#include "core_types.h"
 
 #ifdef __MINGW32__
 #include <Windows.h>

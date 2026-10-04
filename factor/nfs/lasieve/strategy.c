@@ -11,17 +11,16 @@
 #include <string.h> 
 #include <time.h> 
 #include <gmp.h> 
-#include "asm/siever-config.h"
+#include "siever-config.h"
 #include "if.h"
 #include "primgen32.h"
-#include "asm/32bit.h"
+#include "32bit.h"
 #include "strategy.h"
-#include "asm/montgomery_mul.h"
+#include "montgomery_mul.h"
 #include "ecm.h"
 #include "pm1.h"
-
 #include "gmp-aux.h"
-#include "mpqs.h"
+#include "lasieve_mpqs.h"
 #include "mpqs3.h"
 
 #include <immintrin.h>
@@ -38,7 +37,7 @@ static i64_t mpqsaux_clock;
 #define CF_STAT
 
 // for tinyecm/microecm
-#include "microecm.h"
+#include "lasieve_microecm.h"
 static uint64_t pran;
 static mpz_t uecm_factors[3];
 static int uecm_initialized = 0;

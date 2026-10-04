@@ -12,7 +12,7 @@ benefit from your work.
 $Id: lanczos_reorder.c 348 2010-07-25 02:51:09Z jasonp_sf $
 --------------------------------------------------------------------*/
 
-#include "lanczos.h"
+#include "ms_lanczos.h"
 
 typedef struct {
 	int16 cost;

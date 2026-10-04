@@ -27,3 +27,23 @@ nfs.*
 *.tlog
 *.last_spq*
 msieve.dat
+
+# lasieve 的测试可执行文件（make mpqs3test / mpqstest / ecmtest /
+# mpqsstat 产出，不是源码）
+factor/nfs/lasieve/ecmtest
+factor/nfs/lasieve/mpqs3test
+factor/nfs/lasieve/mpqstest
+factor/nfs/lasieve/mpqsstat
+factor/nfs/lasieve/mpqst
+factor/nfs/lasieve/tmpqs
+
+# lasieve 构建与测试的产物
+factor/nfs/lasieve/gnfs-lasieve4I*e
+factor/nfs/lasieve/*.job
+factor/nfs/lasieve/snfs_*.txt
+factor/nfs/lasieve/*.o
+factor/nfs/lasieve/*.a
+factor/nfs/lasieve/mpqs3test
+factor/nfs/lasieve/mpqstest
+factor/nfs/lasieve/mpqsstat
+factor/nfs/lasieve/ecmtest
