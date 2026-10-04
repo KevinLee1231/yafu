@@ -391,7 +391,7 @@ CFLAGS += \
     -Itop \
     -Ifactor/siqs/include \
     -Ifactor/ecm/include \
-    -Ifactor/mpqs/include \
+    -Ifactor/siqs/mpqs/include \
     -Ifactor/nfs/gnfs/include \
     -Ifactor/core/include \
     -Ifactor/ecm \
@@ -1058,13 +1058,13 @@ endif
 #     caller was the msieve demo, which is gone)
 # -----------------------------------------------------------------------------
 QS_SRCS = \
-    factor/mpqs/gf2.c \
-    factor/mpqs/mpqs.c \
-    factor/mpqs/poly.c \
-    factor/mpqs/relation.c \
-    factor/mpqs/sieve.c \
-    factor/mpqs/sieve_core.c \
-    factor/mpqs/sqrt.c
+    factor/siqs/mpqs/gf2.c \
+    factor/siqs/mpqs/mpqs.c \
+    factor/siqs/mpqs/poly.c \
+    factor/siqs/mpqs/relation.c \
+    factor/siqs/mpqs/sieve.c \
+    factor/siqs/mpqs/sieve_core.c \
+    factor/siqs/mpqs/sqrt.c
 
 
 # -----------------------------------------------------------------------------
@@ -1080,14 +1080,14 @@ NFS_OBJS          = $(NFS_SRCS:.c=.no)
 NFS_GPU_OBJS      = $(NFS_GPU_SRCS:.c=.no)
 NFS_NOGPU_OBJS    = $(NFS_NOGPU_SRCS:.c=.no)
 QS_OBJS = \
-    factor/mpqs/gf2.qo \
-    factor/mpqs/mpqs.qo \
-    factor/mpqs/poly.qo \
-    factor/mpqs/relation.qo \
-    factor/mpqs/sieve.qo \
-    factor/mpqs/sqrt.qo \
-    factor/mpqs/sieve_core_generic_32k.qo \
-    factor/mpqs/sieve_core_generic_64k.qo
+    factor/siqs/mpqs/gf2.qo \
+    factor/siqs/mpqs/mpqs.qo \
+    factor/siqs/mpqs/poly.qo \
+    factor/siqs/mpqs/relation.qo \
+    factor/siqs/mpqs/sieve.qo \
+    factor/siqs/mpqs/sqrt.qo \
+    factor/siqs/mpqs/sieve_core_generic_32k.qo \
+    factor/siqs/mpqs/sieve_core_generic_64k.qo
 
 DEPS_DIR      := .deps
 ALL_OBJS      := $(YAFU_OBJS) $(YAFU_SIQS_OBJS) $(YAFU_ECM_OBJS) \
@@ -1367,16 +1367,16 @@ $(sort $(ALL_COMPILED) $(TEST_OBJS)): $(BUILD_CONFIG)
 	$(CC) $(CFLAGS) -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
 
 # QS objects (.qo) — also get dependency files now
-factor/mpqs/sieve_core_generic_32k.qo: factor/mpqs/sieve_core.c | $(DEPS_SUBDIRS)
+factor/siqs/mpqs/sieve_core_generic_32k.qo: factor/siqs/mpqs/sieve_core.c | $(DEPS_SUBDIRS)
 	$(CC) $(CFLAGS) -DBLOCK_KB=32 -DHAS_SSE2 \
 	    -DROUTINE_NAME=qs_core_sieve_generic_32k \
-	    -MMD -MP -MF $(DEPS_DIR)/factor/mpqs/sieve_core_generic_32k.d \
+	    -MMD -MP -MF $(DEPS_DIR)/factor/siqs/mpqs/sieve_core_generic_32k.d \
 	    -c -o $@ $<
 
-factor/mpqs/sieve_core_generic_64k.qo: factor/mpqs/sieve_core.c | $(DEPS_SUBDIRS)
+factor/siqs/mpqs/sieve_core_generic_64k.qo: factor/siqs/mpqs/sieve_core.c | $(DEPS_SUBDIRS)
 	$(CC) $(CFLAGS) -DBLOCK_KB=64 -DHAS_SSE2 \
 	    -DROUTINE_NAME=qs_core_sieve_generic_64k \
-	    -MMD -MP -MF $(DEPS_DIR)/factor/mpqs/sieve_core_generic_64k.d \
+	    -MMD -MP -MF $(DEPS_DIR)/factor/siqs/mpqs/sieve_core_generic_64k.d \
 	    -c -o $@ $<
 
 %.qo: %.c | $(DEPS_SUBDIRS)

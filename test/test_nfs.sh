@@ -13,7 +13,7 @@ cppflags=${CPPFLAGS:-}
 # 生产函数各自放入独立 section，链接时只保留驱动实际调用的路径。
 common_flags="-UNDEBUG -std=c11 -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE -DVBITS=64 -DUSE_NFS -ffunction-sections -fdata-sections"
 cd "$repo_dir"
-includes="-I. -Ifactor/shared/include -Ifactor/shared/include -Itop -Ifactor/shared/aprcl -Itop/cmdParser -Ifactor -Ifactor/siqs/include -Ifactor/ecm/include -Ifactor/mpqs/include -Ifactor/nfs/gnfs/include -Ifactor/core/include -Ifactor/ecm -Ifactor/nfs -Ifactor/shared/ytools -Ifactor/shared/ysieve -Ifactor/nfs/gnfs -Ifactor/nfs/gnfs/poly -Ifactor/nfs/gnfs/poly/stage1"
+includes="-I. -Ifactor/shared/include -Ifactor/shared/include -Itop -Ifactor/shared/aprcl -Itop/cmdParser -Ifactor -Ifactor/siqs/include -Ifactor/ecm/include -Ifactor/siqs/mpqs/include -Ifactor/nfs/gnfs/include -Ifactor/core/include -Ifactor/ecm -Ifactor/nfs -Ifactor/shared/ytools -Ifactor/shared/ysieve -Ifactor/nfs/gnfs -Ifactor/nfs/gnfs/poly -Ifactor/nfs/gnfs/poly/stage1"
 
 # CFLAGS/CPPFLAGS 允许常规的空格分隔编译选项。
 # shellcheck disable=SC2086
