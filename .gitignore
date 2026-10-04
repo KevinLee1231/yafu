@@ -36,3 +36,14 @@ factor/nfs/lasieve/mpqstest
 factor/nfs/lasieve/mpqsstat
 factor/nfs/lasieve/mpqst
 factor/nfs/lasieve/tmpqs
+
+# lasieve 构建与测试的产物
+factor/nfs/lasieve/gnfs-lasieve4I*e
+factor/nfs/lasieve/*.job
+factor/nfs/lasieve/snfs_*.txt
+factor/nfs/lasieve/*.o
+factor/nfs/lasieve/*.a
+factor/nfs/lasieve/mpqs3test
+factor/nfs/lasieve/mpqstest
+factor/nfs/lasieve/mpqsstat
+factor/nfs/lasieve/ecmtest
