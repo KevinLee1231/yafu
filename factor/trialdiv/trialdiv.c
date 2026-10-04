@@ -55,14 +55,30 @@ void zTrial(fact_obj_t *fobj)
             free(fobj->primes);
         }
         fobj->primes = soe_wrapper(sdata, 0, limit, 0, &fobj->num_p, 0, 0);
-        fobj->min_p = 2;
+        // a limit below the first prime gives an empty table, and
+        // soe_wrapper returns NULL outright when the range is empty.
+        // primes[num_p - 1] below would be a read before the array in the
+        // first case and a null dereference in the second.
+        if ((fobj->primes == NULL) || (fobj->num_p == 0))
+        {
+            soe_finalize(sdata);
+            fobj->primes = NULL;
+            fobj->num_p = 0;
+            fobj->min_p = 0;
+            fobj->max_p = 0;
+            return;
+        }
+		fobj->min_p = 2;
         fobj->max_p = fobj->primes[fobj->num_p -1];
         soe_finalize(sdata);
 	}
 
-	while ((mpz_cmp_ui(fobj->div_obj.gmp_n, 1) > 0) && 
-		(fobj->primes[k] < limit) &&
-		(k < (uint32_t)fobj->num_p))
+	/* the k < num_p test has to come first: primes[k] is a load, and when
+	 * the table was just rebuilt its largest prime is strictly below limit,
+	 * so primes[k] < limit never fails first and k walks past the end */
+	while ((mpz_cmp_ui(fobj->div_obj.gmp_n, 1) > 0) &&
+		(k < (uint32_t)fobj->num_p) &&
+		(fobj->primes[k] < limit))
 	{
 		q = (uint64_t)fobj->primes[k];
 		r = mpz_tdiv_ui(fobj->div_obj.gmp_n, q);
@@ -531,7 +547,9 @@ int sptestsqr(uint64_t n)
 	if (t == 0 || t == 1 || t == 4 ||
 		t == 9 || t == 16 || t == 17 || t == 25)
 	{
-		t = (uint64_t)sqrt((int64_t)n);
+		/* (int64_t) made n negative for any input with bit 63 set, so
+		 * sqrt returned NaN and NaN -> uint64_t is undefined. */
+		t = (uint64_t)sqrt((double)n);
 		if (n == t * t)
 			return 1;
 	}
@@ -680,7 +698,11 @@ uint64_t spfermat(uint64_t limit, uint32_t mult, uint64_t n)
     count = 0;
     if (sptestsqr(b2))
     {
-        return sqrt(b2);
+        /* b2 = a*a - multN, so b2 == b*b means (a-b)(a+b) == multN.
+         * b is not a divisor of n -- the factor is gcd(n, a + b),
+         * which the loop below computes.  Returning b would hand
+         * the caller a number that divides nothing. */
+        return 0;
     }
 
     // select locations where b^2 can be a square mod M from precomputed list

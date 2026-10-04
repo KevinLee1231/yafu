@@ -132,7 +132,7 @@ uint32_t getNode(bintree_t* tree, uint32_t low, uint32_t high)
 void addNode(bintree_t* tree, int id, int side, uint32_t low, uint32_t high, mpz_t prod)
 {
     uint32_t nodeid = 0;
-    bintree_element_t* node = &tree->nodes[id];
+    bintree_element_t* node;
 
     if (tree->size == tree->alloc)
     {
@@ -141,6 +141,10 @@ void addNode(bintree_t* tree, int id, int side, uint32_t low, uint32_t high, mpz
         tree->nodes = (bintree_element_t*)xrealloc(tree->nodes,
             tree->alloc * sizeof(bintree_element_t));
     }
+
+    // only after the realloc: it can move the block, and a pointer taken
+    // before it would be reading freed memory in the tests below
+    node = &tree->nodes[id];
 
     if ((side == 0) && (node->left_id != -1))
     {
@@ -696,6 +700,18 @@ void check_batch_relation(relation_batch_t* rb,
     uint64_t lp_r[MAX_LARGE_PRIMES];
     uint64_t lp_a[MAX_LARGE_PRIMES];
     uint32_t num_r = 0, num_a = 0;
+    /* the f2r paths can contribute more factors than MAX_LARGE_PRIMES, and
+     * lp_r[num_r++] had no bound, so an overflowing split used to write past
+     * lp_r into lp_a.  Collect it and fail the relation instead. */
+    int lp_overflow = 0;
+
+#define LP_STORE(arr, cnt, val) \
+    do { \
+        if ((cnt) < MAX_LARGE_PRIMES) \
+            (arr)[(cnt)++] = (val); \
+        else \
+            lp_overflow = 1; \
+    } while (0)
     int do_r_first = 0;
 
     /* first compute gcd(prime_product, rational large cofactor).
@@ -819,7 +835,7 @@ process_r:
         if (mpz_cmp_ui(f1r, 1) > 0)
         {
             // if f1r == 1, don't abort but also don't add it as a large prime factor.
-            lp_r[num_r++] = mpz_get_ui(f1r);
+            LP_STORE(lp_r, num_r, mpz_get_ui(f1r));
         }
     }
     else if (mpz_sizeinbase(f1r, 2) <= 64)
@@ -852,7 +868,7 @@ process_r:
             }
         }
 
-        lp_r[num_r++] = f64;
+        LP_STORE(lp_r, num_r, f64);
         mpz_tdiv_q_ui(f1r, f1r, f64);
 
         if (mpz_get_ui(f1r) > rb->lp_cutoff_r)
@@ -861,7 +877,7 @@ process_r:
             return;
         }
 
-        lp_r[num_r++] = mpz_get_ui(f1r);
+        LP_STORE(lp_r, num_r, mpz_get_ui(f1r));
     }
 
     if (mpz_cmp_ui(f2r, rb->lp_cutoff_r) <= 0)
@@ -869,7 +885,7 @@ process_r:
         if (mpz_cmp_ui(f2r, 1) > 0)
         {
             // if f2r == 1, don't abort but also don't add it as a large prime factor.
-            lp_r[num_r++] = mpz_get_ui(f2r);
+            LP_STORE(lp_r, num_r, mpz_get_ui(f2r));
         }
     }
     else if (mpz_sizeinbase(f2r, 2) <= 64)
@@ -890,7 +906,7 @@ process_r:
             return;
         }
 
-        lp_r[num_r++] = f64;
+        LP_STORE(lp_r, num_r, f64);
         mpz_tdiv_q_ui(f2r, f2r, f64);
 
         if (mpz_get_ui(f2r) > rb->lp_cutoff_r)
@@ -899,7 +915,7 @@ process_r:
             return;
         }
 
-        lp_r[num_r++] = mpz_get_ui(f2r);
+        LP_STORE(lp_r, num_r, mpz_get_ui(f2r));
     }
 
     /* only use expensive factoring methods when we know
@@ -951,7 +967,7 @@ process_r:
 
                 if (q64 > 1)
                 {
-                    lp_r[num_r++] = q64;
+                    LP_STORE(lp_r, num_r, q64);
                 }
 
             }
@@ -960,7 +976,7 @@ process_r:
                 if (mpz_cmp_ui(_small, rb->lp_cutoff_r) <= 0)
                 {
                     // lpb's can be larger than 32 bits
-                    lp_r[num_r++] = mpz_get_ui(_small);
+                    LP_STORE(lp_r, num_r, mpz_get_ui(_small));
                 }
                 else
                 {
@@ -986,8 +1002,8 @@ process_r:
                         return;
                     }
 
-                    lp_r[num_r++] = f64;
-                    lp_r[num_r++] = q64;
+                    LP_STORE(lp_r, num_r, f64);
+                    LP_STORE(lp_r, num_r, q64);
 
                     mpz_set_ui(_small, 1);
                 }
@@ -1002,7 +1018,7 @@ process_r:
                     return;
                 }
 
-                lp_r[num_r++] = q64;
+                LP_STORE(lp_r, num_r, q64);
             }
 
             // process _large, which could need to be split again
@@ -1047,8 +1063,8 @@ process_r:
                             return;
                         }
 
-                        lp_r[num_r++] = f64;
-                        lp_r[num_r++] = q64;
+                        LP_STORE(lp_r, num_r, f64);
+                        LP_STORE(lp_r, num_r, q64);
                     }
                     else
                     {
@@ -1060,7 +1076,7 @@ process_r:
                             return;
                         }
 
-                        lp_r[num_r++] = q64;
+                        LP_STORE(lp_r, num_r, q64);
                     }
 
                     // process _large, which might need to be split again.
@@ -1075,7 +1091,7 @@ process_r:
                             return;
                         }
 
-                        lp_r[num_r++] = f64;
+                        LP_STORE(lp_r, num_r, f64);
                         mpz_tdiv_q_ui(_large, _large, f64);
 
                         if ((mpz_sizeinbase(_large, 2) > 32) || (mpz_get_ui(_large) > rb->lp_cutoff_r))
@@ -1084,7 +1100,7 @@ process_r:
                             return;
                         }
 
-                        lp_r[num_r++] = mpz_get_ui(_large);
+                        LP_STORE(lp_r, num_r, mpz_get_ui(_large));
                     }
                     else
                     {
@@ -1094,7 +1110,7 @@ process_r:
                             return;
                         }
 
-                        lp_r[num_r++] = mpz_get_ui(_large);
+                        LP_STORE(lp_r, num_r, mpz_get_ui(_large));
                     }
                 }
                 else
@@ -1122,7 +1138,7 @@ process_r:
 
                     while (nf > 0)
                     {
-                        lp_r[num_r++] = mpz_get_ui(fac[nf - 1]);
+                        LP_STORE(lp_r, num_r, mpz_get_ui(fac[nf - 1]));
                         nf--;
                     }
 
@@ -1137,7 +1153,7 @@ process_r:
                 if (mpz_cmp_ui(_large, rb->lp_cutoff_r) <= 0)
                 {
                     // lpb's can be larger than 32 bits
-                    lp_r[num_r++] = mpz_get_ui(_large);
+                    LP_STORE(lp_r, num_r, mpz_get_ui(_large));
                 }
                 else
                 {
@@ -1150,7 +1166,7 @@ process_r:
                         return;
                     }
 
-                    lp_r[num_r++] = f64;
+                    LP_STORE(lp_r, num_r, f64);
                     mpz_tdiv_q_ui(_large, _large, f64);
 
                     if (mpz_get_ui(_large) > rb->lp_cutoff_r)
@@ -1159,7 +1175,7 @@ process_r:
                         return;
                     }
 
-                    lp_r[num_r++] = mpz_get_ui(_large);
+                    LP_STORE(lp_r, num_r, mpz_get_ui(_large));
                 }
             }
             else
@@ -1173,7 +1189,7 @@ process_r:
                 uint64_t f64 = mpz_get_ui(_large);
                 if (f64 > 1)
                 {
-                    lp_r[num_r++] = f64;
+                    LP_STORE(lp_r, num_r, f64);
                 }
             }
         }
@@ -1202,7 +1218,7 @@ process_r:
 
             while (nf > 0)
             {
-                lp_r[num_r++] = mpz_get_ui(fac[nf - 1]);
+                LP_STORE(lp_r, num_r, mpz_get_ui(fac[nf - 1]));
                 nf--;
             }
 
@@ -1259,14 +1275,14 @@ process_r:
                     return;
                 }
 
-                lp_r[num_r++] = q64;
+                LP_STORE(lp_r, num_r, q64);
             }
             else if (mpz_sizeinbase(_small, 2) > 32)
             {
                 if (mpz_cmp_ui(_small, rb->lp_cutoff_r) <= 0)
                 {
                     // lpb's can be larger than 32 bits
-                    lp_r[num_r++] = mpz_get_ui(_small);
+                    LP_STORE(lp_r, num_r, mpz_get_ui(_small));
                 }
                 else
                 {
@@ -1295,8 +1311,8 @@ process_r:
                         return;
                     }
 
-                    lp_r[num_r++] = f64;
-                    lp_r[num_r++] = q64;
+                    LP_STORE(lp_r, num_r, f64);
+                    LP_STORE(lp_r, num_r, q64);
                 }
             }
             else
@@ -1309,7 +1325,7 @@ process_r:
                     return;
                 }
 
-                lp_r[num_r++] = q64;
+                LP_STORE(lp_r, num_r, q64);
             }
 
             // process _large, which could need to be split again
@@ -1353,8 +1369,8 @@ process_r:
                             return;
                         }
 
-                        lp_r[num_r++] = f64;
-                        lp_r[num_r++] = q64;
+                        LP_STORE(lp_r, num_r, f64);
+                        LP_STORE(lp_r, num_r, q64);
                     }
                     else
                     {
@@ -1366,7 +1382,7 @@ process_r:
                             return;
                         }
 
-                        lp_r[num_r++] = q64;
+                        LP_STORE(lp_r, num_r, q64);
                     }
 
                     mpz_tdiv_q(_large, _large, _small);
@@ -1377,7 +1393,7 @@ process_r:
                         if (mpz_cmp_ui(_large, rb->lp_cutoff_r) <= 0)
                         {
                             // lpb's can be larger than 32 bits
-                            lp_r[num_r++] = mpz_get_ui(_large);
+                            LP_STORE(lp_r, num_r, mpz_get_ui(_large));
                         }
                         else
                         {
@@ -1397,7 +1413,7 @@ process_r:
                                 return;
                             }
 
-                            lp_r[num_r++] = f64;
+                            LP_STORE(lp_r, num_r, f64);
                             mpz_tdiv_q_ui(_large, _large, f64);
 
                             if ((mpz_sizeinbase(_large, 2) > 32) || (mpz_get_ui(_large) > rb->lp_cutoff_r))
@@ -1406,7 +1422,7 @@ process_r:
                                 return;
                             }
 
-                            lp_r[num_r++] = mpz_get_ui(_large);
+                            LP_STORE(lp_r, num_r, mpz_get_ui(_large));
                         }
                     }
                     else
@@ -1417,7 +1433,7 @@ process_r:
                             return;
                         }
 
-                        lp_r[num_r++] = mpz_get_ui(_large);
+                        LP_STORE(lp_r, num_r, mpz_get_ui(_large));
                     }
                 }
                 else
@@ -1445,7 +1461,7 @@ process_r:
 
                     while (nf > 0)
                     {
-                        lp_r[num_r++] = mpz_get_ui(fac[nf - 1]);
+                        LP_STORE(lp_r, num_r, mpz_get_ui(fac[nf - 1]));
                         nf--;
                     }
 
@@ -1460,7 +1476,7 @@ process_r:
                 if (mpz_cmp_ui(_large, rb->lp_cutoff_r) <= 0)
                 {
                     // lpb's can be larger than 32 bits
-                    lp_r[num_r++] = mpz_get_ui(_large);
+                    LP_STORE(lp_r, num_r, mpz_get_ui(_large));
                 }
                 else
                 {
@@ -1480,7 +1496,7 @@ process_r:
                         return;
                     }
 
-                    lp_r[num_r++] = f64;
+                    LP_STORE(lp_r, num_r, f64);
                     mpz_tdiv_q_ui(_large, _large, f64);
 
                     if ((mpz_sizeinbase(_large, 2) > 32) || (mpz_get_ui(_large) > rb->lp_cutoff_r))
@@ -1489,7 +1505,7 @@ process_r:
                         return;
                     }
 
-                    lp_r[num_r++] = mpz_get_ui(_large);
+                    LP_STORE(lp_r, num_r, mpz_get_ui(_large));
                 }
             }
             else
@@ -1500,7 +1516,7 @@ process_r:
                     return;
                 }
 
-                lp_r[num_r++] = mpz_get_ui(_large);
+                LP_STORE(lp_r, num_r, mpz_get_ui(_large));
             }
         }
         else
@@ -1528,7 +1544,7 @@ process_r:
 
             while (nf > 0)
             {
-                lp_r[num_r++] = mpz_get_ui(fac[nf - 1]);
+                LP_STORE(lp_r, num_r, mpz_get_ui(fac[nf - 1]));
                 nf--;
             }
 
@@ -1639,7 +1655,7 @@ process_a:
         if (mpz_cmp_ui(f1a, 1) > 0)
         {
             // if f1a == 1, don't abort but also don't add it as a large prime factor.
-            lp_a[num_a++] = mpz_get_ui(f1a);
+            LP_STORE(lp_a, num_a, mpz_get_ui(f1a));
         }
     }
     else if (mpz_sizeinbase(f1a, 2) <= 64)
@@ -1675,7 +1691,7 @@ process_a:
             }
         }
 
-        lp_a[num_a++] = f64;
+        LP_STORE(lp_a, num_a, f64);
         mpz_tdiv_q_ui(f1a, f1a, f64);
 
         if (mpz_get_ui(f1a) > rb->lp_cutoff_a)
@@ -1684,7 +1700,7 @@ process_a:
             return;
         }
 
-        lp_a[num_a++] = mpz_get_ui(f1a);
+        LP_STORE(lp_a, num_a, mpz_get_ui(f1a));
     }
 
     if (mpz_cmp_ui(f2a, rb->lp_cutoff_a) <= 0)
@@ -1692,7 +1708,7 @@ process_a:
         if (mpz_cmp_ui(f2a, 1) > 0)
         {
             // if f2a == 1, don't abort but also don't add it as a large prime factor.
-            lp_a[num_a++] = mpz_get_ui(f2a);
+            LP_STORE(lp_a, num_a, mpz_get_ui(f2a));
         }
     }
     else if (mpz_sizeinbase(f2a, 2) <= 64)
@@ -1715,7 +1731,7 @@ process_a:
             return;
         }
 
-        lp_a[num_a++] = f64;
+        LP_STORE(lp_a, num_a, f64);
         mpz_tdiv_q_ui(f2a, f2a, f64);
 
         if (mpz_get_ui(f2a) > rb->lp_cutoff_a)
@@ -1724,7 +1740,7 @@ process_a:
             return;
         }
 
-        lp_a[num_a++] = mpz_get_ui(f2a);
+        LP_STORE(lp_a, num_a, mpz_get_ui(f2a));
     }
 
     if (mpz_sizeinbase(f1a, 2) > 64) {
@@ -1778,7 +1794,7 @@ process_a:
 
                 if (q64 > 1)
                 {
-                    lp_a[num_a++] = q64;
+                    LP_STORE(lp_a, num_a, q64);
                 }
 
             }
@@ -1787,7 +1803,7 @@ process_a:
                 if (mpz_cmp_ui(_small, rb->lp_cutoff_a) <= 0)
                 {
                     // lpb's can be larger than 32 bits
-                    lp_a[num_a++] = mpz_get_ui(_small);
+                    LP_STORE(lp_a, num_a, mpz_get_ui(_small));
                 }
                 else
                 {
@@ -1810,8 +1826,8 @@ process_a:
                         return;
                     }
 
-                    lp_a[num_a++] = f64;
-                    lp_a[num_a++] = q64;
+                    LP_STORE(lp_a, num_a, f64);
+                    LP_STORE(lp_a, num_a, q64);
 
                     mpz_set_ui(_small, 1);
                 }
@@ -1828,7 +1844,7 @@ process_a:
                     return;
                 }
 
-                lp_a[num_a++] = q64;
+                LP_STORE(lp_a, num_a, q64);
             }
 
             // now process the cofactor (_large), or a composite factor that
@@ -1853,7 +1869,7 @@ process_a:
                         if (mpz_cmp_ui(_small, rb->lp_cutoff_a) <= 0)
                         {
                             // lpb's can be larger than 32 bits
-                            lp_a[num_a++] = mpz_get_ui(_small);
+                            LP_STORE(lp_a, num_a, mpz_get_ui(_small));
                         }
                         else
                         {
@@ -1875,8 +1891,8 @@ process_a:
                                 return;
                             }
 
-                            lp_a[num_a++] = f64;
-                            lp_a[num_a++] = q64;
+                            LP_STORE(lp_a, num_a, f64);
+                            LP_STORE(lp_a, num_a, q64);
                         }
                     }
                     else
@@ -1889,7 +1905,7 @@ process_a:
                             return;
                         }
 
-                        lp_a[num_a++] = q64;
+                        LP_STORE(lp_a, num_a, q64);
                     }
 
                     // process _large, which might need to be split again.
@@ -1898,7 +1914,7 @@ process_a:
                         if (mpz_cmp_ui(_large, rb->lp_cutoff_a) <= 0)
                         {
                             // lpb's can be larger than 32 bits
-                            lp_a[num_a++] = mpz_get_ui(_large);
+                            LP_STORE(lp_a, num_a, mpz_get_ui(_large));
                         }
                         else
                         {
@@ -1911,7 +1927,7 @@ process_a:
                                 return;
                             }
 
-                            lp_a[num_a++] = f64;
+                            LP_STORE(lp_a, num_a, f64);
                             mpz_tdiv_q_ui(_large, _large, f64);
 
                             if (mpz_cmp_ui(_large, rb->lp_cutoff_a) > 0)
@@ -1920,7 +1936,7 @@ process_a:
                                 return;
                             }
 
-                            lp_a[num_a++] = mpz_get_ui(_large);
+                            LP_STORE(lp_a, num_a, mpz_get_ui(_large));
                         }
                     }
                     else
@@ -1931,7 +1947,7 @@ process_a:
                             return;
                         }
 
-                        lp_a[num_a++] = mpz_get_ui(_large);
+                        LP_STORE(lp_a, num_a, mpz_get_ui(_large));
                     }
                 }
                 else
@@ -1959,7 +1975,7 @@ process_a:
 
                     while (nf > 0)
                     {
-                        lp_a[num_a++] = mpz_get_ui(fac[nf - 1]);
+                        LP_STORE(lp_a, num_a, mpz_get_ui(fac[nf - 1]));
                         nf--;
                     }
 
@@ -1974,7 +1990,7 @@ process_a:
                 if (mpz_cmp_ui(_large, rb->lp_cutoff_a) <= 0)
                 {
                     // lpb's can be larger than 32 bits
-                    lp_a[num_a++] = mpz_get_ui(_large);
+                    LP_STORE(lp_a, num_a, mpz_get_ui(_large));
                 }
                 else
                 {
@@ -1987,7 +2003,7 @@ process_a:
                         return;
                     }
 
-                    lp_a[num_a++] = f64;
+                    LP_STORE(lp_a, num_a, f64);
                     mpz_tdiv_q_ui(_large, _large, f64);
 
                     if (mpz_get_ui(_large) > rb->lp_cutoff_a)
@@ -1996,7 +2012,7 @@ process_a:
                         return;
                     }
 
-                    lp_a[num_a++] = mpz_get_ui(_large);
+                    LP_STORE(lp_a, num_a, mpz_get_ui(_large));
                 }
             }
             else
@@ -2010,7 +2026,7 @@ process_a:
                 uint64_t f64 = mpz_get_ui(_large);
                 if (f64 > 1)
                 {
-                    lp_a[num_a++] = f64;
+                    LP_STORE(lp_a, num_a, f64);
                 }
             }
         }
@@ -2040,7 +2056,7 @@ process_a:
 
             while (nf > 0)
             {
-                lp_a[num_a++] = mpz_get_ui(fac[nf - 1]);
+                LP_STORE(lp_a, num_a, mpz_get_ui(fac[nf - 1]));
                 nf--;
             }
 
@@ -2100,7 +2116,7 @@ process_a:
 
                 if (q64 > 1)
                 {
-                    lp_a[num_a++] = q64;
+                    LP_STORE(lp_a, num_a, q64);
                 }
 
             }
@@ -2109,7 +2125,7 @@ process_a:
                 if (mpz_cmp_ui(_small, rb->lp_cutoff_a) <= 0)
                 {
                     // lpb's can be larger than 32 bits
-                    lp_a[num_a++] = mpz_get_ui(_small);
+                    LP_STORE(lp_a, num_a, mpz_get_ui(_small));
                 }
                 else
                 {
@@ -2132,8 +2148,8 @@ process_a:
                         return;
                     }
 
-                    lp_a[num_a++] = f64;
-                    lp_a[num_a++] = q64;
+                    LP_STORE(lp_a, num_a, f64);
+                    LP_STORE(lp_a, num_a, q64);
 
                     mpz_set_ui(_small, 1);
                 }
@@ -2148,7 +2164,7 @@ process_a:
                     return;
                 }
 
-                lp_a[num_a++] = q64;
+                LP_STORE(lp_a, num_a, q64);
             }
 
             // process _large, which could need to be split again
@@ -2171,7 +2187,7 @@ process_a:
                         if (mpz_cmp_ui(_small, rb->lp_cutoff_a) <= 0)
                         {
                             // lpb's can be larger than 32 bits
-                            lp_a[num_a++] = mpz_get_ui(_small);
+                            LP_STORE(lp_a, num_a, mpz_get_ui(_small));
                         }
                         else
                         {
@@ -2193,8 +2209,8 @@ process_a:
                                 return;
                             }
 
-                            lp_a[num_a++] = f64;
-                            lp_a[num_a++] = q64;
+                            LP_STORE(lp_a, num_a, f64);
+                            LP_STORE(lp_a, num_a, q64);
                         }
                     }
                     else
@@ -2207,7 +2223,7 @@ process_a:
                             return;
                         }
 
-                        lp_a[num_a++] = q64;
+                        LP_STORE(lp_a, num_a, q64);
                     }
 
                     // process _large, which might need to be split again.
@@ -2216,7 +2232,7 @@ process_a:
                         if (mpz_cmp_ui(_large, rb->lp_cutoff_a) <= 0)
                         {
                             // lpb's can be larger than 32 bits
-                            lp_a[num_a++] = mpz_get_ui(_large);
+                            LP_STORE(lp_a, num_a, mpz_get_ui(_large));
                         }
                         else
                         {
@@ -2229,7 +2245,7 @@ process_a:
                                 return;
                             }
 
-                            lp_a[num_a++] = f64;
+                            LP_STORE(lp_a, num_a, f64);
                             mpz_tdiv_q_ui(_large, _large, f64);
 
                             if ((mpz_sizeinbase(_large, 2) > 32) || (mpz_get_ui(_large) > rb->lp_cutoff_a))
@@ -2238,7 +2254,7 @@ process_a:
                                 return;
                             }
 
-                            lp_a[num_a++] = mpz_get_ui(_large);
+                            LP_STORE(lp_a, num_a, mpz_get_ui(_large));
                         }
                     }
                     else
@@ -2249,7 +2265,7 @@ process_a:
                             return;
                         }
 
-                        lp_a[num_a++] = mpz_get_ui(_large);
+                        LP_STORE(lp_a, num_a, mpz_get_ui(_large));
                     }
                 }
                 else
@@ -2277,7 +2293,7 @@ process_a:
 
                     while (nf > 0)
                     {
-                        lp_a[num_a++] = mpz_get_ui(fac[nf - 1]);
+                        LP_STORE(lp_a, num_a, mpz_get_ui(fac[nf - 1]));
                         nf--;
                     }
 
@@ -2292,7 +2308,7 @@ process_a:
                 if (mpz_cmp_ui(_large, rb->lp_cutoff_a) <= 0)
                 {
                     // lpb's can be larger than 32 bits
-                    lp_a[num_a++] = mpz_get_ui(_large);
+                    LP_STORE(lp_a, num_a, mpz_get_ui(_large));
                 }
                 else
                 {
@@ -2305,7 +2321,7 @@ process_a:
                         return;
                     }
 
-                    lp_a[num_a++] = f64;
+                    LP_STORE(lp_a, num_a, f64);
                     mpz_tdiv_q_ui(_large, _large, f64);
 
                     if ((mpz_sizeinbase(_large, 2) > 32) || (mpz_get_ui(_large) > rb->lp_cutoff_a))
@@ -2314,7 +2330,7 @@ process_a:
                         return;
                     }
 
-                    lp_a[num_a++] = mpz_get_ui(_large);
+                    LP_STORE(lp_a, num_a, mpz_get_ui(_large));
                 }
             }
             else
@@ -2328,7 +2344,7 @@ process_a:
                 uint64_t f64 = mpz_get_ui(_large);
                 if (f64 > 1)
                 {
-                    lp_a[num_a++] = f64;
+                    LP_STORE(lp_a, num_a, f64);
                 }
             }
         }
@@ -2357,7 +2373,7 @@ process_a:
 
             while (nf > 0)
             {
-                lp_a[num_a++] = mpz_get_ui(fac[nf - 1]);
+                LP_STORE(lp_a, num_a, mpz_get_ui(fac[nf - 1]));
                 nf--;
             }
 
@@ -2439,8 +2455,13 @@ done:
         c->lp_a[i] = lp_a[i];
     }
 
-    c->success = num_r + num_a;
+#undef LP_STORE
 
+    /* An f2r split can produce more large primes than cofactor_t has room
+     * for.  The writes above were dropped rather than running past lp_r, so
+     * the relation cannot be represented: mark it unresolved instead of
+     * reporting a factor count that does not match the stored primes. */
+    c->success = lp_overflow ? 0 : num_r + num_a;
     return;
 }
 

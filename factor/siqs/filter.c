@@ -2075,7 +2075,14 @@ qs_la_col_t * find_cycles3(fact_obj_t*fobj, static_conf_t *sconf,
 	int done;
 	uint32_t max_length = 0;
 	uint32_t numfull = 0;
-	uint32_t cycle_alloc = MAX((num_relations - *numcycles) * 2, 16);
+	/* num_relations is the count after qs_purge_duplicate_relations3 above,
+	 * *numcycles the pre-dedup vertex count.  When the graph has more
+	 * vertices than surviving relations the subtraction wraps and
+	 * cycle_alloc becomes enormous, so the xmalloc below asks for tens of
+	 * gigabytes and exits the process.  cycle_alloc is only a starting
+	 * size -- it doubles when the list fills -- so clamping is safe. */
+	uint32_t cycle_alloc = (*numcycles > num_relations) ?
+		16 : MAX((num_relations - *numcycles) * 2, 16);
 	uint32_t num3lp = 0;
 	uint32_t num4lp = 0;
 	uint32_t numlp = sconf->num_lp + NUM_ALP;

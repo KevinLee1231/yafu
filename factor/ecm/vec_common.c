@@ -195,30 +195,3 @@ int get_winsize(int bits)
 
     return minsize;
 }
-
-int get_bitwin(vec_bignum_t* e, int bitloc, int winsize, int lane, int winmask)
-{
-    int bstr;
-    int bitstart = (bitloc - winsize + 1);
-    int word = bitloc / DIGITBITS;
-    int word2 = bitstart / DIGITBITS;
-
-    bitstart = bitstart % DIGITBITS;
-
-    if (word == word2)
-    {
-        bstr = (e->data[lane + word * VECLEN] >> bitstart) & winmask;
-    }
-    else
-    {
-        int upperbits = (bitloc % DIGITBITS) + 1;
-
-        bstr = (e->data[lane + word2 * VECLEN] >> bitstart);
-        bstr |= ((e->data[lane + word * VECLEN]) << (winsize - upperbits));
-        bstr &= winmask;
-    }
-
-    return bstr;
-}
-
-

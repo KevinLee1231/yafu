@@ -24,6 +24,10 @@
 //----------------------- LOCAL FUNCTIONS -------------------------------------//
 double best_fit(double *x, double *y, int numpts, 
 	double *slope, double *intercept, int type);
+// yafu.ini 的 tune_info 字段是逐字符拷进 80 字节的栈数组的，原来只拿
+// 逗号当上界，字段一长就写穿栈。
+#define TUNE_FIELD_MAX 80
+
 void update_INI(double mult, double exponent, double mult2, 
     double exponent2, double xover,
 	double b1slope, double b1intercept, double size_exp, 
@@ -754,6 +758,13 @@ void update_INI(double mult, double exponent, double mult2,
 			//this should return the rest of the string after the first =
 			ptr = strtok((char *)0,"=");
 
+			// a line with no second '=' makes this NULL
+			if (ptr == NULL)
+			{
+			    fprintf(out, "%s\n", str);
+			    continue;
+			}
+
 			//read up to the first comma - this is the cpu id string
 			j=0;
 			for (i=0; i<strlen(ptr); i++)
@@ -761,7 +772,8 @@ void update_INI(double mult, double exponent, double mult2,
 				if (ptr[i] == 10) break;
 				if (ptr[i] == 13) break;
 				if (ptr[i] == ',') break;
-				cpustr[j++] = ptr[i];
+				if (j < TUNE_FIELD_MAX - 1)
+				    cpustr[j++] = ptr[i];
 			}
 			cpustr[j] = '\0';
 			i++;
@@ -773,7 +785,8 @@ void update_INI(double mult, double exponent, double mult2,
 				if (ptr[i] == 10) break;
 				if (ptr[i] == 13) break;
 				if (ptr[i] == ',') break;
-				osstr[j++] = ptr[i];
+				if (j < TUNE_FIELD_MAX - 1)
+				    osstr[j++] = ptr[i];
 			}
 			osstr[j] = '\0';
 

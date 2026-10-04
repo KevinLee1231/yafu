@@ -797,6 +797,19 @@ void nfs_sieve_start(void* vptr)
 		uint64_t max_prime = (job->mfbr > job->mfba) ? job->lpbr - 1 : job->lpba - 1;
 		uint32_t min_prime = 1000000; // MIN(job->alim, job->rlim) / 10;
 
+		// job->lpbr and job->lpba are also settable from a ggnfs params file
+		// that does not go through parse_job_file, and everything below
+		// shifts by them, so clamp rather than trust them
+		if ((job->lpbr == 0) || (job->lpbr > 63) ||
+			(job->lpba == 0) || (job->lpba > 63))
+		{
+			printf("nfs: large prime bounds out of range "
+				"(lpbr=%u lpba=%u); expected 1..63\n", job->lpbr, job->lpba);
+			if (NFS_ABORT < 1)
+				NFS_ABORT = 1;
+			return;
+		}
+
 		// todo: need to free this at the end of sieving.
 		job->rb = (relation_batch_t*)xmalloc(sizeof(relation_batch_t));
 
@@ -953,6 +966,14 @@ void nfs_sieve_start(void* vptr)
 		// copy needed info to the thread's job structure.
 		sprintf(udata->thread_data[i].outfilename, "rels%d_%d.dat", i, 
 			job->filenumber++);
+		/* job_infile_name is char[80] (nfs_threaddata_t) and job_infile is
+		 * GSTR_MAXSIZE: the plain sprintf copies with no bound. */
+		if (strlen(fobj->nfs_obj.job_infile) >= sizeof(udata->thread_data[i].job_infile_name))
+		{
+		    printf("nfs: job file name is too long\n");
+		    NFS_ABORT = 1;
+		    return;
+		}
 		sprintf(udata->thread_data[i].job_infile_name, "%s", fobj->nfs_obj.job_infile);
 		udata->thread_data[i].job.poly = job->poly;
 		udata->thread_data[i].job.rlim = job->rlim;
@@ -2711,6 +2732,14 @@ void do_sieving_nfs(fact_obj_t *fobj, nfs_job_t *job)
 	for (i = 0; i < fobj->THREADS; i++)
 	{
 		sprintf(thread_data[i].outfilename, "rels%d.dat", i);
+		/* job_infile_name is char[80] (nfs_threaddata_t) and job_infile is
+		 * GSTR_MAXSIZE: the plain sprintf copies with no bound. */
+		if (strlen(fobj->nfs_obj.job_infile) >= sizeof(thread_data[i].job_infile_name))
+		{
+		    printf("nfs: job file name is too long\n");
+		    NFS_ABORT = 1;
+		    return;
+		}
 		sprintf(thread_data[i].job_infile_name, "%s", fobj->nfs_obj.job_infile);
 		thread_data[i].job.poly = job->poly;
 		thread_data[i].job.rlim = job->rlim;
