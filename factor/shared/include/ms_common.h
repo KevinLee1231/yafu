@@ -12,8 +12,8 @@ benefit from your work.
 $Id: common.h 1025 2018-08-19 02:20:28Z jasonp_sf $
 --------------------------------------------------------------------*/
 
-#ifndef _COMMON_H_
-#define _COMMON_H_
+#ifndef _MS_MS_COMMON_H_
+#define _MS_MS_COMMON_H_
 
 #include <ms_msieve.h>
 #include <ms_gmp_xface.h>
@@ -402,4 +402,4 @@ double dickman(dickman_t *aux, double arg);
 }
 #endif
 
-#endif /* _COMMON_H_ */
+#endif /* _MS_MS_COMMON_H_ */

@@ -186,6 +186,13 @@ int msieve_gettimeofday(struct timeval* tv, struct timezone* tz);
 
 #define WORDS_IN(type) (sizeof(type) / sizeof(uint32))
 
+/* yafu's ytools.h declares xmalloc/xcalloc/xrealloc with external linkage
+ * and its own enum cpu_type.  Both provide the same behaviour, so the first
+ * header to arrive provides them and the other stands down -- otherwise a
+ * translation unit that legitimately needs both fails to compile. */
+#ifndef YA_ALLOC_DECLARED
+#define YA_ALLOC_DECLARED
+
 static INLINE void * xmalloc(size_t len) {
 	void *ptr = malloc(len);
 	if (ptr == NULL) {
@@ -212,6 +219,8 @@ static INLINE void * xrealloc(void *iptr, size_t len) {
 	}
 	return ptr;
 }
+
+#endif /* YA_ALLOC_DECLARED */
 
 void * aligned_malloc(size_t len, uint32 align);
 void aligned_free(void *newptr);
@@ -256,6 +265,10 @@ get_rand(uint32 *rand_seed, uint32 *rand_carry) {
 	return (uint32)temp;
 }
 
+
+#ifndef YA_CPU_TYPE_DECLARED
+#define YA_CPU_TYPE_DECLARED
+
 /* for turning on CPU-specific code */
 
 enum cpu_type {
@@ -270,6 +283,9 @@ enum cpu_type {
 	cpu_athlon_xp,
 	cpu_opteron
 };
+
+
+#endif /* YA_CPU_TYPE_DECLARED */
 
 void get_cache_sizes(uint32 *level1_cache, uint32 *level2_cache);
 enum cpu_type get_cpu_type(void);

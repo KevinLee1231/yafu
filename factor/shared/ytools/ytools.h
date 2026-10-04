@@ -245,9 +245,15 @@ double ytools_difftime(struct timeval* start, struct timeval* end);
 // ============================================================================
     extern void aligned_free(void* ptr);
     extern void* xmalloc_align(size_t len);
+    /* msieve's util.h defines these as static inline plus its own
+     * enum cpu_type.  Same behaviour, so the first header to arrive
+     * provides them and the other stands down. */
+#ifndef YA_ALLOC_DECLARED
+#define YA_ALLOC_DECLARED
     extern void* xmalloc(size_t len);
     extern void* xcalloc(size_t num, size_t len);
     extern void* xrealloc(void* iptr, size_t len);
+#endif /* YA_ALLOC_DECLARED */
 
 // ============================================================================
 // computer info
@@ -304,6 +310,9 @@ double ytools_difftime(struct timeval* start, struct timeval* end);
         } s;
     } cache_size_t;
 
+#ifndef YA_CPU_TYPE_DECLARED
+#define YA_CPU_TYPE_DECLARED
+
     enum cpu_type {
         cpu_generic,
         cpu_pentium,
@@ -316,6 +325,9 @@ double ytools_difftime(struct timeval* start, struct timeval* end);
         cpu_athlon_xp,
         cpu_opteron,
     };
+
+#endif /* YA_CPU_TYPE_DECLARED */
+
 
     extern enum cpu_type ytools_get_cpu_type(void);
     extern void ytools_get_cache_sizes(uint32_t* level1_size_out, uint32_t* level2_size_out);
