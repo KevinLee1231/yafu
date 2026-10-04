@@ -3,7 +3,7 @@
 ----------------------------------------------------------------------*/
 #include "testkit.h"
 #include "thread.h"
-#include "smallmpqs.h"
+#include "pmpqs.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -83,7 +83,7 @@ static void t_threadpool_lifecycle(tk_ctx *tk)
     TK_EQ_U64(tk, counts.worker_shutdown, 2);
 }
 
-static void t_smallmpqs_boundaries(tk_ctx *tk)
+static void t_pmpqs_boundaries(tk_ctx *tk)
 {
     mpz_t n;
     mpz_t expected;
@@ -97,24 +97,24 @@ static void t_smallmpqs_boundaries(tk_ctx *tk)
     mpz_init(product);
 
     mpz_set_ui(n, 17);
-    factors = smallmpqs(n, &num_factors);
+    factors = pmpqs(n, &num_factors);
     TK_CHECK(tk, factors == NULL && num_factors == -2);
 
     mpz_set_ui(n, 2 * 1048583UL);
-    factors = smallmpqs(n, &num_factors);
+    factors = pmpqs(n, &num_factors);
     TK_CHECK(tk, factors == NULL && num_factors == -3);
 
     mpz_set_ui(n, 1);
     mpz_mul_2exp(n, n, 131);
     mpz_add_ui(n, n, 1);
-    factors = smallmpqs(n, &num_factors);
+    factors = pmpqs(n, &num_factors);
     TK_CHECK(tk, factors == NULL && num_factors == -1);
 
     mpz_set_str(n, "1050809297549059047257", 10);
     mpz_set(expected, n);
-    factors = smallmpqs(n, &num_factors);
+    factors = pmpqs(n, &num_factors);
     TK_REQUIRE(tk, factors != NULL && num_factors > 0,
-               "smallmpqs failed on a valid odd composite");
+               "pmpqs failed on a valid odd composite");
     mpz_set_ui(product, 1);
     for (i = 0; i < num_factors; i++)
         mpz_mul(product, product, factors[i]);
@@ -225,7 +225,7 @@ static void t_bitonic_arbitrary_lengths(tk_ctx *tk)
 
 static const tk_test tk__qs_review_tests[] = {
     { "threadpool_lifecycle", t_threadpool_lifecycle, "fast threads qs" },
-    { "smallmpqs_boundaries", t_smallmpqs_boundaries, "fast mpqs qs" },
+    { "pmpqs_boundaries", t_pmpqs_boundaries, "fast mpqs qs" },
 #if defined(USE_AVX512F)
     { "bitonic_arbitrary_lengths", t_bitonic_arbitrary_lengths,
       "fast avx512 qs" },

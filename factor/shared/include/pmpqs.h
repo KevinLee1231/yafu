@@ -18,14 +18,14 @@ code to the public domain.
        				   --bbuhrow@gmail.com 11/24/09
 ----------------------------------------------------------------------*/
 
-#ifndef _SMALLMPQS_H_
-#define _SMALLMPQS_H_
+#ifndef _PMPQS_H_
+#define _PMPQS_H_
 
 #include <stdint.h>
 #include "gmp.h"
 
-extern mpz_t* smallmpqs(mpz_t n, int *num_factors);
+extern mpz_t* pmpqs(mpz_t n, int *num_factors);
 
-#endif /* _SMALLMPQS_H_ */
+#endif /* _PMPQS_H_ */
 
 

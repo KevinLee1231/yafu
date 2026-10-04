@@ -1563,7 +1563,7 @@ int tiny_BlockGauss(siqs_r *rlist, uint32 num_r,
 									//pd tracks the exponents of the smooth factors.  we know they are all even
 									//at this point.  we don't want to compute pd^2, so divide by 2.
 									//computing the explicit exponentiation and then reducing is
-									//slightly faster than doing modexp in smallmpqs.
+									//slightly faster than doing modexp in pmpqs.
 									//zExp(pd[l]/2,&tmp,&tmp2);
 									//zDiv(&tmp2,n,&tmp4,&tmp3);
 									mpz_powm_ui(tmp3, tmp, pd[l] / 2, n);

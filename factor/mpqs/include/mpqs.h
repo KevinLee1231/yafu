@@ -323,7 +323,7 @@ void qs_filter_relations(sieve_conf_t *conf);
    poly_free can only be called after the relation
    filtering phase */
 
-void poly_init(sieve_conf_t *conf, uint32 sieve_size);
+int poly_init(sieve_conf_t *conf, uint32 sieve_size);
 void poly_free(sieve_conf_t *conf);
 
 /* compute a random polynomial 'a' value, and also
@@ -352,7 +352,7 @@ void build_derived_poly(sieve_conf_t *conf);
 	cycle_list is the list of cycles that the QS filtering code builds
 	num_cycles is the number of cycles */
 
-void do_sieving(msieve_obj *obj, mp_t *n, mp_t **poly_a_list, 
+int do_sieving(msieve_obj *obj, mp_t *n, mp_t **poly_a_list, 
 		poly_t **poly_list, fb_t *factor_base, 
 		uint32 *modsqrt_array, sieve_param_t *params, 
 		uint32 multiplier,

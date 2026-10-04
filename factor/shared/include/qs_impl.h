@@ -667,7 +667,7 @@ typedef struct {
 
     // various things to support tlp co-factorization
     monty_t* mdata;		// monty brent attempt
-    fact_obj_t* fobj2;	// smallmpqs attempt
+    fact_obj_t* fobj2;	// pmpqs attempt
     tiny_qs_params* cosiqs;
 
 #ifdef USE_8X_MOD_ASM

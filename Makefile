@@ -947,7 +947,7 @@ YAFU_SIQS_SRCS = \
     factor/siqs/new_poly.c \
     factor/siqs/siqs_test.c \
     factor/siqs/siqs_aux.c \
-    factor/smallmpqs/smallmpqs.c \
+    factor/pmpqs/pmpqs.c \
     factor/siqs/SIQS.c \
     factor/siqs/med_sieve_32k.c \
     factor/siqs/poly_roots_32k.c \
@@ -1104,13 +1104,14 @@ endif
 
 
 # -----------------------------------------------------------------------------
-# 20. QS sources  (the multi-polynomial quadratic sieve;
-#     compiled and linked, but not on any live call path -- its only
-#     caller was the msieve demo, which is gone)
+# 20. QS sources  (the multiple polynomial quadratic sieve.
+#     yafu code reaches it only through mpqs_xface.h, because
+#     mpqs.h and yafu disagree on the size of mp_t)
 # -----------------------------------------------------------------------------
 QS_SRCS = \
     factor/mpqs/gf2.c \
     factor/mpqs/mpqs.c \
+    factor/mpqs/mpqs_xface.c \
     factor/mpqs/poly.c \
     factor/mpqs/relation.c \
     factor/mpqs/sieve.c \
@@ -1133,6 +1134,7 @@ NFS_NOGPU_OBJS    = $(NFS_NOGPU_SRCS:.c=.no)
 QS_OBJS = \
     factor/mpqs/gf2.qo \
     factor/mpqs/mpqs.qo \
+    factor/mpqs/mpqs_xface.qo \
     factor/mpqs/poly.qo \
     factor/mpqs/relation.qo \
     factor/mpqs/sieve.qo \

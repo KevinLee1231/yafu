@@ -28,7 +28,7 @@ code to the public domain.
 #include "factor.h"
 #include "monty.h"
 #include "cofactorize.h"
-#include "smallmpqs.h"
+#include "pmpqs.h"
 #include <ecm.h>
 #include <math.h>
 
@@ -36,7 +36,7 @@ code to the public domain.
 #include <sys/time.h>
 #endif
 
-int test_smallmpqs(mpz_t* inputs, int num_inputs)
+int test_pmpqs(mpz_t* inputs, int num_inputs)
 {
 	struct timeval gstart;
 	struct timeval gstop;
@@ -62,7 +62,7 @@ int test_smallmpqs(mpz_t* inputs, int num_inputs)
 		int numf;
 		mpz_set(n, inputs[i]);
 		mpz_set(work, inputs[i]);
-		mpz_t* factors = smallmpqs(work, &numf);
+		mpz_t* factors = pmpqs(work, &numf);
 
 		if ((factors != NULL) && (numf > 0))
 		{
@@ -99,7 +99,7 @@ int test_smallmpqs(mpz_t* inputs, int num_inputs)
 	mpz_clear(n);
 	mpz_clear(r);
 	mpz_clear(work);
-	printf("smallmpqs got %d of %d correct in %2.2f sec\n", correct, num_inputs, t_time);
+	printf("pmpqs got %d of %d correct in %2.2f sec\n", correct, num_inputs, t_time);
 	printf("percent correct = %.2f\n", 100.0 * (double)correct / (double)num_inputs);
 	printf("average time per input = %1.4f ms\n", 1000 * t_time / (double)num_inputs);
 	return correct;
@@ -1363,7 +1363,7 @@ mpqs_marker:
 		printf("maximum bits of input numbers: %u\n", maxBits);
 		printf("commencing mpqs test\n");
 
-		test_smallmpqs(inputs, num);
+		test_pmpqs(inputs, num);
 
 		mpz_clear(gmp_comp);
 		for (i = 0; i < num; i++)
