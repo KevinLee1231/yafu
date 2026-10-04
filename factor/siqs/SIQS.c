@@ -5282,7 +5282,7 @@ int update_check(static_conf_t *sconf)
                         relation_list[i].large_prime[0] = plist0[i] = sconf->in_mem_relations[i].large_prime[0];
                         relation_list[i].large_prime[1] = plist1[i] = sconf->in_mem_relations[i].large_prime[1];
                         relation_list[i].large_prime[2] = plist2[i] = sconf->in_mem_relations[i].large_prime[2];
-                        relation_list[i].large_prime[3] = plist2[i] = sconf->in_mem_relations[i].large_prime[3];
+                        relation_list[i].large_prime[3] = plist3[i] = sconf->in_mem_relations[i].large_prime[3];
                     }
                     total_poly_a = sconf->total_poly_a;
                     all_relations = num_relations = sconf->buffered_rels;
