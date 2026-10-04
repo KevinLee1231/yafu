@@ -1344,11 +1344,14 @@ test-calc-sanitize: _dep_status $(ARCHIVES) $(TEST_FRONTEND_OBJS)
 # USE_AVX512=1 in config.mk or on the command line enables AVX-512 sieve
 # paths automatically (maps to AVX512_ALL=1 in the sub-make).
 #
-# 本地可执行文件写入独立目录，yafu.ini 的 ggnfs_dir 与此目录对应。
+# 可执行文件与 yafu 写在同一目录（仓库根），yafu 按自身位置找到它们。
 # asm/ 中只生成供链接使用的库。
 # -----------------------------------------------------------------------------
 LASIEVE_DIR  := factor/nfs/lasieve
-LASIEVE_BINDIR ?= bin/local
+# 筛法器和 yafu 一起落在仓库根：yafu 按自身可执行文件所在目录找它们，
+# 不需要用户再配一个路径指回源码树。子 make 在 factor/nfs/lasieve/ 里执行，
+# 到仓库根要上三级。
+LASIEVE_BINDIR ?= ../../..
 LASIEVE_VARS := \
     CC=$(CC) \
     BINDIR=$(LASIEVE_BINDIR) \
@@ -1536,7 +1539,7 @@ help:
 	@echo "    make test-sanitize   rebuild all test dependencies with ASan/UBSan and run fast tests"
 	@echo "    make test-calc-sanitize  build+run calculator regressions with ASan/UBSan"
 	@echo "    make test-full-run   build and run Layers 0-3"
-	@echo "    make lasieve         build NFS sieve executables (factor/nfs/lasieve/bin/local)"
+	@echo "    make lasieve         build the NFS sievers next to the yafu executable"
 	@echo "    make clean           remove yafu build artefacts (not lasieve)"
 	@echo "    make lasieve-clean   remove lasieve build artefacts"
 	@echo "    make info            show resolved flags and dependency paths"

@@ -2,6 +2,7 @@
 #include "factor.h"
 #include "qs.h"
 #include "gnfs-yafu.h"
+#include "nfs_impl.h"
 #include "gmp_xface.h"
 #include "yafu_ecm.h"
 #include <stdint.h>
@@ -641,10 +642,10 @@ void check_siever(fact_obj_t *fobj, char *sname, size_t sname_size, int siever)
 
 #if defined(WIN32)
     written = snprintf(sname, sname_size, "%s%s.exe",
-        fobj->nfs_obj.ggnfs_dir, executable);
+        nfs_siever_dir(fobj), executable);
 #else
     written = snprintf(sname, sname_size, "%s%s",
-        fobj->nfs_obj.ggnfs_dir, executable);
+        nfs_siever_dir(fobj), executable);
 #endif
     if (written < 0 || (size_t)written >= sname_size)
     {

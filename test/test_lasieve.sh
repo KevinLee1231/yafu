@@ -59,7 +59,7 @@ compile -ffunction-sections -fdata-sections -I. \
 "$build_dir/process_batch_helpers_regression"
 
 # 筛法正确性基准：固定多项式 + 固定 spq 区间，关系集合必须逐字节一致
-if [ -x "$repo_root/factor/nfs/lasieve/bin/local/gnfs-lasieve4I13e" ]; then
+if [ -x "$repo_root/gnfs-lasieve4I13e" ]; then
     sh "$repo_root/test/standalone/lasieve/sieve_oracle.sh"
 else
     echo 'sieve oracle: skipped (sievers not built, run make lasieve)'

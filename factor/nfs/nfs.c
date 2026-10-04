@@ -24,6 +24,8 @@ benefit from your work.
 
 #ifndef _WIN32
 #include <unistd.h>
+#else
+#include <windows.h>
 #endif
 
 #ifdef _MSC_VER
@@ -1752,6 +1754,76 @@ void nfs(fact_obj_t *fobj)
 	return;
 }
 
+
+// Where the siever executables live.
+//
+// Empty ggnfs_dir means "next to the yafu executable", which is where
+// `make all` puts them.  Resolving that once from the running image beats
+// asking the user to configure a path back into the source tree, and it
+// keeps working when yafu is invoked from some other directory.  A
+// non-empty ggnfs_dir is an explicit override and is used verbatim.
+//
+// The result is cached; the buffer is read-only after the first call, so
+// returning a pointer into it is safe.
+const char *nfs_siever_dir(fact_obj_t *fobj)
+{
+	static char dir[GSTR_MAXSIZE];
+	static int resolved = 0;
+
+	if (fobj->nfs_obj.ggnfs_dir[0] != '\0')
+		return fobj->nfs_obj.ggnfs_dir;
+
+	if (!resolved)
+	{
+		char path[GSTR_MAXSIZE];
+		char *slash = NULL;
+		ssize_t n = -1;
+
+#if defined(_WIN32)
+		DWORD got = GetModuleFileNameA(NULL, path, (DWORD)sizeof(path));
+		if ((got > 0) && (got < sizeof(path)))
+			n = (ssize_t)got;
+#else
+		n = readlink("/proc/self/exe", path, sizeof(path) - 1);
+#endif
+		if (n > 0)
+		{
+			path[n] = '\0';
+			slash = strrchr(path, '/');
+#if defined(_WIN32)
+			{
+				char *bslash = strrchr(path, '\\');
+				if (bslash > slash)
+					slash = bslash;
+			}
+#endif
+			if (slash != NULL)
+			{
+				size_t dirlen = (size_t)(slash - path) + 1;
+				if (dirlen < sizeof(dir))
+				{
+					memcpy(dir, path, dirlen);
+					dir[dirlen] = '\0';
+					resolved = 1;
+				}
+			}
+		}
+
+		if (!resolved)
+		{
+			// /proc not available (some containers, some kernels): the
+			// caller's working directory is the next best guess, which is
+			// what this always used to be.
+			dir[0] = '.';
+			dir[1] = '/';
+			dir[2] = '\0';
+			resolved = 1;
+		}
+	}
+
+	return dir;
+}
+
 int check_for_sievers(fact_obj_t *fobj, int revert_to_siqs)
 {
 	// if we are going to be doing sieving, check for the sievers
@@ -1784,7 +1856,7 @@ int check_for_sievers(fact_obj_t *fobj, int revert_to_siqs)
 		{
 			name[0] = '\0';
 			if (!append_command(name, sizeof(name), "%sggnfs-lasieve4I%de",
-				fobj->nfs_obj.ggnfs_dir, i))
+				nfs_siever_dir(fobj), i))
 				continue;
 #if defined(WIN32)
 			if (!append_command(name, sizeof(name), ".exe"))
@@ -1801,7 +1873,7 @@ int check_for_sievers(fact_obj_t *fobj, int revert_to_siqs)
 
 			name[0] = '\0';
 			if (!append_command(name, sizeof(name), "%sgnfs-lasieve4I%de",
-				fobj->nfs_obj.ggnfs_dir, i))
+				nfs_siever_dir(fobj), i))
 				continue;
 #if defined(WIN32)
 			if (!append_command(name, sizeof(name), ".exe"))
@@ -1851,11 +1923,11 @@ void nfs_set_sievername(fact_obj_t* fobj, nfs_job_t* job)
 #if defined(WIN32)
 	else
 		len = snprintf(job->sievername, sizeof(job->sievername), "%sgnfs-lasieve4I%de.exe",
-			fobj->nfs_obj.ggnfs_dir, fobj->nfs_obj.siever);
+			nfs_siever_dir(fobj), fobj->nfs_obj.siever);
 #else
 	else
 		len = snprintf(job->sievername, sizeof(job->sievername), "%sgnfs-lasieve4I%de",
-			fobj->nfs_obj.ggnfs_dir, fobj->nfs_obj.siever);
+			nfs_siever_dir(fobj), fobj->nfs_obj.siever);
 #endif
 
 	// snprintf() truncates silently, and a truncated path runs the wrong siever

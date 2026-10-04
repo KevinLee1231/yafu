@@ -6,11 +6,12 @@ NFS 到筛选阶段不自己筛，而是调用一批独立进程。这个目录�
 
 `make all` 会一并构建它们（`all: yafu lasieve`），因为 yafu 按名字调用这些
 可执行文件，缺了它们 yafu 什么 NFS 数也分解不了。单独构建仍可用
-`make lasieve`，产物在 `bin/local/`。
+`make lasieve`。
 
-yafu 通过 `yafu.ini` 里的 `ggnfs_dir` 找到这些可执行文件，默认指向
-`factor/nfs/lasieve/bin/local/`，与 `make lasieve` 的输出目录一致。启动走
-`fork`+`execv` 直接传 argv，不经过 shell。
+产物与 yafu 可执行文件同目录（仓库根）。yafu 从自身可执行文件的位置找到它们
+（Linux 读 `/proc/self/exe`），不依赖当前工作目录，也不需要配路径指回源码
+树。`ggnfs_dir` 留空即用这个默认，填了则覆盖它——指向别处构建的 siever，或
+配合外部 cuda-sieve。启动走 `fork`+`execv` 直接传 argv，不经过 shell。
 
 
 为什么是独立进程
@@ -63,7 +64,7 @@ ECM 与 P−1 的位图访问曾经按字节下标算而缓冲区按 u64 字分�
 | `asm/include/` | 汇编层的 10 个头文件 |
 | `asm/w_files/` | `wgen` 源，生成 `asm/` 下的部分 `.c`/`.h` |
 | `w_files/` | `wgen` 源，生成顶层 11 个 `.c` |
-| `bin/` | 构建输出，不入库 |
+| `bin/` | 旧的输出目录，已不再使用（产物改到仓库根） |
 
 
 哪些是生成的

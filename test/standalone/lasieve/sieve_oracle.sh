@@ -32,7 +32,8 @@ trap 'exit 143' TERM
 cd "$work_dir"
 
 POLY="$repo_root/factor/nfs/lasieve/R942_poly.txt"
-SIEVER=${1:-$repo_root/factor/nfs/lasieve/bin/local/gnfs-lasieve4I13e}
+# 筛法器与 yafu 写在同一目录（仓库根）
+SIEVER=${1:-$repo_root/gnfs-lasieve4I13e}
 
 # 基准值：0.34257 之外这里用的是 R942 的 skew
 SKew=0.63913
@@ -43,7 +44,7 @@ EXPECT_MD5=047c6a1d170dd2bc00e3daf99262a54c
 
 if [ ! -x "$SIEVER" ]; then
     echo "siever 不存在或不可执行: $SIEVER" >&2
-    echo "先跑 make lasieve" >&2
+    echo "先跑 make lasieve（产物在 yafu 可执行文件同目录）" >&2
     exit 1
 fi
 

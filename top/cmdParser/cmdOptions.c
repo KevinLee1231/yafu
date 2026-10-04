@@ -1483,11 +1483,11 @@ options_t* initOpt(void)
     options->poly_batch = 5000;
     options->ggnfs_siever = 0;
 #if defined(_WIN64)
-    strcpy(options->ggnfs_dir, ".\\");
+    options->ggnfs_dir[0] = '\0';
 #elif defined(WIN32)
-    strcpy(options->ggnfs_dir, ".\\");
+    options->ggnfs_dir[0] = '\0';
 #else
-    strcpy(options->ggnfs_dir, "./");
+    options->ggnfs_dir[0] = '\0';
 #endif
     strcpy(options->cado_dir, options->ggnfs_dir);
     options->skip_snfscheck = 0;
