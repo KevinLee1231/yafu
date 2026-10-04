@@ -19,7 +19,7 @@ $Id: poly.c 23 2009-07-20 02:59:07Z jasonp_sf $
 int sort_ascending(const void *x, const void *y);
 
 /*--------------------------------------------------------------------*/
-void poly_init(sieve_conf_t *conf, uint32 sieve_size) {
+int poly_init(sieve_conf_t *conf, uint32 sieve_size) {
 
 	uint32 i, j;
 	uint32 start_bits;
@@ -145,8 +145,8 @@ void poly_init(sieve_conf_t *conf, uint32 sieve_size) {
 		}
 	}
 	if (i < 7 || num_factors < 2 || num_factors > MAX_POLY_FACTORS) {
-		logprintf(obj, "fatal error: poly selection failed\n");
-		exit(-1);
+		logprintf(obj, "error: poly selection failed\n");
+		return -1;
 	}
 
 	/* explicitly list out the number of bits each prime
@@ -174,7 +174,7 @@ void poly_init(sieve_conf_t *conf, uint32 sieve_size) {
 	}
 	if (i != conf->a_bits) {
 		logprintf(obj, "failure assigning bits of poly factors\n");
-		exit(-1);
+		return -1;
 	}
 
 	/* for big factorizations, where there are a lot of primes,
@@ -229,6 +229,7 @@ void poly_init(sieve_conf_t *conf, uint32 sieve_size) {
 				(conf->fb_size - conf->sieve_large_fb_start));
 	}
 	logprintf(obj, "polynomial 'A' values have %u factors\n", num_factors);
+	return 0;
 }
 
 /*--------------------------------------------------------------------*/

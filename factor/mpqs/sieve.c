@@ -47,7 +47,7 @@ uint64 tf_large_time;
 #endif
 
 /*--------------------------------------------------------------------*/
-void do_sieving(msieve_obj *obj, mp_t *n, 
+int do_sieving(msieve_obj *obj, mp_t *n, 
 		mp_t **poly_a_list, poly_t **poly_list,
 		fb_t *factor_base, uint32 *modsqrt_array,
 		sieve_param_t *params, uint32 multiplier,
@@ -163,7 +163,8 @@ void do_sieving(msieve_obj *obj, mp_t *n,
 	if (recip_cutoff < 256) {
 		logprintf(obj, "error1: factor base and/or sieve interval "
 				"is too large\n");
-		exit(-1);
+		aligned_free(conf.sieve_array);
+		return -1;
 	}
 	for (i = MIN_FB_OFFSET + 1; i < bound; i++) {
 		fb_t *fbptr = conf.factor_base + i;
@@ -237,7 +238,8 @@ void do_sieving(msieve_obj *obj, mp_t *n,
 	if (recip_cutoff < sieve_block_size) {
 		logprintf(obj, "error: factor base and/or sieve interval "
 				"is too large\n");
-		exit(-1);
+		aligned_free(conf.sieve_array);
+		return -1;
 	}
 	for (; i < fb_size; i++) {
 		fb_t *fbptr = conf.factor_base + i;
@@ -408,7 +410,10 @@ void do_sieving(msieve_obj *obj, mp_t *n,
 	   the sizing of polynomials, but instead use the rounded value 
 	   derived from it */
 
-	poly_init(&conf, num_sieve_blocks * sieve_block_size / 2);
+	if (poly_init(&conf, num_sieve_blocks * sieve_block_size / 2) != 0) {
+		aligned_free(conf.sieve_array);
+		return -1;
+	}
 
 	/* initialize the bookkeeping for tracking partial relations */
 
@@ -493,6 +498,7 @@ void do_sieving(msieve_obj *obj, mp_t *n,
 	poly_free(&conf);
 	free(conf.cycle_table);
 	free(conf.cycle_hashtable);
+	return 0;
 }
 
 /*--------------------------------------------------------------------*/
