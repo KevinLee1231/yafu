@@ -1,3 +1,15 @@
+/* core_types.h — 核心侧的定长大数与共享结构
+ *
+ * 这里定义 mp_t / signed_mp_t，容量 MAX_MP_WORDS = 64（2048 位），
+ * 由 factor/nfs 的编排、factor/siqs、以及 gmp_xface.h 的 mp_t <-> mpz_t
+ * 桥接使用。64 字是为了装下 SIQS 的 a-多项式：N 位输入大约需要 2N 位。
+ *
+ * 注意：factor/shared/include/mp.h 里还有一个同名 mp_t，容量 32 字，
+ * 那是多项式选择与 MPQS 模块（libmsieve.a）用的，因为那里在筛法热循环里，
+ * 内存敏感。两者容量是各自刻意选的，**不能合成一个**——合并不是去重，
+ * 是改分解核心的容量。跨这两侧传值一律走 mpz_t（见
+ * factor/mpqs/include/mpqs_xface.h）。
+ */
 #pragma once
 
 #include <stdint.h>

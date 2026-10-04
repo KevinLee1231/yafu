@@ -36,7 +36,7 @@ $$Q(x) = A\bigl(A x^2 + 2 B x + C\bigr)$$
 ------------------
 
 **头文件边界。** `mpqs.h` 会经 `ms_common.h` 拉进 msieve 的 `mp.h`，
-把 `mp_t` 定成 32 字长；yafu 的 `msieve_common.h` 把同名 `mp_t` 定成 64。同名不同尺寸，无法同处一个编译单元。所以 yafu 侧只能通过 `mpqs_xface.h` 调用，那层门面把 msieve 的头文件挡在边界外，只讲 `mpz_t`。
+把 `mp_t` 定成 32 字长；yafu 的 `core_types.h` 把同名 `mp_t` 定成 64。同名不同尺寸，无法同处一个编译单元。所以 yafu 侧只能通过 `mpqs_xface.h` 调用，那层门面把 msieve 的头文件挡在边界外，只讲 `mpz_t`。
 
 **失败不再杀进程。** 原来 `poly.c` 与 `sieve.c` 里有四处 `exit(-1)`：
 多项式选不出、因子位数凑不齐、两处倒数表越界。这些表示"这个输入 msieve 处理不了"，不是"程序不能继续"。挂到计算器上时，`mpqs(19 位输入)` 会把整个 yafu 杀掉，交互会话随之消失。现在 `poly_init` 与 `do_sieving` 返回 `int`，`factor_mpqs` 现有的空指针检查正好接住，命令会打印一行说明并让计算器继续。

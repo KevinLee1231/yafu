@@ -20,7 +20,7 @@
 #include "cofactorize.h"
 #include "gmp.h"
 #include "factor.h"
-#include "msieve_common.h"
+#include "core_types.h"
 #include "savefile.h"
 
 #ifdef HAVE_CUDA_BATCH_FACTOR

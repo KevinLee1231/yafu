@@ -15,7 +15,7 @@ $Id: gmp_xface.h 23 2009-07-20 02:59:07Z jasonp_sf $
 #ifndef _YAFU_YAFU_GMP_XFACE_H_
 #define _YAFU_YAFU_GMP_XFACE_H_
 
-#include "msieve_common.h"
+#include "core_types.h"
 #include "gmp_u64_xface.h"
 #include "ytools.h"
 #include <gmp.h>
