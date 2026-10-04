@@ -51,8 +51,8 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 
 
-#ifndef MICROECM_GETFACTOR_UECM_H_INCLUDED
-#define MICROECM_GETFACTOR_UECM_H_INCLUDED
+#ifndef _LASIEVE_MICROECM_H_
+#define _LASIEVE_MICROECM_H_
 
 #include <stdint.h>
 

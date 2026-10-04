@@ -12,8 +12,8 @@ benefit from your work.
 $Id: gmp_xface.h 23 2009-07-20 02:59:07Z jasonp_sf $
 --------------------------------------------------------------------*/
 
-#ifndef _GMP_XFACE_H_
-#define _GMP_XFACE_H_
+#ifndef _YAFU_YAFU_GMP_XFACE_H_
+#define _YAFU_YAFU_GMP_XFACE_H_
 
 #include "msieve_common.h"
 #include "gmp_u64_xface.h"
@@ -55,4 +55,4 @@ static INLINE void gmp2mp_t(mpz_t src, mp_t *dest) {
 }
 #endif
 
-#endif //  _GMP_XFACE_H_ 
+#endif //  _YAFU_GMP_XFACE_H_ 

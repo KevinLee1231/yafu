@@ -14,8 +14,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __MPZ_APRCL__
-#define __MPZ_APRCL__
+#ifndef _MPZ_APRCL32_H_
+#define _MPZ_APRCL32_H_
 
 #include <gmp.h>
 #include "jacobi_sum32.h"

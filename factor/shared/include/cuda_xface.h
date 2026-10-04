@@ -12,8 +12,8 @@ benefit from your work.
 $Id$
 --------------------------------------------------------------------*/
 
-#ifndef _GPU_XFACE_H
-#define _GPU_XFACE_H
+#ifndef _YAFU_CUDA_XFACE_H_
+#define _YAFU_CUDA_XFACE_H_
 
 #if defined(HAVE_CUDA_POLY) || defined(HAVE_CUDA_LA) || defined(HAVE_CUDA_BATCH_FACTOR)
 

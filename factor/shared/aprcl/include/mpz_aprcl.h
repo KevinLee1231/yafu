@@ -14,8 +14,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __MPZ_APRCL__
-#define __MPZ_APRCL__
+#ifndef _MPZ_APRCL_H_
+#define _MPZ_APRCL_H_
 
 #ifndef HAVE_U64_T
 #define HAVE_U64_T

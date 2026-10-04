@@ -14,8 +14,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __JACOBI_SUM__
-#define __JACOBI_SUM__
+#ifndef _JACOBI_SUM32_H_
+#define _JACOBI_SUM32_H_
 
 /* The idea to hard code the J(p,q) values is thanks to Jason Moxham.
  * The computation of J(p,q) takes about 4*q bytes of memory, which

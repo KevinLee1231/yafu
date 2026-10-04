@@ -12,8 +12,8 @@ benefit from your work.
 $Id: batch_factor.h 638 2011-09-11 15:31:19Z jasonp_sf $
 --------------------------------------------------------------------*/
 
-#ifndef _BATCH_FACTOR_H_
-#define _BATCH_FACTOR_H_
+#ifndef _LASIEVE_LASIEVE_BATCH_FACTOR_H_
+#define _LASIEVE_LASIEVE_BATCH_FACTOR_H_
 
 #include <stdint.h>
 #include "ytools.h"
@@ -186,4 +186,4 @@ uint32_t relation_batch_run(relation_batch_t *rb, uint64_t *lcg_state);
 }
 #endif
 
-#endif /* _BATCH_FACTOR_H_ */
+#endif /* _LASIEVE_BATCH_FACTOR_H_ */

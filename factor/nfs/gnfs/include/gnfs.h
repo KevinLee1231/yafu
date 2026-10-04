@@ -12,8 +12,8 @@ benefit from your work.
 $Id: gnfs.h 967 2014-06-26 02:48:22Z jasonp_sf $
 --------------------------------------------------------------------*/
 
-#ifndef _GNFS_GNFS_H_
-#define _GNFS_GNFS_H_
+#ifndef _GNFS_H_
+#define _GNFS_H_
 
 /* An implementation of the General Number Field
    Sieve algorithm for integer factorization. */
@@ -392,4 +392,4 @@ void nfs_convert_cado_cycles(msieve_obj *obj);
 }
 #endif
 
-#endif /* _GNFS_GNFS_H_ */
+#endif /* _GNFS_H_ */

@@ -12,8 +12,8 @@ benefit from your work.
 $Id$
 --------------------------------------------------------------------*/
 
-#ifndef _GPU_XFACE_H
-#define _GPU_XFACE_H
+#ifndef _CUDA_XFACE_LA_H_
+#define _CUDA_XFACE_LA_H_
 
 #if defined(HAVE_CUDA)
 

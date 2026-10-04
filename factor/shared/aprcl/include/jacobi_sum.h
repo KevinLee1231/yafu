@@ -14,8 +14,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __JACOBI_SUM__
-#define __JACOBI_SUM__
+#ifndef _JACOBI_SUM_H_
+#define _JACOBI_SUM_H_
 
 #ifndef HAVE_U64_T
 #define HAVE_U64_T
