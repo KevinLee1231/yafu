@@ -268,7 +268,7 @@ utility			factoring		arithmetic
 ------------------------------------------------------------------------------------------
 rsa			    factor			shift
 size			siqs			nroot
-primes			smallmpqs		modexp
+primes			pmpqs		modexp
 nextprime		nfs			    sqrt
 rand			squfof			lg2
 randb			pm1			    log
@@ -496,8 +496,8 @@ command line flags affecting siqs:
 -v 		        Use to increase verbosity of output, can be used multiple times
 
 
-[smallmpqs]
-usage: smallmpqs(expression)
+[pmpqs]
+usage: pmpqs(expression)
 
 description:
 the mpqs factoring method optimized for small inputs.  
