@@ -38,9 +38,17 @@ ECM 与 P−1 的缓存（素数位图、加法链、B1/B2 scheme、montgomery �
 访问路径，只是访问方式，状态本身按实例持有。迁移过程和理由见提交
 `8f6bc2d` 与 `1872cec`。
 
-`ctx_test` 验证隔离性质，接在 `make test-standalone` 里。注意它**不覆盖**
-ECM/P−1 的数值正确性——那两条路径在迁移之前就有堆损坏，未修改的版本同样
-复现，仓库里也没有任何测试走到它们。筛法数值由
+两项验证接在 `make test-standalone` 里：
+
+- `ctx_test`：两个实例的字段互不可见，四个线程各持一个实例并发读写。
+- `ecm_pm1_test`：ECM 与 P−1 能不能真的把已知合数拆开；以及两个实例用不同
+  B1/B2 交错推进曲线，结果必须与各自单独跑一致。
+
+它的两个实例**共用同一个输入**，这是有意的，原因见"关于 asm/"一节。
+
+ECM 与 P−1 的位图访问曾经按字节下标算而缓冲区按 u64 字分配，越界到缓冲区
+外 8 倍处，两条路径各一份，第一条曲线就崩（`5d592c7`）。这两条路径原先
+没有任何测试走到，所以一直没被发现。筛法数值由
 `test/standalone/lasieve/sieve_oracle.sh` 的端到端基准守着。
 
 
@@ -49,7 +57,7 @@ ECM/P−1 的数值正确性——那两条路径在迁移之前就有堆损坏�
 
 | 位置 | 内容 |
 | --- | --- |
-| 顶层 36 个 `.c` | 主程序 `gnfs-lasieve4e.c`（另有 4f/4g 变体），以及它用到的各个部件 |
+| 顶层 38 个 `.c` | 主程序 `gnfs-lasieve4e.c`（另有 4f/4g 变体），以及它用到的各个部件 |
 | `include/` | 本层头文件，含 `lasieve_ctx.h` |
 | `asm/` | 59 个手写汇编/C 内核，编成 `asm/liblasieve.a` 与 `asm/liblasieveI%d.a` |
 | `asm/include/` | 汇编层的 10 个头文件 |
@@ -68,9 +76,10 @@ ECM/P−1 的数值正确性——那两条路径在迁移之前就有堆损坏�
     la-cs.c          lasieve-prepn.c    mpz-ull.c           primgen32.c
     recurrence6.c    redu2.c            strategy.c
 
-其余 25 个是手写的，包括全部 MPQS、ECM、P−1 实现、`lasieve_ctx.c`
-（实例状态）和几个测试程序（`ctx_test.c`、`ecmtest.c`、`mpqstest.c`、
-`mpqs3test.c`、`mpqsstat.c`、`ecmstat.c`、`pm1stat.c`、`pm1test.c`）。
+其余 27 个是手写的，包括全部 MPQS、ECM、P−1 实现、`lasieve_ctx.c`
+（实例状态）和几个测试程序（`ctx_test.c`、`ecm_pm1_test.c`、`ecmtest.c`、
+`mpqstest.c`、`mpqs3test.c`、`mpqsstat.c`、`ecmstat.c`、`pm1stat.c`、
+`pm1test.c`）。
 
 `w_files/primgen64.w` 是孤儿，没有对应的 `primgen64.c`。
 
@@ -83,9 +92,20 @@ ECM、二次筛、数域筛各有自己的 SIMD/汇编实现，与这里没有�
 lasieve 内部，不进 `factor/shared/`。
 
 汇编直接读 C 的全局，约 57 个符号（`mpqs_sievelen`、`mpqs3_*`、`modulo32`、
-`modulo_n`、`montgomery_inv_n` 等），汇编按符号名寻址，没有间接层。要让这些
-也按实例分开，得给汇编加寄存器传参；`montgomery_modulo_n` 与
-`montgomery_inv_n` 单独就在 30 个汇编文件里被引用。
+`montgomery_*` 等），汇编按符号名寻址，没有间接层。要让这些也按实例分开，
+得给汇编加寄存器传参；`montgomery_modulo_n` 与 `montgomery_inv_n` 单独就在
+30 个汇编文件里被引用。
+
+其中最要紧的是 **montgomery 状态**。`set_montgomery_multiplication()` 写的
+`montgomery_ulongs`、`montgomery_inv_n`、`montgomery_modulo_n`、R2/R4 还是
+进程级全局，而 ECM/P−1/MPQS 的每一次模乘都经过它们。后果是可观察的：
+两个 ECM 实例**用不同的 N** 交错推进曲线时，先建立的那个实例的曲线会跑在
+后者的 montgomery 状态下，算出错误的因子。`ecm_pm1_test` 因此让两个实例
+共用一个输入——同一份 montgomery 状态，交错才有意义——并在文件头写明了
+这一点。
+
+所以当前 `lasieve_ctx` 覆盖的是 ECM/P−1 的缓存，**不覆盖**它们的模乘状态。
+要把后者也按实例分开，就是那件纯汇编的活。
 
 
 与 yafu 其余部分的关系
