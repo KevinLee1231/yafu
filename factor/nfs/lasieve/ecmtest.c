@@ -23,11 +23,15 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "zeit.h"
 #include "montgomery_mul.h"
 #include "ecm.h"
+#include "lasieve_ctx.h"
 
 
 
 int main(int argc, char *argv[])
 {
+  lasieve_current_ctx = lasieve_ctx_new();
+  if (lasieve_current_ctx == NULL)
+    complain("out of memory\n");
   mpz_t N;
   u32_t n, i, necms=0, iter=0, B1, B2;
   FILE *fi;

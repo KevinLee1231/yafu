@@ -58,4 +58,22 @@ compile -ffunction-sections -fdata-sections -I. \
     -Wl,--gc-sections -lgmp -o "$build_dir/process_batch_helpers_regression"
 "$build_dir/process_batch_helpers_regression"
 
+# 筛法正确性基准：固定多项式 + 固定 spq 区间，关系集合必须逐字节一致
+if [ -x "$repo_root/gnfs-lasieve4I13e" ]; then
+    sh "$repo_root/test/standalone/lasieve/sieve_oracle.sh"
+else
+    echo 'sieve oracle: skipped (sievers not built, run make lasieve)'
+fi
+
+# 多实例验证：ECM/PM1 的缓存搬进 lasieve_ctx 之后，两个实例交替推进必须
+# 和各自单独跑出一样的结果。搬到 ctx 之前是文件级全局，这项会挂。
+make -s -C "$repo_root/factor/nfs/lasieve" "$build_dir/ctx_test" BINDIR="$build_dir" CC="$cc"
+"$build_dir/ctx_test"
+
+# ECM/P-1 的数值正确性 + 两个实例交错推进的隔离性。
+# 这两条路径的位图访问曾按字节下标算而缓冲区按 u64 字分配，越界到缓冲区外
+# 8 倍处；仓库里没有别的测试走到它们，靠这项守住。
+make -s -C "$repo_root/factor/nfs/lasieve" "$build_dir/ecm_pm1_test" BINDIR="$build_dir" CC="$cc"
+"$build_dir/ecm_pm1_test"
+
 printf '%s\n' 'lasieve standalone tests passed'

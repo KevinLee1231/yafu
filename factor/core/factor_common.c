@@ -259,13 +259,13 @@ void init_factobj(fact_obj_t* fobj)
 
     fobj->nfs_obj.polybatch = 250;						//default	
 #if defined(_WIN64)
-    strcpy(fobj->nfs_obj.ggnfs_dir, ".\\");
+    fobj->nfs_obj.ggnfs_dir[0] = '\0';
     strcpy(fobj->nfs_obj.cado_dir, ".\\");
 #elif defined(WIN32)
-    strcpy(fobj->nfs_obj.ggnfs_dir, ".\\");
+    fobj->nfs_obj.ggnfs_dir[0] = '\0';
     strcpy(fobj->nfs_obj.cado_dir, ".\\");
 #else
-    strcpy(fobj->nfs_obj.ggnfs_dir, "./");
+    fobj->nfs_obj.ggnfs_dir[0] = '\0';
     strcpy(fobj->nfs_obj.cado_dir, "./");
 #endif
 
