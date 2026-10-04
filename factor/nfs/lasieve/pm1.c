@@ -124,35 +124,31 @@ static void clear_bit(uchar *rop, u32_t pos)
   }
 }
 
+/* 位图按 u64 字寻址：d64 个字正好装 dim2 位，字下标 pos>>6，位偏移 pos&63。
+ * 早先这里写的是 rop[pos>>3]（字节下标），越界到缓冲区外 8 倍处。 */
 static int get_bit64(u64_t *rop, u32_t pos)
 {
-  return (int)((rop[pos>>3])&(1<<(pos&7)));
+  return (int)((rop[pos>>6] >> (pos&63)) & 1);
 }
 
 
 static void set_bit64(u64_t *rop, u32_t pos)
 {
-  uchar x, y;
+  u64_t x, y;
 
-  x=1<<(pos&7);
-  y=rop[pos>>3];
-  if (!(y&x)) {
-    y^=x;
-    rop[pos>>3]=y;
-  }
+  x=(u64_t)1 << (pos&63);
+  y=rop[pos>>6];
+  if (!(y&x)) rop[pos>>6]=y|x;
 }
 
 
 static void clear_bit64(u64_t *rop, u32_t pos)
 {
-  uchar x, y;
+  u64_t x, y;
 
-  x=1<<(pos&7);
-  y=rop[pos>>3];
-  if ((y&x)) {
-    y^=x;
-    rop[pos>>3]=y;
-  }
+  x=(u64_t)1 << (pos&63);
+  y=rop[pos>>6];
+  if (y&x) rop[pos>>6]=y^x;
 }
 static uchar pop8_tab[256]={
 0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,
