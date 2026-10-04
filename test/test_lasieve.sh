@@ -65,4 +65,9 @@ else
     echo 'sieve oracle: skipped (sievers not built, run make lasieve)'
 fi
 
+# 多实例验证：ECM/PM1 的缓存搬进 lasieve_ctx 之后，两个实例交替推进必须
+# 和各自单独跑出一样的结果。搬到 ctx 之前是文件级全局，这项会挂。
+make -s -C "$repo_root/factor/nfs/lasieve" "$build_dir/ctx_test" BINDIR="$build_dir" CC="$cc"
+"$build_dir/ctx_test"
+
 printf '%s\n' 'lasieve standalone tests passed'

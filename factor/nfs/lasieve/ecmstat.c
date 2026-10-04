@@ -22,6 +22,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "zeit.h"
 #include "montgomery_mul.h"
 #include "ecm.h"
+#include "lasieve_ctx.h"
 
 char *input_line=NULL;
 size_t input_line_alloc=0;
@@ -169,6 +170,9 @@ void stat_arith(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
+  lasieve_current_ctx = lasieve_ctx_new();
+  if (lasieve_current_ctx == NULL)
+    complain("out of memory\n");
   mpz_t *num, *f;
   u32_t B1, B2;
   u32_t nbit, nbitmin, nbitmax, nnum, nn, i, n;

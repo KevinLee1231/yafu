@@ -291,6 +291,9 @@ gnfs-lasieve4gI%.o: gnfs-lasieve4g.c include/if.h include/primgen32.h asm/includ
 
 # --- Library rules -----------------------------------------------------------
 
+lasieve_ctx.o: lasieve_ctx.c include/lasieve_ctx.h | include/lasieve_ctx.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
 libgmp-aux.a: gmp-aux.o mpz-ull.o
 	$(AR) rcs $@ $^
 
@@ -306,7 +309,7 @@ mpqs3.o: mpqs3.c asm/include/mpqs-config.h asm/include/siever-config.h
 $(BINPREFIX)gnfs-lasieve4I%e: gnfs-lasieve4eI%.o if.o input-poly.o libgmp-aux.a redu2.o \
 	recurrence6I%.o fbgen.o fbgen64.o real-poly-aux.o mpqs.o \
 	primgen32.o lasieve-prepn.o pprime_p.o \
-	strategy.o ecm.o mpqs3.o pm1.o microecm.o micropm1.o tinyecm.o \
+	strategy.o ecm.o mpqs3.o pm1.o lasieve_ctx.o microecm.o micropm1.o tinyecm.o \
 	asm/liblasieve.a asm/liblasieveI%.a
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
@@ -314,7 +317,7 @@ $(BINPREFIX)gnfs-lasieve4I%e: gnfs-lasieve4eI%.o if.o input-poly.o libgmp-aux.a 
 $(BINPREFIX)gnfs-lasieve4I%f: gnfs-lasieve4fI%.o if.o input-poly-orig.o libgmp-aux.a redu2.o \
 	recurrence6.o fbgen.o fbgen64.o real-poly-aux.o mpqs.o \
 	primgen32.o lasieve-prepn.o pprime_p.o \
-	strategy.o ecm.o mpqs3.o pm1.o \
+	strategy.o ecm.o mpqs3.o pm1.o lasieve_ctx.o \
 	asm/liblasieve.a asm/liblasieveI%.a
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
@@ -322,7 +325,7 @@ $(BINPREFIX)gnfs-lasieve4I%f: gnfs-lasieve4fI%.o if.o input-poly-orig.o libgmp-a
 $(BINPREFIX)gnfs-lasieve4I%g: gnfs-lasieve4gI%.o if.o input-poly-orig.o libgmp-aux.a redu2.o \
 	recurrence6.o fbgen.o fbgen64.o real-poly-aux.o mpqs.o \
 	primgen32.o primgen64.o lasieve-prepn.o pprime_p.o \
-	strategy.o ecm.o mpqs3.o pm1.o td.o \
+	strategy.o ecm.o mpqs3.o pm1.o lasieve_ctx.o td.o \
 	asm/liblasieve.a asm/liblasieveI%.a
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
@@ -339,28 +342,38 @@ mpqstest: mpqstest.o mpqsz.o if.o mpz-ull.o asm/liblasieve.a
 mpqs3z.o: mpqs3.c asm/include/mpqs-config.h
 	$(CC) $(CFLAGS) -O2 -DMPQS3_STAT -DMPQS3_ZEIT -c -o $@ $<
 
-mpqs3test: mpqs3test.o mpqs3z.o if.o libgmp-aux.a asm/liblasieve.a
+mpqs3test: mpqs3test.o mpqs3z.o if.o lasieve_ctx.o libgmp-aux.a asm/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
-mpqsstat: mpqsstat.o mpqs.o mpqs3.o if.o mpz-ull.o libgmp-aux.a asm/liblasieve.a
+mpqsstat: mpqsstat.o mpqs.o mpqs3.o if.o lasieve_ctx.o mpz-ull.o libgmp-aux.a asm/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
+
+# 多实例验证：两个实例的 ECM/PM1 状态必须互不干扰
+ctx_test.o: ctx_test.c include/lasieve_ctx.h include/ecm.h include/pm1.h \
+	include/if.h asm/include/siever-config.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(BINPREFIX)ctx_test: ctx_test.o lasieve_ctx.o if.o
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
+
 
 ecmz.o: ecm.c asm/include/siever-config.h
 	$(CC) $(CFLAGS) -DECM_STAT -DECM_ZEIT -c -o $@ $<
 
-ecmtest: ecmtest.o ecmz.o if.o asm/liblasieve.a
+ecmtest: ecmtest.o ecmz.o if.o lasieve_ctx.o asm/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
-ecmstat: ecmstat.o ecmz.o if.o asm/liblasieve.a
+ecmstat: ecmstat.o ecmz.o if.o lasieve_ctx.o asm/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
 pm1z.o: pm1.c asm/include/siever-config.h
 	$(CC) $(CFLAGS) -DPM1_STAT -DPM1_ZEIT -c -o $@ $<
 
-pm1test: pm1test.o pm1z.o if.o asm/liblasieve.a
+pm1test: pm1test.o pm1z.o if.o lasieve_ctx.o asm/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
-pm1stat: pm1stat.o pm1z.o if.o asm/liblasieve.a
+pm1stat: pm1stat.o pm1z.o if.o lasieve_ctx.o asm/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
 
@@ -368,4 +381,4 @@ pm1stat: pm1stat.o pm1z.o if.o asm/liblasieve.a
 
 clean:
 	-rm -f *.o *.a asm/*.o asm/*.a asm/*.s asm/*.S \
-		$(SIEVE_E_TARGETS) $(SIEVE_F_TARGETS) $(SIEVE_G_TARGETS)
+		$(BINPREFIX)ctx_test $(SIEVE_E_TARGETS) $(SIEVE_F_TARGETS) $(SIEVE_G_TARGETS)

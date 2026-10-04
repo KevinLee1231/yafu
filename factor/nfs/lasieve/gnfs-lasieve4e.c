@@ -99,6 +99,7 @@
 #include "real-poly-aux.h"
 #include "gmp-aux.h"
 #include "lasieve-prepn.h"
+#include "lasieve_ctx.h"
 #include "input-poly.h"
 #include "fbgen64.h"
 
@@ -901,6 +902,10 @@ int main(int argc, char** argv)
 #endif
 #line 512 "gnfs-lasieve4e.w"
 {
+    lasieve_current_ctx = lasieve_ctx_new();
+    if (lasieve_current_ctx == NULL)
+        complain("out of memory\n");
+
     u16_t zip_output, force_aFBcalc;
     u16_t catch_signals;
     u32_t all_spq_done;

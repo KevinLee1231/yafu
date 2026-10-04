@@ -22,6 +22,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "pm1.h"
 #include "zeit.h"
 #include "montgomery_mul.h"
+#include "lasieve_ctx.h"
 
 char *input_line=NULL;
 size_t input_line_alloc=0;
@@ -44,6 +45,9 @@ void random_prime(mpz_t rop, gmp_randstate_t rs, u32_t nb)
 
 int main(int argc, char *argv[])
 {
+  lasieve_current_ctx = lasieve_ctx_new();
+  if (lasieve_current_ctx == NULL)
+    complain("out of memory\n");
   mpz_t *num, *f, N[LEVELS];
   u32_t B1, B2;
   u32_t nbit, nbitmin, nbitmax, nnum, nn, i, j, n;
