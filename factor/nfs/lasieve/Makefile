@@ -357,6 +357,15 @@ $(BINPREFIX)ctx_test: ctx_test.o lasieve_ctx.o if.o
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
+# ECM/P-1 的数值正确性，以及两个实例交错推进的隔离性
+ecm_pm1_test.o: ecm_pm1_test.c include/lasieve_ctx.h include/ecm.h include/pm1.h \
+	include/if.h asm/include/siever-config.h
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(BINPREFIX)ecm_pm1_test: ecm_pm1_test.o ecm.o pm1.o lasieve_ctx.o if.o asm/liblasieve.a
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
+
 
 ecmz.o: ecm.c asm/include/siever-config.h
 	$(CC) $(CFLAGS) -DECM_STAT -DECM_ZEIT -c -o $@ $<
@@ -381,4 +390,4 @@ pm1stat: pm1stat.o pm1z.o if.o lasieve_ctx.o asm/liblasieve.a
 
 clean:
 	-rm -f *.o *.a asm/*.o asm/*.a asm/*.s asm/*.S \
-		$(BINPREFIX)ctx_test $(SIEVE_E_TARGETS) $(SIEVE_F_TARGETS) $(SIEVE_G_TARGETS)
+		$(BINPREFIX)ctx_test $(BINPREFIX)ecm_pm1_test $(SIEVE_E_TARGETS) $(SIEVE_F_TARGETS) $(SIEVE_G_TARGETS)

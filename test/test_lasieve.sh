@@ -70,4 +70,10 @@ fi
 make -s -C "$repo_root/factor/nfs/lasieve" "$build_dir/ctx_test" BINDIR="$build_dir" CC="$cc"
 "$build_dir/ctx_test"
 
+# ECM/P-1 的数值正确性 + 两个实例交错推进的隔离性。
+# 这两条路径的位图访问曾按字节下标算而缓冲区按 u64 字分配，越界到缓冲区外
+# 8 倍处；仓库里没有别的测试走到它们，靠这项守住。
+make -s -C "$repo_root/factor/nfs/lasieve" "$build_dir/ecm_pm1_test" BINDIR="$build_dir" CC="$cc"
+"$build_dir/ecm_pm1_test"
+
 printf '%s\n' 'lasieve standalone tests passed'
