@@ -34,6 +34,14 @@ benefit from your work.
 #endif
 
 #include <math.h>
+#include <stdarg.h>
+#include <errno.h>
+#include <fcntl.h>
+#if defined(WIN32) || defined(_WIN64)
+#include <process.h>
+#else
+#include <sys/wait.h>
+#endif
 
 #ifdef __MINGW32__
 #include <sys/time.h>
@@ -435,16 +443,140 @@ static int nfs_cuda_device(fact_obj_t* fobj, int tid)
 	return atoi(p);
 }
 
-// decode the value returned by system() into the exit status of the command.
-// returns -1 if the shell could not be started or the command was killed
-// by a signal.
-static int nfs_exit_status(int sysret)
+// ------------------------------------------------------------------
+// Running a child process.
+//
+// The sievers used to be launched with system() on a command line
+// assembled by sprintf.  That put a shell between yafu and the siever:
+// every path and file name had to be quoted by hand, a name containing
+// a space silently became two arguments, and the exit status had to be
+// decoded back out of wait()'s encoding.  Handing an argv array straight
+// to execv drops the shell and the quoting, and the status arrives in
+// the form the callers already had.
+//
+// Nothing here is siever-specific: any child yafu starts goes through
+// this, which is why the argv builder exists rather than a string.
+// ------------------------------------------------------------------
+
+#define SIEVER_MAX_ARGS 16
+#define SIEVER_ARG_LEN  96
+
+typedef struct {
+	char* argv[SIEVER_MAX_ARGS];
+	int argc;
+	int truncated;                     // ran out of room; caller must not run it
+	char store[SIEVER_MAX_ARGS][SIEVER_ARG_LEN];   // backing for addf
+	int nstore;
+} siever_argv_t;
+
+static void siever_argv_init(siever_argv_t* a, const char* prog)
+{
+	a->argc = 0;
+	a->nstore = 0;
+	a->truncated = 0;
+	a->argv[a->argc++] = (char*)prog;
+}
+
+static void siever_argv_add(siever_argv_t* a, const char* arg)
+{
+	// an empty optional argument is simply left off the command line,
+	// which is what the old "%s" with an empty string did anyway
+	if ((arg == NULL) || (arg[0] == '\0'))
+		return;
+	if (a->argc >= SIEVER_MAX_ARGS - 1)
+	{
+		a->truncated = 1;
+		return;
+	}
+	a->argv[a->argc++] = (char*)arg;
+}
+
+static void siever_argv_addf(siever_argv_t* a, const char* fmt, ...)
+{
+	va_list ap;
+	char* slot;
+
+	if (a->argc >= SIEVER_MAX_ARGS - 1)
+	{
+		a->truncated = 1;
+		return;
+	}
+	if (a->nstore >= SIEVER_MAX_ARGS)
+	{
+		a->truncated = 1;
+		return;
+	}
+	slot = a->store[a->nstore++];
+	va_start(ap, fmt);
+	vsnprintf(slot, SIEVER_ARG_LEN, fmt, ap);
+	va_end(ap);
+	a->argv[a->argc++] = slot;
+}
+
+static void siever_argv_end(siever_argv_t* a)
+{
+	a->argv[a->argc] = NULL;
+}
+
+static void siever_argv_print(const siever_argv_t* a)
+{
+	int i;
+
+	fputs("syscmd:", stdout);
+	for (i = 0; i < a->argc; i++)
+		printf(" %s", a->argv[i]);
+	fputc('\n', stdout);
+}
+
+// Run argv[0] with argv, wait for it, and return its exit status.
+// Returns -1 if the child could not be started or died from a signal,
+// which is what the old nfs_exit_status() produced on those paths.
+// logfile, when given, receives the child's stdout and stderr, replacing
+// the " > log 2>&1" that used to be part of the command string.
+static int nfs_run_child(const siever_argv_t* a, const char* logfile)
 {
 #if defined(WIN32) || defined(_WIN64)
-	return sysret;
+	intptr_t rc;
+
+	fflush(NULL);
+	rc = _spawnvp(_P_WAIT, a->argv[0], (const char* const*)a->argv);
+	return (rc < 0) ? -1 : (int)rc;
 #else
-	if (sysret == -1) return -1;
-	if (WIFEXITED(sysret)) return WEXITSTATUS(sysret);
+	pid_t pid;
+	int status;
+
+	// anything still buffered here would be duplicated into the child
+	fflush(NULL);
+
+	pid = fork();
+	if (pid < 0)
+		return -1;
+	if (pid == 0)
+	{
+		if (logfile != NULL)
+		{
+			// open/dup2 rather than freopen: this runs in a child of a
+			// multi-threaded yafu, where taking a stdio lock can deadlock
+			int fd = open(logfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+			if (fd < 0)
+				_exit(127);
+			if ((dup2(fd, STDOUT_FILENO) < 0) || (dup2(fd, STDERR_FILENO) < 0))
+				_exit(127);
+			if (fd > STDERR_FILENO)
+				close(fd);
+		}
+		execv(a->argv[0], a->argv);
+		// exec failed; 127 is what a shell reports for "command not found"
+		_exit(127);
+	}
+
+	while (waitpid(pid, &status, 0) < 0)
+	{
+		if (errno != EINTR)
+			return -1;
+	}
+	if (WIFEXITED(status))
+		return WEXITSTATUS(status);
 	return -1;
 #endif
 }
@@ -517,14 +649,15 @@ static void nfs_cuda_set_abort(void)
 // Partial output from a stopped or failed run is discarded for now.
 static void nfs_cuda_sieve_range(fact_obj_t* fobj, nfs_threaddata_t* thread_data)
 {
-	char syscmd[GSTR_MAXSIZE], tmpstr[GSTR_MAXSIZE];
+	siever_argv_t args;
+	char tmpstr[GSTR_MAXSIZE];
 	char logname[GSTR_MAXSIZE], partname[GSTR_MAXSIZE];
 	const char* out = thread_data->outfilename;
 	const int side = (thread_data->job.poly->side == ALGEBRAIC_SPQ) ? 1 : 0;
 	const uint32_t logI = thread_data->siever;
 	const uint64_t q0 = thread_data->job.startq;
 	uint64_t q1;
-	int status, n;
+	int status;
 	FILE* fid;
 
 	thread_data->job.current_rels = 0;
@@ -545,15 +678,24 @@ static void nfs_cuda_sieve_range(fact_obj_t* fobj, nfs_threaddata_t* thread_data
 	snprintf(logname, sizeof(logname), "%s.log", out);
 	snprintf(partname, sizeof(partname), "%s.part", out);
 
-	n = snprintf(syscmd, sizeof(syscmd),
-		"%s --pipeline --cofactor --poly %s --logI %u --region %u --qrange %" PRIu64 ":%" PRIu64
-		" --sq-side %d --relations %s --restart --device %d > %s 2>&1",
-		thread_data->job.sievername, fobj->nfs_obj.job_infile, logI, logI - 1, q0, q1,
-		side, out, nfs_cuda_device(fobj, thread_data->tindex), logname);
+	siever_argv_init(&args, thread_data->job.sievername);
+	siever_argv_add(&args, "--pipeline");
+	siever_argv_add(&args, "--cofactor");
+	siever_argv_add(&args, "--poly");
+	siever_argv_add(&args, fobj->nfs_obj.job_infile);
+	siever_argv_addf(&args, "--logI %u", logI);
+	siever_argv_addf(&args, "--region %u", logI - 1);
+	siever_argv_addf(&args, "--qrange %" PRIu64 ":%" PRIu64, q0, q1);
+	siever_argv_addf(&args, "--sq-side %d", side);
+	siever_argv_add(&args, "--relations");
+	siever_argv_add(&args, out);
+	siever_argv_add(&args, "--restart");
+	siever_argv_addf(&args, "--device %d", nfs_cuda_device(fobj, thread_data->tindex));
+	siever_argv_end(&args);
 
-	if ((n < 0) || (n >= (int)sizeof(syscmd)))
+	if (args.truncated)
 	{
-		printf("\nnfs: cuda-sieve command line is too long\n");
+		printf("\nnfs: cuda-sieve command line has too many arguments\n");
 		nfs_cuda_set_abort();
 		return;
 	}
@@ -563,14 +705,17 @@ static void nfs_cuda_sieve_range(fact_obj_t* fobj, nfs_threaddata_t* thread_data
 		printf("nfs: commencing %s side lattice sieving over range: %" PRIu64 " - %" PRIu64 "\n",
 			side ? "algebraic" : "rational", q0, q1 + 1);
 	}
-	if (fobj->VFLAG > 1) printf("syscmd: %s\n", syscmd);
-	if (fobj->VFLAG > 1) fflush(stdout);
+	if (fobj->VFLAG > 0)
+	{
+		siever_argv_print(&args);
+		fflush(stdout);
+	}
 
 	// start clean: nothing left from an earlier run may be mistaken for this one.
 	nfs_cuda_cleanup(out);
 	remove(logname);
 
-	status = nfs_exit_status(system(syscmd));
+	status = nfs_run_child(&args, logname);
 	MySleep(100);
 
 	if (status == 0)
@@ -1594,7 +1739,8 @@ int test_sieve(fact_obj_t* fobj, void* args, int njobs, int are_files)
 	// now we can get to the actual testing
 	for(i = 0; i < njobs; i++)
 	{
-		char syscmd[GSTR_MAXSIZE], tmpbuf[GSTR_MAXSIZE], side[32];
+		siever_argv_t args;
+		char tmpbuf[GSTR_MAXSIZE], side[32];
 		FILE* in;
 
         if (fobj->VFLAG > 0)
@@ -1627,10 +1773,17 @@ int test_sieve(fact_obj_t* fobj, void* args, int njobs, int are_files)
 
 		//create the afb/rfb - we don't want the time it takes to do this to
 		//pollute the sieve timings		
-		sprintf(syscmd, "%s -b %s -k -c 0 -F", jobs[i].sievername, filenames[i]);
+		siever_argv_init(&args, jobs[i].sievername);
+		siever_argv_add(&args, "-b");
+		siever_argv_add(&args, filenames[i]);
+		siever_argv_add(&args, "-k");
+		siever_argv_add(&args, "-c");
+		siever_argv_add(&args, "0");
+		siever_argv_add(&args, "-F");
+		siever_argv_end(&args);
 		if (fobj->VFLAG > 0) printf("\ntest: generating factor bases\n");
 		gettimeofday(&start, NULL);
-		sysreturn = system(syscmd);
+		sysreturn = nfs_run_child(&args, NULL);
 		gettimeofday(&stop, NULL);
         t_time = ytools_difftime(&start, &stop);
 
@@ -1639,8 +1792,23 @@ int test_sieve(fact_obj_t* fobj, void* args, int njobs, int are_files)
 		MySleep(100);
 
 		//start the test
-		sprintf(syscmd,"%s%s -f %u -c %u -o %s.out -%c %s ",
-			jobs[i].sievername, fobj->VFLAG>0?" -v":"", jobs[i].startq, spq_range, filenames[i], side[0], filenames[i]);
+		siever_argv_init(&args, jobs[i].sievername);
+		if (fobj->VFLAG > 0)
+			siever_argv_add(&args, "-v");
+		siever_argv_add(&args, "-f");
+		siever_argv_addf(&args, "%u", jobs[i].startq);
+		siever_argv_add(&args, "-c");
+		siever_argv_addf(&args, "%u", spq_range);
+		siever_argv_add(&args, "-o");
+		siever_argv_addf(&args, "%s.out", filenames[i]);
+		siever_argv_addf(&args, "-%c", side[0]);
+		siever_argv_add(&args, filenames[i]);
+		siever_argv_end(&args);
+		if (args.truncated)
+		{
+			printf("\ntest: siever command line has too many arguments\n");
+			return 1;
+		}
 
 		if (fobj->VFLAG > 0) printf("test: commencing test sieving of polynomial %d on the %s side over range %u-%u\n", i, 
 			side, jobs[i].startq, jobs[i].startq + spq_range);
@@ -1654,7 +1822,7 @@ int test_sieve(fact_obj_t* fobj, void* args, int njobs, int are_files)
         }
 
 		gettimeofday(&start, NULL);
-        sysreturn = system(syscmd);
+        sysreturn = nfs_run_child(&args, NULL);
 		gettimeofday(&stop, NULL);
         t_time = ytools_difftime(&start, &stop);
 		
@@ -2326,7 +2494,7 @@ static void nfs_afb_remove(const char* afbname)
 static void nfs_afb_prime_cache(fact_obj_t* fobj, nfs_job_t* job)
 {
 	char afbname[GSTR_MAXSIZE + 8];
-	char syscmd[2 * GSTR_MAXSIZE + 32];
+	siever_argv_t args;
 
 	// cuda-sieve does not read or write the lasieve <jobfile>.afb.0 cache
 	if (NFS_USE_CUDA(fobj))
@@ -2362,12 +2530,18 @@ static void nfs_afb_prime_cache(fact_obj_t* fobj, nfs_job_t* job)
 	// no matter where sieving starts. -F overwrites any stale file.
 	if (fobj->VFLAG > 0)
 		printf("nfs: building factor base cache %s\n", afbname);
-	snprintf(syscmd, sizeof(syscmd), "%s -b %s -k -c 0 -F",
-		job->sievername, fobj->nfs_obj.job_infile);
-	if (fobj->VFLAG > 1) printf("syscmd: %s\n", syscmd);
+	siever_argv_init(&args, job->sievername);
+	siever_argv_add(&args, "-b");
+	siever_argv_add(&args, fobj->nfs_obj.job_infile);
+	siever_argv_add(&args, "-k");
+	siever_argv_add(&args, "-c");
+	siever_argv_add(&args, "0");
+	siever_argv_add(&args, "-F");
+	siever_argv_end(&args);
+	if (fobj->VFLAG > 0) siever_argv_print(&args);
 	fflush(stdout);
 
-	if (system(syscmd) != 0)
+	if (nfs_run_child(&args, NULL) != 0)
 	{
 		// don't inspect what a failed call left behind: a stale but
 		// well-formed cache from an earlier job could pass the checks
@@ -3018,8 +3192,7 @@ void *lasieve_launcher(void *ptr) {
 #endif
 
 	// launch a gnfs-lasieve job
-	char syscmd[sizeof(thread_data->job.sievername) + sizeof(thread_data->outfilename) +
-		sizeof(thread_data->job_infile_name) + 128];
+	siever_argv_t args;
 	char tmpstr[GSTR_MAXSIZE];
 	const char *side = thread_data->job.poly->side == ALGEBRAIC_SPQ ? "algebraic" : "rational";
 	const char *batch3lp = fobj->nfs_obj.batch_3lp ? "-d" : "";
@@ -3040,27 +3213,41 @@ void *lasieve_launcher(void *ptr) {
 		return 0;
 	}
 
-	//start ggnfs binary - new win64 ASM enabled binaries current have a problem with this:
-	//sprintf(syscmd,"%s%s -%c %s -f %u -c %u -o %s -n %d",
-	//		thread_data->job.sievername, fobj->VFLAG>0?" -v":"", *side,
-	//		fobj->nfs_obj.job_infile, thread_data->job.startq, 
-	//		thread_data->job.qrange, thread_data->outfilename, thread_data->tindex);
-
-    // todo: add command line input of arbitrary argument string to append to this command
-	// but not this:
-	snprintf(syscmd, sizeof(syscmd), "%s%s -f %u -c %u -o %s -n %d %s -%c %s ",
-			thread_data->job.sievername, fobj->VFLAG>1?" -v":"", thread_data->job.startq, 
-			thread_data->job.qrange, thread_data->outfilename, thread_data->tindex, batch3lp, 
-			*side, thread_data->job_infile_name);
+	siever_argv_init(&args, thread_data->job.sievername);
+	if (fobj->VFLAG > 1)
+		siever_argv_add(&args, "-v");
+	siever_argv_add(&args, "-f");
+	siever_argv_addf(&args, "%u", thread_data->job.startq);
+	siever_argv_add(&args, "-c");
+	siever_argv_addf(&args, "%u", thread_data->job.qrange);
+	siever_argv_add(&args, "-o");
+	siever_argv_add(&args, thread_data->outfilename);
+	siever_argv_add(&args, "-n");
+	siever_argv_addf(&args, "%d", thread_data->tindex);
+	siever_argv_add(&args, batch3lp);
+	// the win64 ASM sievers have a known problem with the -%c form
+	siever_argv_addf(&args, "-%c", side[0]);
+	siever_argv_add(&args, thread_data->job_infile_name);
+	siever_argv_end(&args);
+	if (args.truncated)
+	{
+		printf("\nnfs: siever command line has too many arguments\n");
+		if (NFS_ABORT < 1)
+			NFS_ABORT = 1;
+		return 0;
+	}
 
 	if (fobj->VFLAG >= 0)
 	{
 		printf("nfs: commencing %s side lattice sieving over range: %u - %u\n",
 			side, thread_data->job.startq, thread_data->job.startq + thread_data->job.qrange);
 	}
-	if (fobj->VFLAG > 1) printf("syscmd: %s\n", syscmd);
-	if (fobj->VFLAG > 1) fflush(stdout);
-	cmdret = system(syscmd);
+	if (fobj->VFLAG > 0)
+	{
+		siever_argv_print(&args);
+		fflush(stdout);
+	}
+	cmdret = nfs_run_child(&args, NULL);
 
 	// a ctrl-c abort signal is caught by the system command, and nfsexit never gets called.
 	// so check for abnormal exit from the system command.
@@ -3126,8 +3313,7 @@ void* lasieve_launcher_tdata(void* ptr) {
 	fact_obj_t* fobj = thread_data->fobj;
 
 	// launch a gnfs-lasieve job
-	char syscmd[sizeof(thread_data->job.sievername) + sizeof(thread_data->outfilename) +
-		sizeof(thread_data->job_infile_name) + 128];
+	siever_argv_t args;
 	char tmpstr[GSTR_MAXSIZE];
 	const char *side = thread_data->job.poly->side == ALGEBRAIC_SPQ ? "algebraic" : "rational";
 	const char *batch3lp = fobj->nfs_obj.batch_3lp ? "-d" : "";
@@ -3137,28 +3323,43 @@ void* lasieve_launcher_tdata(void* ptr) {
 	struct timeval bstart;	// start time of sieving batch
 
 	gettimeofday(&bstart, NULL);
+	// the win64 ASM sievers have a known problem with the -%c form
 
-	//start ggnfs binary - new win64 ASM enabled binaries current have a problem with this:
-	//sprintf(syscmd,"%s%s -%c %s -f %u -c %u -o %s -n %d",
-	//		thread_data->job.sievername, fobj->VFLAG>0?" -v":"", *side,
-	//		fobj->nfs_obj.job_infile, thread_data->job.startq, 
-	//		thread_data->job.qrange, thread_data->outfilename, thread_data->tindex);
-
-	// todo: add command line input of arbitrary argument string to append to this command
-	// but not this:
-	snprintf(syscmd, sizeof(syscmd), "%s%s -f %u -c %u -o %s -n %d %s -%c %s ",
-		thread_data->job.sievername, fobj->VFLAG > 1 ? " -v" : "", thread_data->job.startq,
-		thread_data->job.qrange, thread_data->outfilename, thread_data->tindex, batch3lp,
-		*side, thread_data->job_infile_name);
+	siever_argv_init(&args, thread_data->job.sievername);
+	if (fobj->VFLAG > 1)
+		siever_argv_add(&args, "-v");
+	siever_argv_add(&args, "-f");
+	siever_argv_addf(&args, "%u", thread_data->job.startq);
+	siever_argv_add(&args, "-c");
+	siever_argv_addf(&args, "%u", thread_data->job.qrange);
+	siever_argv_add(&args, "-o");
+	siever_argv_add(&args, thread_data->outfilename);
+	siever_argv_add(&args, "-n");
+	siever_argv_addf(&args, "%d", thread_data->tindex);
+	siever_argv_add(&args, batch3lp);
+	// the win64 ASM sievers have a known problem with the -%c form
+	siever_argv_addf(&args, "-%c", side[0]);
+	siever_argv_add(&args, thread_data->job_infile_name);
+	siever_argv_end(&args);
+	if (args.truncated)
+	{
+		printf("\nnfs: siever command line has too many arguments\n");
+		if (NFS_ABORT < 1)
+			NFS_ABORT = 1;
+		return 0;
+	}
 
 	if (fobj->VFLAG >= 0)
 	{
 		printf("nfs: commencing %s side lattice sieving over range: %u - %u\n",
 			side, thread_data->job.startq, thread_data->job.startq + thread_data->job.qrange);
 	}
-	if (fobj->VFLAG > 1) printf("syscmd: %s\n", syscmd);
-	if (fobj->VFLAG > 1) fflush(stdout);
-	cmdret = system(syscmd);
+	if (fobj->VFLAG > 0)
+	{
+		siever_argv_print(&args);
+		fflush(stdout);
+	}
+	cmdret = nfs_run_child(&args, NULL);
 
 	// a ctrl-c abort signal is caught by the system command, and nfsexit never gets called.
 	// so check for abnormal exit from the system command.
