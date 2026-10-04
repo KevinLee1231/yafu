@@ -60,7 +60,7 @@ $2 \times 2$ 个平方根给出四个候选 $(\pm X, \pm Y)$，取使 $\gcd(x - 
    的组合。
 5. 对候选解算实际的小均值 $\sigma$，只保留 $\sigma$ 最小的若干个。
 
-`gnfs-params-Gimarel.txt`、`gnfs-params-table.txt` 是两套现成的参数表（按 $\log_2 N$ 查表）。`gnfs/poly_brb_mod/` 是多项式选择树的另一份快照（`brb` = Ben Buhrow，全仓到处是 `// BRB:` 注释），**没有进任何构建**——主 Makefile、`test_lasieve.sh`、`test_nfs.sh` 里都找不到它。它是 msieve svn-1023（2018-08）的版本，而 `poly/` 已经是 svn-1088（2026-05）：`stage1/stage1.c` 1201 行对 521 行，`poly/` 另有多出 `stage1_engine.c`（碰撞引擎注册表）、`stage1_sieve_cpu_hashtable.c`、`poly_stats.c`、`registry_selftest.c` 等。它早于 Gerbicz 碰撞引擎，也没有那个引擎——Gerbicz 是 `poly/stage1/stage1_engine.c` 里注册的 stage-1 引擎（`cpu_gerbicz` 编号 #2、`gpu_gerbicz` 编号 #4，与 hashtable、cubsort 等并列），见 `poly/gpu_gerbicz_architecture.md`。要启用 `poly_brb_mod/` 得先把它接进构建。
+`gnfs-params-Gimarel.txt`、`gnfs-params-table.txt` 是两套现成的参数表（按 $\log_2 N$ 查表）。
 
 
 四、筛选

@@ -336,15 +336,6 @@ mpqsz.o: mpqs.c asm/include/mpqs-config.h
 mpqstest: mpqstest.o mpqsz.o if.o mpz-ull.o asm/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
-mpqst: mpqst.o mpqsz.o if.o asm/liblasieve.a
-	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
-
-mpqszt.o: mpqs.c asm/include/mpqs-config.h
-	$(CC) $(CFLAGS) -O2 -DTOTAL_STAT -DMPQS_ZEIT -c -o $@ $<
-
-tmpqs: mpqst.o mpqszt.o if.o asm/liblasieve.a
-	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
-
 mpqs3z.o: mpqs3.c asm/include/mpqs-config.h
 	$(CC) $(CFLAGS) -O2 -DMPQS3_STAT -DMPQS3_ZEIT -c -o $@ $<
 

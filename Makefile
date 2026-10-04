@@ -416,10 +416,6 @@ CFLAGS += \
     -Ifactor/nfs/gnfs/poly/stage2/include \
     -Ifactor/nfs/gnfs/sieve/include \
     -Ifactor/nfs/gnfs/sqrt/include \
-    -Ifactor/nfs/gnfs/poly_brb_mod/include \
-    -Ifactor/nfs/gnfs/poly_brb_mod/stage1/include \
-    -Ifactor/nfs/gnfs/poly_brb_mod/stage1/stage1_core_gpu/include \
-    -Ifactor/nfs/gnfs/poly_brb_mod/stage2/include \
     -Ifactor
 
 # External dependency includes
