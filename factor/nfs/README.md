@@ -11,7 +11,7 @@ $$L_N\!\left[\tfrac{1}{3},\ \bigl(\tfrac{64}{9}\bigr)^{1/3}\right]
 
 出处：C. Pomerance, *The Quadratic Sieve Factoring Algorithm* (1985)；通用形式见 A. K. Lenstra 与 H. W. Lenstra Jr. 1975 年的双域构造；Pomerance & Smith, *A Pipeline Architecture for Factoring Large Integers with the Quadratic Sieve Method*, SIAM J. Comput. 17 (1988) 387–403。
 
-目录分工：`nfs.c` 一族是作业编排与后处理，`gnfs/` 是数域筛本体，`lasieve/` 是外部格点筛（必须单独编译成可执行文件）。
+目录分工：`nfs.c` 一族是作业编排与后处理，`gnfs/` 是数域筛本体（主构建里编），`lasieve/` 是外部格点筛（**单独的子 Makefile**，不进主构建）。
 
 
 一、两个多项式
@@ -60,7 +60,7 @@ $2 \times 2$ 个平方根给出四个候选 $(\pm X, \pm Y)$，取使 $\gcd(x - 
    的组合。
 5. 对候选解算实际的小均值 $\sigma$，只保留 $\sigma$ 最小的若干个。
 
-`gnfs/poly_brb_mod/` 是 Gerbicz 改进的碰撞多项式选择（Gerbicz 2018 前后），用一个小的碰撞对来减少筛法开销。`gnfs-params-Gimarel.txt`、`gnfs-params-table.txt` 是两套现成的参数表（按 $\log_2 N$ 查表）。
+`gnfs-params-Gimarel.txt`、`gnfs-params-table.txt` 是两套现成的参数表（按 $\log_2 N$ 查表）。`gnfs/poly_brb_mod/` 里还有一份 Gerbicz 改进的碰撞多项式选择（用一个小的碰撞对减少筛法开销），**但它没有进任何构建**——主 Makefile、`test_lasieve.sh`、`test_nfs.sh` 里都找不到它，`poly/` 那份才是实际在用的。要启用得先把它接进构建。
 
 
 四、筛选
@@ -87,7 +87,7 @@ $2 \times 2$ 个平方根给出四个候选 $(\pm X, \pm Y)$，取使 $\gcd(x - 
 - AVX-512 辅助（`avx512_aux.h`）；
 - 整批（batch）模式：把多个多项式一起筛，用不完的筛选预算重投到后面的多项式。
 
-编译方式见 `test/test_lasieve.sh`，单独链接，**不**在 yafu 主构建里。`make lasieve` 跑它的回归。
+构建完全独立：`make lasieve` 会转到 `factor/nfs/lasieve/Makefile`，产出 `bin/local/` 下的 `gnfs-lasieve4I{11..16}e`。头文件在 `lasieve/include/` 与 `lasieve/asm/include/`，由子 Makefile 的 `-Iinclude -Iasm/include -I../include` 解析，头文件依赖在该 Makefile 里显式列出。`make test-standalone` 跑 `test/test_lasieve.sh` 的五个独立回归。
 
 
 六、SNFS
