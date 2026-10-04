@@ -7,7 +7,7 @@
 #include <math.h>
 #include <gmp.h>
 #include "siever-config.h"
-#include "../if.h"
+#include "if.h"
 
 #include "montgomery_mul.h"
 

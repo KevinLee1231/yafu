@@ -20,13 +20,13 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include <limits.h>
 #include <math.h>
 #include <gmp.h>
-#include "asm/siever-config.h"
+#include "siever-config.h"
 #include "if.h"
 #include "gmp-aux.h"
 #ifdef VARIANT2
 #include "asm/mpqs-config2.h"
 #else
-#include "asm/mpqs-config.h"
+#include "mpqs-config.h"
 #endif
 
 
@@ -221,7 +221,6 @@ u32_t mpqs3_A_table_n[10]={
 #ifdef MPQS3_STAT
 u32_t stat_mpqs_nsieves, stat_mpqs_nsurvivors, stat_mpqs_ntrials, stat_mpqs_ndiv;
 #endif
-
 #include "asm/mpqs3arith.c"
 
 void mpqs3_convert(u32_t *rop, double op_dbl, u64_t op_64)

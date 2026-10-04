@@ -8,7 +8,7 @@
 #include <gmp.h>
 
 #include "siever-config.h"
-#include "../if.h"
+#include "if.h"
 
 mp_limb_t ASM_ATTR mpz_asm_td(mp_limb_t,mp_limb_t,mp_limb_t*,mp_size_t);
 

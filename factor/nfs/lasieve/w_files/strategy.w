@@ -40,16 +40,15 @@ void print_strategy_stat();
 #include <string.h>
 #include <time.h>
 #include <gmp.h>
-#include "asm/siever-config.h"
+#include "siever-config.h"
 #include "if.h"
 #include "primgen32.h"
-#include "asm/32bit.h"
+#include "32bit.h"
 #include "strategy.h"
-#include "asm/montgomery_mul.h"
+#include "montgomery_mul.h"
 #include "ecm.h"
 #include "pm1.h"
-
-#include "mpqs.h"
+#include "lasieve_mpqs.h"
 #include "mpqs3.h"
 
 extern char *input_line;

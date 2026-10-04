@@ -1,7 +1,6 @@
 /*8:*/
 #line 126 "recurrence6.w"
-
-#include "asm/siever-config.h"
+#include "siever-config.h"
 #include <immintrin.h>
 
 void rec_info_init(u32_t A, u32_t ub);

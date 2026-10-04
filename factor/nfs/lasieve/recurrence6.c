@@ -18,7 +18,7 @@
 #include <sys/types.h>
 #include <limits.h>
 #include <stdint.h>
-#include "asm/siever-config.h"
+#include "siever-config.h"
 #include "if.h"
 #include "recurrence6.h"
 #include <immintrin.h>

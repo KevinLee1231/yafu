@@ -6,7 +6,7 @@
 
 #include "siever-config.h"
 #include "lasched.h"
-#include "../if.h"
+#include "if.h"
 
 #define L1_SIZE (1<<L1_BITS)
 #define i_bits (I_bits-1)

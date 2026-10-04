@@ -17,7 +17,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include <limits.h>
 typedef unsigned long long ullong;
 #include <gmp.h>
-#include "asm/siever-config.h"
+#include "siever-config.h"
 #include "gmp-aux.h"
 
 #ifdef ULL_NO_UL

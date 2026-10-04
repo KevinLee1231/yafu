@@ -10,7 +10,7 @@
 
 #include <sys/time.h>
 #include "gmp.h"
-#include "asm/siever-config.h"
+#include "siever-config.h"
 #include "if.h"
 #include "primgen32.h"
 #include "primgen64.h"

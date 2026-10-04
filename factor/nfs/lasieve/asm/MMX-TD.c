@@ -4,7 +4,7 @@
 
 #include "siever-config.h"
 #include "32bit.h"
-#include "../if.h"
+#include "if.h"
 
 #include <immintrin.h>
 

@@ -24,8 +24,7 @@ hard disk space on storing its results.
 #include <stdio.h>
 #include <string.h>
 #include "gmp.h"
-
-#include "asm/siever-config.h"
+#include "siever-config.h"
 #include "primgen64.h"
 #include "if.h"
 

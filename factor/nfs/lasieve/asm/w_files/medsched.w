@@ -27,7 +27,7 @@ medsched_1(u32_t *ri, u32_t *ij_ptr, u32_t *ij_ptr_ub, u32_t ot,
 
 #include "siever-config.h"
 #include "medsched.h"
-#include "../if.h"
+#include "if.h"
 
 #define L1_SIZE (1<<L1_BITS)
 #define i_bits (I_bits-1)

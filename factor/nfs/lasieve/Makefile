@@ -118,7 +118,7 @@ GMP_LIB := $(GMP_LIBDIR)/libgmp.a
 CFLAGS_BASE := \
     -Wall -Wno-unused-variable -Wno-unused-function \
     -Ofast -fomit-frame-pointer -march=native -funroll-loops \
-    -I$(GMP_INCDIR) -L$(GMP_LIBDIR) -I../../factor/shared/include -fcommon
+    -I$(GMP_INCDIR) -L$(GMP_LIBDIR) -I../../factor/shared/include -I../../factor/ecm/include -Iinclude -Iasm/include -fcommon
 
 ifeq ($(DETECTED_OS),Windows)
     CFLAGS = -I. $(CFLAGS_BASE) -DULL_NO_UL -DBITS_PER_GMP_ULONG=32
@@ -223,7 +223,7 @@ asm/%: force
 	$(MAKE) $(ASM_FLAGS) -C asm $*
 
 # Generic compile rules
-%.o: %.c if.h asm/siever-config.h
+%.o: %.c include/if.h asm/include/siever-config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 %.o: %.s
@@ -250,38 +250,42 @@ allg: $(SIEVE_G_TARGETS)
 
 # --- Explicit header dependencies --------------------------------------------
 
-input-poly.o: input-poly.h
-input-poly-orig.o: input-poly-orig.h
-fbgen.o: gmp-aux.h
-fbgen.o lasieve-prepn.o: asm/32bit.h
-redu2.o: redu2.h
-primgen32.o fbgen.o: primgen32.h
+fbgen.o: include/gmp-aux.h
+fbgen.o lasieve-prepn.o: asm/include/32bit.h
+redu2.o: include/redu2.h
+primgen32.o fbgen.o: include/primgen32.h
 gnfs-lasieve4e.c: la-cs.c
-lasieve-prepn.o: lasieve-prepn.h recurrence6.h
-mpqs3.o: asm/mpqs-config.h
+lasieve-prepn.o: include/lasieve-prepn.h include/recurrence6.h
+mpqs3.o: asm/include/mpqs-config.h
 
 
 # --- Per-I-value compile rules -----------------------------------------------
 
-recurrence6I%.o: recurrence6.c recurrence6.h if.h asm/siever-config.h
+recurrence6I%.o: recurrence6.c include/recurrence6.h include/if.h asm/include/siever-config.h
 	$(CC) $(CFLAGS) -c -DI_bits=$* -o $@ $<
 
-gnfs-lasieve4eI%.o: gnfs-lasieve4e.c if.h primgen32.h asm/32bit.h redu2.h \
-	recurrence6.h fbgen.h real-poly-aux.h gmp-aux.h asm/medsched.h \
-	asm/siever-config.h lasieve-prepn.h input-poly.h asm/lasched.h \
-	strategy.h
+gnfs-lasieve4eI%.o: gnfs-lasieve4e.c include/if.h include/primgen32.h asm/include/32bit.h \
+	include/redu2.h include/recurrence6.h include/fbgen.h \
+	include/real-poly-aux.h include/gmp-aux.h \
+	asm/include/medsched.h asm/include/siever-config.h \
+	include/lasieve-prepn.h include/input-poly.h \
+	asm/include/lasched.h include/strategy.h
 	$(CC) $(CFLAGS) -c -DI_bits=$* -o $@ $<
 
-gnfs-lasieve4fI%.o: gnfs-lasieve4f.c if.h primgen32.h asm/32bit.h redu2.h \
-	recurrence6.h fbgen.h real-poly-aux.h gmp-aux.h asm/medsched.h \
-	asm/siever-config.h lasieve-prepn.h input-poly.h asm/lasched.h \
-	strategy.h
+gnfs-lasieve4fI%.o: gnfs-lasieve4f.c include/if.h include/primgen32.h asm/include/32bit.h \
+	include/redu2.h include/recurrence6.h include/fbgen.h \
+	include/real-poly-aux.h include/gmp-aux.h \
+	asm/include/medsched.h asm/include/siever-config.h \
+	include/lasieve-prepn.h include/input-poly.h \
+	asm/include/lasched.h include/strategy.h
 	$(CC) $(CFLAGS) -c -DI_bits=$* -o $@ $<
 
-gnfs-lasieve4gI%.o: gnfs-lasieve4g.c if.h primgen32.h asm/32bit.h redu2.h \
-	recurrence6.h fbgen.h real-poly-aux.h gmp-aux.h asm/medsched.h \
-	asm/siever-config.h lasieve-prepn.h input-poly.h asm/lasched.h \
-	strategy.h
+gnfs-lasieve4gI%.o: gnfs-lasieve4g.c include/if.h include/primgen32.h asm/include/32bit.h \
+	include/redu2.h include/recurrence6.h include/fbgen.h \
+	include/real-poly-aux.h include/gmp-aux.h \
+	asm/include/medsched.h asm/include/siever-config.h \
+	include/lasieve-prepn.h include/input-poly.h \
+	asm/include/lasched.h include/strategy.h
 	$(CC) $(CFLAGS) -c -DI_bits=$* -o $@ $<
 
 
@@ -290,10 +294,10 @@ gnfs-lasieve4gI%.o: gnfs-lasieve4g.c if.h primgen32.h asm/32bit.h redu2.h \
 libgmp-aux.a: gmp-aux.o mpz-ull.o
 	$(AR) rcs $@ $^
 
-mpqs.o: mpqs.c asm/mpqs-config.h asm/siever-config.h
+mpqs.o: mpqs.c asm/include/mpqs-config.h asm/include/siever-config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-mpqs3.o: mpqs3.c asm/mpqs-config.h asm/siever-config.h
+mpqs3.o: mpqs3.c asm/include/mpqs-config.h asm/include/siever-config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 

@@ -121,8 +121,7 @@ typedef unsigned long long ullong;
 #include <string.h>
 #include <gmp.h>
 #include <limits.h>
-
-#include "asm/siever-config.h"
+#include "siever-config.h"
 #include "if.h"
 
 int verbose=0;

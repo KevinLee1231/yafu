@@ -27,8 +27,7 @@
 #include <unistd.h>
 #include <math.h>
 #include <gmp.h>
-
-#include "asm/siever-config.h"
+#include "siever-config.h"
 #include "if.h"
 #include "gmp-aux.h"
 #include "fbgen64.h"

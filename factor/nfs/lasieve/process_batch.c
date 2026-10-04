@@ -7,7 +7,7 @@
 #include <limits.h>
 #include <sys/time.h>
 #include "factor/shared/ytools/include/ytools.h"
-#include "batch_factor.h"
+#include "lasieve_batch_factor.h"
 #include "gmp.h"
 
 // build line:

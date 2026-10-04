@@ -23,9 +23,9 @@
 #include <sys/types.h> 
 #include <math.h> 
 #include <stdlib.h>
-#include "asm/siever-config.h"
+#include "siever-config.h"
 #include "recurrence6.h"
-#include "asm/32bit.h"
+#include "32bit.h"
 #include <stdint.h>
 #include <stdio.h>
 #include "if.h"

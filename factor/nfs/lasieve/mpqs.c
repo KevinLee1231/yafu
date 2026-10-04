@@ -20,10 +20,10 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include <limits.h>
 #include <math.h>
 #include "gmp.h"
-#include "asm/siever-config.h"
+#include "siever-config.h"
 #include "if.h"
 #include "gmp-aux.h"
-#include "asm/mpqs-config.h"
+#include "mpqs-config.h"
 
 
 #define uchar unsigned char

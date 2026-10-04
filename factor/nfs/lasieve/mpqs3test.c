@@ -19,11 +19,11 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include <inttypes.h>
 #include <string.h>
 #include <gmp.h>
-#include "asm/siever-config.h"
+#include "siever-config.h"
 #include "if.h"
 #include "gmp-aux.h"
 #include "mpqs3.h"
-#include "asm/zeit.h"
+#include "zeit.h"
 
 int iter=0;
 u64_t stat_asm_eval=0, stat_asm_td=0;

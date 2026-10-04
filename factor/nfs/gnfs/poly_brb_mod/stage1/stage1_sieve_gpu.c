@@ -14,7 +14,7 @@ $Id$
 
 #include <sort_engine.h> /* interface to GPU sorting library */
 #include <brb_stage1.h>
-#include <stage1_core_gpu/brb_stage1_core.h>
+#include <brb_stage1_core.h>
 
 /* GPU collision search; this code looks for self-collisions
    among arithmetic progressions, by finding k1 and k2 such that

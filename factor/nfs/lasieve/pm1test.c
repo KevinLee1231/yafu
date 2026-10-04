@@ -18,12 +18,11 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include <stdlib.h>
 #include <math.h>
 #include <gmp.h>
-#include "asm/siever-config.h"
+#include "siever-config.h"
 #include "if.h"
 #include "pm1.h"
-#include "asm/zeit.h"
-
-#include "asm/montgomery_mul.h"
+#include "zeit.h"
+#include "montgomery_mul.h"
 
 
 
