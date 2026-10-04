@@ -37,7 +37,7 @@ compile -DNEED_ASPRINTF -I. -Ifactor/nfs/lasieve \
 
 compile -fsanitize=address -ffunction-sections -fdata-sections \
     -I. -Ifactor/nfs/lasieve -Ifactor/nfs/lasieve/asm -Ifactor/shared/include \
-    -Ifactor/shared/include -Ifactor/shared/ytools -Ifactor/shared/aprcl \
+    -Ifactor/shared/include -Ifactor/shared/ytools/include -Ifactor/shared/aprcl/include \
     test/standalone/lasieve/batch_tree_regression.c \
     factor/nfs/lasieve/if.c -Wl,--gc-sections -lgmp -lm \
     -o "$build_dir/batch_tree_regression"
@@ -51,7 +51,7 @@ compile -Wformat=2 -I. -Ifactor/nfs/lasieve \
 "$build_dir/input_poly_regression"
 
 compile -ffunction-sections -fdata-sections -I. \
-    -Ifactor/nfs/lasieve -Ifactor/nfs/lasieve/asm -Ifactor/shared/include -Ifactor/shared/ytools \
+    -Ifactor/nfs/lasieve -Ifactor/nfs/lasieve/asm -Ifactor/shared/include -Ifactor/shared/ytools/include \
     test/standalone/lasieve/process_batch_helpers_regression.c \
     -Wl,--gc-sections -lgmp -o "$build_dir/process_batch_helpers_regression"
 "$build_dir/process_batch_helpers_regression"

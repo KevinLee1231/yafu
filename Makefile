@@ -395,14 +395,15 @@ CFLAGS += \
     -Ifactor/nfs/gnfs/include \
     -Ifactor/core/include \
     -Ifactor/ecm \
-    -Ifactor/shared/ytools \
-    -Ifactor/shared/ysieve \
-    -Ifactor/shared/common \
-    -Ifactor/shared/aprcl \
+    -Ifactor/shared/ytools/include \
+    -Ifactor/shared/ysieve/include \
+    -Ifactor/shared/common/include \
+    -Ifactor/shared/aprcl/include \
+    -Ifactor/shared/arith/include \
+    -Ifactor/shared/cub/include \
     -Ifactor/nfs/gnfs \
     -Ifactor/nfs/gnfs/poly \
     -Ifactor/nfs/gnfs/poly/stage1 \
-    -Ifactor/ecm \
     -Ifactor
 
 # External dependency includes
@@ -675,7 +676,7 @@ ifdef BATCH_CUDA
 endif
 
 ifdef CUDA_POLY
-    CFLAGS += -DHAVE_CUDA_POLY -DTOOLKIT_VERSION=$(TOOLKIT_VERSION) -Ifactor/shared/cub
+    CFLAGS += -DHAVE_CUDA_POLY -DTOOLKIT_VERSION=$(TOOLKIT_VERSION) -Ifactor/shared/cub/include
 	CUDA_PTX_ARCH ?= compute_$(SM)
 	CUB_ENGINE_ARCH ?= -gencode arch=compute_$(SM),code=sm_$(SM)
     ifeq ($(DETECTED_OS),Windows)
@@ -1390,7 +1391,7 @@ factor/mpqs/sieve_core_generic_64k.qo: factor/mpqs/sieve_core.c | $(DEPS_SUBDIRS
 
 # GPU / PTX rules
 stage1_core.ptx: factor/nfs/gnfs/poly/stage1/stage1_core_gpu/stage1_core.cu $(NFS_GPU_HDR)
-	$(NVCC) -arch $(CUDA_PTX_ARCH) -ptx -I. -Ifactor/shared/cub -Ifactor/nfs/gnfs -Ifactor/nfs/gnfs/poly/stage1 -o $@ $<
+	$(NVCC) -arch $(CUDA_PTX_ARCH) -ptx -I. -Ifactor/shared/cub/include -Ifactor/nfs/gnfs -Ifactor/nfs/gnfs/poly/stage1 -o $@ $<
 	
 #stage1_core.ptx: factor/nfs/gnfs/poly/stage1/stage1_core_gpu/stage1_core.cu
 #	$(NVCC) -arch sm_$(SM) -ptx -o $@ $<
@@ -1411,7 +1412,7 @@ factor/shared/cub/built: factor/shared/cub/sort_engine.cu factor/shared/cub/coll
 # the sort engine is the default and works on sm_60. (Do not pass
 # collengine=gerbicz on such a build - see load_collision_engine().)
 ifeq ($(shell [ -n "$(SM)" ] && [ "$(SM)" -ge 70 ] && echo yes),yes)
-	$(NVCC) $(CUB_ENGINE_ARCH) --shared -Xcompiler -fPIC -I. -Ifactor/shared/cub -Ifactor/nfs/gnfs -Ifactor/nfs/gnfs/poly/stage1 -o factor/shared/cub/collision_engine.so factor/shared/cub/collision_engine.cu
+	$(NVCC) $(CUB_ENGINE_ARCH) --shared -Xcompiler -fPIC -I. -Ifactor/shared/cub/include -Ifactor/nfs/gnfs -Ifactor/nfs/gnfs/poly/stage1 -o factor/shared/cub/collision_engine.so factor/shared/cub/collision_engine.cu
 else
 	@echo "NOTE: SM=$(SM) < 70 (pre-Volta); skipping the Gerbicz collision engine (requires sm_70+). Building the sort engine only - do not pass collengine=gerbicz."
 	@rm -f factor/shared/cub/collision_engine.so
