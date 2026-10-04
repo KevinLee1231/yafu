@@ -1149,7 +1149,7 @@ endif
 # -----------------------------------------------------------------------------
 # 23. DEFAULT GOAL
 # -----------------------------------------------------------------------------
-all: yafu
+all: yafu lasieve
 
 # -----------------------------------------------------------------------------
 # 24. DEPENDENCY STATUS  (printed at the start of every real build)
@@ -1332,6 +1332,11 @@ test-calc-sanitize: _dep_status $(ARCHIVES) $(TEST_FRONTEND_OBJS)
 
 # -----------------------------------------------------------------------------
 # lasieve — NFS sieve binaries (factor/nfs/lasieve)
+#
+# `all` depends on this: yafu drives the sievers by name, so they have
+# to exist for NFS to work.  They stay separate programs (see
+# factor/nfs/README.md for why) but building them is no longer a
+# second manual step.
 #
 # Built separately from the main yafu targets since the sieve programs are
 # standalone binaries invoked at runtime, not linked into yafu.
