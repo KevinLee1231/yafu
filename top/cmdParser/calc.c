@@ -63,7 +63,7 @@ SOFTWARE.
 #define CALC_VERBOSE 0
 
 // the number of functions defined
-#define NUM_FUNC 82
+#define NUM_FUNC 83
 
 // symbols in calc
 #define EOE 1
@@ -169,7 +169,7 @@ static char function_names[NUM_FUNC][11] = {
     "sigma", "totient", "tinysiqs", "testrange", "bigprimes",
     "fermat", "nfs", "tune", "bpsw", "aprcl",
     "semiprimes", "fftmul", "tinyprp", "toom3", "special",
-    "divisors", "expansion"};
+    "divisors", "expansion", "pmpqs"};
 
 // Declared arity per function.  This table is what the argument-collection
 // loop in calc() uses to place actual arguments:  with arity na and k
@@ -195,7 +195,7 @@ static int function_nargs[NUM_FUNC] = {
     2, 1, 1, 4, 3, 
     3, 1, 0, 1, 1,
     2, 4, 0, 3, 2,
-    1, 0};
+    1, 0, 1};
 
 
 // =====================================================================
@@ -4149,6 +4149,37 @@ int feval(int funcnum, int nargs, meta_t *metadata)
         mpz_set_ui(operands[0], 0);
         
     }
+
+    case 82:
+        // pmpqs - 1 argument
+        if (check_args(funcnum, nargs)) break;
+
+        {
+            int numf, i;
+            mpz_t work;
+            mpz_t* factors;
+
+            // pmpqs multiplies its argument by the chosen multiplier,
+            // so hand it a copy and leave the user's operand alone
+            mpz_init_set(work, operands[0]);
+            factors = pmpqs(work, &numf);
+            mpz_clear(work);
+
+            if ((factors != NULL) && (numf > 0))
+            {
+                for (i = 0; i < numf; i++)
+                {
+                    if (mpz_cmp_ui(factors[i], 1) > 0)
+                        gmp_printf("%Zd\n", factors[i]);
+                }
+                for (i = 0; i < numf; i++)
+                    mpz_clear(factors[i]);
+                free(factors);
+            }
+        }
+
+        mpz_set_ui(operands[0], 0);
+        break;
 
 	default:
 		printf("unrecognized function code\n");
