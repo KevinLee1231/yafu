@@ -343,7 +343,11 @@ int par_shanks_loop(uint64_t* N, uint64_t* f, int num_in)
                     // record this (unlikely) success, and try to fill the lane again.
                     num_processed++;
                     num_successes++;
-                    f[mult_batch.listref[j]] = (uint64_t)sqrt(N[j]);
+                    // the input init_multipliers() just factored is this
+                    // lane's, i.e. mult_batch.N[j] -- not N[j], which is
+                    // indexed by list position and names a different input
+                    // once a lane has been retired and refilled
+                    f[mult_batch.listref[j]] = (uint64_t)sqrt(mult_batch.N[j]);
                     j--;
                 }
             }
