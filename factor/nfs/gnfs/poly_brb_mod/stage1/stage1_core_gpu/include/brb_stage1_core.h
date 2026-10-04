@@ -16,7 +16,7 @@ $Id$
 #define _STAGE1_CORE_GPU_3PROG_H_
 
 #ifdef __CUDACC__
-#include "cuda_intrinsics.h"
+#include "brb_cuda_intrinsics.h"
 #endif
 
 #ifdef __cplusplus

@@ -12,7 +12,7 @@ benefit from your work.
 $Id: poly_skew.c 1025 2018-08-19 02:20:28Z jasonp_sf $
 --------------------------------------------------------------------*/
 
-#include "poly_skew.h"
+#include "brb_poly_skew.h"
 
 /*------------------------------------------------------------------*/
 /* callback for root optimization */

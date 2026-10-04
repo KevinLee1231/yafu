@@ -19,8 +19,7 @@ $Id: stage1.h 1023 2018-08-19 00:30:42Z jasonp_sf $
    three coefficients are small. We use Kleinjung's improved
    algorithm presented at the 2008 CADO Factoring Workshop,
    with many modifications */
-
-#include <poly_skew.h>
+#include <brb_poly_skew.h>
 #include <cuda_xface.h>
 #include <thread.h>
 

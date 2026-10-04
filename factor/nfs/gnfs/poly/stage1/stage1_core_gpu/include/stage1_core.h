@@ -16,7 +16,7 @@ $Id: stage1_core.h 817 2012-11-11 14:58:29Z jasonp_sf $
 #define _STAGE1_CORE_GPU_3PROG_H_
 
 #ifdef __CUDACC__
-#include "cuda_intrinsics.h"
+#include "stage1_cuda_intrinsics.h"
 #endif
 
 #ifdef __cplusplus

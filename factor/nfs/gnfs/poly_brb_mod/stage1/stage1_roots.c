@@ -11,8 +11,7 @@ benefit from your work.
 
 $Id: stage1_roots.c 826 2012-12-01 21:30:10Z jaysonking $
 --------------------------------------------------------------------*/
-
-#include <stage1.h>
+#include <brb_stage1.h>
 
 #define P_PRIME_LIMIT 0xfffff000
 #define MAX_P_FACTORS 7

@@ -11,8 +11,7 @@ benefit from your work.
 
 $Id: stage1.c 1023 2018-08-19 00:30:42Z jasonp_sf $
 --------------------------------------------------------------------*/
-
-#include <stage1.h>
+#include <brb_stage1.h>
 
 /* main driver for stage 1 */
 

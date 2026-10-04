@@ -11,9 +11,8 @@ benefit from your work.
 
 $Id: stage1_sieve_cpu.c 1025 2018-08-19 02:20:28Z jasonp_sf $
 --------------------------------------------------------------------*/
-
-#include <stage1.h>
-#include <cpu_intrinsics.h>
+#include <brb_stage1.h>
+#include <brb_cpu_intrinsics.h>
 
 /* CPU collision search; this code looks for self-collisions
    among arithmetic progressions, by finding k1 and k2 such that

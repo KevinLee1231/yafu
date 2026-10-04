@@ -11,8 +11,7 @@ benefit from your work.
 
 $Id$
 --------------------------------------------------------------------*/
-
-#include "stage1_core.h"
+#include "brb_stage1_core.h"
 
 #ifdef __cplusplus
 extern "C" {

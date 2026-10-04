@@ -12,7 +12,7 @@ benefit from your work.
 $Id: poly_param.c 1023 2018-08-19 00:30:42Z jasonp_sf $
 --------------------------------------------------------------------*/
 
-#include "poly_skew.h"
+#include "brb_poly_skew.h"
 
 static const poly_param_t prebuilt_params_deg4[] = {
 
