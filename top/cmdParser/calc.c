@@ -4201,6 +4201,13 @@ int feval(int funcnum, int nargs, meta_t *metadata)
                 }
                 mpqs_xface_free(factors, numf);
             }
+            else
+            {
+                // factor_mpqs only ever reports trouble through
+                // logprintf, and the facade runs with logging off, so
+                // a failed run looks like a command that did nothing.
+                printf("mpqs found no factor; inputs below about 20 digits are too small for its factor base to build a polynomial");
+            }
         }
 
         mpz_set_ui(operands[0], 0);
