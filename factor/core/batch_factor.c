@@ -132,7 +132,7 @@ uint32_t getNode(bintree_t* tree, uint32_t low, uint32_t high)
 void addNode(bintree_t* tree, int id, int side, uint32_t low, uint32_t high, mpz_t prod)
 {
     uint32_t nodeid = 0;
-    bintree_element_t* node = &tree->nodes[id];
+    bintree_element_t* node;
 
     if (tree->size == tree->alloc)
     {
@@ -141,6 +141,10 @@ void addNode(bintree_t* tree, int id, int side, uint32_t low, uint32_t high, mpz
         tree->nodes = (bintree_element_t*)xrealloc(tree->nodes,
             tree->alloc * sizeof(bintree_element_t));
     }
+
+    // only after the realloc: it can move the block, and a pointer taken
+    // before it would be reading freed memory in the tests below
+    node = &tree->nodes[id];
 
     if ((side == 0) && (node->left_id != -1))
     {
