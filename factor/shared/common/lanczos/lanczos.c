@@ -12,7 +12,7 @@ benefit from your work.
 $Id: lanczos.c 1051 2024-05-07 14:42:24Z vegamink $
 --------------------------------------------------------------------*/
 
-#include "lanczos.h"
+#include "ms_lanczos.h"
 
 #define DEFAULT_DUMP_INTERVAL 2000
 

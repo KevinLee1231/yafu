@@ -6,12 +6,12 @@
 #include <inttypes.h>
 #include <limits.h>
 #include <sys/time.h>
-#include "factor/shared/ytools/ytools.h"
+#include "factor/shared/ytools/include/ytools.h"
 #include "batch_factor.h"
 #include "gmp.h"
 
 // build line:
-// clang -O2 -g -I. -I../../factor/shared/ytools/ -I../../factor/shared/include -I../../factor/shared/include -I../../factor/shared/aprcl -I../../../gmp-install/6.2.0-aocc/include -L../../../gmp-install/6.2.0-aocc/lib -march=icelake-client -DUSE_AVX512F -DIFMA ../../factor/shared/ytools/util.c batch_factor.c process_batch.c tinyecm.c microecm.c prime_sieve.c micropm1.c -o bfact -lm -lgmp
+// 编译见 test/test_lasieve.sh，不要再按本文件里的路径手工编译
 // 
 // usage: bfact lpb pmin pmax relsfilein relsfileout
 

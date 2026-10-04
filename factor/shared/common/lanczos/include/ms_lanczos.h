@@ -12,8 +12,8 @@ benefit from your work.
 $Id: lanczos.h 1025 2018-08-19 02:20:28Z jasonp_sf $
 --------------------------------------------------------------------*/
 
-#ifndef _COMMON_LANCZOS_LANCZOS_H_
-#define _COMMON_LANCZOS_LANCZOS_H_
+#ifndef _MS_LANCZOS_H_
+#define _MS_LANCZOS_H_
 
 #include <ms_common.h>
 
@@ -271,4 +271,4 @@ void vv_mul_BxN_NxB(packed_matrix_t *A, void *x, void *y,
 }
 #endif
 
-#endif /* !_COMMON_LANCZOS_LANCZOS_H_ */
+#endif /* !_MS_LANCZOS_H_ */

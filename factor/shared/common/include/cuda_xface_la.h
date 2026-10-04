@@ -19,7 +19,7 @@ $Id$
 
 #include <util.h>
 #include <cuda.h>
-#include "factor/shared/common/lanczos/lanczos.h"
+#include "ms_lanczos.h"
 
 #ifdef __cplusplus
 extern "C" {

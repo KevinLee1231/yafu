@@ -17,7 +17,7 @@ $Id: filter.h 23 2009-07-20 02:59:07Z jasonp_sf $
 #ifndef _GNFS_FILTER_FILTER_H_
 #define _GNFS_FILTER_FILTER_H_
 
-#include <factor/shared/common/filter/filter.h>
+#include <factor/shared/common/filter/include/filter.h>
 #include "gnfs.h"
 
 #ifdef __cplusplus

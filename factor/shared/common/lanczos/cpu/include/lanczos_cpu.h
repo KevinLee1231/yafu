@@ -16,7 +16,7 @@ $Id: lanczos_cpu.h 1012 2017-06-11 17:42:14Z jasonp_sf $
 #define _COMMON_LANCZOS_CPU_LANCZOS_CPU_H_
 
 #include <thread.h>
-#include "../lanczos.h"
+#include "ms_lanczos.h"
 
 #ifdef __cplusplus
 extern "C" {

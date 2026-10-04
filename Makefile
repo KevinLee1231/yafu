@@ -401,6 +401,11 @@ CFLAGS += \
     -Ifactor/shared/aprcl/include \
     -Ifactor/shared/arith/include \
     -Ifactor/shared/cub/include \
+    -Ifactor/shared/arith/tfm/include \
+    -Ifactor/shared/common/filter/include \
+    -Ifactor/shared/common/lanczos/include \
+    -Ifactor/shared/common/lanczos/cpu/include \
+    -Ifactor/shared/common/lanczos/gpu/include \
     -Ifactor/nfs/gnfs \
     -Ifactor/nfs/gnfs/poly \
     -Ifactor/nfs/gnfs/poly/stage1 \

@@ -17,7 +17,7 @@ $Id$
 
 #include <cuda_xface_la.h>
 #include <spmv_engine.h>
-#include "../lanczos.h"
+#include "ms_lanczos.h"
 
 #ifdef __cplusplus
 extern "C" {
