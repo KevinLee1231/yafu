@@ -25,6 +25,10 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "gmp-aux.h"
 #include "mpqs-config.h"
 
+#ifdef MPQS_ZEIT
+#include "zeit.h"
+#endif
+
 
 #define uchar unsigned char
 #ifdef TOTAL_STAT

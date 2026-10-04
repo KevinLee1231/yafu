@@ -330,7 +330,7 @@ $(BINPREFIX)gnfs-lasieve4I%g: gnfs-lasieve4gI%.o if.o input-poly-orig.o libgmp-a
 
 # --- Test / stat targets -----------------------------------------------------
 
-mpqsz.o: mpqs.c asm/mpqs-config.h
+mpqsz.o: mpqs.c asm/include/mpqs-config.h
 	$(CC) $(CFLAGS) -O2 -DMPQS_STAT -DMPQS_ZEIT -c -o $@ $<
 
 mpqstest: mpqstest.o mpqsz.o if.o mpz-ull.o asm/liblasieve.a
@@ -339,28 +339,22 @@ mpqstest: mpqstest.o mpqsz.o if.o mpz-ull.o asm/liblasieve.a
 mpqst: mpqst.o mpqsz.o if.o asm/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
-mpqszt.o: mpqs.c asm/mpqs-config.h
+mpqszt.o: mpqs.c asm/include/mpqs-config.h
 	$(CC) $(CFLAGS) -O2 -DTOTAL_STAT -DMPQS_ZEIT -c -o $@ $<
 
 tmpqs: mpqst.o mpqszt.o if.o asm/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
-mpqs3z.o: mpqs3.c asm/mpqs-config.h
+mpqs3z.o: mpqs3.c asm/include/mpqs-config.h
 	$(CC) $(CFLAGS) -O2 -DMPQS3_STAT -DMPQS3_ZEIT -c -o $@ $<
 
 mpqs3test: mpqs3test.o mpqs3z.o if.o libgmp-aux.a asm/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
-mpqs3z2.o: mpqs3.c asm/mpqs-config2.h
-	$(CC) $(CFLAGS) -O2 -DMPQS3_STAT -DMPQS3_ZEIT -DVARIANT2 -c -o $@ $<
-
-mpqs3test2: mpqs3test.o mpqs3z2.o if.o libgmp-aux.a asm/liblasieve.a
-	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
-
 mpqsstat: mpqsstat.o mpqs.o mpqs3.o if.o mpz-ull.o libgmp-aux.a asm/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
-ecmz.o: ecm.c asm/siever-config.h
+ecmz.o: ecm.c asm/include/siever-config.h
 	$(CC) $(CFLAGS) -DECM_STAT -DECM_ZEIT -c -o $@ $<
 
 ecmtest: ecmtest.o ecmz.o if.o asm/liblasieve.a
@@ -369,7 +363,7 @@ ecmtest: ecmtest.o ecmz.o if.o asm/liblasieve.a
 ecmstat: ecmstat.o ecmz.o if.o asm/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
-pm1z.o: pm1.c asm/siever-config.h
+pm1z.o: pm1.c asm/include/siever-config.h
 	$(CC) $(CFLAGS) -DPM1_STAT -DPM1_ZEIT -c -o $@ $<
 
 pm1test: pm1test.o pm1z.o if.o asm/liblasieve.a

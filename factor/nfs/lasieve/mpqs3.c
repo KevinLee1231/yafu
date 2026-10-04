@@ -23,10 +23,10 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "siever-config.h"
 #include "if.h"
 #include "gmp-aux.h"
-#ifdef VARIANT2
-#include "asm/mpqs-config2.h"
-#else
 #include "mpqs-config.h"
+
+#ifdef MPQS3_ZEIT
+#include "zeit.h"
 #endif
 
 
