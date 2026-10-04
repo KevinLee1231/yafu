@@ -28,8 +28,8 @@
 - `factor/ecm/` 椭圆曲线分解，标量与 AVX-512 两套实现合并到一处
 - `factor/nfs/` 作业编排，`factor/nfs/gnfs/` 数域筛本体
 - `factor/mpqs/` 多项式二次筛
-- `factor/tinyqs/` 小输入的捷径
-- `factor/lasieve/` 外部格点筛
+- `factor/siqs/` 小输入的捷径
+- `factor/nfs/lasieve/` 外部格点筛
 
 被多个方法共用的代码各保留一份，收在 `factor/shared/`：`arith/`（52 位 limb 算术）、`ysieve/`（素数筛）、`common/`（线程池、线性代数、savefile）、`ytools/`、`cub/`、`aprcl/`（素性判定）。全部头文件在 `factor/shared/include/`；只被单个方法用到的头文件下沉到该方法的 `include/`。
 

@@ -1,4 +1,4 @@
-#include "factor/lasieve/batch_factor.c"
+#include "factor/nfs/lasieve/batch_factor.c"
 #include <assert.h>
 int main(void) {
     bintree_t tree;

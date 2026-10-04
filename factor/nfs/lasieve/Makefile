@@ -8,7 +8,7 @@
 # 02111-1307, USA.
 #
 # -----------------------------------------------------------------------------
-# factor/lasieve/Makefile
+# factor/nfs/lasieve/Makefile
 #
 # Builds the NFS sieve executables:
 #   gnfs-lasieve4I{11..16}e   (alle)

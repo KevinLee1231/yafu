@@ -80,7 +80,7 @@ make yafu DEBUG=1             # 调试构建
 | --- | --- |
 | `yafu` | 主程序 |
 | `all` | 同上（`all` 目前只构建 yafu） |
-| `lasieve` | 外部格点筛（编译到 `factor/lasieve/bin/local/`） |
+| `lasieve` | 外部格点筛（编译到 `factor/nfs/lasieve/bin/local/`） |
 | `info` | 打印最终配置 |
 | `help` | 功能开关速查 |
 | `clean` | 清理构建产物 |
@@ -102,8 +102,8 @@ make yafu DEBUG=1             # 调试构建
 | `factor/nfs/` | NFS 作业编排 |
 | `factor/nfs/gnfs/` | 数域筛本体：多项式选择、筛选、关系、线性代数、开方 |
 | `factor/mpqs/` | 多项式二次筛 |
-| `factor/tinyqs/` | 小输入的捷径 |
-| `factor/lasieve/` | 外部格点筛（NFS 必需） |
+| `factor/siqs/` | 小输入的捷径 |
+| `factor/nfs/lasieve/` | 外部格点筛（NFS 必需） |
 | `factor/shared/include/` | 全部头文件 |
 | `factor/shared/` | 共享代码：大数算术 `arith/`、素数筛 `ysieve/`、线程与线性代数 `common/`、`ytools/`、`cub/`、素性判定 `aprcl/` |
 | `top/` | 命令行前端 |
@@ -122,9 +122,9 @@ make yafu DEBUG=1             # 调试构建
 
 ## GGNFS 筛选器（NFS 必需）
 
-NFS 分解需要外部的 GGNFS 格点筛程序（`ggnfs-lasieve4I*`）。仓库内带了预编译的 Linux 版本，在 `factor/lasieve/bin/` 下。用 `yafu.ini` 里的 `ggnfs_dir=` 或命令行 `-ggnfs_dir <路径>` 指向它们；没有它们 NFS 无法运行。
+NFS 分解需要外部的 GGNFS 格点筛程序（`ggnfs-lasieve4I*`）。仓库内带了预编译的 Linux 版本，在 `factor/nfs/lasieve/bin/` 下。用 `yafu.ini` 里的 `ggnfs_dir=` 或命令行 `-ggnfs_dir <路径>` 指向它们；没有它们 NFS 无法运行。
 
-自己编译用 `make -j4 lasieve`，输出在 `factor/lasieve/bin/local/`。仓库里的 `yafu.ini` 指向这个目录，好让 NFS 用上你当前源码编译出的筛选器。这些本地产物不进 Git；预编译的那份仍可用 `-ggnfs_dir` 显式选择。
+自己编译用 `make -j4 lasieve`，输出在 `factor/nfs/lasieve/bin/local/`。仓库里的 `yafu.ini` 指向这个目录，好让 NFS 用上你当前源码编译出的筛选器。这些本地产物不进 Git；预编译的那份仍可用 `-ggnfs_dir` 显式选择。
 
 如果 CPU 支持 AVX-512，YAFU 会默认使用内置的 **AVX-ECM** 作为 ECM 后端。独立版本在 <https://github.com/bbuhrow/avx-ecm>。
 

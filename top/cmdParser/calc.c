@@ -4150,8 +4150,6 @@ int feval(int funcnum, int nargs, meta_t *metadata)
         
     }
 
-        break;
-
 	default:
 		printf("unrecognized function code\n");
 		mpz_set_ui(operands[0], 0);

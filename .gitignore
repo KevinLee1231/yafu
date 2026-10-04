@@ -5,8 +5,8 @@
 /build/
 /yafu
 /msieve
-/factor/lasieve/bin/local/
-/factor/lasieve/asm/ls-defs-os.asm
+/factor/nfs/lasieve/bin/local/
+/factor/nfs/lasieve/asm/ls-defs-os.asm
 /yafu_test
 /yafu_test_full
 /yafu_test_sanitize

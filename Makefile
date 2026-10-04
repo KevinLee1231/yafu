@@ -128,7 +128,7 @@ Set GMP_PREFIX or GMP_INCDIR in config.mk or on the command line.)
 endif
 
 # Normalise to absolute paths so sub-makes at deeper directory levels
-# (factor/lasieve/ and factor/lasieve/asm/) receive correct paths
+# (factor/nfs/lasieve/ and factor/nfs/lasieve/asm/) receive correct paths
 # even when config.mk used a relative value like ../gmp-install/mingw.
 GMP_INCDIR := $(abspath $(GMP_INCDIR))
 GMP_LIBDIR := $(abspath $(GMP_LIBDIR))
@@ -1053,7 +1053,9 @@ endif
 
 
 # -----------------------------------------------------------------------------
-# 20. QS sources  (msieve's quadratic sieve)
+# 20. QS sources  (the multi-polynomial quadratic sieve;
+#     compiled and linked, but not on any live call path -- its only
+#     caller was the msieve demo, which is gone)
 # -----------------------------------------------------------------------------
 QS_SRCS = \
     factor/mpqs/gf2.c \
@@ -1314,7 +1316,7 @@ test-calc-sanitize: _dep_status $(ARCHIVES) $(TEST_FRONTEND_OBJS)
 
 
 # -----------------------------------------------------------------------------
-# lasieve — NFS sieve binaries (factor/lasieve)
+# lasieve — NFS sieve binaries (factor/nfs/lasieve)
 #
 # Built separately from the main yafu targets since the sieve programs are
 # standalone binaries invoked at runtime, not linked into yafu.
@@ -1325,7 +1327,7 @@ test-calc-sanitize: _dep_status $(ARCHIVES) $(TEST_FRONTEND_OBJS)
 # 本地可执行文件写入独立目录，yafu.ini 的 ggnfs_dir 与此目录对应。
 # asm/ 中只生成供链接使用的库。
 # -----------------------------------------------------------------------------
-LASIEVE_DIR  := factor/lasieve
+LASIEVE_DIR  := factor/nfs/lasieve
 LASIEVE_BINDIR ?= bin/local
 LASIEVE_VARS := \
     CC=$(CC) \
@@ -1446,7 +1448,7 @@ clean:
 	    yafu$(EXE_EXT) \
 	    $(GENERATED_PTX)
 	$(RM_RF) $(TEST_OBJS) $(BUILD_DIR) $(TEST_BIN) $(TEST_FULL_BIN) $(TEST_SAN_BIN)
-	@echo "Note: use 'make lasieve-clean' to also clean factor/lasieve"
+	@echo "Note: use 'make lasieve-clean' to also clean factor/nfs/lasieve"
 
 
 # -----------------------------------------------------------------------------
@@ -1514,7 +1516,7 @@ help:
 	@echo "    make test-sanitize   rebuild all test dependencies with ASan/UBSan and run fast tests"
 	@echo "    make test-calc-sanitize  build+run calculator regressions with ASan/UBSan"
 	@echo "    make test-full-run   build and run Layers 0-3"
-	@echo "    make lasieve         build NFS sieve executables (factor/lasieve/bin/local)"
+	@echo "    make lasieve         build NFS sieve executables (factor/nfs/lasieve/bin/local)"
 	@echo "    make clean           remove yafu build artefacts (not lasieve)"
 	@echo "    make lasieve-clean   remove lasieve build artefacts"
 	@echo "    make info            show resolved flags and dependency paths"
