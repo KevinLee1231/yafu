@@ -97,15 +97,15 @@ make yafu DEBUG=1             # 调试构建
 | --- | --- |
 | `factor/core/` | 调度层：决定每个数走哪条分解路线；也是命令行选项与 `yafu.ini` 的实现 |
 | `factor/trialdiv/` | 试除、Fermat、Pollard rho、SQUFOF、Lehman |
-| `factor/siqs/` | 自初始化二次筛 |
 | `factor/ecm/` | 椭圆曲线分解，标量与 AVX-512 两套实现 |
 | `factor/nfs/` | NFS 作业编排 |
 | `factor/nfs/gnfs/` | 数域筛本体：多项式选择、筛选、关系、线性代数、开方 |
-| `factor/mpqs/` | 多项式二次筛 |
-| `factor/siqs/` | 小输入的捷径 |
 | `factor/nfs/lasieve/` | 外部格点筛（NFS 必需） |
-| `factor/shared/include/` | 全部头文件 |
+| `factor/siqs/` | 自初始化二次筛（SIQS，Contini 1997）。同一份代码里也带一份只面向小输入的精简版 `tinySIQS.c` |
+| `factor/mpqs/` | 多项式二次筛（MPQS，Silverman, *Math. Comp.* 48 (1987) 329–339） |
+| `factor/pmpqs/` | 首项系数取单个素数平方的多项式二次筛，与 MPQS 只差首项系数的取法；文献里没有名字 |
 | `factor/shared/` | 共享代码：大数算术 `arith/`、素数筛 `ysieve/`、线程与线性代数 `common/`、`ytools/`、`cub/`、素性判定 `aprcl/` |
+| `factor/shared/include/` | 全部头文件 |
 | `top/` | 命令行前端 |
 | `test/` | 三套回归测试 |
 | `tools/` | 多项式搜索的离线分析脚本 |
