@@ -55,14 +55,30 @@ void zTrial(fact_obj_t *fobj)
             free(fobj->primes);
         }
         fobj->primes = soe_wrapper(sdata, 0, limit, 0, &fobj->num_p, 0, 0);
-        fobj->min_p = 2;
+        // a limit below the first prime gives an empty table, and
+        // soe_wrapper returns NULL outright when the range is empty.
+        // primes[num_p - 1] below would be a read before the array in the
+        // first case and a null dereference in the second.
+        if ((fobj->primes == NULL) || (fobj->num_p == 0))
+        {
+            soe_finalize(sdata);
+            fobj->primes = NULL;
+            fobj->num_p = 0;
+            fobj->min_p = 0;
+            fobj->max_p = 0;
+            return;
+        }
+		fobj->min_p = 2;
         fobj->max_p = fobj->primes[fobj->num_p -1];
         soe_finalize(sdata);
 	}
 
-	while ((mpz_cmp_ui(fobj->div_obj.gmp_n, 1) > 0) && 
-		(fobj->primes[k] < limit) &&
-		(k < (uint32_t)fobj->num_p))
+	/* the k < num_p test has to come first: primes[k] is a load, and when
+	 * the table was just rebuilt its largest prime is strictly below limit,
+	 * so primes[k] < limit never fails first and k walks past the end */
+	while ((mpz_cmp_ui(fobj->div_obj.gmp_n, 1) > 0) &&
+		(k < (uint32_t)fobj->num_p) &&
+		(fobj->primes[k] < limit))
 	{
 		q = (uint64_t)fobj->primes[k];
 		r = mpz_tdiv_ui(fobj->div_obj.gmp_n, q);
