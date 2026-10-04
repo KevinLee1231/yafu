@@ -29,6 +29,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "if.h"
 #include "montgomery_mul.h"
 #include "ecm.h"
+#include "lasieve_ctx.h"
 
 #ifdef ECM_ZEIT
 #include "zeit.h"
@@ -48,37 +49,37 @@ extern int asm_invert(ulong *,ulong *);
 
 
 
-static int ecm_is_init=0;
-mpz_t gmp_f, gmp_aux0, gmp_aux1, gmp_aux2, gmp_aux3;
+/* 以下名字原本是文件级全局，现在在 lasieve_ctx 里（见 lasieve_ctx.h）。
+ * 状态按实例持有，LASIEVE_CTX 只是访问路径，调用图不变。 */
+#define ecm_is_init      (LASIEVE_CTX->ecm_is_init)
+#define ecm_prime_bit    (LASIEVE_CTX->ecm_prime_bit)
+#define ecm_prime_max    (LASIEVE_CTX->ecm_prime_max)
+#define addition_chain   (LASIEVE_CTX->addition_chain)
+#define B1_ac            (LASIEVE_CTX->B1_ac)
+#define B1_prime         (LASIEVE_CTX->B1_prime)
+#define B1_len           (LASIEVE_CTX->B1_len)
+#define B1_ac_maxlen     (LASIEVE_CTX->B1_ac_maxlen)
+#define B1_max           (LASIEVE_CTX->B1_max)
+#define B2_scheme        (LASIEVE_CTX->B2_scheme)
+#define B2_scheme_len    (LASIEVE_CTX->B2_scheme_len)
+#define B2_scheme_alloc  (LASIEVE_CTX->B2_scheme_alloc)
+#define mm_stack         (LASIEVE_CTX->mm_stack)
+#define mm_stack_alloc   (LASIEVE_CTX->mm_stack_alloc)
+#define mm_B1_x          (LASIEVE_CTX->mm_B1_x)
+#define mm_B1_z          (LASIEVE_CTX->mm_B1_z)
+#define mm_B2_inv        (LASIEVE_CTX->mm_B2_inv)
+#define mm_B2_tab1       (LASIEVE_CTX->mm_B2_tab1)
+#define mm_B2_tab2       (LASIEVE_CTX->mm_B2_tab2)
+#define mm_B2_inv_len    (LASIEVE_CTX->mm_B2_inv_len)
+#define mm_B2_tab1_len   (LASIEVE_CTX->mm_B2_tab1_len)
+#define mm_B2_tab2_len   (LASIEVE_CTX->mm_B2_tab2_len)
 
-static uchar *ecm_prime_bit;
-static u32_t ecm_prime_max=0;
-
-static uchar *addition_chain;
-static u32_t *B1_ac, *B1_prime, B1_len, B1_ac_maxlen=0, B1_max=0;
-
-
-typedef struct {
-  u32_t B1;
-  u32_t B2;
-  u32_t D;
-  uchar *rpc;
-  uchar *tests;
-  u32_t tablen;
-  u32_t *tab;
-  u32_t beginD;
-  u32_t endD;
-} scheme2_t;
-
-static scheme2_t *B2_scheme;
-static size_t B2_scheme_len=0, B2_scheme_alloc=0;
-
-static ulong *mm_stack;
-static size_t mm_stack_alloc=0;
-
-static ulong **mm_B1_x, **mm_B1_z;
-static ulong **mm_B2_inv, **mm_B2_tab1, **mm_B2_tab2;
-static u32_t mm_B2_inv_len=0, mm_B2_tab1_len=0, mm_B2_tab2_len=0;
+/* gmp_f 与 pm1.c 共用同一份（原先靠 -fcommon 合并），所以两边都指到 ctx。 */
+#define gmp_f            (LASIEVE_CTX->gmp_f)
+#define gmp_aux0         (LASIEVE_CTX->gmp_aux0)
+#define gmp_aux1         (LASIEVE_CTX->gmp_aux1)
+#define gmp_aux2         (LASIEVE_CTX->gmp_aux2)
+#define gmp_aux3         (LASIEVE_CTX->gmp_aux3)
 
 
 /* ------------------- conversion ------------------- */
@@ -520,7 +521,7 @@ static u32_t find_triples(uchar **rop, uchar **pr, u32_t dim1, u32_t dim2)
 }
 
 
-static u32_t create_B2_scheme(scheme2_t *s, u32_t B1, u32_t B2, u32_t d, int verb)
+static u32_t create_B2_scheme(lasieve_scheme2_t *s, u32_t B1, u32_t B2, u32_t d, int verb)
 {
   u32_t nmul, n, i, b0, b1, p;
   u32_t dim1, dim2, i1, i2, l, *tabnr;
@@ -655,7 +656,7 @@ static void ecm_step2_count(u32_t *naptr, u32_t *ncptr)
   u32_t i, j, d, b0, b1, n, p, len1, len2;
   u32_t ind;
   uchar *te;
-  scheme2_t sch;
+  lasieve_scheme2_t sch;
   u32_t na, nc, nadd, ndup;
 
   na=0; nc=0; nadd=0; ndup=0;
@@ -829,7 +830,7 @@ static void ecm_init_B2(u32_t B1, u32_t B2)
 
   if (ecm_prime_max<B2) ecm_init_primes(B2);
   adjust_bufsize((void **)(&B2_scheme),&B2_scheme_alloc,
-                 B2_scheme_len+1,BUF_INC,sizeof(scheme2_t));
+                 B2_scheme_len+1,BUF_INC,sizeof(lasieve_scheme2_t));
   B2_scheme[B2_scheme_len].B1=B1;
   B2_scheme[B2_scheme_len].B2=B2;
   B2_scheme[B2_scheme_len].D=0;
@@ -887,12 +888,7 @@ static void ecm_init_B2(u32_t B1, u32_t B2)
 
 static void ecm_init()
 {
-  mpz_init(gmp_f);
-  mpz_init(gmp_aux0);
-  mpz_init(gmp_aux1);
-  mpz_init(gmp_aux2);
-  mpz_init(gmp_aux3);
-
+  /* gmp_f / gmp_aux* 由 lasieve_ctx_new 建实例时 mpz_init 过了 */
   ecm_is_init=1;
 }
 

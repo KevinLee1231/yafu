@@ -30,6 +30,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "if.h"
 #include "montgomery_mul.h"
 #include "pm1.h"
+#include "lasieve_ctx.h"
 
 
 #define BUF_INC    256
@@ -45,43 +46,27 @@ extern int asm_invert(ulong *,ulong *);
 
 
 
-static int pm1_is_init;
-mpz_t gmp_f;
+/* 以下名字原本是文件级全局，现在在 lasieve_ctx 里（见 lasieve_ctx.h）。 */
+#define pm1_is_init      (LASIEVE_CTX->pm1_is_init)
+#define pm1_prime_bit    (LASIEVE_CTX->pm1_prime_bit)
+#define pm1_prime_max    (LASIEVE_CTX->pm1_prime_max)
+#define pm1_index1       (LASIEVE_CTX->pm1_index1)
+#define pm1_index2       (LASIEVE_CTX->pm1_index2)
+#define B1_scheme        (LASIEVE_CTX->B1_scheme)
+#define B1_scheme_len    (LASIEVE_CTX->B1_scheme_len)
+#define B1_scheme_alloc  (LASIEVE_CTX->B1_scheme_alloc)
+#define B2_scheme        (LASIEVE_CTX->pm1_B2_scheme)
+#define B2_scheme_len    (LASIEVE_CTX->pm1_B2_scheme_len)
+#define B2_scheme_alloc  (LASIEVE_CTX->pm1_B2_scheme_alloc)
+#define mm_stack         (LASIEVE_CTX->pm1_mm_stack)
+#define mm_stack_alloc   (LASIEVE_CTX->pm1_mm_stack_alloc)
+#define mm_B2_tab1       (LASIEVE_CTX->pm1_mm_B2_tab1)
+#define mm_B2_tab2       (LASIEVE_CTX->pm1_mm_B2_tab2)
+#define mm_B2_tab1_len   (LASIEVE_CTX->pm1_mm_B2_tab1_len)
+#define mm_B2_tab2_len   (LASIEVE_CTX->pm1_mm_B2_tab2_len)
 
-static uchar *pm1_prime_bit;
-static u32_t pm1_prime_max=0;
-
-static u32_t pm1_index1, pm1_index2;
-
-typedef struct {
-  u32_t B1;
-  u32_t len;
-  uchar *ex;
-} pm1_scheme1_t;
-
-static pm1_scheme1_t *B1_scheme;
-static size_t B1_scheme_len=0, B1_scheme_alloc=0;
-
-typedef struct {
-  u32_t B1;
-  u32_t B2;
-  u32_t D;
-  uchar *rpc;
-  uchar *tests;
-  u32_t tablen;
-  u32_t *tab;
-  u32_t beginD;
-  u32_t endD;
-} pm1_scheme2_t;
-
-static pm1_scheme2_t *B2_scheme;
-static size_t B2_scheme_len=0, B2_scheme_alloc=0;
-
-static ulong *mm_stack;
-static size_t mm_stack_alloc=0;
-
-static ulong **mm_B2_tab1, **mm_B2_tab2;
-static u32_t mm_B2_tab1_len=0, mm_B2_tab2_len=0;
+/* 与 ecm.c 共用同一份 gmp_f，两边都能 *fptr=&gmp_f 把因子交回调用方。 */
+#define gmp_f            (LASIEVE_CTX->gmp_f)
 
 
 /* ------------------- conversion ------------------- */
@@ -233,7 +218,7 @@ static void pm1_init_B1(u32_t B1)
 
   if (pm1_prime_max<B1) pm1_init_primes(B1);
   adjust_bufsize((void **)(&B1_scheme),&B1_scheme_alloc,
-                 B1_scheme_len+1,BUF_INC,sizeof(pm1_scheme1_t));
+                 B1_scheme_len+1,BUF_INC,sizeof(lasieve_pm1_scheme1_t));
   B1_scheme[B1_scheme_len].B1=B1;
   mpz_init_set_ui(B1_aux,1);
   for (q=2; q<B1; q*=2) mpz_add(B1_aux,B1_aux,B1_aux);
@@ -342,7 +327,7 @@ static u32_t find_triples(uchar **rop, uchar **pr, u32_t dim1, u32_t dim2)
 }
 
 
-static u32_t create_B2_scheme(pm1_scheme2_t *s, u32_t B1, u32_t B2, u32_t d, int verb)
+static u32_t create_B2_scheme(lasieve_scheme2_t *s, u32_t B1, u32_t B2, u32_t d, int verb)
 {
   u32_t nmul, n, i, b0, b1, p;
   u32_t dim1, dim2, i1, i2, l, *tabnr;
@@ -462,7 +447,7 @@ static void pm1_init_B2(u32_t B1, u32_t B2)
 
   if (pm1_prime_max<B2) pm1_init_primes(B2);
   adjust_bufsize((void **)(&B2_scheme),&B2_scheme_alloc,
-                 B2_scheme_len+1,BUF_INC,sizeof(pm1_scheme2_t));
+                 B2_scheme_len+1,BUF_INC,sizeof(lasieve_scheme2_t));
   B2_scheme[B2_scheme_len].B1=B1;
   B2_scheme[B2_scheme_len].B2=B2;
   B2_scheme[B2_scheme_len].D=0;
@@ -769,10 +754,7 @@ static int pm1_init(mpz_t N, u32_t B1, u32_t B2)
   u32_t i;
 
   if (!set_montgomery_multiplication(N)) return -1;
-  if (!pm1_is_init) {
-    mpz_init(gmp_f);
-    pm1_is_init=1;
-  }
+  pm1_is_init=1;   /* gmp_f 由 lasieve_ctx_new 建实例时 mpz_init 过 */
   if (B2<=B1) return -1;
 //  if (B2<=B1) B2=2*B1; /* at least one prime between B1 and B2 */
   for (i=0; i<(u32_t)B1_scheme_len; i++)
