@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <math.h>
 #include <cuda.h>
-#include <factor/shared/cub/cub.cuh>
+#include <factor/shared/cub/cub/cub.cuh>
 
 #include "collision_engine.h"
 #include "factor/nfs/gnfs/poly/stage1/stage1_core_gpu/stage1_core.h"
