@@ -1473,7 +1473,11 @@ uint32_t parse_job_file(fact_obj_t *fobj, nfs_job_t *job)
 
 	}
 
-	if (lpbr > 0)
+	/* lpbr and lpba are bit counts: the bound is 2^lpbr, and nfs_sieving
+	 * evaluates 1ull << lpbr.  A value from a hand-edited job file that
+	 * reaches 64 makes that shift undefined, so reject it here and let the
+	 * normal missing-parameter path refill it. */
+	if ((lpbr > 0) && (lpbr <= 63))
 	{
 		if (job->lpbr == 0)
 			job->lpbr = lpbr;
@@ -1483,7 +1487,7 @@ uint32_t parse_job_file(fact_obj_t *fobj, nfs_job_t *job)
         missing_params |= PARAM_FLAG_LPBR;
     }
 
-	if (lpba > 0)
+	if ((lpba > 0) && (lpba <= 63))
 	{
 		if (job->lpba == 0)
 			job->lpba = lpba;

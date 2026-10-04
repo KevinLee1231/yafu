@@ -797,6 +797,19 @@ void nfs_sieve_start(void* vptr)
 		uint64_t max_prime = (job->mfbr > job->mfba) ? job->lpbr - 1 : job->lpba - 1;
 		uint32_t min_prime = 1000000; // MIN(job->alim, job->rlim) / 10;
 
+		// job->lpbr and job->lpba are also settable from a ggnfs params file
+		// that does not go through parse_job_file, and everything below
+		// shifts by them, so clamp rather than trust them
+		if ((job->lpbr == 0) || (job->lpbr > 63) ||
+			(job->lpba == 0) || (job->lpba > 63))
+		{
+			printf("nfs: large prime bounds out of range "
+				"(lpbr=%u lpba=%u); expected 1..63\n", job->lpbr, job->lpba);
+			if (NFS_ABORT < 1)
+				NFS_ABORT = 1;
+			return;
+		}
+
 		// todo: need to free this at the end of sieving.
 		job->rb = (relation_batch_t*)xmalloc(sizeof(relation_batch_t));
 
