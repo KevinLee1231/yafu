@@ -2162,7 +2162,11 @@ void vececm_old(thread_data_t *tdata)
 
         if (DO_STAGE2)
         {
-            uint64_t last_p = ecm_primes[tdata[0].work->last_pid];
+            /* stage 1 can stop with last_pid == ecm_nump, one past the end of
+             * ecm_primes.  The re-read further down guards for that; this
+             * first read did not.  Fall back to ecm_maxp, same as the guard. */
+            uint64_t last_p = (tdata[0].work->last_pid == ecm_nump) ?
+                ecm_maxp : ecm_primes[tdata[0].work->last_pid];
 
             // parallel stage 2
             gettimeofday(&startt, NULL);
@@ -2842,7 +2846,11 @@ void vececm(thread_data_t* tdata)
 
         if (DO_STAGE2)
         {
-            uint64_t last_p = ecm_primes[tdata[0].work->last_pid];
+            /* stage 1 can stop with last_pid == ecm_nump, one past the end of
+             * ecm_primes.  The re-read further down guards for that; this
+             * first read did not.  Fall back to ecm_maxp, same as the guard. */
+            uint64_t last_p = (tdata[0].work->last_pid == ecm_nump) ?
+                ecm_maxp : ecm_primes[tdata[0].work->last_pid];
 
             // parallel stage 2
             gettimeofday(&startt, NULL);
@@ -3522,7 +3530,10 @@ void vec_ecm_stage1(vec_monty_t *mdata, ecm_work *work, ecm_pt *P,
 		q *= 2;
 	}
 
-	for (i = 1; (i < nump) && ((uint32_t)primes[i] < b1); i++)
+	/* primes is uint64_t* and b1 is uint64_t.  Casting the prime to 32
+	 * bits before the compare let the loop run past b1 whenever b1
+	 * exceeded 2^32, silently widening stage 1. */
+	for (i = 1; (i < nump) && (primes[i] < b1); i++)
 	{
 		uint64_t c = 1;
 	
