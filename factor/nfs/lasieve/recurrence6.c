@@ -21,6 +21,7 @@
 #include "siever-config.h"
 #include "if.h"
 #include "recurrence6.h"
+#include "lasieve_bail.h"
 #include <immintrin.h>
 
 #ifdef _MSC_VER
@@ -129,13 +130,13 @@ done:
         if (((s << A_bits) + b) > (1ULL << 32))
         {
             printf("s too big\b");
-            exit(1);
+            lasieve_bail(1);
         }
 
         if (((t << A_bits) - c) > (1ULL << 32))
         {
             printf("t too big\b");
-            exit(1);
+            lasieve_bail(1);
         }
 
         res_ptr[0] = (u32_t)((s << A_bits) + b);
@@ -1041,13 +1042,13 @@ done:
                     if (((sm[i] << A_bits) + bm[i]) > (1ULL << 32))
                     {
                         printf("s too big\n");
-                        exit(1);
+                        lasieve_bail(1);
                     }
 
                     if (((tm[i] << A_bits) - cm[i]) > (1ULL << 32))
                     {
                         printf("t too big\n");
-                        exit(1);
+                        lasieve_bail(1);
                     }
 
                     res_ptr[2 * (offset + i) + 0] = (u32_t)((sm[i] << A_bits) + bm[i]);
@@ -1096,8 +1097,7 @@ done:
                 }
 
                 if (fail > 0)
-                    exit(0);
-
+                    lasieve_bail(0);
             }
 
             printf("computed 16 inputs correctly\n");

@@ -16,6 +16,7 @@
 #include <limits.h> 
 #include "siever-config.h"
 #include "if.h"
+#include "lasieve_bail.h"
 
 int verbose= 0;
 static unsigned int used_cols,ncol= 80;
@@ -145,7 +146,7 @@ fprintf(logfile,"%s",msg);
 boinc_finish(1);
 #else
 #line 247 "if.w"
- exit(1);
+ lasieve_bail(1);
 #endif
 #line 249 "if.w"
 }
@@ -168,7 +169,7 @@ va_end(arglist);
 boinc_finish(1);
 #else
 #line 262 "if.w"
- abort();
+ lasieve_bail(1);
 #endif
 #line 264 "if.w"
 }

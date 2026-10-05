@@ -1818,7 +1818,6 @@ void options_to_factobj(fact_obj_t* fobj, options_t* options)
     *fobj->nfs_obj.filearg = '\0';
 
     fobj->nfs_obj.polybatch = options->poly_batch;
-    strcpy(fobj->nfs_obj.ggnfs_dir, options->ggnfs_dir);
 
     fobj->nfs_obj.cadoMsieve = options->cadoMsieve;
     strcpy(fobj->nfs_obj.cado_dir, options->cado_dir);

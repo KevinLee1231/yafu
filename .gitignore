@@ -5,8 +5,8 @@
 /build/
 /yafu
 /msieve
-/gnfs-lasieve4I1[1-6]e
-/gnfs-lasieve4I1[1-6]e.exe
+/gnfs-lasieve4e
+/gnfs-lasieve4e.exe
 /factor/nfs/lasieve/asm/ls-defs-os.asm
 /yafu_test
 /yafu_test_full
@@ -48,3 +48,15 @@ factor/nfs/lasieve/mpqs3test
 factor/nfs/lasieve/mpqstest
 factor/nfs/lasieve/mpqsstat
 factor/nfs/lasieve/ecmtest
+# 合成单一二进制后按 I 各编一份的中间产物
+factor/nfs/lasieve/objI*/
+factor/nfs/lasieve/asm/coreI*/
+factor/nfs/lasieve/asm/coreI*.S
+factor/nfs/lasieve/asm/lasched*I*.s
+factor/nfs/lasieve/asm/medsched0I*.s
+factor/nfs/lasieve/asm/slinie*I*.s
+factor/nfs/lasieve/asm/tdslinie*I*.s
+factor/nfs/lasieve/asm/search0I*.s
+factor/nfs/lasieve/asm/*I1[1-6].o
+factor/nfs/lasieve/asm/libcoreI*.a
+factor/nfs/lasieve/asm/liblasieveI*.a

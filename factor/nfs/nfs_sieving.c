@@ -20,6 +20,12 @@ benefit from your work.
 #include "batch_factor.h"
 #include "threadpool.h"
 
+// The lattice siever, linked into this binary.  I is 11..16 and picks which of
+// the six per-I object sets runs; see factor/nfs/lasieve/lasieve_dispatch.c.
+// Each concurrent siever needs its own I, which is what siever_I() below
+// arranges.
+int lasieve_run(int I, int argc, char **argv);
+
 #ifdef HAVE_CUDA_BATCH_FACTOR
 #include "gpu_cofactorization.h"
 #endif
@@ -513,6 +519,29 @@ static void siever_argv_addf(siever_argv_t* a, const char* fmt, ...)
 	a->argv[a->argc++] = slot;
 }
 
+
+// How many sievers can run at once, and which I value a given one gets.
+//
+// The siever's six I values are six sets of private objects -- private kernels,
+// factor base, montgomery state, ECM/P-1 cache -- linked into this binary; see
+// factor/nfs/lasieve/lasieve_dispatch.c.  That privacy is what lets two sievers
+// share a process, and it holds only between *different* I values: two sievers
+// given the same one would share a factor base and a set of buffers.  So one I
+// per concurrent siever, and six is the ceiling.
+//
+// Losing parallelism above six cores costs less than it sounds: a siever is
+// bound by memory bandwidth on the boolean sieve, not by core count, so the
+// sixth and seventh siever are not worth six and seven times the work.  The
+// alternative would be per-instance state for all 500-odd globals, which the
+// hand-written assembly reaches by name with no register to pass a context
+// base through.
+#define LASIEVE_I_COUNT 6
+
+static int siever_I(int slot)
+{
+	return 11 + (((slot % LASIEVE_I_COUNT) + LASIEVE_I_COUNT) % LASIEVE_I_COUNT);
+}
+
 static void siever_argv_end(siever_argv_t* a)
 {
 	a->argv[a->argc] = NULL;
@@ -533,6 +562,21 @@ static void siever_argv_print(const siever_argv_t* a)
 // which is what the old nfs_exit_status() produced on those paths.
 // logfile, when given, receives the child's stdout and stderr, replacing
 // the " > log 2>&1" that used to be part of the command string.
+static int nfs_run_child(const siever_argv_t* a, const char* logfile);
+
+// Run one siever.
+//
+// The siever is linked into this binary and reached through lasieve_run(), so
+// the normal path is a call.  cuda-sieve is a genuinely external program the
+// user points at by path; it keeps the child process, because it is different
+// software with its own state and its own command line.
+static int nfs_run_siever(fact_obj_t* fobj, int I, const siever_argv_t* a)
+{
+	if (NFS_USE_CUDA(fobj))
+		return nfs_run_child(a, NULL);
+	return lasieve_run(I, a->argc, a->argv);
+}
+
 static int nfs_run_child(const siever_argv_t* a, const char* logfile)
 {
 #if defined(WIN32) || defined(_WIN64)
@@ -782,6 +826,26 @@ void nfs_sieve_start(void* vptr)
 	fact_obj_t* fobj = udata->fobj;
 	nfs_job_t* job = udata->main_job_ref;
 	FILE* logfile;
+	// At most six sievers at a time.
+	//
+	// Each siever is a call into this binary now, and the six I values are six
+	// sets of private objects.  Two sievers on the same I would share a factor
+	// base and a set of buffers, so one I per concurrent siever, and six is all
+	// there is.  See siever_I() below.  fobj->THREADS itself is left alone:
+	// the other phases use it.
+	//
+	// cuda-sieve is exempt: it is an external program with its own state and
+	// does not go through the I values at all, so its concurrency is bounded by
+	// the number of devices rather than by six.
+	int nthreads = fobj->THREADS;
+	if (!NFS_USE_CUDA(fobj) && (nthreads > LASIEVE_I_COUNT))
+	{
+		if (fobj->VFLAG >= 0)
+			printf("\nnfs: %d threads requested; sieving with %d.\n",
+				(int)fobj->THREADS, (int)LASIEVE_I_COUNT);
+		nthreads = LASIEVE_I_COUNT;
+	}
+
 
 	int i;
 
@@ -887,7 +951,7 @@ void nfs_sieve_start(void* vptr)
 	udata->requested_side = (job->poly->side == ALGEBRAIC_SPQ) ? 'a' : 'r';
 	int side = udata->requested_side;
 
-	udata->thread_data = (nfs_threaddata_t*)malloc(fobj->THREADS * sizeof(nfs_threaddata_t));
+	udata->thread_data = (nfs_threaddata_t*)malloc(nthreads * sizeof(nfs_threaddata_t));
 
 	// initialize a database of q-ranges from the global .ranges file, if it exists,
 	// or prepare to start a new job with default/user input if not.
@@ -906,14 +970,14 @@ void nfs_sieve_start(void* vptr)
 		if (fobj->nfs_obj.rangeq > 0)
 		{
 			// custom start and stop.
-			if ((udata->qrange_data->thread_qrange * fobj->THREADS) > fobj->nfs_obj.rangeq)
+			if ((udata->qrange_data->thread_qrange * nthreads) > fobj->nfs_obj.rangeq)
 			{
 				// adjust default q-per-range
 				udata->qrange_data->thread_qrange = 
-					(uint32_t)((double)fobj->nfs_obj.rangeq / (double)fobj->THREADS);
+					(uint32_t)((double)fobj->nfs_obj.rangeq / (double)nthreads);
 
 				printf("nfs: overriding default qrange to %u for custom job range %u and %d threads\n",
-					udata->qrange_data->thread_qrange, fobj->nfs_obj.rangeq, fobj->THREADS);
+					udata->qrange_data->thread_qrange, fobj->nfs_obj.rangeq, nthreads);
 			}
 		}
 	}
@@ -955,13 +1019,13 @@ void nfs_sieve_start(void* vptr)
 		int ndev = nfs_cuda_ndev(fobj);
 
 		if (fobj->VFLAG >= 0)
-			printf("nfs: sieving with cuda-sieve on %d device(s) using %d thread(s)\n", ndev, (int)fobj->THREADS);
-		if ((int)fobj->THREADS > ndev)
+			printf("nfs: sieving with cuda-sieve on %d device(s) using %d thread(s)\n", ndev, (int)nthreads);
+		if ((int)nthreads > ndev)
 			printf("nfs: WARNING: %d threads will share %d cuda device(s); this needs a lot of GPU memory\n",
-				(int)fobj->THREADS, ndev);
+				(int)nthreads, ndev);
 	}
 
-	for (i = 0; i < fobj->THREADS; i++)
+	for (i = 0; i < nthreads; i++)
 	{
 		// copy needed info to the thread's job structure.
 		sprintf(udata->thread_data[i].outfilename, "rels%d_%d.dat", i, 
@@ -1065,13 +1129,13 @@ void nfs_sieve_start(void* vptr)
 		{
 			if (fobj->nfs_obj.rangeq > 0)
 			{
-				logprint(logfile, "nfs: commencing lattice sieving with %d threads\n", fobj->THREADS);
+				logprint(logfile, "nfs: commencing lattice sieving with %d threads\n", nthreads);
 				logprint(logfile, "nfs: sieve directed to process Q-range %u - %u\n", 
 					fobj->nfs_obj.startq, fobj->nfs_obj.rangeq + fobj->nfs_obj.startq);
 			}
 			else
 			{
-				logprint(logfile, "nfs: commencing lattice sieving with %d threads\n", fobj->THREADS);
+				logprint(logfile, "nfs: commencing lattice sieving with %d threads\n", nthreads);
 				logprint(logfile, "nfs: sieve directed to gather %u rels\n", udata->rels_requested);
 			}
 			fclose(logfile);
@@ -1551,53 +1615,7 @@ void nfs_sieve_dispatch(void* vptr)
 
 
 		// now change if there are any inputs that override the automated behavior.
-		if (0) //(fobj->nfs_obj.startq > 0) || (fobj->nfs_obj.rangeq > 0))
-		{
-			// if the nfs_obj.rangeq value is > 0, that means the user
-			// requested a custom sieving range.  fill in the info to our
-			// range data structure.
-			t->job.startq = fobj->nfs_obj.startq + 
-				udata->ranges_completed * udata->qrange_data->thread_qrange +
-				udata->threads_sieving * udata->qrange_data->thread_qrange;
-			t->job.qrange = udata->qrange_data->thread_qrange;
-
-			if (fobj->nfs_obj.rangeq > 0)
-			{
-				// we have a specified end to the sieving, regardless of other completion metrics.
-				if (t->job.startq >= (fobj->nfs_obj.startq + fobj->nfs_obj.rangeq))
-				{
-					// this will kill the thread
-					tdata->work_fcn_id = tdata->num_work_fcn;
-					free(qrange);
-
-					if (fobj->VFLAG > 0)
-					{
-						printf("nfs: thread %d halting, custom q-range completed\n", tid);
-					}
-					return;
-				}
-				else if ((t->job.startq + t->job.qrange) > (fobj->nfs_obj.startq + fobj->nfs_obj.rangeq))
-				{
-					t->job.qrange = (fobj->nfs_obj.startq + fobj->nfs_obj.rangeq) - t->job.startq;
-				}
-
-				if (t->job.qrange == 0)
-				{
-					// this will kill the thread
-					tdata->work_fcn_id = tdata->num_work_fcn;
-					free(qrange);
-
-					if (fobj->VFLAG > 0)
-					{
-						printf("nfs: thread %d halting, custom q-range completed\n", tid);
-					}
-					return;
-				}
-			}
-
-			//printf("range info overridden by custom sieve range: %u - %u\n", t->job.startq, t->job.startq + t->job.qrange);
-		}
-
+		
 		// regardless of how this range was selected, make it unavailable to other threads
 		// and record it in the ranges file.
 		insert_range(udata->qrange_data, udata->requested_side,
@@ -1804,7 +1822,7 @@ int test_sieve(fact_obj_t* fobj, void* args, int njobs, int are_files)
 		siever_argv_end(&args);
 		if (fobj->VFLAG > 0) printf("\ntest: generating factor bases\n");
 		gettimeofday(&start, NULL);
-		sysreturn = nfs_run_child(&args, NULL);
+		sysreturn = nfs_run_siever(fobj, siever_I(i), &args);
 		gettimeofday(&stop, NULL);
         t_time = ytools_difftime(&start, &stop);
 
@@ -1843,7 +1861,7 @@ int test_sieve(fact_obj_t* fobj, void* args, int njobs, int are_files)
         }
 
 		gettimeofday(&start, NULL);
-        sysreturn = nfs_run_child(&args, NULL);
+        sysreturn = nfs_run_siever(fobj, siever_I(i), &args);
 		gettimeofday(&stop, NULL);
         t_time = ytools_difftime(&start, &stop);
 		
@@ -1934,125 +1952,7 @@ int test_sieve(fact_obj_t* fobj, void* args, int njobs, int are_files)
 			logprint(flog, "test: new best estimated total sieving time = %s (with %d threads)\n", 
 				time_from_secs(time, (unsigned long)score[i]), fobj->THREADS);
 
-			if (0)
-			{
-				// don't edit by default.  Maybe allow with a user option.
-				// edit lbpr/a depending on test results.  we target something around 2 rels/Q.
-				// could also change siever version in more extreme cases.
-
-				if (count > 4 * actual_range)
-				{
-					if (fobj->VFLAG > 0)
-						printf("test: yield greater than 4x/spq, reducing lpbr/lpba\n");
-					jobs[i].lpba--;
-					jobs[i].lpbr--;
-					jobs[i].mfba -= 2;
-					jobs[i].mfbr -= 2;
-				}
-
-				if (count > 8 * actual_range)
-				{
-					char* pos;
-					int siever;
-
-					pos = strstr(jobs[i].sievername, "gnfs-lasieve4I");
-					siever = (pos[14] - 48) * 10 + (pos[15] - 48);
-
-					if (fobj->VFLAG > 0)
-						printf("test: yield greater than 8x/spq, reducing siever version\n");
-
-					switch (siever)
-					{
-					case 11:
-						if (fobj->VFLAG > 0) printf("test: siever version cannot be decreased further\n");
-						jobs[i].snfs->siever = 11;
-						break;
-
-					case 12:
-						pos[15] = '1';
-						jobs[i].snfs->siever = 11;
-						break;
-
-					case 13:
-						pos[15] = '2';
-						jobs[i].snfs->siever = 12;
-						break;
-
-					case 14:
-						pos[15] = '3';
-						jobs[i].snfs->siever = 13;
-						break;
-
-					case 15:
-						pos[15] = '4';
-						jobs[i].snfs->siever = 14;
-						break;
-
-					case 16:
-						pos[15] = '5';
-						jobs[i].snfs->siever = 15;
-						break;
-					}
-				}
-
-				if (count < actual_range)
-				{
-					if (fobj->VFLAG > 0)
-						printf("test: yield less than 1x/spq, increasing lpbr/lpba\n");
-
-					jobs[i].lpba++;
-					jobs[i].lpbr++;
-					jobs[i].mfba += 2;
-					jobs[i].mfbr += 2;
-				}
-
-				if (count < (actual_range / 2))
-				{
-					char* pos;
-					int siever;
-
-					pos = strstr(jobs[i].sievername, "gnfs-lasieve4I");
-					siever = (pos[14] - 48) * 10 + (pos[15] - 48);
-
-					if (fobj->VFLAG > 0)
-						printf("test: yield less than 1x/2*spq, increasing siever version\n");
-
-					switch (siever)
-					{
-					case 16:
-						if (fobj->VFLAG > 0) printf("test: siever version cannot be increased further\n");
-						jobs[i].snfs->siever = 16;
-						break;
-
-					case 15:
-						pos[15] = '6';
-						jobs[i].snfs->siever = 16;
-						break;
-
-					case 14:
-						pos[15] = '5';
-						jobs[i].snfs->siever = 15;
-						break;
-
-					case 13:
-						pos[15] = '4';
-						jobs[i].snfs->siever = 14;
-						break;
-
-					case 12:
-						pos[15] = '3';
-						jobs[i].snfs->siever = 13;
-						break;
-
-					case 11:
-						pos[15] = '2';
-						jobs[i].snfs->siever = 12;
-						break;
-					}
-				}
-
-			}
-     	}
+			     	}
 		else
 		{
 			if (fobj->VFLAG > 0) printf("test: estimated total sieving time = %s (with %d threads)\n\n", 
@@ -2449,7 +2349,7 @@ uint32_t process_batch(nfs_threaddata_t* thread_data, mpz_ptr prime_prod, char *
 
 // The lattice sievers auto-load <jobfile>.afb.<side> whenever the file
 // exists (no command line switch needed), so a factor base cache must only
-// ever be on disk in a form that any siever in ggnfs_dir can use safely.
+// ever be on disk in a form a siever can use safely.
 // Sievers with cache validation append a 20-byte trailer (magic 0xafb00004)
 // when writing the cache, verify it against the current poly/params when
 // reading, and trim a full-alim cache down to the lowered FB bound that
@@ -2562,7 +2462,7 @@ static void nfs_afb_prime_cache(fact_obj_t* fobj, nfs_job_t* job)
 	if (fobj->VFLAG > 0) siever_argv_print(&args);
 	fflush(stdout);
 
-	if (nfs_run_child(&args, NULL) != 0)
+	if (nfs_run_siever(fobj, siever_I(0), &args) != 0)
 	{
 		// don't inspect what a failed call left behind: a stale but
 		// well-formed cache from an earlier job could pass the checks
@@ -2586,7 +2486,7 @@ static void nfs_afb_prime_cache(fact_obj_t* fobj, nfs_job_t* job)
 	case 0:
 		if (fobj->VFLAG >= 0)
 			printf("nfs: %s does not support factor base cache validation; "
-				"ignoring keep_afb (update the sievers in ggnfs_dir to enable it)\n",
+				"ignoring keep_afb (this build of the siever cannot use the cache)\n",
 				job->sievername);
 		logprint_oc(fobj->flogname, "a",
 			"nfs: siever lacks factor base cache validation; keep_afb disabled\n");
@@ -3276,15 +3176,16 @@ void *lasieve_launcher(void *ptr) {
 		siever_argv_print(&args);
 		fflush(stdout);
 	}
-	cmdret = nfs_run_child(&args, NULL);
+	cmdret = nfs_run_siever(fobj, siever_I(thread_data->tindex), &args);
 
-	// a ctrl-c abort signal is caught by the system command, and nfsexit never gets called.
-	// so check for abnormal exit from the system command.
-	// -1073741819 is apparently what ggnfs returns when it crashes, which
-	// we don't want to interpret as an abort.
-    if (!((cmdret == 0) || cmdret == -1073741819))
+	// The siever runs inside this process now, so this is its own exit status:
+	// there is no wait() encoding to decode, and the old -1073741819 "crashed
+	// child" case cannot arise, because a crash in the siever takes this
+	// process down with it.  I comes from the thread's own slot, so no two
+	// concurrent sievers share one.
+    if (cmdret != 0)
     {
-		printf("\nnfs: ggnfs returned code %d\n", cmdret);
+    	printf("\nnfs: siever returned code %d\n", cmdret);
         if (NFS_ABORT < 1)
         {
 			printf("\nnfs: setting NFS_ABORT\n");
@@ -3388,15 +3289,16 @@ void* lasieve_launcher_tdata(void* ptr) {
 		siever_argv_print(&args);
 		fflush(stdout);
 	}
-	cmdret = nfs_run_child(&args, NULL);
+	cmdret = nfs_run_siever(fobj, siever_I(thread_data->tindex), &args);
 
-	// a ctrl-c abort signal is caught by the system command, and nfsexit never gets called.
-	// so check for abnormal exit from the system command.
-	// -1073741819 is apparently what ggnfs returns when it crashes, which
-	// we don't want to interpret as an abort.
-	if (!((cmdret == 0) || cmdret == -1073741819))
+	// The siever runs inside this process now, so this is its own exit status:
+	// there is no wait() encoding to decode, and the old -1073741819 "crashed
+	// child" case cannot arise, because a crash in the siever takes this
+	// process down with it.  I comes from the thread's own slot, so no two
+	// concurrent sievers share one.
+	if (cmdret != 0)
 	{
-		printf("\nnfs: ggnfs returned code %d\n", cmdret);
+		printf("\nnfs: siever returned code %d\n", cmdret);
 		if (NFS_ABORT < 1)
 		{
 			printf("\nnfs: setting NFS_ABORT\n");

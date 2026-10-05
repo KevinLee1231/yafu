@@ -30,7 +30,6 @@ static void t_defaults(tk_ctx *tk)
     TK_EQ_U64(tk, o->use_gpudev, 0);
     TK_EQ_U64(tk, o->cadoMsieve, 0);
     TK_CHECK(tk, o->convert_poly_path[0] == '\0');
-    TK_CHECK(tk, strcmp(o->cado_dir, o->ggnfs_dir) == 0);
     free_options(o);
 }
 

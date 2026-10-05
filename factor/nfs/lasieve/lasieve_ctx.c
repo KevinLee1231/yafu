@@ -4,6 +4,7 @@
 #include <string.h>
 #include <gmp.h>
 #include "lasieve_ctx.h"
+#include "lasieve_bail.h"
 
 __thread lasieve_ctx *lasieve_current_ctx = NULL;
 
@@ -12,7 +13,7 @@ lasieve_ctx *lasieve_ctx_current(void)
   if (lasieve_current_ctx == NULL) {
     fputs("lasieve: 还没有建立 siever 实例"
           "（lasieve_current_ctx 为 NULL）\n", stderr);
-    abort();
+    lasieve_bail(1);
   }
   return lasieve_current_ctx;
 }

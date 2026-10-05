@@ -229,9 +229,6 @@ double find_best_msieve_poly(fact_obj_t* fobj, nfs_job_t* job, char *jobfile_nam
 void msieve_to_ggnfs(fact_obj_t* fobj, nfs_job_t* job);
 void ggnfs_to_msieve(fact_obj_t* fobj, nfs_job_t* job);
 int get_ggnfs_params(fact_obj_t* fobj, nfs_job_t* job);
-// directory holding the siever executables: ggnfs_dir when set,
-// otherwise the directory of the running yafu executable
-const char *nfs_siever_dir(fact_obj_t* fobj);
 int check_for_sievers(fact_obj_t* fobj, int revert_to_siqs);
 void nfs_set_sievername(fact_obj_t * fobj, nfs_job_t * job);
 // true if the user selected the external cuda-sieve siever (option cuda_sieve)

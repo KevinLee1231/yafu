@@ -33,6 +33,7 @@ either expressed or implied, of the FreeBSD Project.
 #include "lasieve_microecm.h"
 #include "if.h"
 #include "gmp-aux.h"
+#include "lasieve_bail.h"
 #include <stdlib.h>
 //#include "ytools.h"
 
@@ -1184,7 +1185,7 @@ void prac_good(monty128_t *mdata, tinyecm_work *work, tinyecm_pt *P, uint64_t c,
 	if ((c >= (2 * r)) || (r >= c))
 	{
 		printf("problem\n");
-		exit(1);
+		lasieve_bail(1);
 	}
 	e = 2 * r - c;
 
@@ -1465,7 +1466,7 @@ void prac(monty128_t *mdata, tinyecm_work *work, tinyecm_pt *P, uint64_t c, doub
 			// empirically, tiny B1 values only need the above prac cases.
 			// just in case, fall back on this.
 			printf("unhandled case in prac\n");
-			exit(1);
+			lasieve_bail(1);
 		}
 	}
 
@@ -5093,7 +5094,7 @@ void tecm_testmath()
 				{
 					gmp_printf("mul failed: x=%Zd, y=%Zd, n=%Zd, r=%Zd, z=%Zd != %Zd\n",
 						gx, gy, gn, gr, gt, gz);
-					exit(1);
+					lasieve_bail(1);
 				}
 			}
 		}
@@ -5138,7 +5139,7 @@ void tecm_testmath()
 				{
 					gmp_printf("add failed: x=%Zd, y=%Zd, n=%Zd, r=%Zd, z=%Zd != %Zd\n",
 						gx, gy, gn, gr, gt, gz);
-					exit(1);
+					lasieve_bail(1);
 				}
 			}
 		}
@@ -5186,7 +5187,7 @@ void tecm_testmath()
 				{
 					gmp_printf("sub failed: x=%Zd, y=%Zd, n=%Zd, r=%Zd, z=%Zd != %Zd\n",
 						gx, gy, gn, gr, gt, gz);
-					exit(1);
+					lasieve_bail(1);
 				}
 			}
 		}
