@@ -814,6 +814,12 @@ LIBS        += $(USER_LDFLAGS) $(LDFLAGS_EXTRA)
 # =============================================================================
 
 OBJ_EXT := .o
+NO_EXT   := .no
+# .c and .cpp have to land on the same object name while the tree is mixed.
+# A substitution reference keeps the stem; patsubst replaces the whole word.
+# $(call) takes the *value*, so the argument has to be $(VAR) and not VAR.
+cxx_objs = $(foreach s,$(1),$(if $(filter %.cpp,$(s)),$(s:.cpp=$(OBJ_EXT)),$(s:.c=$(OBJ_EXT))))
+cxx_no   = $(foreach s,$(1),$(if $(filter %.cpp,$(s)),$(s:.cpp=$(NO_EXT)),$(s:.c=$(NO_EXT))))
 
 # -----------------------------------------------------------------------------
 # 12. MSIEVE / YAFU shared sources
@@ -827,9 +833,7 @@ MSIEVE_YAFU_SRCS = \
     factor/siqs/msieve/sqrt.c \
     factor/siqs/msieve/gf2.c
 
-MSIEVE_YAFU_OBJS = $(MSIEVE_YAFU_SRCS:.c=$(OBJ_EXT))
-
-
+MSIEVE_YAFU_OBJS = $(call cxx_objs,$(MSIEVE_YAFU_SRCS))
 # -----------------------------------------------------------------------------
 # 13. YAFU top-level sources
 # -----------------------------------------------------------------------------
@@ -1084,15 +1088,15 @@ QS_SRCS = \
 # -----------------------------------------------------------------------------
 # 21. OBJECT LISTS
 # -----------------------------------------------------------------------------
-YAFU_OBJS         = $(YAFU_SRCS:.c=$(OBJ_EXT))
-YAFU_SIQS_OBJS    = $(YAFU_SIQS_SRCS:.c=$(OBJ_EXT))
-YAFU_ECM_OBJS     = $(ECM_SRCS:.c=$(OBJ_EXT))
-YAFU_COMMON_OBJS  = $(COMMON_SRCS:.c=$(OBJ_EXT))
-YAFU_NFS_OBJS     = $(YAFU_NFS_SRCS:.c=$(OBJ_EXT))
-MSIEVE_COMMON_OBJS = $(MSIEVE_COMMON_SRCS:.c=$(OBJ_EXT))
-NFS_OBJS          = $(NFS_SRCS:.c=.no)
-NFS_GPU_OBJS      = $(NFS_GPU_SRCS:.c=.no)
-NFS_NOGPU_OBJS    = $(NFS_NOGPU_SRCS:.c=.no)
+YAFU_OBJS         = $(call cxx_objs,$(YAFU_SRCS))
+YAFU_SIQS_OBJS    = $(call cxx_objs,$(YAFU_SIQS_SRCS))
+YAFU_ECM_OBJS     = $(call cxx_objs,$(ECM_SRCS))
+YAFU_COMMON_OBJS  = $(call cxx_objs,$(COMMON_SRCS))
+YAFU_NFS_OBJS     = $(call cxx_objs,$(YAFU_NFS_SRCS))
+MSIEVE_COMMON_OBJS = $(call cxx_objs,$(MSIEVE_COMMON_SRCS))
+NFS_OBJS          = $(call cxx_no,$(NFS_SRCS))
+NFS_GPU_OBJS      = $(call cxx_no,$(NFS_GPU_SRCS))
+NFS_NOGPU_OBJS    = $(call cxx_no,$(NFS_NOGPU_SRCS))
 QS_OBJS = \
     factor/mpqs/gf2.qo \
     factor/mpqs/mpqs.qo \
@@ -1213,7 +1217,7 @@ lasieve-force:
 # prerequisites, so a change to sieve source reaches the link through the
 # sub-make rebuilding those object files.
 yafu: _dep_status $(YAFU_OBJS) $(ARCHIVES) $(GPU_OBJS) | lasieve-force
-	$(CC) $(CFLAGS) -no-pie $(YAFU_OBJS) -o yafu$(EXE_EXT) \
+	$(CXX) $(CXXFLAGS) -no-pie $(YAFU_OBJS) -o yafu$(EXE_EXT) \
 	    $(ARCHIVES) $(LASIEVE_FILES) $(LIBS)
 
 
@@ -1258,7 +1262,7 @@ TEST_SRCS := \
     $(TEST_DIR)/layer1/test_tinyprp_review.c \
     $(TEST_DIR)/layer1/test_sieve.c \
     $(TEST_DIR)/layer2/test_ecm.c
-TEST_OBJS := $(TEST_SRCS:.c=$(OBJ_EXT))
+TEST_OBJS := $(call cxx_objs,$(TEST_SRCS))
 TEST_BIN  := yafu_test$(EXE_EXT)
 
 # YAFU objects the layered tests link against (overridable).
@@ -1411,8 +1415,19 @@ $(sort $(ALL_COMPILED) $(TEST_OBJS)): $(BUILD_CONFIG)
 
 # Standard .c → .o
 # -MF redirects the dependency file into .deps/, mirroring the source tree.
+CXX ?= g++
+# C++26 is the newest this compiler has.  What that buys the migration:
+# one- and two-dimensional local VLAs are in C++ and this tree uses them heavily
+# (2579 sites), so they carry over unchanged.  What it does not buy: `int a[n]` as
+# a *parameter* is still C-only and has to become `int a[]` or a reference to
+# array; a substitution reference keeps the stem where patsubst would not.
+CXXFLAGS := $(filter-out -std=gnu11,$(CFLAGS)) -std=c++26
+
 %.o: %.c | $(DEPS_SUBDIRS)
 	$(CC) $(CFLAGS) -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
+
+%.o: %.cpp | $(DEPS_SUBDIRS)
+	$(CXX) $(CXXFLAGS) -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
 
 # QS objects (.qo) — also get dependency files now
 factor/mpqs/sieve_core_generic_32k.qo: factor/mpqs/sieve_core.c | $(DEPS_SUBDIRS)
@@ -1432,6 +1447,8 @@ factor/mpqs/sieve_core_generic_64k.qo: factor/mpqs/sieve_core.c | $(DEPS_SUBDIRS
 
 # NFS objects (.no) — add -Ifactor/nfs/gnfs for NFS-internal includes
 %.no: %.c | $(DEPS_SUBDIRS)
+	$(CC) $(CFLAGS) -Ifactor/nfs/gnfs -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
+%.no: %.cpp | $(DEPS_SUBDIRS)
 	$(CC) $(CFLAGS) -Ifactor/nfs/gnfs -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
 
 # GPU / PTX rules
