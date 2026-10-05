@@ -20,10 +20,6 @@ $Id: gmp_xface.h 23 2009-07-20 02:59:07Z jasonp_sf $
 #include "ytools.h"
 #include <gmp.h>
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
-
 	/* Note that when GMP_LIMB_BITS == 64 it is possible
 	   to use mpz_set_{ui|si}, except that 64-bit
 	   MSVC forces the input argument in these calls to
@@ -49,8 +45,4 @@ static INLINE void gmp2mp_t(mpz_t src, mp_t *dest) {
 			0, (size_t)0, src);
 	dest->nwords = count;
 }
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif //  _YAFU_GMP_XFACE_H_ 

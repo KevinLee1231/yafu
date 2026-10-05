@@ -13,10 +13,6 @@ and reaches MPQS only through here.
 
 #include <gmp.h>
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
-
 /* Factor n with the multiple polynomial quadratic sieve.  Returns a
  * malloc'd array of *num_factors mpz_t values, each a divisor of n, or
  * NULL if nothing was found.  Release it with mpqs_xface_free(). */
@@ -24,9 +20,4 @@ mpz_t *mpqs_xface(mpz_t n, int *num_factors);
 
 /* Release an array returned by mpqs_xface(). */
 void mpqs_xface_free(mpz_t *factors, int num_factors);
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif /* _MPQS_XFACE_H_ */

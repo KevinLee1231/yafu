@@ -1,6 +1,7 @@
 /*2:*/
 
 
+#include "if.h"
 #include <time.h> 
 #include <unistd.h> 
 #ifndef _WIN64 
@@ -13,7 +14,6 @@
 #include <gmp.h> 
 #include <limits.h> 
 #include "siever-config.h"
-#include "if.h"
 #include "lasieve_bail.h"
 
 int verbose= 0;

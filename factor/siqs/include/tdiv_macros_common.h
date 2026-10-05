@@ -1,8 +1,4 @@
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
-
 
 #define DIVIDE_ONE_PRIME \
 	do \
@@ -246,9 +242,4 @@ v128_x7 = _mm_xor_si128(v128_x7, v128_x7);
 			msk32 = m1 ^ m2; \
             GATHER_BIT_INDICES_AVX512
 
-#endif
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
 #endif

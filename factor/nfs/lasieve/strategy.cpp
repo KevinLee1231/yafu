@@ -37,7 +37,6 @@ static i64_t mpqsaux_clock;
 
 // for tinyecm/microecm
 #include "lasieve_microecm.h"
-#include "siever-asm.h"
 static uint64_t pran;
 static mpz_t uecm_factors[3];
 static int uecm_initialized = 0;

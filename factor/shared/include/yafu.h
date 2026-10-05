@@ -30,10 +30,6 @@ code to the public domain.
 #include <stdint.h>
 #include <gmp.h>
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
-
 #ifdef _MSC_VER
 #include <Windows.h>
 #endif
@@ -89,9 +85,4 @@ typedef struct
 
 extern void yafu_init(yafu_obj_t* yobj);
 extern void yafu_finalize(yafu_obj_t* yobj);
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif //ifndef HEAD_DEF

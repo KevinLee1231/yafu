@@ -1,6 +1,6 @@
 
 #ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
+extern "C" {  /* yafu-asm-abi */
 #endif
 
 
@@ -167,9 +167,6 @@ static ushort mpqs3_param[15][7]={
 
 #define MOD3
 
-
-
-
 #ifdef __cplusplus
-}  /* yafu-cpp-linkage */
+}  /* yafu-asm-abi */
 #endif

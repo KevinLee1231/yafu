@@ -2,10 +2,6 @@
 #define _COFACTORIZE_H_
 
 #include <gmp.h>
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #include "ytools.h"
 
 typedef signed char s8;
@@ -228,9 +224,4 @@ typedef struct {
 tiny_qs_params * init_tinysiqs(void);
 u32 tinysiqs(tiny_qs_params *g_params, mpz_t n, mpz_t factor1, mpz_t factor2, mpz_t factor3, int lpb);
 tiny_qs_params *free_tinysiqs(tiny_qs_params *g_params);
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif /* !_COFACTORIZE_H_ */

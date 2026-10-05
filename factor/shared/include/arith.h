@@ -25,10 +25,6 @@ code to the public domain.
 #include <sys/types.h>
 #include "gmp.h"
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
-
 #define LIMB_BLKSZ 10	
 #define MAX_DIGITS 100
 #define MP_RADIX 4294967296.0
@@ -279,9 +275,4 @@ void mpz_set_64(mpz_t dest, uint64_t src);
 void build_RSA(int bits, mpz_t n, gmp_randstate_t gmp_randstate);
 void gordon(int bits, mpz_t n, gmp_randstate_t gmp_randstate);
 void fftmul(mpz_t c, mpz_t a, mpz_t b, int bits_per_word, int fftlen);
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif

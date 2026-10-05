@@ -1,8 +1,4 @@
 #ifndef YAFU_LASIEVE_DISPATCH_H
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #define YAFU_LASIEVE_DISPATCH_H
 
 
@@ -13,10 +9,4 @@ extern "C" {  /* yafu-cpp-linkage */
  * a mangled call to an unmangled definition.
  */
 int lasieve_run(int I, int argc, char **argv);
-
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif /* YAFU_LASIEVE_DISPATCH_H */

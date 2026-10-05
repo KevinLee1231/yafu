@@ -21,10 +21,6 @@ $Id: stage1.h 1084 2026-05-10 03:05:04Z jasonp_sf $
    with many modifications */
 
 #include <poly_skew.h>
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #include <cuda_xface.h>
 #include <thread.h>
 
@@ -291,8 +287,4 @@ typedef struct {
 void handle_collision(task_data_t *task, uint32 threadid,
 			uint64 p, uint64 special_q,
 			uint128 special_q_root, int64 res);
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif /* !_STAGE1_H_ */

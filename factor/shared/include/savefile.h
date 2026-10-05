@@ -1,10 +1,6 @@
 #pragma once
 
 #ifndef _SAVEFILE_H_
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #define _SAVEFILE_H_
 
 #include <stdint.h>
@@ -73,8 +69,4 @@ void savefile_rewind(savefile_t* s);
 void savefile_read_line(char* buf, size_t max_len, savefile_t* s);
 void savefile_write_line(savefile_t* s, char* buf);
 void savefile_flush(savefile_t* s);
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif /* _SAVEFILE_H_ */

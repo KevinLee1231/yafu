@@ -5,10 +5,6 @@
    the differences between primes stored */
 
 #ifndef _PRIME_SIEVE_H_
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #define _PRIME_SIEVE_H_
 
 #include <stdint.h>
@@ -46,9 +42,4 @@ typedef struct {
 void fill_prime_list(prime_list_t *prime_list,
     uint32_t max_size,
     uint32_t max_prime);
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif /* _PRIME_SIEVE_H_ */

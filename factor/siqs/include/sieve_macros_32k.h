@@ -1,8 +1,4 @@
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
-
 #define BLOCK_INIT \
 	memset(sieve,s_init,32768);
 
@@ -687,10 +683,3 @@ extern "C" {  /* yafu-cpp-linkage */
 			root1=tmp; \
 		} \
 	}
-
-
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif

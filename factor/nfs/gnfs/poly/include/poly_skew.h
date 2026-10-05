@@ -18,10 +18,6 @@ $Id: poly_skew.h 1025 2018-08-19 02:20:28Z jasonp_sf $
 #include "poly.h"
 #include "poly_stats.h"
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
-
 /* external interface to skewed polynomial selector */
 
 /* interface to size optimization */
@@ -138,8 +134,4 @@ void poly_stage1_init(poly_stage1_t* data,
 	void* callback_data);
 void poly_stage1_free(poly_stage1_t* data);
 void poly_stage1_run(msieve_obj* obj, poly_stage1_t* data);
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif /* _GNFS_POLY_POLY_SKEW_H_ */

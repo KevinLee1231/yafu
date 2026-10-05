@@ -28,10 +28,6 @@ SOFTWARE.
 #include "cuda_xface.h"
 #include "cofactorize.h"
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
-
 #ifdef _MSC_VER
 // so I can browse the code in visual studio
 #define HAVE_CUDA_BATCH_FACTOR
@@ -139,10 +135,4 @@ int do_gpu_cofactorization(device_thread_ctx_t* t, relation_batch_t* rb, uint64_
 	int b1_3lp_ovr, int b2_3lp_ovr, int b1_2lp_ovr, int b2_2lp_ovr,
 	int curves_3lp_ovr, int curves_2lp_ovr);
 
-#endif
-
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
 #endif

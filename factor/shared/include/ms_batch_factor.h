@@ -16,10 +16,6 @@ $Id: batch_factor.h 638 2011-09-11 15:31:19Z jasonp_sf $
 #define _MS_MS_BATCH_FACTOR_H_
 
 #include <ms_common.h>
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #include "savefile.h"
 
 /* prototypes for the subsystem that batch-factors the
@@ -129,8 +125,4 @@ void ms_relation_batch_add(int64 a, uint32 b,
    lp_cutoff_[ra] */
 
 uint32 ms_relation_batch_run(ms_relation_batch_t *rb);
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif /* _MS_BATCH_FACTOR_H_ */

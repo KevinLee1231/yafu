@@ -15,10 +15,6 @@
  */
 
 #ifndef _JACOBI_SUM_H_
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #define _JACOBI_SUM_H_
 
 #ifndef HAVE_U64_T
@@ -7049,9 +7045,4 @@ static const struct jpq_t jpqs[JPQSMAX+1]={
 {1745944201,36114,17},
 {1745944201,36130,19},
 {0,0,0}};
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif

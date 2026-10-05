@@ -19,10 +19,6 @@ $Id$
 #include <spmv_engine.h>
 #include "ms_lanczos.h"
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
-
 typedef struct {
 	uint32 num_rows;
 	uint32 num_cols;
@@ -96,8 +92,4 @@ void mul_BxN_NxB_gpu(packed_matrix_t *matrix,
 void mul_NxB_BxB_acc_gpu(packed_matrix_t *matrix, 
 			CUdeviceptr v, CUdeviceptr x,
 			CUdeviceptr y, uint32 n);
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif /* !_COMMON_LANCZOS_GPU_LANCZOS_GPU_H_ */

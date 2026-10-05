@@ -22,10 +22,6 @@ $Id: mp.h 967 2014-06-26 02:48:22Z jasonp_sf $
  * 那个供 SIQS、nfs 编排与 gmp 桥接使用。两者不能合并，理由见那里。
  */
 #ifndef _MP_H_
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #define _MP_H_
 
 #include <util.h>
@@ -712,8 +708,4 @@ static INLINE void mp_d2mp(double *d, mp_t *x) {
 		x->nwords = (uint32)(i+1);
 
 }
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif /* !_MP_H_ */

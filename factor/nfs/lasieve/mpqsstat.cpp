@@ -23,7 +23,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "gmp-aux.h"
 #include "lasieve_mpqs.h"
 #include "mpqs3.h"
-#include "siever-asm.h"
 
 u64_t stat_td_cand=0,stat_td_surv=0;
 u64_t stat_ff=0,stat_pf=0,stat_comb=0;

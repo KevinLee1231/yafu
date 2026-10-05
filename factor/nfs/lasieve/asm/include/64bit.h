@@ -1,6 +1,6 @@
 
 #ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
+extern "C" {  /* yafu-asm-abi */
 #endif
 
 /*
@@ -34,8 +34,6 @@ static inline u64_t modadd64(u64_t x,u64_t y)
 }
 #endif
 
-
-
 #ifdef __cplusplus
-}  /* yafu-cpp-linkage */
+}  /* yafu-asm-abi */
 #endif

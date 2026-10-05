@@ -38,10 +38,6 @@ SOFTWARE.
 #include "ytools.h"
 #include "soe.h"
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
-
 #define BITSINBYTE 8
 #define MAXSIEVEPRIMECOUNT 100000000	//# primes less than ~2e9: limit of 2e9^2 = 4e18
 
@@ -333,13 +329,5 @@ uint32_t compute_8_bytes_bmi2(soe_staticdata_t* sdata,
 extern uint32_t(*compute_8_bytes_ptr)(soe_staticdata_t*, uint32_t, uint64_t*, uint64_t);
 extern void (*pre_sieve_ptr)(soe_dynamicdata_t*, soe_staticdata_t*, uint8_t*);
 extern void(*sieve_line_ptr)(thread_soedata_t*);
-
-
-
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif /* #ifndef SOE_IMPL_H */
 

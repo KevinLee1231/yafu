@@ -1,8 +1,4 @@
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
-
 /*1:*/
 
 void adjust_mpz_bufsize(mpz_t**x,size_t*alloc_ptr,size_t size,size_t increment);
@@ -46,9 +42,3 @@ void mpz_tdiv_q_ull(mpz_t rop, mpz_t op1, ullong op2);
 #define mpz_tdiv_q_ull mpz_tdiv_q_ui
 #endif
 /*:1*/
-
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif

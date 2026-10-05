@@ -25,10 +25,6 @@ typedef unsigned long long u64_t;
 
 #include <gmp.h>
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
-
 /*
  * The PRP functions presented here are based on the paper:
  * Grantham, Jon. Frobenius Pseudoprimes. Math. Comp. 70 (2001), 873-891.
@@ -201,9 +197,4 @@ int mpz_extrastrongbpsw_prp(mpz_t n);
 
 int mpz_aprcl(mpz_t N); /* Just return the status of the input, no progress is printed out */
 int mpz_aprtcle(mpz_t N, int verbose);
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif

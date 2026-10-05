@@ -26,10 +26,6 @@ either or both sides.
 #include "gmp.h"
 #include "cofactorize.h"
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
-
 	/* prototypes for the subsystem that batch-factors the
 	   portions of relations that contain large primes. The
 	   current system is designed for cofactors containing up to
@@ -190,8 +186,4 @@ extern "C" {  /* yafu-cpp-linkage */
 	   lp_cutoff_[ra] */
 
 	uint32_t relation_batch_run(relation_batch_t* rb, mpz_t prime_prod, uint64_t* lcg_state);
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif /* _YAFU_BATCH_FACTOR_H_ */

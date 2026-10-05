@@ -13,10 +13,6 @@ $Id: util.h 1005 2016-11-11 15:43:21Z jasonp_sf $
 --------------------------------------------------------------------*/
 
 #ifndef _MS_UTIL_H_
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #define _MS_UTIL_H_
 
 /* system-specific stuff ---------------------------------------*/
@@ -414,9 +410,5 @@ enum cpu_type get_cpu_type(void);
 	#define ALIGN_LOOP   ".p2align 4,,7 \n\t" 
 #else
 	#define ALIGN_LOOP /* nothing */
-#endif
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
 #endif
 #endif /* _MS_UTIL_H_ */

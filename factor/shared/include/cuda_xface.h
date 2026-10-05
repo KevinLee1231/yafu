@@ -13,10 +13,6 @@ $Id$
 --------------------------------------------------------------------*/
 
 #ifndef _YAFU_CUDA_XFACE_H_
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #define _YAFU_CUDA_XFACE_H_
 
 #if defined(HAVE_CUDA_POLY) || defined(HAVE_CUDA_LA) || defined(HAVE_CUDA_BATCH_FACTOR)
@@ -113,8 +109,4 @@ void gpu_launch_init(CUmodule gpu_module, const char *func_name,
 void gpu_launch_set(gpu_launch_t *launch, gpu_arg_t *args);
 
 #endif /* HAVE_CUDA */
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif /* !_CUDA_XFACE_H_ */

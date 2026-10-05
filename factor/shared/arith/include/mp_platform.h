@@ -20,10 +20,6 @@ in arith.h, arith.c, monty.h, monty.c, microecm.c and micropm1.c.
 ----------------------------------------------------------------------*/
 
 #ifndef MP_PLATFORM_H
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #define MP_PLATFORM_H
 
 #include <stdint.h>
@@ -622,10 +618,5 @@ MP_FORCE_INLINE uint64_t _trail_full_zcnt(uint64_t n) {
   #define _addcarry_u64  mp_addcarry_u64
   #define _subborrow_u64 mp_subborrow_u64
   #define _subborrow_u32 mp_subborrow_u32
-#endif
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
 #endif
 #endif /* MP_PLATFORM_H */

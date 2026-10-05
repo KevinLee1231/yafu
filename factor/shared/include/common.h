@@ -20,10 +20,6 @@ Purpose:	Port into Yafu-1.14.  Much of the functionality in here
 --------------------------------------------------------------------*/
 
 #ifndef _COMMON_H_
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #define _COMMON_H_
 
 #define _(x) #x
@@ -126,9 +122,5 @@ extern "C" {  /* yafu-cpp-linkage */
 	#define ALIGN_LOOP   ".p2align 4,,7 \n\t" 
 #else
 	#define ALIGN_LOOP /* nothing */
-#endif
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
 #endif
 #endif /* _COMMON_H_ */

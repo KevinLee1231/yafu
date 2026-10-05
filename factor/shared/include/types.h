@@ -19,10 +19,6 @@ code to the public domain.
 ----------------------------------------------------------------------*/
 
 #ifndef my_types
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #define my_types
 
 #include <stdlib.h>
@@ -397,11 +393,6 @@ extern "C" {  /* yafu-cpp-linkage */
 
 	#error "unrecognized compiler"
 
-#endif
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
 #endif
 #endif /* my types */
 

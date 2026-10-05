@@ -31,10 +31,6 @@
  *--------------------------------------------------------------------*/
 
 #ifndef _OCL_XFACE_H
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #define _OCL_XFACE_H
 
 /* Originally gated on HAVE_OCL_BATCH_FACTOR alone (the cofactorization
@@ -184,8 +180,4 @@ void gpu_launch_init(cl_program program, const char *func_name,
 void gpu_launch_set(gpu_launch_t *launch, gpu_arg_t *args);
 
 #endif /* HAVE_OCL_BATCH_FACTOR || HAVE_OCL_POLY */
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif /* _OCL_XFACE_H */

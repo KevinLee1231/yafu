@@ -15,10 +15,6 @@
  */
 
 #ifndef _JACOBI_SUM32_H_
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #define _JACOBI_SUM32_H_
 
 /* The idea to hard code the J(p,q) values is thanks to Jason Moxham.
@@ -5850,9 +5846,4 @@ static const struct jpq_t jpqs[JPQSMAX+1]={
 {232792561,28868,17},
 {232792561,28884,19},
 {0,0,0}};
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif

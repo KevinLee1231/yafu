@@ -17,10 +17,6 @@ $Id: sieve.h 638 2011-09-11 15:31:19Z jasonp_sf $
 
 #include <ms_batch_factor.h>
 #include "gnfs.h"
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #include "savefile.h"
 
 /* factors smaller than the following are not printed */
@@ -56,8 +52,4 @@ double get_log_base(mpz_poly_t *poly,
 uint32 read_last_line(msieve_obj *obj, mpz_t n);
 
 void write_last_line(msieve_obj *obj, mpz_t n, uint32 b);
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif /* _GNFS_SIEVE_SIEVE_H_ */

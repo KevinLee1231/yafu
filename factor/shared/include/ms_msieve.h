@@ -13,10 +13,6 @@ $Id: msieve.h 1008 2016-11-11 17:48:13Z jasonp_sf $
 --------------------------------------------------------------------*/
 
 #ifndef _MSIEVE_H_
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #define _MSIEVE_H_
 
 	/* Lightweight factoring API */
@@ -173,8 +169,4 @@ void msieve_run(msieve_obj *obj);
 #define MSIEVE_DEFAULT_LOGFILE "msieve.log"
 #define MSIEVE_DEFAULT_SAVEFILE "msieve.dat"
 #define MSIEVE_DEFAULT_NFS_FBFILE "msieve.fb"
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif /* _MSIEVE_H_ */

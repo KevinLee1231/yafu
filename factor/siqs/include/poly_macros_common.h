@@ -1,9 +1,5 @@
 #include "common.h"
 #ifndef __aarch64__
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #include <immintrin.h>
 #endif
 
@@ -845,11 +841,6 @@ typedef struct
         root1 -= ((root1 >= prime) * prime); \
         root2 -= ((root2 >= prime) * prime); \
 
-#endif
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
 #endif
 #endif
 

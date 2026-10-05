@@ -1,8 +1,4 @@
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
-
 /*
   Copyright (C) 2001 Jens Franke.
   This file is part of gnfs4linux, distributed under the terms of the 
@@ -23,10 +19,3 @@ void get_sieve_report_bounds(unsigned char**,double*,i32_t,
 			     i32_t,i32_t,i32_t,double,double);
 
 double rpol_eval0(double *p,i32_t d,i32_t x0,u16_t y0);
-
-
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif

@@ -25,7 +25,6 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "gmp-aux.h"
 #include "lasieve_mpqs.h"
 #include "zeit.h"
-#include "siever-asm.h"
 
 int iter=0;
 u64_t stat_asm_eval=0, stat_asm_td=0;

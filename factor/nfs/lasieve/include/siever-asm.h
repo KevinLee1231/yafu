@@ -1,40 +1,41 @@
 #ifndef YAFU_SIEVER_ASM_H
 #define YAFU_SIEVER_ASM_H
 
-/* u32_t / ulong / mpz_t 都来自 siever-config.h（C 侧已经引过 gmp.h，不会重复），
+/* 汇编与 C++ 之间仅存的接口。
+ *
+ * factor/nfs/lasieve/asm 下有 45 个汇编文件，它们提供的符号是裸名字；而
+ * 调用方（ecm.cpp、pm1.cpp、mpqs.cpp、mpqs3.cpp）现在是 C++，不加声明的话
+ * 调用点会被改写成带修饰的名字，链接期找不到。这一层是真实的 C/汇编 ABI
+ * 边界，extern "C" 是长期需要的。
+ *
+ * 别的筛法器接口（lasieve_setup、mpqs_factor、mpqs3_factor、lasieve_run、
+ * mpz_trialdiv）都是 C++ 定义的，声明在各自的头里，用的是普通 C++ 链接，
+ * 不该出现在这里。
+ *
+ * 这两个符号由子 Makefile 按 I 值改名（-Dname=nameI%d 编译六份），头里的
+ * 声明也跟着改，和汇编那一侧对得上。
+ */
+
+/* u32_t / ulong / mpz_t 来自 siever-config.h（它已经引了 gmp.h，不会重复），
  * size_t 来自 stddef.h。这两个必须落在 extern "C" 之外：gmp.h 尾部用
  * std::ostream 声明 operator<<，套进 extern "C" 会报
  * conflicting declaration of C function。 */
 #include "siever-config.h"
 #include <stddef.h>
 
-/* 汇编与 C++ 之间的接口。
- *
- * 这些函数有一半在 factor/nfs/lasieve/asm 的汇编里实现，另一半在筛法器的
- * C++ 文件里实现，但调用方在 C++ 里。声明必须放在头里并带 C 链接，
- * 否则 C++ 会把调用点改写成带修饰的名字，而定义那一侧是汇编/裸名字，
- * 链接期对不上。
- *
- * gcd 和 asm_invert 由汇编提供，并且按 I 值改名（子 Makefile 用
- * -Dname=nameI%d 编译六份），所以这个头只应该被按 I 编译的源包含。
- */
-
 #ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
+extern "C" {  /* yafu-asm-abi */
 #endif
 
-/* 汇编提供：64 位 gcd 与模逆 */
 void gcd(ulong *a, ulong *b, ulong *c);
 int asm_invert(ulong *m, ulong *n);
 
-/* C++ 提供、跨编译单元调用 */
+/* 汇编提供：GMP 试除。gnfs-lasieve4e.cpp 里也有一份同名实现，
+ * 但那段在 #ifndef ASM_MPZ_TD 里，本构建定义了它，所以不生效。 */
 u32_t *mpz_trialdiv(mpz_t N, u32_t *pbuf, u32_t ncp, char *errmsg);
-int mpqs_factor(mpz_t N, size_t max_bits, mpz_t **factors);
-int mpqs3_factor(mpz_t N, size_t max_bits, mpz_t **factors);
-int lasieve_run(int I, int argc, char **argv);
 
 #ifdef __cplusplus
-}  /* yafu-cpp-linkage */
+}  /* yafu-asm-abi */
 #endif
 
 #endif /* YAFU_SIEVER_ASM_H */

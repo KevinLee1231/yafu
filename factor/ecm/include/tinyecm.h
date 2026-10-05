@@ -57,10 +57,6 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 #include <stdint.h>
 #include "gmp.h"
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
-
 
 #ifdef __cplusplus   // C compilers skip this ifdef section
 extern "C" {
@@ -93,11 +89,5 @@ uint8_t MR_2sprp_104x8(uint64_t* n);
 
 #ifdef __cplusplus
 }
-#endif
-
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
 #endif
 #endif

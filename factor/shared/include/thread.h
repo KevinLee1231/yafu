@@ -13,10 +13,6 @@ $Id: thread.h 817 2012-11-11 14:58:29Z jasonp_sf $
 --------------------------------------------------------------------*/
 
 #ifndef _THREAD_H_
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #define _THREAD_H_
 
 #include <util.h>
@@ -106,10 +102,5 @@ int threadpool_drain(struct threadpool *pool,
 
 #ifdef __cplusplus
 }
-#endif
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
 #endif
 #endif /* !_THREAD_H_ */

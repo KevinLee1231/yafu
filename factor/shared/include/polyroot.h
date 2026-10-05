@@ -19,17 +19,9 @@ $Id: polyroot.h 23 2009-07-20 02:59:07Z jasonp_sf $
 #include <dd.h>
 #include <ddcomplex.h>
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
-
 /* extended-precision polynomial rootfinder */
 
 #define MAX_ROOTFINDER_DEGREE 10
 
 uint32 find_poly_roots(dd_t *poly, uint32 degree, dd_complex_t *roots);
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif /* _POLYROOT_H_ */

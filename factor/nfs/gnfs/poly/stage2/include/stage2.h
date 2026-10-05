@@ -17,10 +17,6 @@ $Id: stage2.h 732 2012-08-04 02:32:46Z jasonp_sf $
 
 #include <poly_skew.h>
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
-
 /*-----------------------------------------------------------------------*/
 /* data used in the current polynomial */
 
@@ -287,8 +283,4 @@ typedef struct {
 	assess_t assess;
 	double size_cutoff;
 } stage2_curr_data_t;
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif /* !_STAGE2_H_ */

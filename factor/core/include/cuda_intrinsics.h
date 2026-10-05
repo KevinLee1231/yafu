@@ -1,7 +1,3 @@
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 /*
 MIT License
 
@@ -1705,9 +1701,3 @@ extern "C"
 #endif
 
 #endif /* defined(__CUDACC__) && !defined(CUDA_INTRINSICS_H) */
-
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif

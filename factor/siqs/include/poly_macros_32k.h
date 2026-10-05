@@ -1,8 +1,4 @@
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
-
 
 #define FILL_ONE_PRIME_P(i)					\
 	if (root1 < interval)					\
@@ -249,10 +245,4 @@ extern "C" {  /* yafu-cpp-linkage */
 		"cmpl   %%r13d,%%r9d \n\t"				/* root > interval? */ \
 		"jb		1b \n\t"						/* repeat if necessary */
 
-#endif
-
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
 #endif

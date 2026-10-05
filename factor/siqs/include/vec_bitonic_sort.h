@@ -21,10 +21,6 @@
 // SOFTWARE.
 
 #ifndef _VEC_BITONIC_SORT_H_
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #define _VEC_BITONIC_SORT_H_
 
 #include <stdint.h>
@@ -33,9 +29,4 @@ void bitonic_sort32_dir_64(uint32_t* data, int dir);
 void bitonic_sort32_dir_128(uint32_t* data, int dir);
 void bitonic_sort32_dir_256(uint32_t* data, int dir);
 void bitonic_sort32(uint32_t *data, uint32_t sz, int dir);
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif

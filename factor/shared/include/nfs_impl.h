@@ -31,10 +31,6 @@ code to the public domain.
 #include <stdint.h>
 #include "batch_factor.h"
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
-
 /* Split the work file into per-thread pieces.  yafu 内部使用，
  * 也被 test/standalone/nfs/nfs_review.c 直接调用。 */
 void split_file(int nthreads, char* base_filename, const char* file_extension);
@@ -333,12 +329,6 @@ extern double** snfs_table;
 extern int gnfs_table_rows;
 extern int snfs_table_rows;
 extern double ggnfs_table_Gimarel[GGNFS_TABLE_ROWS_NEW][GGNFS_TABLE_COLS_NEW];
-
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif
 
 

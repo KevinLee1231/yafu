@@ -25,10 +25,6 @@ code to the public domain.
 #include "factor.h"
 #include "gnfs-yafu.h"
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
-
 enum special_q_e
 {
     NEITHER_SPQ,
@@ -100,9 +96,4 @@ extern void remove_algebraic_factors(fact_obj_t* fobj,
     snfs_t* poly, uint64_t* primes, uint64_t num_p, int VFLAG);
 extern void remove_algebraic_factors_lucas(fact_obj_t* fobj,
     snfs_t* poly, uint64_t* primes, uint64_t num_p, int VFLAG);
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif

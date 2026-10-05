@@ -1,8 +1,4 @@
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
-
 #pragma once
 #include <immintrin.h>
 
@@ -36,12 +32,4 @@ __inline __m512i _mm512_rem_epu64(__m512i dividend, __m512i divisor);
 __inline __m512i _mm512_rem_epu32(__m512i dividend, __m512i divisor);
 
 
-#endif
-
-
-
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
 #endif

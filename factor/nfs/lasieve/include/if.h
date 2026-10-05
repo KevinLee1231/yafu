@@ -1,6 +1,6 @@
 
 #ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
+extern "C" {  /* yafu-asm-abi */
 #endif
 
 /*1:*/
@@ -28,10 +28,16 @@ extern "C" {  /* yafu-cpp-linkage */
 #endif
 #endif
 
+/* 这四个名字 yafu 那边也有一套（ytools.h 声明、util.h 定义），
+ * 两边用 YA_ALLOC_DECLARED 约定先到者提供。筛法器自己这套是汇编
+ * 需要的裸名字，所以在这里先把宏定下来让 yafu 那边让位。 */
+#ifndef YA_ALLOC_DECLARED
+#define YA_ALLOC_DECLARED
 void*xmalloc(size_t size);
 void*xvalloc(size_t size);
 void*xcalloc(size_t n,size_t s);
 void*xrealloc(void*x,size_t size);
+#endif /* YA_ALLOC_DECLARED */
 void complain(char*fmt,...);
 void Schlendrian(char*fmt,...);
 void logbook(int l,char*fmt,...);
@@ -103,8 +109,6 @@ typedef unsigned long long ullong;
 
 /*:1*/
 
-
-
 #ifdef __cplusplus
-}  /* yafu-cpp-linkage */
+}  /* yafu-asm-abi */
 #endif

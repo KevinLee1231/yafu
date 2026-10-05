@@ -16,10 +16,6 @@ fail in confusing ways.
 --------------------------------------------------------------------*/
 
 #ifndef _COLLISION_BUCKET_H_
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #define _COLLISION_BUCKET_H_
 
 #include <stdint.h>
@@ -40,9 +36,4 @@ compute_bucket(uint64_t key, int hash_mode) {
 	}
 	return (uint32_t)(key & BUCKET_MASK);
 }
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif /* !_COLLISION_BUCKET_H_ */

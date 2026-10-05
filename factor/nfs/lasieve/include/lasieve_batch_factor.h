@@ -22,7 +22,7 @@ $Id: batch_factor.h 638 2011-09-11 15:31:19Z jasonp_sf $
 #include "gmp.h"
 
 #ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
+extern "C" {  /* yafu-asm-abi */
 #endif
 
 
@@ -183,8 +183,7 @@ void check_batch_relation(relation_batch_t *rb,
 
 uint32_t relation_batch_run(relation_batch_t *rb, uint64_t *lcg_state);
 
-
 #ifdef __cplusplus
-}  /* yafu-cpp-linkage */
+}  /* yafu-asm-abi */
 #endif
 #endif /* _LASIEVE_BATCH_FACTOR_H_ */

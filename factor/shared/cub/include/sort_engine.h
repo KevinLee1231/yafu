@@ -3,10 +3,6 @@
    32-bit unsigned integers */
 
 #ifndef _SORT_ENGINE_H_
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #define _SORT_ENGINE_H_
 
 #include <stdlib.h>
@@ -38,10 +34,5 @@ typedef void (*sort_engine_run_func)(void * engine,
 
 #ifdef __cplusplus
 }
-#endif
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
 #endif
 #endif /* !_SORT_ENGINE_H_ */

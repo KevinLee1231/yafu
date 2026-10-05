@@ -1,10 +1,6 @@
 /*8:*/
 #include "siever-config.h"
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
-
 #include <immintrin.h>
 
 void rec_info_init(u32_t A, u32_t ub);
@@ -17,9 +13,3 @@ u32_t get_recurrence_info_16(u32_t* res_ptr, __m512i p, __m512i r, u32_t FBsize)
 #endif
 
 /*:8*/
-
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif

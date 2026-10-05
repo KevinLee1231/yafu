@@ -1,7 +1,3 @@
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 // SMJS This file should be included at the top of asm files which use C external variables or functions.
 //      It compensates for any name mangling underscores in the C variable names
 #ifndef __UNDERSCORE_H__
@@ -79,9 +75,4 @@ extern "C" {  /* yafu-cpp-linkage */
 #endif
 
 
-#endif
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
 #endif

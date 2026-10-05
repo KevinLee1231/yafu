@@ -40,10 +40,6 @@ SOFTWARE.
 #include "gmp.h"
 #include "factor.h"
 #include "soe.h"
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #include "ytools.h"
 
 // maximum length of strings, or characters in a string to process
@@ -130,11 +126,4 @@ extern char* process_expression(char* input_exp, meta_t* metadata,
 extern void reset_preprocessor(void);
 extern void calc_finalize(void);
 extern int calc_init(uint64_t rand_seed);
-
-
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif /* #ifndef YCALC_H */

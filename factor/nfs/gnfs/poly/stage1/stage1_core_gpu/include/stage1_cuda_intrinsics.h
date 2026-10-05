@@ -1,7 +1,3 @@
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 /*--------------------------------------------------------------------
 This source distribution is placed in the public domain by its author,
 Jason Papadopoulos. You may use it for any purpose, free of charge,
@@ -360,8 +356,3 @@ montmul64_r(uint64 n, uint32 w) {
 #endif
 
 #endif /* defined(__CUDACC__) && !defined(CUDA_INTRINSICS_H) */
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif

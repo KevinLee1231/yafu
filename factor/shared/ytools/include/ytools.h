@@ -23,10 +23,6 @@ SOFTWARE.
 --------------------------------------------------------------------*/
 
 #ifndef _YTOOLS_UTIL_H_
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #define _YTOOLS_UTIL_H_
 
 #include <stdlib.h>
@@ -375,8 +371,4 @@ double ytools_difftime(struct timeval* start, struct timeval* end);
     extern void logprint(FILE* infile, char* args, ...);
     extern void logprint_oc(const char* name, const char* method, char* args, ...);
     extern char* get_full_line(char* line, int* sz, FILE* fid);
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif /* _YTOOLS_UTIL_H_ */

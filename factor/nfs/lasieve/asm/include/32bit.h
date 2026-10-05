@@ -1,6 +1,6 @@
 
 #ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
+extern "C" {  /* yafu-asm-abi */
 #endif
 
 /*
@@ -104,8 +104,6 @@ static inline u32_t modsub32(u32_t subtrahend,u32_t minuend)
 
 #undef MODULO32_ASM
 
-
-
 #ifdef __cplusplus
-}  /* yafu-cpp-linkage */
+}  /* yafu-asm-abi */
 #endif

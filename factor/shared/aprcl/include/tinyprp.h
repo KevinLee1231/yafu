@@ -1,7 +1,3 @@
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #pragma once
 /*
 Copyright (c) 2014, Ben Buhrow
@@ -89,14 +85,3 @@ uint8_t MR_sprp_104x8base(uint64_t* n, uint64_t* one, uint64_t* bases);
 
 // test routine for the above
 int test_tinyprp(void);
-
-
-
-
-
-
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif

@@ -1,7 +1,3 @@
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 /* core_types.h — 核心侧的定长大数与共享结构
  *
  * 这里定义 mp_t / signed_mp_t，容量 MAX_MP_WORDS = 64（2048 位），
@@ -190,10 +186,3 @@ msieve_obj* msieve_obj_new(char* input_integer,
 	const char* nfs_args);
 
 msieve_obj* msieve_obj_free(msieve_obj* obj);
-
-
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif

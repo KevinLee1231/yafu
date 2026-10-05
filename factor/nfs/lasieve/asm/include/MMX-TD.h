@@ -1,6 +1,6 @@
 
 #ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
+extern "C" {  /* yafu-asm-abi */
 #endif
 
 
@@ -16,8 +16,6 @@ MMX_TdUpdate(int side,int j_step);
 u32_t *
 MMX_Td(u32_t *pbuf,int side,u16_t strip_i);
 
-
-
 #ifdef __cplusplus
-}  /* yafu-cpp-linkage */
+}  /* yafu-asm-abi */
 #endif

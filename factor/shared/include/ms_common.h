@@ -18,10 +18,6 @@ $Id: common.h 1025 2018-08-19 02:20:28Z jasonp_sf $
 #include <ms_msieve.h>
 #include <ms_gmp_xface.h>
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
-
 #ifdef HAVE_MPI
 	#define MAX_MPI_GRID_DIM 35
 
@@ -395,8 +391,4 @@ typedef struct {
 void dickman_init(dickman_t *aux);
 void dickman_free(dickman_t *aux);
 double dickman(dickman_t *aux, double arg);
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif /* _MS_MS_COMMON_H_ */

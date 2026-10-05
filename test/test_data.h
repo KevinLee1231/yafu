@@ -18,10 +18,6 @@
  Public domain.
 ----------------------------------------------------------------------*/
 #ifndef YAFU_TEST_DATA_H
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #define YAFU_TEST_DATA_H
 
 #include <stdint.h>
@@ -54,8 +50,4 @@ extern const int             tk_semiprimes_u64_count;
 
 /* The module descriptor for the corpus self-check (Layer -1). */
 extern const tk_module tk_module_selfcheck;
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif /* YAFU_TEST_DATA_H */

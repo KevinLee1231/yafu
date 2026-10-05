@@ -13,10 +13,6 @@ $Id: integrate.h 23 2009-07-20 02:59:07Z jasonp_sf $
 --------------------------------------------------------------------*/
 
 #ifndef _INTEGRATE_H_
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #define _INTEGRATE_H_
 
 #include "util.h"
@@ -60,8 +56,4 @@ void integrate_free(integrate_t *aux);
 
 uint32 integrate_run(integrate_t *aux, integrand_t func, void *params,
 			double *endpoints, uint32 num_endpoints);
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif /* !_INTEGRATE_H_ */

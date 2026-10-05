@@ -52,10 +52,6 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 
 #ifndef _MICROECM_H_
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #define _MICROECM_H_
 
 #include <stdint.h>
@@ -87,11 +83,5 @@ int prp_uecm(uint64_t n);
 
 #ifdef __cplusplus
 }
-#endif
-
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
 #endif
 #endif

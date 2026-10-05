@@ -13,10 +13,6 @@ $Id: cpu_intrinsics.h 680 2011-11-24 16:25:27Z jasonp_sf $
 --------------------------------------------------------------------*/
 
 #ifndef HT_INTRINSICS_H
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #define HT_INTRINSICS_H
 
 #include <mp.h>
@@ -161,11 +157,6 @@ montmul64_r(uint64 n)
 
 #ifdef __cplusplus
 }
-#endif
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
 #endif
 #endif /* !HT_INTRINSICS_H */
 

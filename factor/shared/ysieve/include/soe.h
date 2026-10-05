@@ -36,10 +36,6 @@ SOFTWARE.
 #endif
 
 #include "gmp.h"
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #include "ytools.h"
 
 #define USE_SOE_THREADPOOL
@@ -260,10 +256,4 @@ extern uint64_t* sieve_to_depth(soe_staticdata_t* sdata,
     mpz_t lowlimit, mpz_t highlimit, int count, int num_witnesses, 
     uint64_t sieve_limit, uint64_t* num_p,
     int PRIMES_TO_FILE, int PRIMES_TO_SCREEN);
-
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif // #ifndef SOE_H

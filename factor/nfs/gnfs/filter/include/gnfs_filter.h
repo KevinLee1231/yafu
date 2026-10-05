@@ -19,10 +19,6 @@ $Id: filter.h 23 2009-07-20 02:59:07Z jasonp_sf $
 #include <factor/shared/common/filter/include/filter.h>
 #include "gnfs.h"
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
-
 /* create '<savefile_name>.d', a binary file containing
    the line numbers of duplicated or corrupted relations.
    Duplicate removal only applies to the first max_relations
@@ -42,8 +38,4 @@ uint32 nfs_purge_duplicates(msieve_obj *obj, factor_base_t *fb,
 void nfs_write_lp_file(msieve_obj *obj, factor_base_t *fb,
 			filter_t *filter, uint32 max_relations,
 			uint32 pass);
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif /* _GNFS_FILTER_FILTER_H_ */

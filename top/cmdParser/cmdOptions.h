@@ -29,10 +29,6 @@ SOFTWARE.
 // ============================================================================
 
 #ifndef CMD_PARSE_H
-
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #define CMD_PARSE_H
 
 #include <stdint.h>
@@ -230,8 +226,4 @@ extern options_t* initOpt(void);
 extern void applyOpt(char* opt, char* arg, options_t* options);
 extern int processOpts(int argc, char** argv, options_t* options);
 extern int readINI(const char* filename, options_t* options);
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif /* #ifndef CMD_PARSE_H */

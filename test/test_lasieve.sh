@@ -26,7 +26,7 @@ INC="-I. -Ifactor/nfs/lasieve -Ifactor/nfs/lasieve/asm \
 -Ifactor/shared/include -Ifactor/ecm/include -Ifactor/shared/ytools/include \
 -Ifactor/shared/aprcl/include"
 
-# 编译测试驱动（驱动与被测源同为 C++）
+# 编译测试驱动
 compile()
 {
     "$cxx" $cxxflags -D_GNU_SOURCE -UNDEBUG "$@"
@@ -66,12 +66,19 @@ compile -DNEED_ASPRINTF $INC \
 # batch_tree_regression 和 process_batch_helpers_regression 直接 #include 了
 # 被测源文件本身（为了够到里面的 static 函数），所以它们必须和被测源用同一种
 # 语言编译 —— 现在被测源是 C++，这两个驱动也按 C++ 编。
+#
+# batch_factor.cpp 里的 xrealloc 走的是 yafu 那一路：util.h 用
+# YA_ALLOC_DECLARED 和 ytools.h 二选一，先到的提供实现，所以符号是 C++ 链接的
+# _Z8xreallocPvm，定义在 factor/shared/ytools/ytools.cpp。筛法器 if.cpp 里另有
+# 一份同名实现，走 if.h 的 extern "C"，是给筛法器内部用的 —— 两者互不干涉，
+# 但驱动要链上前者，所以 ytools.o 得一起链上。
 ASAN_OPTS="-fsanitize=address -ffunction-sections -fdata-sections"
 ASAN_BAIL=$(compile_cxx asan factor/nfs/lasieve/lasieve_bail.cpp $ASAN_OPTS)
 ASAN_IF=$(compile_cxx asan factor/nfs/lasieve/if.cpp $ASAN_OPTS)
-"$cxx" $cxxflags -D_GNU_SOURCE -UNDEBUG $INC $ASAN_OPTS \
+ASAN_YTOOLS=$(compile_cxx asan factor/shared/ytools/ytools.cpp $ASAN_OPTS)
+compile $INC $ASAN_OPTS \
     test/standalone/lasieve/batch_tree_regression.cpp \
-    "$ASAN_BAIL" "$ASAN_IF" -Wl,--gc-sections -lgmp -lm \
+    "$ASAN_BAIL" "$ASAN_IF" "$ASAN_YTOOLS" -Wl,--gc-sections -lgmp -lm \
     -o "$build_dir/batch_tree_regression"
 ASAN_OPTIONS=detect_leaks=1 "$build_dir/batch_tree_regression"
 
@@ -81,8 +88,7 @@ compile -Wformat=2 $INC \
     -lgmp -o "$build_dir/input_poly_regression"
 "$build_dir/input_poly_regression"
 
-"$cxx" $cxxflags -D_GNU_SOURCE -UNDEBUG $INC \
-    -ffunction-sections -fdata-sections \
+compile -ffunction-sections -fdata-sections $INC \
     test/standalone/lasieve/process_batch_helpers_regression.cpp \
     -Wl,--gc-sections -lgmp -o "$build_dir/process_batch_helpers_regression"
 "$build_dir/process_batch_helpers_regression"

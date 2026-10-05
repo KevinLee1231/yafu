@@ -1,8 +1,4 @@
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
-
 /*
 Copyright (C) 2001 Jens Franke, T. Kleinjung.
 This file is part of gnfs4linux, distributed under the terms of the
@@ -58,12 +54,3 @@ int ecm(ecm_t e, mpz_t **fptr);
 
 /* free allocated memory: */
 void ecm_curve_clear(ecm_t e);
-
-
-
-
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif

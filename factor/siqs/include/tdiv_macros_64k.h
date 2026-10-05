@@ -1,8 +1,4 @@
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
-
 #if defined(GCC_ASM32X) || defined(GCC_ASM64X) || defined(__MINGW32__)
 
 	#define MOD_INIT_8X												\
@@ -315,10 +311,4 @@ extern "C" {  /* yafu-cpp-linkage */
 			RESIEVE_1X_16BIT_MAX(0x8000);									\
 			RESIEVE_1X_16BIT_MAX(0x8000);									\
 		} while (0); 
-#endif
-
-
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
 #endif

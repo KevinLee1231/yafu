@@ -23,10 +23,6 @@ $Id: dd.h 849 2013-03-09 08:02:27Z brgladman $
 #include <mp.h>
 #include <ms_gmp_xface.h>
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
-
    /* These routines *require* IEEE 53-bit double precision,
       even on x86 processors that support higher precision */
 
@@ -442,8 +438,4 @@ static INLINE void dd_dd2mp(dd_t d, mp_t *x) {
 #endif
 
 }
-
-#ifdef __cplusplus
-}  /* yafu-cpp-linkage */
-#endif
 #endif /* _DD_H_ */
