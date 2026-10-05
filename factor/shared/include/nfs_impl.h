@@ -35,6 +35,13 @@ code to the public domain.
 extern "C" {  /* yafu-cpp-linkage */
 #endif
 
+/* Split the work file into per-thread pieces.  yafu 内部使用，
+ * 也被 test/standalone/nfs/nfs_review.c 直接调用。 */
+void split_file(int nthreads, char* base_filename, const char* file_extension);
+
+/* Trial division of a 64-bit value，同样被 standalone review 直接调用。 */
+int tdiv_int(int x, int *factors, uint64_t *primes, uint64_t num_p);
+
 #ifdef HAVE_CUDA_BATCH_FACTOR
 #include "gpu_cofactorization.h"
 #endif

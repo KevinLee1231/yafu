@@ -825,43 +825,43 @@ cxx_no   = $(foreach s,$(1),$(if $(filter %.cpp,$(s)),$(s:.cpp=$(NO_EXT)),$(s:.c
 # 12. MSIEVE / YAFU shared sources
 # -----------------------------------------------------------------------------
 MSIEVE_YAFU_SRCS = \
-    factor/siqs/msieve/lanczos.c \
-    factor/siqs/msieve/lanczos_matmul0.c \
-    factor/siqs/msieve/lanczos_matmul1.c \
-    factor/siqs/msieve/lanczos_matmul2.c \
-    factor/siqs/msieve/lanczos_pre.c \
-    factor/siqs/msieve/sqrt.c \
-    factor/siqs/msieve/gf2.c
+    factor/siqs/msieve/lanczos.cpp \
+    factor/siqs/msieve/lanczos_matmul0.cpp \
+    factor/siqs/msieve/lanczos_matmul1.cpp \
+    factor/siqs/msieve/lanczos_matmul2.cpp \
+    factor/siqs/msieve/lanczos_pre.cpp \
+    factor/siqs/msieve/sqrt.cpp \
+    factor/siqs/msieve/gf2.cpp
 
 MSIEVE_YAFU_OBJS = $(call cxx_objs,$(MSIEVE_YAFU_SRCS))
 # -----------------------------------------------------------------------------
 # 13. YAFU top-level sources
 # -----------------------------------------------------------------------------
 YAFU_SRCS = \
-    top/driver.c \
-    top/test.c \
-    factor/core/tune.c \
-    factor/core/autofactor.c \
-    top/cmdParser/cmdOptions.c \
-    top/cmdParser/calc.c
+    top/driver.cpp \
+    top/test.cpp \
+    factor/core/tune.cpp \
+    factor/core/autofactor.cpp \
+    top/cmdParser/cmdOptions.cpp \
+    top/cmdParser/calc.cpp
 
 
 # -----------------------------------------------------------------------------
 # 14. COMMON (shared across yafu targets)
 # -----------------------------------------------------------------------------
 COMMON_SRCS = \
-    factor/core/batch_factor.c \
-    factor/core/factor_common.c \
-    factor/trialdiv/rho.c \
-    factor/trialdiv/squfof.c \
-    factor/trialdiv/trialdiv.c \
+    factor/core/batch_factor.cpp \
+    factor/core/factor_common.cpp \
+    factor/trialdiv/rho.cpp \
+    factor/trialdiv/squfof.cpp \
+    factor/trialdiv/trialdiv.cpp \
     factor/shared/arith/arith.cpp \
     factor/shared/arith/monty.cpp \
     factor/shared/arith/fftmul.cpp \
     factor/shared/aprcl/tinyprp.cpp \
-    factor/ecm/tinyecm.c \
-    factor/ecm/micropm1.c \
-    factor/ecm/microecm.c \
+    factor/ecm/tinyecm.cpp \
+    factor/ecm/micropm1.cpp \
+    factor/ecm/microecm.cpp \
     factor/shared/ytools/threadpool.cpp \
     factor/shared/ytools/ytools.cpp \
     factor/shared/ysieve/presieve.cpp \
@@ -876,7 +876,7 @@ COMMON_SRCS = \
     factor/shared/ysieve/soe_util.cpp \
     factor/shared/ysieve/wrapper.cpp \
     factor/shared/aprcl/mpz_aprcl.cpp \
-    factor/core/gpu_cofactorization.c \
+    factor/core/gpu_cofactorization.cpp \
 	factor/shared/common/vec_bitonic_sort.cpp
 
 COMMON_BATCH_GPU_SRCS = \
@@ -888,59 +888,59 @@ COMMON_BATCH_GPU_SRCS = \
 # 15. ECM sources
 # -----------------------------------------------------------------------------
 ECM_SRCS = \
-    factor/ecm/ecm.c \
-    factor/ecm/pp1.c \
-    factor/ecm/pm1.c \
-    factor/ecm/avxecm.c \
-    factor/ecm/avx_ecm_main.c \
+    factor/ecm/ecm.cpp \
+    factor/ecm/pp1.cpp \
+    factor/ecm/pm1.cpp \
+    factor/ecm/avxecm.cpp \
+    factor/ecm/avx_ecm_main.cpp \
     factor/ecm/vec_common.cpp \
-    factor/ecm/vecarith.c \
-    factor/ecm/vecarith52.c \
-    factor/ecm/vecarith52_special.c \
-    factor/ecm/vecarith52_common.c
+    factor/ecm/vecarith.cpp \
+    factor/ecm/vecarith52.cpp \
+    factor/ecm/vecarith52_special.cpp \
+    factor/ecm/vecarith52_common.cpp
 
 
 # -----------------------------------------------------------------------------
 # 16. SIQS sources  (base + ISA-specific additions)
 # -----------------------------------------------------------------------------
 YAFU_SIQS_SRCS = \
-    factor/siqs/filter.c \
-    factor/siqs/tdiv.c \
-    factor/siqs/tdiv_small.c \
-    factor/siqs/tdiv_large.c \
-    factor/siqs/tdiv_scan.c \
-    factor/siqs/large_sieve.c \
-    factor/siqs/new_poly.c \
-    factor/siqs/siqs_test.c \
-    factor/siqs/siqs_aux.c \
-    factor/pmpqs/pmpqs.c \
-    factor/siqs/SIQS.c \
-    factor/siqs/med_sieve_32k.c \
-    factor/siqs/poly_roots_32k.c \
-    factor/siqs/cofactorize_siqs.c
+    factor/siqs/filter.cpp \
+    factor/siqs/tdiv.cpp \
+    factor/siqs/tdiv_small.cpp \
+    factor/siqs/tdiv_large.cpp \
+    factor/siqs/tdiv_scan.cpp \
+    factor/siqs/large_sieve.cpp \
+    factor/siqs/new_poly.cpp \
+    factor/siqs/siqs_test.cpp \
+    factor/siqs/siqs_aux.cpp \
+    factor/pmpqs/pmpqs.cpp \
+    factor/siqs/SIQS.cpp \
+    factor/siqs/med_sieve_32k.cpp \
+    factor/siqs/poly_roots_32k.cpp \
+    factor/siqs/cofactorize_siqs.cpp
 
 ifeq ($(USE_SSE41),1)
     YAFU_SIQS_SRCS += \
-        factor/siqs/update_poly_roots_32k_sse4.1.c \
-        factor/siqs/med_sieve_32k_sse4.1.c
+        factor/siqs/update_poly_roots_32k_sse4.1.cpp \
+        factor/siqs/med_sieve_32k_sse4.1.cpp
 endif
 
 ifeq ($(USE_AVX2),1)
     YAFU_SIQS_SRCS += \
-        factor/siqs/tdiv_med_32k_avx2.c \
-        factor/siqs/update_poly_roots_32k_avx2.c \
-        factor/siqs/med_sieve_32k_avx2.c \
-        factor/siqs/tdiv_resieve_32k_avx2.c
+        factor/siqs/tdiv_med_32k_avx2.cpp \
+        factor/siqs/update_poly_roots_32k_avx2.cpp \
+        factor/siqs/med_sieve_32k_avx2.cpp \
+        factor/siqs/tdiv_resieve_32k_avx2.cpp
 endif
 
 ifeq ($(USE_AVX512),1)
-    YAFU_SIQS_SRCS += factor/siqs/update_poly_roots_32k_knl.c
+    YAFU_SIQS_SRCS += factor/siqs/update_poly_roots_32k_knl.cpp
 endif
 
 # Always-included generic SIQS files (appended after any ISA variants)
 YAFU_SIQS_SRCS += \
-    factor/siqs/update_poly_roots_32k.c \
-    factor/siqs/tdiv_med_32k.c \
+    factor/siqs/update_poly_roots_32k.cpp \
+    factor/siqs/tdiv_med_32k.cpp \
     factor/siqs/tdiv_resieve_32k.cpp
 
 
@@ -948,58 +948,58 @@ YAFU_SIQS_SRCS += \
 # 18. NFS sources
 # -----------------------------------------------------------------------------
 YAFU_NFS_SRCS = \
-    factor/nfs/nfs_sieving.c \
-    factor/nfs/nfs_poly.c \
-    factor/nfs/nfs_postproc.c \
-    factor/nfs/nfs_filemanip.c \
-    factor/nfs/nfs_threading.c \
-    factor/nfs/snfs.c \
-    factor/nfs/nfs.c
+    factor/nfs/nfs_sieving.cpp \
+    factor/nfs/nfs_poly.cpp \
+    factor/nfs/nfs_postproc.cpp \
+    factor/nfs/nfs_filemanip.cpp \
+    factor/nfs/nfs_threading.cpp \
+    factor/nfs/snfs.cpp \
+    factor/nfs/nfs.cpp
 
 ifdef BATCH_CUDA
     YAFU_NFS_SRCS += factor/shared/common/cuda_xface.cpp
 endif
 
 NFS_SRCS = \
-    factor/nfs/gnfs/poly/poly.c \
-    factor/nfs/gnfs/poly/poly_param.c \
-    factor/nfs/gnfs/poly/poly_skew.c \
-	factor/nfs/gnfs/poly/poly_stats.c \
-    factor/nfs/gnfs/poly/polyutil.c \
-    factor/nfs/gnfs/poly/root_score.c \
-    factor/nfs/gnfs/poly/size_score.c \
-	factor/nfs/gnfs/poly/stage1/stage1_sieve_cpu_hashtable.c \
-	factor/nfs/gnfs/poly/stage1/stage1_sieve_cpu.c \
-	factor/nfs/gnfs/poly/stage1/stage1_engine.c \
-    factor/nfs/gnfs/poly/stage1/stage1.c \
-    factor/nfs/gnfs/poly/stage1/stage1_roots.c \
-    factor/nfs/gnfs/poly/stage2/optimize.c \
-    factor/nfs/gnfs/poly/stage2/optimize_deg6.c \
-    factor/nfs/gnfs/poly/stage2/root_sieve.c \
-    factor/nfs/gnfs/poly/stage2/root_sieve_deg45_x.c \
-    factor/nfs/gnfs/poly/stage2/root_sieve_deg5_xy.c \
-    factor/nfs/gnfs/poly/stage2/root_sieve_deg6_x.c \
-    factor/nfs/gnfs/poly/stage2/root_sieve_deg6_xy.c \
-    factor/nfs/gnfs/poly/stage2/root_sieve_deg6_xyz.c \
-    factor/nfs/gnfs/poly/stage2/root_sieve_line.c \
-    factor/nfs/gnfs/poly/stage2/root_sieve_util.c \
-    factor/nfs/gnfs/poly/stage2/stage2.c \
-    factor/nfs/gnfs/filter/duplicate.c \
-    factor/nfs/gnfs/filter/filter.c \
-    factor/nfs/gnfs/filter/singleton.c \
-    factor/nfs/gnfs/sieve/sieve_line.c \
-    factor/nfs/gnfs/sieve/sieve_util.c \
-    factor/nfs/gnfs/sqrt/sqrt.c \
-    factor/nfs/gnfs/sqrt/sqrt_a.c \
-    factor/nfs/gnfs/fb.c \
-    factor/nfs/gnfs/ffpoly.c \
-    factor/nfs/gnfs/gf2.c \
-    factor/nfs/gnfs/gnfs.c \
-    factor/nfs/gnfs/relation.c
+    factor/nfs/gnfs/poly/poly.cpp \
+    factor/nfs/gnfs/poly/poly_param.cpp \
+    factor/nfs/gnfs/poly/poly_skew.cpp \
+	factor/nfs/gnfs/poly/poly_stats.cpp \
+    factor/nfs/gnfs/poly/polyutil.cpp \
+    factor/nfs/gnfs/poly/root_score.cpp \
+    factor/nfs/gnfs/poly/size_score.cpp \
+	factor/nfs/gnfs/poly/stage1/stage1_sieve_cpu_hashtable.cpp \
+	factor/nfs/gnfs/poly/stage1/stage1_sieve_cpu.cpp \
+	factor/nfs/gnfs/poly/stage1/stage1_engine.cpp \
+    factor/nfs/gnfs/poly/stage1/stage1.cpp \
+    factor/nfs/gnfs/poly/stage1/stage1_roots.cpp \
+    factor/nfs/gnfs/poly/stage2/optimize.cpp \
+    factor/nfs/gnfs/poly/stage2/optimize_deg6.cpp \
+    factor/nfs/gnfs/poly/stage2/root_sieve.cpp \
+    factor/nfs/gnfs/poly/stage2/root_sieve_deg45_x.cpp \
+    factor/nfs/gnfs/poly/stage2/root_sieve_deg5_xy.cpp \
+    factor/nfs/gnfs/poly/stage2/root_sieve_deg6_x.cpp \
+    factor/nfs/gnfs/poly/stage2/root_sieve_deg6_xy.cpp \
+    factor/nfs/gnfs/poly/stage2/root_sieve_deg6_xyz.cpp \
+    factor/nfs/gnfs/poly/stage2/root_sieve_line.cpp \
+    factor/nfs/gnfs/poly/stage2/root_sieve_util.cpp \
+    factor/nfs/gnfs/poly/stage2/stage2.cpp \
+    factor/nfs/gnfs/filter/duplicate.cpp \
+    factor/nfs/gnfs/filter/filter.cpp \
+    factor/nfs/gnfs/filter/singleton.cpp \
+    factor/nfs/gnfs/sieve/sieve_line.cpp \
+    factor/nfs/gnfs/sieve/sieve_util.cpp \
+    factor/nfs/gnfs/sqrt/sqrt.cpp \
+    factor/nfs/gnfs/sqrt/sqrt_a.cpp \
+    factor/nfs/gnfs/fb.cpp \
+    factor/nfs/gnfs/ffpoly.cpp \
+    factor/nfs/gnfs/gf2.cpp \
+    factor/nfs/gnfs/gnfs.cpp \
+    factor/nfs/gnfs/relation.cpp
 
-NFS_GPU_SRCS  = factor/nfs/gnfs/poly/stage1/stage1_sieve_gpu.c
+NFS_GPU_SRCS  = factor/nfs/gnfs/poly/stage1/stage1_sieve_gpu.cpp
 NFS_NOGPU_SRCS = 
-#factor/nfs/gnfs/poly/stage1/stage1_sieve_cpu.c
+#factor/nfs/gnfs/poly/stage1/stage1_sieve_cpu.cpp
 
 ifeq ($(CUDA_POLY),1)
     NFS_SRCS += $(NFS_GPU_SRCS)
@@ -1049,7 +1049,7 @@ MSIEVE_COMMON_SRCS = \
     factor/shared/aprcl/mpz_aprcl32.cpp
 	
 ifeq ($(OS),Windows_NT)
-	MSIEVE_COMMON_SRCS += factor/shared/common/mpz-ull.c
+	MSIEVE_COMMON_SRCS += factor/shared/common/mpz-ull.cpp
 endif
 
 COMMON_GPU_SRCS = \
@@ -1075,14 +1075,14 @@ endif
 #     mpqs.h and yafu disagree on the size of mp_t)
 # -----------------------------------------------------------------------------
 QS_SRCS = \
-    factor/mpqs/gf2.c \
-    factor/mpqs/mpqs.c \
-    factor/mpqs/mpqs_xface.c \
-    factor/mpqs/poly.c \
-    factor/mpqs/relation.c \
-    factor/mpqs/sieve.c \
-    factor/mpqs/sieve_core.c \
-    factor/mpqs/sqrt.c
+    factor/mpqs/gf2.cpp \
+    factor/mpqs/mpqs.cpp \
+    factor/mpqs/mpqs_xface.cpp \
+    factor/mpqs/poly.cpp \
+    factor/mpqs/relation.cpp \
+    factor/mpqs/sieve.cpp \
+    factor/mpqs/sieve_core.cpp \
+    factor/mpqs/sqrt.cpp
 
 
 # -----------------------------------------------------------------------------
@@ -1364,7 +1364,7 @@ test-sanitize:
 test-calc-sanitize: _dep_status $(ARCHIVES) $(TEST_FRONTEND_OBJS)
 	$(CC) $(CFLAGS) -O1 -fsanitize=address,undefined -fno-omit-frame-pointer \
 	    -DTK_WITH_LAYER3 -I$(TEST_DIR) $(TEST_SRCS) $(TEST_L3_SRCS) \
-	    top/cmdParser/calc.c factor/core/factor_common.c \
+	    top/cmdParser/calc.cpp factor/core/factor_common.cpp \
 	    $(filter-out top/cmdParser/calc$(OBJ_EXT),$(TEST_FRONTEND_OBJS)) \
 	    -o $(TEST_SAN_BIN) $(ARCHIVES) $(LIBS)
 	./$(TEST_SAN_BIN) calc
@@ -1430,14 +1430,14 @@ CXXFLAGS := $(filter-out -std=gnu11,$(CFLAGS)) -std=c++26
 	$(CXX) $(CXXFLAGS) -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
 
 # QS objects (.qo) — also get dependency files now
-factor/mpqs/sieve_core_generic_32k.qo: factor/mpqs/sieve_core.c | $(DEPS_SUBDIRS)
-	$(CC) $(CFLAGS) -DBLOCK_KB=32 -DHAS_SSE2 \
+factor/mpqs/sieve_core_generic_32k.qo: factor/mpqs/sieve_core.cpp | $(DEPS_SUBDIRS)
+	$(CXX) $(CXXFLAGS) -DBLOCK_KB=32 -DHAS_SSE2 \
 	    -DROUTINE_NAME=qs_core_sieve_generic_32k \
 	    -MMD -MP -MF $(DEPS_DIR)/factor/mpqs/sieve_core_generic_32k.d \
 	    -c -o $@ $<
 
-factor/mpqs/sieve_core_generic_64k.qo: factor/mpqs/sieve_core.c | $(DEPS_SUBDIRS)
-	$(CC) $(CFLAGS) -DBLOCK_KB=64 -DHAS_SSE2 \
+factor/mpqs/sieve_core_generic_64k.qo: factor/mpqs/sieve_core.cpp | $(DEPS_SUBDIRS)
+	$(CXX) $(CXXFLAGS) -DBLOCK_KB=64 -DHAS_SSE2 \
 	    -DROUTINE_NAME=qs_core_sieve_generic_64k \
 	    -MMD -MP -MF $(DEPS_DIR)/factor/mpqs/sieve_core_generic_64k.d \
 	    -c -o $@ $<
@@ -1445,11 +1445,14 @@ factor/mpqs/sieve_core_generic_64k.qo: factor/mpqs/sieve_core.c | $(DEPS_SUBDIRS
 %.qo: %.c | $(DEPS_SUBDIRS)
 	$(CC) $(CFLAGS) -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
 
+%.qo: %.cpp | $(DEPS_SUBDIRS)
+	$(CXX) $(CXXFLAGS) -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
+
 # NFS objects (.no) — add -Ifactor/nfs/gnfs for NFS-internal includes
 %.no: %.c | $(DEPS_SUBDIRS)
 	$(CC) $(CFLAGS) -Ifactor/nfs/gnfs -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
 %.no: %.cpp | $(DEPS_SUBDIRS)
-	$(CC) $(CFLAGS) -Ifactor/nfs/gnfs -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
+	$(CXX) $(CXXFLAGS) -Ifactor/nfs/gnfs -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
 
 # GPU / PTX rules
 stage1_core.ptx: factor/nfs/gnfs/poly/stage1/stage1_core_gpu/stage1_core.cu $(NFS_GPU_HDR)

@@ -52,7 +52,7 @@ static int isoperator(int c) {
 /*---------------------------------------------------------------------*/
 static int find_precedence(int op_symbol) {
 
-	char *p = strchr(operator_list, op_symbol);
+	char *p = (char*)strchr(operator_list, op_symbol);
 	if (p) {
 		return precedence[p - operator_list];
 	}
@@ -104,18 +104,18 @@ static int stack_pop(eval_stack_t *stack) {
 }
 
 /*---------------------------------------------------------------------*/
-static void *eval_stack_top(eval_stack_t *stack, int pos) {
+static char *eval_stack_top(eval_stack_t *stack, int pos) {
 
 	if (stack->num_used)
-		return stack->base[stack->num_used - pos - 1];
+		return (char *)stack->base[stack->num_used - pos - 1];
 	return NULL;
 }
 
 /*---------------------------------------------------------------------*/
-static void *stack_pos(eval_stack_t *stack, int pos)
+static char *stack_pos(eval_stack_t *stack, int pos)
 {
 	if (pos < stack->num_used)
-		return stack->base[pos];
+		return (char *)stack->base[pos];
 	return NULL;
 }
 

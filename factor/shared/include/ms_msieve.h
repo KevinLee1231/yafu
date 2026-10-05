@@ -19,10 +19,6 @@ extern "C" {  /* yafu-cpp-linkage */
 #endif
 #define _MSIEVE_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 	/* Lightweight factoring API */
 
 #include <util.h>
@@ -107,7 +103,6 @@ enum msieve_flags {
 						   then stop */
 };
 
-
 /* One factorization is represented by a msieve_obj
    structure. This contains all the static information
    that gets passed from one stage of the factorization
@@ -130,7 +125,6 @@ typedef struct {
 				      is to keep sieving until all necessary 
 				      relations are found. */
 	uint32 which_gpu;         /* ordinal ID of GPU to use */
-
 
 	uint32 cache_size1;       /* bytes in level 1 cache */
 	uint32 cache_size2;       /* bytes in level 2 cache */
@@ -179,11 +173,6 @@ void msieve_run(msieve_obj *obj);
 #define MSIEVE_DEFAULT_LOGFILE "msieve.log"
 #define MSIEVE_DEFAULT_SAVEFILE "msieve.dat"
 #define MSIEVE_DEFAULT_NFS_FBFILE "msieve.fb"
-
-#ifdef __cplusplus
-}
-#endif
-
 
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */

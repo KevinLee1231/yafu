@@ -666,7 +666,7 @@ void nextRoots_32k_avx2(static_conf_t *sconf, dynamic_conf_t *dconf)
             "9:		\n\t"				\
             "movl	%%r15d, %%eax \n\t" \
             :  \
-            : "g"(&helperstruct) \
+            : "m"(helperstruct) \
             : "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "r13", "r14", "r15",
             "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm10", "xmm11", "xmm13", "xmm14", "xmm15", "memory", "cc");
 
@@ -1059,7 +1059,7 @@ void nextRoots_32k_avx2(static_conf_t *sconf, dynamic_conf_t *dconf)
             "9:		\n\t"				\
             "movl	%%r15d, %%eax \n\t" \
             :  \
-            : "g"(&helperstruct) \
+            : "m"(helperstruct) \
             : "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "r13", "r14", "r15",
             "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm10", "xmm11", "xmm13", "xmm14", "xmm15", "memory", "cc");
 
@@ -1445,7 +1445,7 @@ void nextRoots_32k_avx2(static_conf_t *sconf, dynamic_conf_t *dconf)
             "9:		\n\t"				\
             "movl	%%r15d, %%eax \n\t" \
             :  \
-            : "g"(&helperstruct) \
+            : "m"(helperstruct) \
             : "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "r13", "r14", "r15", 
             "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "memory", "cc");
 
@@ -1835,7 +1835,7 @@ void nextRoots_32k_avx2(static_conf_t *sconf, dynamic_conf_t *dconf)
             "9:		\n\t"				\
             "movl	%%r15d, %%eax \n\t" \
             :  \
-            : "g"(&helperstruct) \
+            : "m"(helperstruct) \
             : "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "r13", "r14", "r15",
             "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm10", "xmm11", "xmm13", "xmm14", "xmm15", "memory", "cc");
 
@@ -2283,7 +2283,7 @@ void nextRoots_32k_avx2_intrin(static_conf_t* sconf, dynamic_conf_t* dconf)
             "9:		\n\t"				\
             "movl	%%r15d, %%eax \n\t" \
             :  \
-            : "g"(&helperstruct) \
+            : "m"(helperstruct) \
             : "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "r13", "r14", "r15",
             "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm10", "xmm11", "xmm13", "xmm14", "xmm15", "memory", "cc");
 
@@ -2865,7 +2865,7 @@ void nextRoots_32k_avx2_intrin(static_conf_t* sconf, dynamic_conf_t* dconf)
             "9:		\n\t"				\
             "movl	%%r15d, %%eax \n\t" \
             :  \
-            : "g"(&helperstruct) \
+            : "m"(helperstruct) \
             : "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "r13", "r14", "r15",
             "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "memory", "cc");
 

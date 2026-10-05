@@ -59,12 +59,12 @@ void vec_bignum_mask_rshift_n(vec_bignum_t* u, vec_bignum_t* v, int n, uint32_t 
 // ---------------------------------------------------------------------
 __m512i __inline _mm512_mulhi_epu32(__m512i a, __m512i b)
 {
-    __m512i t1 = _mm512_shuffle_epi32(a, 0xB1);
-    __m512i t2 = _mm512_shuffle_epi32(b, 0xB1);
+    __m512i t1 = _mm512_shuffle_epi32(a,static_cast<_MM_PERM_ENUM>(0xB1));
+    __m512i t2 = _mm512_shuffle_epi32(b,static_cast<_MM_PERM_ENUM>(0xB1));
     __m512i evens = _mm512_mul_epu32(a, b);
     __m512i odds = _mm512_mul_epu32(t1, t2);
-    //return _mm512_mask_mov_epi32(_mm512_shuffle_epi32(evens, 0xB1), 0xaaaa, odds);
-    return _mm512_mask_mov_epi32(odds, 0x5555, _mm512_shuffle_epi32(evens, 0xB1));
+    //return _mm512_mask_mov_epi32(_mm512_shuffle_epi32(evens,static_cast<_MM_PERM_ENUM>(0xB1)), 0xaaaa, odds);
+    return _mm512_mask_mov_epi32(odds, 0x5555, _mm512_shuffle_epi32(evens,static_cast<_MM_PERM_ENUM>(0xB1)));
 }
 
 __m512i __inline _mm512_mask_adc_epi32(__m512i a, __mmask16 m, __mmask16 c, __m512i b, __mmask16 *cout)
@@ -163,18 +163,18 @@ __m512i __inline _mm512_subsetc_epi32(__m512i a, __m512i b, __mmask16 *cout)
 __inline void _mm512_epi32_to_eo64(__m512i a, __m512i *e64, __m512i *o64)
 {
     *e64 = _mm512_maskz_mov_epi32(0x5555, a);
-    *o64 = _mm512_maskz_mov_epi32(0x5555, _mm512_shuffle_epi32(a, 0xB1));
+    *o64 = _mm512_maskz_mov_epi32(0x5555, _mm512_shuffle_epi32(a,static_cast<_MM_PERM_ENUM>(0xB1)));
     return;
 }
 
 __inline __m512i _mm512_eo64lo_to_epi32(__m512i e64, __m512i o64)
 {
-    return _mm512_mask_blend_epi32(0xAAAA, e64, _mm512_shuffle_epi32(o64, 0xB1));
+    return _mm512_mask_blend_epi32(0xAAAA, e64, _mm512_shuffle_epi32(o64,static_cast<_MM_PERM_ENUM>(0xB1)));
 }
 
 __inline __m512i _mm512_eo64hi_to_epi32(__m512i e64, __m512i o64)
 {
-    return _mm512_mask_blend_epi32(0xAAAA, _mm512_shuffle_epi32(e64, 0xB1), o64);
+    return _mm512_mask_blend_epi32(0xAAAA, _mm512_shuffle_epi32(e64,static_cast<_MM_PERM_ENUM>(0xB1)), o64);
 }
 
 __inline void _mm512_mul_eo64_epi32(__m512i a, __m512i b, __m512i *e64, __m512i *o64)
@@ -182,13 +182,13 @@ __inline void _mm512_mul_eo64_epi32(__m512i a, __m512i b, __m512i *e64, __m512i 
     // multiply the 16-element 32-bit vectors a and b to produce two 8-element
     // 64-bit vector products e64 and o64, where e64 is the even elements
     // of a*b and o64 is the odd elements of a*b
-    //__m512i t1 = _mm512_shuffle_epi32(a, 0xB1);
-    //__m512i t2 = _mm512_shuffle_epi32(b, 0xB1);
+    //__m512i t1 = _mm512_shuffle_epi32(a,static_cast<_MM_PERM_ENUM>(0xB1));
+    //__m512i t2 = _mm512_shuffle_epi32(b,static_cast<_MM_PERM_ENUM>(0xB1));
 
-    //_mm512_shuffle_epi32(a, 0xB1);
-    //_mm512_shuffle_epi32(b, 0xB1);
+    //_mm512_shuffle_epi32(a,static_cast<_MM_PERM_ENUM>(0xB1));
+    //_mm512_shuffle_epi32(b,static_cast<_MM_PERM_ENUM>(0xB1));
     *e64 = _mm512_mul_epu32(a, b);
-    *o64 = _mm512_mul_epu32(_mm512_shuffle_epi32(a, 0xB1), _mm512_shuffle_epi32(b, 0xB1));
+    *o64 = _mm512_mul_epu32(_mm512_shuffle_epi32(a,static_cast<_MM_PERM_ENUM>(0xB1)), _mm512_shuffle_epi32(b,static_cast<_MM_PERM_ENUM>(0xB1)));
 
     return;
 }
@@ -243,7 +243,7 @@ void vecmulmod(vec_bignum_t *a, vec_bignum_t *b, vec_bignum_t *c, vec_bignum_t *
     // 31
 
     __m512i nhatvec_e = _mm512_load_epi32(mdata->vrho);
-    __m512i nhatvec_o = _mm512_shuffle_epi32(nhatvec_e, 0xB1);;
+    __m512i nhatvec_o = _mm512_shuffle_epi32(nhatvec_e,static_cast<_MM_PERM_ENUM>(0xB1));;
 
     __m512i prod1_e;
     __m512i prod1_o;
@@ -915,7 +915,7 @@ void vecsqrmod(vec_bignum_t *a, vec_bignum_t *c, vec_bignum_t *n, vec_bignum_t *
     // 31
 
     __m512i nhatvec_e = _mm512_load_epi32(mdata->vrho); // _mm512_set1_epi32(nhat);
-    __m512i nhatvec_o = _mm512_shuffle_epi32(nhatvec_e, 0xB1);;
+    __m512i nhatvec_o = _mm512_shuffle_epi32(nhatvec_e,static_cast<_MM_PERM_ENUM>(0xB1));;
 
     __m512i prod1_e;
     __m512i prod1_o;

@@ -506,10 +506,10 @@ tpool_t * tpool_setup(int num_threads, void *start_fcn, void *stop_fcn,
     for (i = 0; i < num_threads; i++)
     {
         t[i].num_threads = num_threads;
-        t[i].tpool_dispatch_fcn = dispatch_fcn;
-        t[i].tpool_start_fcn = start_fcn;
-        t[i].tpool_stop_fcn = stop_fcn;
-        t[i].tpool_sync_fcn = sync_fcn;
+        t[i].tpool_dispatch_fcn = (void (*)(void*))dispatch_fcn;
+        t[i].tpool_start_fcn = (void (*)(void*))start_fcn;
+        t[i].tpool_stop_fcn = (void (*)(void*))stop_fcn;
+        t[i].tpool_sync_fcn = (void (*)(void*))sync_fcn;
         t[i].num_work_fcn = 0;
         t[i].tindex = i;
         t[i].user_data = udata;
@@ -538,7 +538,7 @@ void tpool_add_work_fcn(tpool_t *tdata, void *work_fcn)
     for (i = 0; i < tdata->num_threads; i++)
     {
         tdata[i].num_work_fcn++;
-        tdata[i].tpool_work_fcn[tdata[i].num_work_fcn - 1] = work_fcn;
+        tdata[i].tpool_work_fcn[tdata[i].num_work_fcn - 1] = (void (*)(void*))work_fcn;
     }
 
     return;

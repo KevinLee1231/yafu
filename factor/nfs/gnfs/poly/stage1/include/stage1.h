@@ -28,10 +28,6 @@ extern "C" {  /* yafu-cpp-linkage */
 #include <cuda_xface.h>
 #include <thread.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #define MAX_POLYSELECT_DEGREE 6
 
 #if MAX_POLY_DEGREE < MAX_POLYSELECT_DEGREE
@@ -88,7 +84,6 @@ typedef struct {
 	mpz_t tmp1;
 
 } poly_search_t;
-
 
 /* data for searching a single leading coefficient */
 
@@ -296,11 +291,6 @@ typedef struct {
 void handle_collision(task_data_t *task, uint32 threadid,
 			uint64 p, uint64 special_q,
 			uint128 special_q_root, int64 res);
-
-#ifdef __cplusplus
-}
-#endif
-
 
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */

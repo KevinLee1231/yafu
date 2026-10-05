@@ -21,10 +21,6 @@ gates which compiled engine is *selected* at run time. A CPU-only build
 extern "C" {  /* yafu-cpp-linkage */
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 typedef enum {
 	STAGE1_ENGINE_CPU_HASHTABLE = 0, /* #1 trunk hashtable (wrapped)      */
 	STAGE1_ENGINE_CPU_GERBICZ,       /* #2 polysize Gerbicz-sort (ref)    */
@@ -84,11 +80,6 @@ const stage1_engine_vtable_t * stage1_engine_select(msieve_obj *obj);
    in place); 0 if p_max exceeds the engine's cap and the a_d must be skipped */
 int stage1_engine_cell_fits(const stage1_engine_vtable_t *v,
 			uint32 p_max, uint64 *special_q_max);
-
-#ifdef __cplusplus
-}
-#endif
-
 
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */

@@ -28,10 +28,6 @@ $Id$
 extern "C" {  /* yafu-cpp-linkage */
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /*---------------------- general stuff ---------------------------*/
 
 #define MAX_POLY_DEGREE 8
@@ -405,11 +401,6 @@ void nfs_read_cycles(msieve_obj *obj, factor_base_t *fb, uint32_t*ncols,
 			uint32_t dependency);
 
 void nfs_free_relation_list(relation_t *rlist, uint32_t num_relations);
-
-#ifdef __cplusplus
-}
-#endif
-
 
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */

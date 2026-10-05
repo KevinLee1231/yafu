@@ -12,10 +12,10 @@
 // factor/nfs/lasieve/lasieve_dispatch.c.  I is 11..16 and picks which of the
 // six per-I object sets runs.  tune measures one I value per test point --
 // the one make_job_file reports -- so that the points are comparable.
-int lasieve_run(int I, int argc, char **argv);
 #ifndef _MSC_VER
 #include <unistd.h>
 #endif
+#include "nfs/lasieve/include/lasieve_dispatch.h"
 
 #ifdef __MINGW32__
 #include <sys/time.h>

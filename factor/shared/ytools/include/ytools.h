@@ -29,12 +29,6 @@ extern "C" {  /* yafu-cpp-linkage */
 #endif
 #define _YTOOLS_UTIL_H_
 
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -63,7 +57,6 @@ extern "C" {
 #ifdef __MINGW32__
 #include <Windows.h>
 #endif
-
 
 // ============================================================================
 // useful definitions
@@ -188,7 +181,6 @@ extern "C" {
 #define DELTA_EPOCH_IN_MICROSECS  11644473600000000ULL
 #endif
 
-
 #ifdef _MSC_VER
     struct timezone
     {
@@ -197,9 +189,7 @@ extern "C" {
     };
 #endif
 
-
 double ytools_difftime(struct timeval* start, struct timeval* end);
-
 
 #if defined(_MSC_VER)
     int gettimeofday(struct timeval* tv, struct timezone* tz);
@@ -291,7 +281,6 @@ double ytools_difftime(struct timeval* start, struct timeval* end);
         char AVX512IFMA;
         char AVX512F;
 
-
     } info_t;
 
     typedef union {
@@ -331,7 +320,6 @@ double ytools_difftime(struct timeval* start, struct timeval* end);
     };
 
 #endif /* YA_CPU_TYPE_DECLARED */
-
 
     extern enum cpu_type ytools_get_cpu_type(void);
     extern void ytools_get_cache_sizes(uint32_t* level1_size_out, uint32_t* level2_size_out);
@@ -387,13 +375,6 @@ double ytools_difftime(struct timeval* start, struct timeval* end);
     extern void logprint(FILE* infile, char* args, ...);
     extern void logprint_oc(const char* name, const char* method, char* args, ...);
     extern char* get_full_line(char* line, int* sz, FILE* fid);
-
-#ifdef __cplusplus
-}
-#endif
-
-
-
 
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */

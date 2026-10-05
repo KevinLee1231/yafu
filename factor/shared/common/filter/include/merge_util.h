@@ -21,10 +21,6 @@ $Id: merge_util.h 23 2009-07-20 02:59:07Z jasonp_sf $
 extern "C" {  /* yafu-cpp-linkage */
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #define MERGE_MAX_OBJECTS 500
 
 /* structure for merging relations that all have an ideal
@@ -153,11 +149,6 @@ void merge_two_relsets(relation_set_t *r1, relation_set_t *r2,
 			relation_set_t *r_out, merge_aux_t *aux);
 
 uint32 estimate_new_weight(relation_set_t *r1, relation_set_t *r2);
-
-#ifdef __cplusplus
-}
-#endif
-
 
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */

@@ -33,6 +33,7 @@ SOFTWARE.
 #include "ytools.h"
 #include <math.h>
 #include "gmp_u64_xface.h"
+#include "soe_impl.h"
 
 #define NO_64U_REM
 //#define U64_REM_ONLY
@@ -56,18 +57,18 @@ static __inline __m256i CLEAR_HIGH_VEC(__m256i x)
 static __inline __m256i vec_redc(__m256i x64e, __m256i x64o, __m256i pinv, __m256i p)
 {
     // uint32_t m = (uint32_t)x * pinv;
-    __m256i t1 = _mm256_shuffle_epi32(pinv, 0xB1);      // odd-index pinv in lo words
+    __m256i t1 = _mm256_shuffle_epi32(pinv,static_cast<_MM_PERM_ENUM>(0xB1));      // odd-index pinv in lo words
     __m256i even = _mm256_mul_epu32(x64e, pinv);
     __m256i odd = _mm256_mul_epu32(x64o, t1);
     __m256i t2;
 
     // x += (uint64_t)m * (uint64_t)p;
-    t1 = _mm256_shuffle_epi32(p, 0xB1);      // odd-index p in lo words
+    t1 = _mm256_shuffle_epi32(p,static_cast<_MM_PERM_ENUM>(0xB1));      // odd-index p in lo words
     even = _mm256_add_epi64(x64e, _mm256_mul_epu32(even, p));
     odd = _mm256_add_epi64(x64o, _mm256_mul_epu32(odd, t1));
 
     // m = x >> 32;
-    t1 = _mm256_blend_epi32(odd, _mm256_shuffle_epi32(even, 0xB1), 0x55);
+    t1 = _mm256_blend_epi32(odd, _mm256_shuffle_epi32(even,static_cast<_MM_PERM_ENUM>(0xB1)), 0x55);
 
     // if (m >= p) m -= p;
     t2 = _mm256_cmpge_epu32(t1, p); //_mm256_or_si256(_mm256_cmpgt_epi32(t1, p), _mm256_cmpeq_epi32(t1, p));
@@ -79,8 +80,8 @@ static __inline __m256i vec_redc(__m256i x64e, __m256i x64o, __m256i pinv, __m25
 static __inline __m256i vec_to_monty(__m256i x, __m256i r2, __m256i pinv, __m256i p)
 {
     //uint64_t t = (uint64_t)x * (uint64_t)r2;
-    __m256i t1 = _mm256_shuffle_epi32(x, 0xB1);
-    __m256i t2 = _mm256_shuffle_epi32(r2, 0xB1);
+    __m256i t1 = _mm256_shuffle_epi32(x,static_cast<_MM_PERM_ENUM>(0xB1));
+    __m256i t2 = _mm256_shuffle_epi32(r2,static_cast<_MM_PERM_ENUM>(0xB1));
     __m256i even = _mm256_mul_epu32(x, r2);
     __m256i odd = _mm256_mul_epu32(t1, t2);
 
@@ -269,8 +270,8 @@ void get_offsets(thread_soedata_t *thread_data)
                 t1 = vec_to_monty(vlmp, vr2, vpinv, vp);
 
                 //tmp2 = (uint64_t)s * (uint64_t)t;
-                t3 = _mm256_shuffle_epi32(t1, 0xB1);
-                t2 = _mm256_shuffle_epi32(vr, 0xB1);
+                t3 = _mm256_shuffle_epi32(t1,static_cast<_MM_PERM_ENUM>(0xB1));
+                t2 = _mm256_shuffle_epi32(vr,static_cast<_MM_PERM_ENUM>(0xB1));
 
                 even = _mm256_mul_epu32(vr, t1);
                 odd = _mm256_mul_epu32(t3, t2);
@@ -280,7 +281,7 @@ void get_offsets(thread_soedata_t *thread_data)
 
                 // take out of monty rep
                 vr = vec_redc(CLEAR_HIGH_VEC(vr), 
-                    CLEAR_HIGH_VEC(_mm256_shuffle_epi32(vr, 0xB1)), vpinv, vp);
+                    CLEAR_HIGH_VEC(_mm256_shuffle_epi32(vr,static_cast<_MM_PERM_ENUM>(0xB1))), vpinv, vp);
 
                 //t1 = _mm256_set1_epi32(linesize);
                 //t1 = _mm256_or_si256(_mm256_cmpgt_epi32(t1, vr), _mm256_cmpeq_epi32(t1, vr));
@@ -291,8 +292,8 @@ void get_offsets(thread_soedata_t *thread_data)
                 //_mm256_store_si256((__m256i *)tmp32, t1);
 
                 // recombine and store for distribution to the buckets
-                t2 = _mm256_blend_epi32(_mm256_shuffle_epi32(vp, 0xB1), vr, 0x55);
-                t3 = _mm256_blend_epi32(vp, _mm256_shuffle_epi32(vr, 0xB1), 0x55);
+                t2 = _mm256_blend_epi32(_mm256_shuffle_epi32(vp,static_cast<_MM_PERM_ENUM>(0xB1)), vr, 0x55);
+                t3 = _mm256_blend_epi32(vp, _mm256_shuffle_epi32(vr,static_cast<_MM_PERM_ENUM>(0xB1)), 0x55);
 
                 _mm256_store_si256((__m256i*)tmp, t2);         // even (prime | root)
                 _mm256_store_si256((__m256i*)(&tmp[4]), t3);   // odd  (prime | root)
@@ -573,8 +574,8 @@ void get_offsets(thread_soedata_t *thread_data)
                     t1 = vec_to_monty(vlmp, vr2, vpinv, vp);
 
                     //tmp2 = (uint64_t)s * (uint64_t)t;
-                    t3 = _mm256_shuffle_epi32(t1, 0xB1);
-                    t2 = _mm256_shuffle_epi32(vr, 0xB1);
+                    t3 = _mm256_shuffle_epi32(t1,static_cast<_MM_PERM_ENUM>(0xB1));
+                    t2 = _mm256_shuffle_epi32(vr,static_cast<_MM_PERM_ENUM>(0xB1));
 
                     even = _mm256_mul_epu32(vr, t1);
                     odd = _mm256_mul_epu32(t3, t2);
@@ -583,7 +584,7 @@ void get_offsets(thread_soedata_t *thread_data)
                     vr = vec_redc(even, odd, vpinv, vp);
 
                     // take out of monty rep
-                    vr = vec_redc(CLEAR_HIGH_VEC(vr), CLEAR_HIGH_VEC(_mm256_shuffle_epi32(vr, 0xB1)), vpinv, vp);
+                    vr = vec_redc(CLEAR_HIGH_VEC(vr), CLEAR_HIGH_VEC(_mm256_shuffle_epi32(vr,static_cast<_MM_PERM_ENUM>(0xB1))), vpinv, vp);
 
                     t1 = _mm256_set1_epi32(linesize);
                     t1 = _mm256_cmpge_epu32(vr, t1);

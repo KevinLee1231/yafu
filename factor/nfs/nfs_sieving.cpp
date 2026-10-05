@@ -24,8 +24,6 @@ benefit from your work.
 // the six per-I object sets runs; see factor/nfs/lasieve/lasieve_dispatch.c.
 // Each concurrent siever needs its own I, which is what siever_I() below
 // arranges.
-int lasieve_run(int I, int argc, char **argv);
-
 #ifdef HAVE_CUDA_BATCH_FACTOR
 #include "gpu_cofactorization.h"
 #endif
@@ -55,6 +53,7 @@ int lasieve_run(int I, int argc, char **argv);
 
 #if !defined(WIN32) && !defined(_WIN64)
 #include <sys/wait.h>		// WIFEXITED/WEXITSTATUS for the cuda siever
+#include "nfs/lasieve/include/lasieve_dispatch.h"
 #endif
 
 
@@ -574,7 +573,7 @@ static int nfs_run_siever(fact_obj_t* fobj, int I, const siever_argv_t* a)
 {
 	if (NFS_USE_CUDA(fobj))
 		return nfs_run_child(a, NULL);
-	return lasieve_run(I, a->argc, a->argv);
+	return lasieve_run(I, a->argc, (char **)a->argv);
 }
 
 static int nfs_run_child(const siever_argv_t* a, const char* logfile)
@@ -822,7 +821,7 @@ void nfs_sieve_start(void* vptr)
 {
 	// unpack the userdata portion of the thread pool void pointer.
 	tpool_t* tdata = (tpool_t*)vptr;
-	nfs_userdata_t* udata = tdata->user_data;
+	nfs_userdata_t* udata = (nfs_userdata_t*)tdata->user_data;
 	fact_obj_t* fobj = udata->fobj;
 	nfs_job_t* job = udata->main_job_ref;
 	FILE* logfile;
@@ -1153,7 +1152,7 @@ void nfs_sieve_sync(void* vptr)
 	// this sync function gets called by tpool whenever a thread
 	// finishes.  do any cleanup actions for the thread.
 	tpool_t* tdata = (tpool_t*)vptr;
-	nfs_userdata_t* udata = tdata->user_data;
+	nfs_userdata_t* udata = (nfs_userdata_t*)tdata->user_data;
 	fact_obj_t* fobj = udata->fobj;
 	nfs_job_t* job = udata->main_job_ref;
 	FILE* fid;
@@ -1181,10 +1180,10 @@ void nfs_sieve_sync(void* vptr)
 		// try reading the lasieve5 ".last_spqX" file.  The 
 		// following is copied from gnfs-lasieve4e to duplicate
 		// the file naming convention.
-		char* ofn = xmalloc(256);
+		char* ofn = (char*)xmalloc(256);
 		FILE* of;
 		int ret;
-		char* hn = xmalloc(128);
+		char* hn = (char*)xmalloc(128);
 
 #if defined(WIN32)
 
@@ -1514,7 +1513,7 @@ void nfs_sieve_dispatch(void* vptr)
 	// becomes idle (after sync).  determine if there is more work
 	// to do and indicate what to do next if so.
 	tpool_t* tdata = (tpool_t*)vptr;
-	nfs_userdata_t* udata = tdata->user_data;
+	nfs_userdata_t* udata = (nfs_userdata_t*)tdata->user_data;
 	fact_obj_t* fobj = udata->fobj;
 	nfs_job_t* job = udata->main_job_ref;
 	struct timeval stop;
@@ -2520,8 +2519,8 @@ void do_sieving_nfs(fact_obj_t *fobj, nfs_job_t *job)
 	udata.main_job_ref = job;
 
 	tpool_data = tpool_setup(fobj->THREADS, NULL, NULL,
-		&nfs_sieve_sync, &nfs_sieve_dispatch, &udata);
-	tpool_add_work_fcn(tpool_data, &lasieve_launcher);		// work_fcn id = 0
+		(void *)&nfs_sieve_sync, (void *)&nfs_sieve_dispatch, &udata);
+	tpool_add_work_fcn(tpool_data, (void *)&lasieve_launcher);		// work_fcn id = 0
 
 	// do nfs sieve initialization and startup
 	nfs_sieve_start(tpool_data);
@@ -3106,7 +3105,7 @@ void do_sieving_nfs(fact_obj_t *fobj, nfs_job_t *job)
 void* lasieve_launcher(void* vptr) {
 	// unpack the userdata portion of the thread pool void pointer.
 	tpool_t* tdata = (tpool_t*)vptr;
-	nfs_userdata_t* udata = tdata->user_data;
+	nfs_userdata_t* udata = (nfs_userdata_t*)tdata->user_data;
 	fact_obj_t* fobj = udata->fobj;
 	nfs_job_t* job = udata->main_job_ref;
 	int tid = tdata->tindex;

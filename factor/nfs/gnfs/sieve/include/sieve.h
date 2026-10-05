@@ -23,10 +23,6 @@ extern "C" {  /* yafu-cpp-linkage */
 #endif
 #include "savefile.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* factors smaller than the following are not printed */
 
 #define MAX_SKIPPED_FACTOR 256
@@ -60,11 +56,6 @@ double get_log_base(mpz_poly_t *poly,
 uint32 read_last_line(msieve_obj *obj, mpz_t n);
 
 void write_last_line(msieve_obj *obj, mpz_t n, uint32 b);
-
-#ifdef __cplusplus
-}
-#endif
-
 
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */

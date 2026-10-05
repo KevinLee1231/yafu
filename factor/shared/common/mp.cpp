@@ -136,7 +136,7 @@ void mp_add(mp_t *a, mp_t *b, mp_t *sum) {
 #elif defined(MSC_ASM32A)
 	ASM_M
 	{	
-		xor	eax,eax
+		xor_cxx	eax,eax
 		mov	esi,a
 		mov	edi,b
 		mov	edx,sum
@@ -272,7 +272,7 @@ void mp_sub(mp_t *a, mp_t *b, mp_t *diff) {
 #elif defined(MSC_ASM32A)
 	ASM_M
 	{
-		xor	eax,eax
+		xor_cxx	eax,eax
 		mov	esi,a
 		mov	edi,b
 		mov	edx,diff
@@ -390,7 +390,7 @@ static void mp_addmul_1(mp_t *a, uint32 b, uint32 *x) {
 	ASM_M
 	{
 		push	ebx
-		xor	ebx,ebx
+		xor_cxx	ebx,ebx
 		mov	ecx,words
 		mov	esi,a
 		mov	edi,x
@@ -467,7 +467,7 @@ static uint32 mp_submul_1(uint32 *a, uint32 b,
 	ASM_M
 	{
 		push	ebx
-		xor	ebx,ebx
+		xor_cxx	ebx,ebx
 		mov	ecx,words
 		mov	esi,a
 		mov	edi,x
@@ -539,7 +539,7 @@ void mp_mul_1(mp_t *a, uint32 b, mp_t *x) {
 	ASM_M
 	{
 		push	ebx
-		xor	ebx,ebx
+		xor_cxx	ebx,ebx
 		mov	ecx,words
 		mov	esi,a
 		mov	edi,x

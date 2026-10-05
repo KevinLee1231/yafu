@@ -28,10 +28,6 @@ extern "C" {  /* yafu-cpp-linkage */
 #include <stdint.h>
 #include <stddef.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #define TK_VERSION "0.1"
 
 /* ------------------------------------------------------------------ *
@@ -151,10 +147,6 @@ typedef struct {
  * per-module + grand-total table, returns 0 iff all checks passed.
  * ------------------------------------------------------------------ */
 int tk_run(const tk_module *const *modules, int nmodules, int argc, char **argv);
-
-#ifdef __cplusplus
-}
-#endif
 
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */

@@ -222,9 +222,9 @@ static void scalar_sort32(uint32_t *data, uint32_t sz, int dir)
 // intrinsics for swapping N-bit chunks of data within a 512-bit vector
 // that use immediates (faster and fewer registers than needing to load index vectors)
 #define SWAP16(x) _mm512_rol_epi32((x), 16)
-#define SWAP32(x) _mm512_shuffle_epi32((x), 0xB1)
-#define SWAP64(x) _mm512_shuffle_epi32((x), 0x4E)
-#define SWAP128(x) _mm512_permutex_epi64((x), 0x4E)
+#define SWAP32(x) _mm512_shuffle_epi32((x),static_cast<_MM_PERM_ENUM>(0xB1))
+#define SWAP64(x) _mm512_shuffle_epi32((x),static_cast<_MM_PERM_ENUM>(0x4E))
+#define SWAP128(x) _mm512_permutex_epi64((x),static_cast<_MM_PERM_ENUM>(0x4E))
 #define SWAP256(x) _mm512_shuffle_i64x2((x), (x), 0x4E)
 
 // intrinsics for swapping N-bit chunks of data within a 512-bit vector, with N < 32.

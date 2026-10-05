@@ -56,10 +56,6 @@ extern "C" {  /* yafu-cpp-linkage */
 #  include <CL/cl.h>
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* -----------------------------------------------------------------------
  * Error handling
  * --------------------------------------------------------------------- */
@@ -186,10 +182,6 @@ void gpu_launch_init(cl_program program, const char *func_name,
 
 /* Set all kernel arguments from the args array. */
 void gpu_launch_set(gpu_launch_t *launch, gpu_arg_t *args);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif /* HAVE_OCL_BATCH_FACTOR || HAVE_OCL_POLY */
 

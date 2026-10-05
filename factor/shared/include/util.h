@@ -64,10 +64,6 @@ extern "C" {  /* yafu-cpp-linkage */
     #include <io.h>
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #if defined(_MSC_VER)
 #include <winsock.h>
 #endif
@@ -81,7 +77,6 @@ extern "C" {
 #else
 #define DELTA_EPOCH_IN_MICROSECS  11644473600000000ULL
 #endif
-
 
 #ifdef _MSC_VER
 struct timezone
@@ -269,7 +264,6 @@ get_rand(uint32 *rand_seed, uint32 *rand_carry) {
 	return (uint32)temp;
 }
 
-
 #ifndef YA_CPU_TYPE_DECLARED
 #define YA_CPU_TYPE_DECLARED
 
@@ -287,7 +281,6 @@ enum cpu_type {
 	cpu_athlon_xp,
 	cpu_opteron
 };
-
 
 #endif /* YA_CPU_TYPE_DECLARED */
 
@@ -422,12 +415,6 @@ enum cpu_type get_cpu_type(void);
 #else
 	#define ALIGN_LOOP /* nothing */
 #endif
-
-
-#ifdef __cplusplus
-}
-#endif
-
 
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */

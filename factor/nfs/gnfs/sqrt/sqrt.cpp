@@ -148,7 +148,7 @@ static uint32 rat_square_root(relation_t *rlist, uint32 num_relations,
 
 	mpz_set_ui(sqrt_r, 1);
 	num_primes = hashtable_get_num(&h);
-	curr = hashtable_get_first(&h);
+	curr = (rat_prime_t*)hashtable_get_first(&h);
 
 	for (i = 0; i < num_primes; i++) {
 		uint64 p = curr->p;
@@ -165,7 +165,7 @@ static uint32 rat_square_root(relation_t *rlist, uint32 num_relations,
 			mpz_mul(sqrt_r, sqrt_r, tmp);
 			mpz_tdiv_r(sqrt_r, sqrt_r, n);
 		}
-		curr = hashtable_get_next(&h, curr);
+		curr = (rat_prime_t*)hashtable_get_next(&h, curr);
 	}
 
 	hashtable_free(&h);
@@ -231,14 +231,14 @@ static uint32 verify_alg_ideal_powers(relation_t *rlist,
 	/* verify each ideal occurs an even number of times */
 
 	num_ideals = hashtable_get_num(&h);
-	curr = hashtable_get_first(&h);
+	curr = (alg_prime_t*)hashtable_get_first(&h);
 
 	for (i = 0; i < num_ideals; i++) {
 		if (curr->count % 2) {
 			status = 1;
 			break;
 		}
-		curr = hashtable_get_next(&h, curr);
+		curr = (alg_prime_t*)hashtable_get_next(&h, curr);
 	}
 
 	hashtable_free(&h);

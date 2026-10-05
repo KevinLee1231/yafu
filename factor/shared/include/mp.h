@@ -30,10 +30,6 @@ extern "C" {  /* yafu-cpp-linkage */
 
 #include <util.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* Basic multiple-precision arithmetic implementation. Precision
    is hardwired not to exceed ~300 digits. Numbers are stored in 
    two's-complement binary form, in little-endian word order.
@@ -80,7 +76,6 @@ typedef struct {
 	uint32 sign;	/* POSITIVE or NEGATIVE */
 	mp_t num;
 } signed_mp_t;
-
 
 	/* initialize an mp_t / signed_mp_t */
 
@@ -144,7 +139,6 @@ static INLINE int32 mp_cmp(const mp_t *a, const mp_t *b) {
 
 	return 0;
 }
-
 
 	/* quick test for zero or one mp_t */
 
@@ -255,7 +249,6 @@ static INLINE uint64 mp_modmul_2(uint64 a, uint64 b, uint64 n) {
 }
 
 #endif
-
 
 #else  /*-------------------------------------------------------------*/
 
@@ -510,7 +503,6 @@ static INLINE uint64 mp_modinv_2(uint64 a, uint64 p) {
 		return p - ps1;
 }
 
-
 	/* For odd prime p, solve 'x * x = a (mod p)' for x and
 	   return the result. Assumes legendre(a,p) = 1 (this is
 	   not verified).
@@ -542,7 +534,6 @@ int32 mp_is_prime(mp_t *p, uint32 *seed1, uint32 *seed2);
 int32 mp_is_prime_1(uint32 p);
 void mp_random_prime(uint32 bits, mp_t *res, uint32 *seed1, uint32 *seed2);
 uint32 mp_next_prime(mp_t *p, mp_t *res, uint32 *seed1, uint32 *seed2);
-
 
 	/* Modular addition/subtraction: compute a +- b mod p
 	   Note that the asm below has to be quite tricky to
@@ -623,7 +614,6 @@ static INLINE uint64 mp_modadd_2(uint64 a, uint64 b, uint64 p) {
 
 	return mp_modsub_2(a, p - b, p);
 }
-
 
 	/* conversion to/from doubles. Note that the maximum
 	   exponent in a double cannot accurately represent
@@ -722,11 +712,6 @@ static INLINE void mp_d2mp(double *d, mp_t *x) {
 		x->nwords = (uint32)(i+1);
 
 }
-
-#ifdef __cplusplus
-}
-#endif
-
 
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */

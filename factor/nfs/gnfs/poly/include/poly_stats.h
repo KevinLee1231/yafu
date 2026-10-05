@@ -30,10 +30,6 @@ extern "C" {  /* yafu-cpp-linkage */
 #endif
 #include "thread.h"    /* mutex_t, mutex_init/lock/unlock/free              */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #define POLY_STATS_ADSTRLEN 64
 
 typedef struct {
@@ -103,11 +99,6 @@ void poly_stats_report(poly_stage_stats_t *s, int force);
    engine drains. 0 for either threshold disables it. */
 void poly_stats_set_abort(poly_stage_stats_t *s, msieve_obj *obj,
 			double e_threshold, uint64 max_polys);
-
-#ifdef __cplusplus
-}
-#endif
-
 
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */

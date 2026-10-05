@@ -963,11 +963,11 @@ int ecm_loop(fact_obj_t *fobj)
             thread_data[i].resume_avx_ecm = 0;
         }
 
-        tpool_data = tpool_setup(fobj->THREADS, &ecm_start_fcn, &ecm_stop_fcn, &ecm_sync_fcn,
-            &ecm_dispatch_fcn, thread_data);
+        tpool_data = tpool_setup(fobj->THREADS, (void *)&ecm_start_fcn, (void *)&ecm_stop_fcn, (void *)&ecm_sync_fcn,
+            (void *)&ecm_dispatch_fcn, thread_data);
 
         total_curves_run = 0;
-        tpool_add_work_fcn(tpool_data, &ecm_do_one_curve);
+        tpool_add_work_fcn(tpool_data, (void *)&ecm_do_one_curve);
         tpool_go(tpool_data);
 
         free(tpool_data);
@@ -1021,11 +1021,11 @@ int ecm_loop(fact_obj_t *fobj)
                 thread_data[i].resume_avx_ecm = 2;
             }
 
-            tpool_data = tpool_setup(fobj->THREADS, &ecm_start_fcn, &ecm_stop_fcn, &ecm_sync_fcn,
-                &ecm_dispatch_fcn, thread_data);
+            tpool_data = tpool_setup(fobj->THREADS, (void *)&ecm_start_fcn, (void *)&ecm_stop_fcn, (void *)&ecm_sync_fcn,
+                (void *)&ecm_dispatch_fcn, thread_data);
 
             total_curves_run = 0;
-            tpool_add_work_fcn(tpool_data, &ecm_do_one_curve);
+            tpool_add_work_fcn(tpool_data, (void *)&ecm_do_one_curve);
             tpool_go(tpool_data);
 
             free(tpool_data);
@@ -1195,11 +1195,11 @@ int ecm_loop(fact_obj_t *fobj)
                 thread_data[i].resume_avx_ecm = 1;
             }
 
-            tpool_data = tpool_setup(fobj->THREADS, &ecm_start_fcn, &ecm_stop_fcn, &ecm_sync_fcn,
-                &ecm_dispatch_fcn, thread_data);
+            tpool_data = tpool_setup(fobj->THREADS, (void *)&ecm_start_fcn, (void *)&ecm_stop_fcn, (void *)&ecm_sync_fcn,
+                (void *)&ecm_dispatch_fcn, thread_data);
 
             total_curves_run = 0;
-            tpool_add_work_fcn(tpool_data, &ecm_do_one_curve);
+            tpool_add_work_fcn(tpool_data, (void *)&ecm_do_one_curve);
             tpool_go(tpool_data);
 
             free(tpool_data);

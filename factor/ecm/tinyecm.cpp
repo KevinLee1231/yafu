@@ -34,6 +34,7 @@ either expressed or implied, of the FreeBSD Project.
 #include "monty.h"
 #include "ytools.h"
 #include "arith.h"
+#include "tinyecm.h"
 
 #define D 120
 
@@ -217,7 +218,7 @@ void add(monty128_t *mdata, tinyecm_work *work, tinyecm_pt *P1, tinyecm_pt *P2,
 	// choosing the initial point Pz0 = 1 means that z_p-q = 1 and this mul isn't necessary...
 	// but that involves a different way to initialize curves, so for now
 	// we can't assume Z=1
-	if (Pin->X == Pout->X)
+	if ((const void *)Pin->X == (const void *)Pout->X)
 	{
 		mulmod128(work->tt1, Pin->Z, Pout->Z, mdata);		//Z * (U + V)^2
 		mulmod128(work->tt2, Pin->X, Pout->X, mdata);		//x * (U - V)^2

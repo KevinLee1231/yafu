@@ -3676,7 +3676,7 @@ snfs_t* gen_brent_poly(fact_obj_t *fobj, snfs_t *poly, int* npolys)
 
 		mpz_set(polys->n, fobj->nfs_obj.gmp_n);
 		is_aurif = generate_aurif(fobj->nfs_obj.gmp_n, polys->base1, polys->base2,
-			polys->exp1, polys->coeff2, &polys->poly->alg.degree, polys->c,
+			polys->exp1, polys->coeff2, (int *)&polys->poly->alg.degree, polys->c,
 			polys->poly->rat.coeff, &polys->difficulty, &polys->poly->skew, &polys->LM);
 
 		if (!is_aurif)

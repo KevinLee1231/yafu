@@ -186,10 +186,6 @@ store_bypassL1(uint64 x, uint64 *addr)
 
 #endif  /*--------------------------- device code -----------------*/
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #define MATMUL_THREADS 256
 
 typedef union {
@@ -205,11 +201,6 @@ typedef union {
 		uint32 head : 1;
 	} d; 
 } gpu_entry_idx_t;
-
-#ifdef __cplusplus
-}
-#endif
-
 
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */

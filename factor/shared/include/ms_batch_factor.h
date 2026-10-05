@@ -22,10 +22,6 @@ extern "C" {  /* yafu-cpp-linkage */
 #endif
 #include "savefile.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* prototypes for the subsystem that batch-factors the
    portions of relations that contain large primes. The
    current system is designed for cofactors containing up to
@@ -133,11 +129,6 @@ void ms_relation_batch_add(int64 a, uint32 b,
    lp_cutoff_[ra] */
 
 uint32 ms_relation_batch_run(ms_relation_batch_t *rb);
-
-#ifdef __cplusplus
-}
-#endif
-
 
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */

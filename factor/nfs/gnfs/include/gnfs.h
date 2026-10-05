@@ -26,10 +26,6 @@ $Id: gnfs.h 967 2014-06-26 02:48:22Z jasonp_sf $
 extern "C" {  /* yafu-cpp-linkage */
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /*---------------------- general stuff ---------------------------*/
 
 #define MAX_POLY_DEGREE 8
@@ -391,11 +387,6 @@ void nfs_read_cycles(msieve_obj *obj, factor_base_t *fb, uint32 *ncols,
 void nfs_free_relation_list(relation_t *rlist, uint32 num_relations);
 
 void nfs_convert_cado_cycles(msieve_obj *obj);
-
-#ifdef __cplusplus
-}
-#endif
-
 
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */

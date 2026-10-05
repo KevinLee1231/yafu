@@ -25,10 +25,6 @@ extern "C" {  /* yafu-cpp-linkage */
 #include <cuda.h>
 #include "ms_lanczos.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #define MAX_GPU 16
 
 typedef struct {
@@ -79,12 +75,7 @@ typedef struct {
 void gpu_launch_init_la(CUmodule gpu_module, const char *func_name,
 			gpu_launch_la_t *launch);
 
-#ifdef __cplusplus
-}
-#endif
-
 #endif /* HAVE_CUDA */
-
 
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */

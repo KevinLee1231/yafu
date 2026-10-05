@@ -25,10 +25,6 @@ extern "C" {  /* yafu-cpp-linkage */
 
 #include "limb1.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /********************* 128-bit Montgomery arith **********************/
 typedef struct
 {
@@ -817,13 +813,7 @@ static UNUSED_FUNC void bin_gcd128(uint64_t *u, uint64_t *v, uint64_t *w)
 }
 #endif
 
-
 #endif /* USE_AVX512F && !LIMB2_NO_VECTOR */
-
-#ifdef __cplusplus
-}
-#endif
-
 
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */

@@ -22,10 +22,6 @@ $Id: lanczos_cpu.h 1012 2017-06-11 17:42:14Z jasonp_sf $
 extern "C" {  /* yafu-cpp-linkage */
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* structure representing a nonzero element of
    the matrix after packing into block format. 
    The two fields are the row and column offsets
@@ -120,11 +116,6 @@ void mul_trans_packed_small_core(void *data, int thread_num);
 void mul_NxB_BxB_acc(v_t *v, v_t *x, v_t *y, uint32 n);
 
 void mul_BxN_NxB(v_t *x, v_t *y, v_t *xy, uint32 n);
-
-#ifdef __cplusplus
-}
-#endif
-
 
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */

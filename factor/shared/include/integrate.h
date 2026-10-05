@@ -21,10 +21,6 @@ extern "C" {  /* yafu-cpp-linkage */
 
 #include "util.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* generic interface for performing numerical integration */
 
 /* type of integrator */
@@ -64,11 +60,6 @@ void integrate_free(integrate_t *aux);
 
 uint32 integrate_run(integrate_t *aux, integrand_t func, void *params,
 			double *endpoints, uint32 num_endpoints);
-
-#ifdef __cplusplus
-}
-#endif
-
 
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */

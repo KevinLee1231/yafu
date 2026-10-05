@@ -23,10 +23,6 @@ $Id$
 extern "C" {  /* yafu-cpp-linkage */
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 typedef struct {
 	uint32 num_rows;
 	uint32 num_cols;
@@ -74,7 +70,6 @@ typedef struct {
 
 } gpudata_t;
 
-
 typedef struct {
 	gpudata_t *gpudata;
 	v_t *host_vec;
@@ -101,11 +96,6 @@ void mul_BxN_NxB_gpu(packed_matrix_t *matrix,
 void mul_NxB_BxB_acc_gpu(packed_matrix_t *matrix, 
 			CUdeviceptr v, CUdeviceptr x,
 			CUdeviceptr y, uint32 n);
-
-#ifdef __cplusplus
-}
-#endif
-
 
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */

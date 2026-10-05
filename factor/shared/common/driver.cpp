@@ -568,7 +568,7 @@ static void factor_list_add_core(msieve_obj *obj,
 			list->final_factors[i]->type = MSIEVE_PRIME;
 		}
 		else {
-			list->final_factors[i]->type = mp_is_prime(
+			list->final_factors[i]->type = (msieve_factor_type)mp_is_prime(
 						new_factor, 
 						&obj->seed1, &obj->seed2);
 		}

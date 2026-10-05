@@ -950,7 +950,7 @@ void compute_roots_work_fcn(void *vptr)
     
     // this function requires the full residue class table.
     // (if we're using twins residues we need to re-find them.)
-    res_table = malloc(sdata->prodN * sizeof(int));
+    res_table = (int*)malloc(sdata->prodN * sizeof(int));
 	memset(res_table, -1, sdata->prodN * sizeof(int));
     if (sdata->numclasses == 30)
     {
@@ -1373,7 +1373,7 @@ void getRoots(soe_staticdata_t *sdata, thread_soedata_t *thread_data)
         udata.sdata = sdata;
         udata.ddata = thread_data;
         tpool_data = tpool_setup(sdata->THREADS, NULL, NULL, NULL,
-            &compute_roots_dispatch, &udata);
+            (void *)&compute_roots_dispatch, &udata);
 
         if (sdata->THREADS == 1)
         {
@@ -1382,7 +1382,7 @@ void getRoots(soe_staticdata_t *sdata, thread_soedata_t *thread_data)
         else
         {
             sdata->sync_count = 0;
-            tpool_add_work_fcn(tpool_data, &compute_roots_work_fcn);
+            tpool_add_work_fcn(tpool_data, (void *)&compute_roots_work_fcn);
             tpool_go(tpool_data);
         }
         free(tpool_data);

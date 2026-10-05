@@ -18,20 +18,41 @@ code to the public domain.
        				   --bbuhrow@gmail.com 11/24/09
 ----------------------------------------------------------------------*/
 
+#include <stdint.h>
 #include "qs_impl.h"
 #include "ytools.h"
 #include "common.h"
 #include "poly_macros_32k.h"
 #include "poly_macros_common.h"
-#include "poly_macros_common_sse4.1.h"
 
-// protect sse41 code under MSVC builds.  USE_SSE41 should be manually
-// enabled at the top of qs.h for MSVC builds on supported hardware
-#ifdef USE_SSE41
+#define COMPUTE_NEXT_ROOTS_BATCH(i) \
+    if (gray[numB + i] > 0) { \
+        root1 = (int)root1 - rootupdates[(nu[numB + i] - 1) * bound + j]; \
+        root2 = (int)root2 - rootupdates[(nu[numB + i] - 1) * bound + j]; \
+        root1 += ((root1 >> 31) * prime); \
+        root2 += ((root2 >> 31) * prime); \
+            } else { \
+        root1 = (int)root1 + rootupdates[(nu[numB + i] - 1) * bound + j]; \
+        root2 = (int)root2 + rootupdates[(nu[numB + i] - 1) * bound + j]; \
+        root1 -= ((root1 >= prime) * prime); \
+        root2 -= ((root2 >= prime) * prime); \
+                }
+
+#define COMPUTE_NEXT_ROOTS_BATCH_P(i) \
+    root1 = (int)root1 - rootupdates[(nu[numB + i] - 1) * bound + j + k]; \
+    root2 = (int)root2 - rootupdates[(nu[numB + i] - 1) * bound + j + k]; \
+    root1 += ((root1 >> 31) * prime); \
+    root2 += ((root2 >> 31) * prime);
+
+#define COMPUTE_NEXT_ROOTS_BATCH_N(i) \
+    root1 = (int)root1 + rootupdates[(nu[numB + i] - 1) * bound + j + k]; \
+    root2 = (int)root2 + rootupdates[(nu[numB + i] - 1) * bound + j + k]; \
+    root1 -= ((root1 >= prime) * prime); \
+    root2 -= ((root2 >= prime) * prime); \
 
 //this is in the poly library, even though the bulk of the time is spent
 //bucketizing large primes, because it's where the roots of a poly are updated
-void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
+void nextRoots_32k(static_conf_t *sconf, dynamic_conf_t *dconf)
 {
 	//update the roots 
 	sieve_fb_compressed *fb_p = dconf->comp_sieve_p;
@@ -53,8 +74,8 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 	uint32_t large_B = sconf->factor_base->large_B;
 
 	uint32_t j, interval; //, fb_offset;
-	int k,numblocks;
-	uint32_t root1, root2, prime;
+	int k = 0,numblocks;
+    uint32_t root1, root2, prime;
 
 	int bound_index=0;
 	int check_bound = BUCKET_ALLOC/2 - 1;
@@ -74,7 +95,7 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 	numblocks = sconf->num_blocks;
 	interval = numblocks << 15;
 	
-	if (lp_bucket_p->alloc_slices != 0) //NULL)
+	if (lp_bucket_p->alloc_slices != 0) // != NULL)
 	{
 		lp_bucket_p->fb_bounds[0] = med_B;
 
@@ -102,7 +123,6 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 		numptr_n = NULL;
 	}
 
-	k=0;
 	ptr = &rootupdates[(v-1) * bound + startprime];	
 
 	if (sign > 0)
@@ -136,10 +156,6 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 		for (j=sconf->sieve_small_fb_start; 
 			j < sconf->factor_base->fb_10bit_B; j++, ptr++)
 		{
-			// as soon as we are aligned, use more efficient sse2 based methods...
-			if ((j & 7) == 0)
-				break;
-
 			prime = update_data.prime[j];
 			root1 = (uint32_t)update_data.sm_firstroots1[j];
 			root2 = (uint32_t)update_data.sm_firstroots2[j];
@@ -168,7 +184,7 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 			}
 		}
 		
-#if defined(GCC_ASM64X) || defined(_MSC_VER) //NOTDEF //GCC_ASM64X
+#if defined(D_HAS_SSE2) && (defined(GCC_ASM64X) || defined(_MSC_VER)) //NOTDEF //GCC_ASM64X
 		
 		// update 8 at a time using SSE2 and no branching
 		sm_ptr = &dconf->sm_rootupdates[(v-1) * med_B];
@@ -183,7 +199,7 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 			h.fbn2 = fb_n->root2;							// 40
 			h.primes = fb_p->prime;							// 48
 			h.updates = sm_ptr;								// 56
-			h.start = j;									// 64
+			h.start = sconf->factor_base->fb_10bit_B;		// 64
 			h.stop = sconf->factor_base->fb_15bit_B;		// 68
 			if ((h.stop - 8) > h.start)
 				h.stop -= 8;
@@ -194,14 +210,16 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 		}	
 
 #else
+
+
 		ptr = &dconf->rootupdates[(v-1) * bound + sconf->factor_base->fb_10bit_B];
 		for (j=sconf->factor_base->fb_10bit_B; j < sconf->factor_base->fb_15bit_B; j++, ptr++)
 		{
-			prime = update_data.prime[j];
-			root1 = update_data.sm_firstroots1[j];
-			root2 = update_data.sm_firstroots2[j];
+            prime = update_data.prime[j];
+            root1 = update_data.sm_firstroots1[j];
+            root2 = update_data.sm_firstroots2[j];
 
-			COMPUTE_NEXT_ROOTS_P;
+            COMPUTE_NEXT_ROOTS_P;
 
 			if (root2 < root1)
 			{
@@ -224,6 +242,7 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 				fb_n->root2[j] = (uint16_t)(prime - root1);
 			}
 		}
+
 #endif		
 
 		// assembly code may not get all the way to 15 bits since we 
@@ -237,7 +256,7 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 			root1 = (uint16_t)update_data.sm_firstroots1[j];
 			root2 = (uint16_t)update_data.sm_firstroots2[j];
 
-			if ((prime > 32768) && ((j & 7) == 0))
+			if ((prime > 32768) && ((j&7) == 0))
 				break;
 
 			COMPUTE_NEXT_ROOTS_P;
@@ -264,31 +283,8 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 			}
 		}	
 
-#if defined(GCC_ASM64X) || (defined(_MSC_VER) && defined (_WIN64))
-		// update 8 at a time using SSE2 and no branching
-		sm_ptr = &dconf->sm_rootupdates[(v-1) * med_B];
-		{
-			small_update_t h;
-			
-			h.first_r1 = update_data.sm_firstroots1;		// 0
-			h.first_r2 = update_data.sm_firstroots2;		// 8
-			h.fbp1 = fb_p->root1;							// 16
-			h.fbp2 = fb_p->root2;							// 24
-			h.fbn1 = fb_n->root1;							// 32
-			h.fbn2 = fb_n->root2;							// 40
-			h.primes = fb_p->prime;							// 48
-			h.updates = sm_ptr;								// 56
-			h.start = j;									// 64
-			h.stop = med_B;									// 68
-
-			COMPUTE_8X_SMALL_PROOTS_SSE41;
-			
-			j = h.stop;
-		}	
-		sm_ptr = &dconf->sm_rootupdates[(v-1) * med_B + j];
-
-#else
-
+		// continue one at a time once we exceed 15 bits, because the 8x SSE2
+		// code has a hard time with unsigned 16 bit comparisons
 		for ( ; j < med_B; j++, ptr++)
 		{
 			prime = update_data.prime[j];
@@ -318,9 +314,6 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 				fb_n->root2[j] = (uint16_t)(prime - root1);
 			}
 		}
-
-
-#endif
 
 		bound_index = 0;
 		bound_val = med_B;
@@ -362,7 +355,6 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 		helperstruct.bound_index = bound_index;		//100
 		helperstruct.check_bound = check_bound;		//104
 		helperstruct.logp = logp;					//108
-		helperstruct.intervalm1 = interval-1;		//112
 
 		ASM_G (		\
 			"movq	%0,%%rsi \n\t"					/* move helperstruct into rsi */ \
@@ -398,11 +390,8 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 			"pand	%%xmm0, %%xmm4 \n\t"			/* copy prime to overflow locations (are set to 1) */ \
 			"pand	%%xmm0, %%xmm5 \n\t"			/* copy prime to overflow locations (are set to 1) */ \
 			"paddd	%%xmm4, %%xmm1 \n\t"			/* selectively add back prime (modular subtract) */ \
-			"paddd	%%xmm5, %%xmm2 \n\t"			/* selectively add back prime (modular subtract) */ \
-			"movdqa %%xmm1, %%xmm9 \n\t"					/* xmm5 = root1 copy */	\
-			"pminud	%%xmm2, %%xmm1 \n\t"					/* xmm2 = root2 < root1 ? root2 : root1 */	\
-			"pmaxud	%%xmm9, %%xmm2 \n\t"					/* xmm5 = root2 > root1 ? root2 : root1 */	\
 			"movdqa %%xmm1, (%%r14,%%r15,4) \n\t"	/* save new root1 values */ \
+			"paddd	%%xmm5, %%xmm2 \n\t"			/* selectively add back prime (modular subtract) */ \
 			"movdqa %%xmm2, (%%r13,%%r15,4) \n\t"	/* save new root2 values */ \
 			"psubd	%%xmm1, %%xmm6 \n\t"			/* form negative root1's; prime - root1 */ \
 			"psubd	%%xmm2, %%xmm7 \n\t"			/* form negative root2's; prime - root2 */ \
@@ -413,141 +402,159 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT1,1 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$0,%%xmm1,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
+			"movd	%%xmm1,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
+			"movd	%%xmm2,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
+			"movd	%%xmm0,%%edx \n\t"				/* else, extract prime from xmm0 */ \
 			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$0,%%xmm2,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
-			"pextrd	$0,%%xmm0,%%edx \n\t"				/* else, extract prime from xmm0 */ \
+			"psrldq $4,%%xmm1 \n\t" 				/* next root1 */ \
+			"jae    1f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT1_LOOP("0") \
+			"1:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT2,1 ========== */	\
 				/* ================================================ */	\
 			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
+			"psrldq $4,%%xmm2 \n\t" 				/* next root1 */ \
 			"jae    1f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT2_LOOP("0") \
-			"2:		\n\t" \
 			"1:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT1,2 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$1,%%xmm1,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
+			"psrldq $4,%%xmm0 \n\t" 				/* next prime */ \
+			"movd	%%xmm1,%%r8d \n\t"				/* else, extract root1,2 from xmm1 */ \
+			"movd	%%xmm2,%%r9d \n\t"				/* else, extract root2,2 from xmm2 */ \
+			"movd	%%xmm0,%%edx \n\t"				/* else, extract prime from xmm0 */ \
 			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$1,%%xmm2,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
-			"pextrd	$1,%%xmm0,%%edx \n\t"				/* else, extract prime from xmm0 */ \
+			"psrldq $4,%%xmm1 \n\t" 				/* next root1 */ \
+			"jae    3f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT1_LOOP("1") \
+			"3:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT2,2 ========== */	\
 				/* ================================================ */	\
 			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
-			"jae    1f \n\t" 						/* jump if CF = 1 */ \
+			"psrldq $4,%%xmm2 \n\t" 				/* next root1 */ \
+			"jae    3f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT2_LOOP("1") \
-			"2:		\n\t" \
-			"1:		\n\t" \
+			"3:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT1,3 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$2,%%xmm1,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
+			"psrldq $4,%%xmm0 \n\t" 				/* next prime */ \
+			"movd	%%xmm1,%%r8d \n\t"				/* else, extract root1,3 from xmm1 */ \
+			"movd	%%xmm2,%%r9d \n\t"				/* else, extract root2,3 from xmm2 */ \
+			"movd	%%xmm0,%%edx \n\t"				/* else, extract prime from xmm0 */ \
 			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$2,%%xmm2,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
-			"pextrd	$2,%%xmm0,%%edx \n\t"				/* else, extract prime from xmm0 */ \
+			"psrldq $4,%%xmm1 \n\t" 				/* next root1 */ \
+			"jae    5f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT1_LOOP("2") \
+			"5:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT2,3 ========== */	\
 				/* ================================================ */	\
 			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
-			"jae    1f \n\t" 						/* jump if CF = 1 */ \
+			"psrldq $4,%%xmm2 \n\t" 				/* next root1 */ \
+			"jae    5f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT2_LOOP("2") \
-			"2:		\n\t" \
-			"1:		\n\t" \
+			"5:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT1,4 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$3,%%xmm1,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
+			"psrldq $4,%%xmm0 \n\t" 				/* next prime */ \
+			"movd	%%xmm1,%%r8d \n\t"				/* else, extract root1,4 from xmm1 */ \
+			"movd	%%xmm2,%%r9d \n\t"				/* else, extract root2,4 from xmm2 */ \
+			"movd	%%xmm0,%%edx \n\t"				/* else, extract prime from xmm0 */ \
 			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$3,%%xmm2,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
-			"pextrd	$3,%%xmm0,%%edx \n\t"				/* else, extract prime from xmm0 */ \
+			"jae    7f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT1_LOOP("3") \
+			"7:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT2,4 ========== */	\
 				/* ================================================ */	\
 			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
-			"jae    1f \n\t" 						/* jump if CF = 1 */ \
+			"jae    7f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT2_LOOP("3") \
-			"2:		\n\t" \
-			"1:		\n\t" \
+			"7:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT1,1 ========== */	\
 				/* ================================================ */	\
 			"movq	0(%%rsi,1),%%r10 \n\t"			/* numptr_n into r10 */ \
 			"movq	16(%%rsi,1),%%r11 \n\t"			/* sliceptr_n into r10 */ \
-			"pextrd	$0,%%xmm7,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
-			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$0,%%xmm6,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
-			"pextrd	$0,%%xmm8,%%edx \n\t"				/* else, extract prime from xmm0 */ \
-			UPDATE_ROOT2_LOOP("0") \
+			"movd	%%xmm6,%%r8d \n\t"				/* else, extract nroot1,1 from xmm6 */ \
+			"movd	%%xmm7,%%r9d \n\t"				/* else, extract nroot2,1 from xmm7 */ \
+			"movd	%%xmm8,%%edx \n\t"				/* else, extract prime from xmm8 */ \
+			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
+			"psrldq $4,%%xmm6 \n\t" 				/* nextn root1 */ \
+			"jae    1f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT1_LOOP("0") \
+			"1:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT2,1 ========== */	\
 				/* ================================================ */	\
-			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
+			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
+			"psrldq $4,%%xmm7 \n\t" 				/* nextn nroot2 */ \
 			"jae    1f \n\t" 						/* jump if CF = 1 */ \
-			UPDATE_ROOT1_LOOP("0") \
-			"2:		\n\t" \
+			UPDATE_ROOT2_LOOP("0") \
 			"1:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT1,2 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$1,%%xmm7,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
-			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$1,%%xmm6,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
-			"pextrd	$1,%%xmm8,%%edx \n\t"				/* else, extract prime from xmm0 */ \
-			UPDATE_ROOT2_LOOP("1") \
+			"psrldq $4,%%xmm8 \n\t" 				/* next prime */ \
+			"movd	%%xmm6,%%r8d \n\t"				/* else, extract nroot1,2 from xmm6 */ \
+			"movd	%%xmm7,%%r9d \n\t"				/* else, extract nroot2,2 from xmm7 */ \
+			"movd	%%xmm8,%%edx \n\t"				/* else, extract prime from xmm8 */ \
+			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
+			"psrldq $4,%%xmm6 \n\t" 				/* nextn root1 */ \
+			"jae    3f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT1_LOOP("1") \
+			"3:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT2,2 ========== */	\
 				/* ================================================ */	\
-			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
-			"jae    1f \n\t" 						/* jump if CF = 1 */ \
-			UPDATE_ROOT1_LOOP("1") \
-			"2:		\n\t" \
-			"1:		\n\t" \
+			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
+			"psrldq $4,%%xmm7 \n\t" 				/* nextn nroot2 */ \
+			"jae    3f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT2_LOOP("1") \
+			"3:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT1,3 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$2,%%xmm7,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
-			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$2,%%xmm6,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
-			"pextrd	$2,%%xmm8,%%edx \n\t"				/* else, extract prime from xmm0 */ \
-			UPDATE_ROOT2_LOOP("2") \
+			"psrldq $4,%%xmm8 \n\t" 				/* next prime */ \
+			"movd	%%xmm6,%%r8d \n\t"				/* else, extract nroot1,3 from xmm6 */ \
+			"movd	%%xmm7,%%r9d \n\t"				/* else, extract nroot2,3 from xmm7 */ \
+			"movd	%%xmm8,%%edx \n\t"				/* else, extract prime from xmm8 */ \
+			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
+			"psrldq $4,%%xmm6 \n\t" 				/* nextn root1 */ \
+			"jae    5f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT1_LOOP("2") \
+			"5:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT2,3 ========== */	\
 				/* ================================================ */	\
-			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
-			"jae    1f \n\t" 						/* jump if CF = 1 */ \
-			UPDATE_ROOT1_LOOP("2") \
-			"2:		\n\t" \
-			"1:		\n\t" \
+			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
+			"psrldq $4,%%xmm7 \n\t" 				/* nextn nroot2 */ \
+			"jae    5f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT2_LOOP("2") \
+			"5:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT1,4 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$3,%%xmm7,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
-			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$3,%%xmm6,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
-			"pextrd	$3,%%xmm8,%%edx \n\t"				/* else, extract prime from xmm0 */ \
-			UPDATE_ROOT2_LOOP("3") \
+			"psrldq $4,%%xmm8 \n\t" 				/* next prime */ \
+			"movd	%%xmm6,%%r8d \n\t"				/* else, extract nroot1,4 from xmm6 */ \
+			"movd	%%xmm7,%%r9d \n\t"				/* else, extract nroot2,4 from xmm7 */ \
+			"movd	%%xmm8,%%edx \n\t"				/* else, extract prime from xmm8 */ \
+			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
+			"jae    7f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT1_LOOP("3") \
+			"7:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT2,4 ========== */	\
 				/* ================================================ */	\
-			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
-			"jae    1f \n\t" 						/* jump if CF = 1 */ \
-			UPDATE_ROOT1_LOOP("3") \
-			"2:		\n\t" \
-			"1:		\n\t" \
+			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
+			"jae    7f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT2_LOOP("3") \
+			"7:		\n\t" \
 				/* ================================================ */	\
 				/* ======== END OF LOOP - UPDATE AND CHECK ======== */	\
 				/* ================================================ */	\
@@ -557,9 +564,9 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 			"9:		\n\t"				\
 			"movl	%%r15d, %%eax \n\t" \
 			:  \
-			: "g"(&helperstruct) \
+			: "m"(helperstruct) \
 			: "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", 
-				"xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "memory", "cc");
+				"xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "memory", "cc");
 
 		// refresh local pointers and constants before entering the next loop
 		numptr_n = helperstruct.numptr_n;
@@ -586,9 +593,9 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 
 			root1 = update_data.firstroots1[j];
 			root2 = update_data.firstroots2[j];
-			prime = update_data.prime[j];
             nroot1 = (prime - root1);
             nroot2 = (prime - root2);
+			prime = update_data.prime[j];
 
 			FILL_ONE_PRIME_LOOP_P(j);
 			FILL_ONE_PRIME_LOOP_N(j);
@@ -597,9 +604,9 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 
 			root1 = update_data.firstroots1[j];
 			root2 = update_data.firstroots2[j];
-			prime = update_data.prime[j];
             nroot1 = (prime - root1);
             nroot2 = (prime - root2);
+			prime = update_data.prime[j];
 
 			FILL_ONE_PRIME_LOOP_P(j);
 			FILL_ONE_PRIME_LOOP_N(j);
@@ -608,9 +615,9 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 
 			root1 = update_data.firstroots1[j];
 			root2 = update_data.firstroots2[j];
-			prime = update_data.prime[j];
             nroot1 = (prime - root1);
             nroot2 = (prime - root2);
+			prime = update_data.prime[j];
 
 			FILL_ONE_PRIME_LOOP_P(j);
 			FILL_ONE_PRIME_LOOP_N(j);
@@ -619,9 +626,9 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 
 			root1 = update_data.firstroots1[j];
 			root2 = update_data.firstroots2[j];
-			prime = update_data.prime[j];
             nroot1 = (prime - root1);
             nroot2 = (prime - root2);
+			prime = update_data.prime[j];
 
 			FILL_ONE_PRIME_LOOP_P(j);
 			FILL_ONE_PRIME_LOOP_N(j);
@@ -631,6 +638,7 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 
 
 #else
+
 		logp = update_data.logp[j-1];
 		for (j=med_B;j<large_B;j++,ptr++)
 		{
@@ -643,21 +651,19 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 			root2 = update_data.firstroots2[j];
 
 			COMPUTE_NEXT_ROOTS_P;
-			//fb_offset = (j - bound_val) << 16;
 
 			update_data.firstroots1[j] = root1;
 			update_data.firstroots2[j] = root2;
+            nroot1 = prime - root1;
+            nroot2 = prime - root2;
 
 			FILL_ONE_PRIME_LOOP_P(j);
-
-			nroot1 = (prime - update_data.firstroots1[j]);
-			nroot2 = (prime - update_data.firstroots2[j]);
-
 			FILL_ONE_PRIME_LOOP_N(j);
 		}
 
 #endif
 
+		
 #if defined(USE_POLY_SSE2_ASM) && defined(GCC_ASM64X) && !defined(PROFILING)
 		logp = update_data.logp[large_B-1];
 
@@ -692,7 +698,6 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 		helperstruct.bound_index = bound_index;		//100
 		helperstruct.check_bound = check_bound;		//104
 		helperstruct.logp = logp;					//108
-		helperstruct.intervalm1 = interval-1;		//112
 
 		ASM_G (		\
 			"movq	%0,%%rsi \n\t"					/* move helperstruct into rsi */ \
@@ -727,11 +732,8 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 			"pand	%%xmm0, %%xmm5 \n\t"			/* copy prime to overflow locations (are set to 1) */ \
 			"movdqa %%xmm0, %%xmm7 \n\t"			/* copy prime to compute neg roots */ \
 			"paddd	%%xmm4, %%xmm1 \n\t"			/* selectively add back prime (modular subtract) */ \
-			"paddd	%%xmm5, %%xmm2 \n\t"			/* selectively add back prime (modular subtract) */ \
-			"movdqa %%xmm1, %%xmm8 \n\t"					/* xmm5 = root1 copy */	\
-			"pminud	%%xmm2, %%xmm1 \n\t"					/* xmm2 = root2 < root1 ? root2 : root1 */	\
-			"pmaxud	%%xmm8, %%xmm2 \n\t"					/* xmm5 = root2 > root1 ? root2 : root1 */	\
 			"movdqa %%xmm1, (%%r14,%%r15,4) \n\t"	/* save new root1 values */ \
+			"paddd	%%xmm5, %%xmm2 \n\t"			/* selectively add back prime (modular subtract) */ \
 			"movdqa %%xmm2, (%%r13,%%r15,4) \n\t"	/* save new root2 values */ \
 			"psubd	%%xmm1, %%xmm6 \n\t"			/* form negative root1's; prime - root1 */ \
 			"psubd	%%xmm2, %%xmm7 \n\t"			/* form negative root2's; prime - root2 */ \
@@ -743,133 +745,145 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT1,1 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$0,%%xmm1,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
+			"movd	%%xmm1,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
+			"movd	%%xmm2,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
 			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$0,%%xmm2,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
+			"psrldq $4,%%xmm1 \n\t" 				/* next root1 */ \
+			"jae    1f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT1("0") \
+			"1:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT2,1 ========== */	\
 				/* ================================================ */	\
 			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
+			"psrldq $4,%%xmm2 \n\t" 				/* next root1 */ \
 			"jae    1f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT2("0") \
-			"2:		\n\t" \
 			"1:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT1,2 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$1,%%xmm1,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
+			"movd	%%xmm1,%%r8d \n\t"				/* else, extract root1,2 from xmm1 */ \
+			"movd	%%xmm2,%%r9d \n\t"				/* else, extract root2,2 from xmm2 */ \
 			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$1,%%xmm2,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
+			"psrldq $4,%%xmm1 \n\t" 				/* next root1 */ \
+			"jae    3f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT1("1") \
+			"3:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT2,2 ========== */	\
 				/* ================================================ */	\
 			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
-			"jae    1f \n\t" 						/* jump if CF = 1 */ \
+			"psrldq $4,%%xmm2 \n\t" 				/* next root1 */ \
+			"jae    3f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT2("1") \
-			"2:		\n\t" \
-			"1:		\n\t" \
+			"3:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT1,3 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$2,%%xmm1,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
+			"movd	%%xmm1,%%r8d \n\t"				/* else, extract root1,3 from xmm1 */ \
+			"movd	%%xmm2,%%r9d \n\t"				/* else, extract root2,3 from xmm2 */ \
 			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$2,%%xmm2,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
+			"psrldq $4,%%xmm1 \n\t" 				/* next root1 */ \
+			"jae    5f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT1("2") \
+			"5:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT2,3 ========== */	\
 				/* ================================================ */	\
 			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
-			"jae    1f \n\t" 						/* jump if CF = 1 */ \
+			"psrldq $4,%%xmm2 \n\t" 				/* next root1 */ \
+			"jae    5f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT2("2") \
-			"2:		\n\t" \
-			"1:		\n\t" \
+			"5:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT1,4 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$3,%%xmm1,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
+			"movd	%%xmm1,%%r8d \n\t"				/* else, extract root1,4 from xmm1 */ \
+			"movd	%%xmm2,%%r9d \n\t"				/* else, extract root2,4 from xmm2 */ \
 			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$3,%%xmm2,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
+			"jae    7f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT1("3") \
+			"7:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT2,4 ========== */	\
 				/* ================================================ */	\
 			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
-			"jae    1f \n\t" 						/* jump if CF = 1 */ \
+			"jae    7f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT2("3") \
-			"2:		\n\t" \
-			"1:		\n\t" \
+			"7:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT1,1 ========== */	\
 				/* ================================================ */	\
 			"movq	0(%%rsi,1),%%r10 \n\t"			/* numptr_n into r10 */ \
 			"movq	16(%%rsi,1),%%r11 \n\t"			/* sliceptr_n into r10 */ \
-			"pextrd	$0,%%xmm7,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
-			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$0,%%xmm6,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
-			UPDATE_ROOT2("0") \
+			"movd	%%xmm6,%%r8d \n\t"				/* else, extract nroot1,1 from xmm6 */ \
+			"movd	%%xmm7,%%r9d \n\t"				/* else, extract nroot2,1 from xmm7 */ \
+			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
+			"psrldq $4,%%xmm6 \n\t" 				/* nextn root1 */ \
+			"jae    1f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT1("0") \
+			"1:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT2,1 ========== */	\
 				/* ================================================ */	\
-			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
+			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
+			"psrldq $4,%%xmm7 \n\t" 				/* nextn nroot2 */ \
 			"jae    1f \n\t" 						/* jump if CF = 1 */ \
-			UPDATE_ROOT1("0") \
-			"2:		\n\t" \
+			UPDATE_ROOT2("0") \
 			"1:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT1,2 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$1,%%xmm7,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
-			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$1,%%xmm6,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
-			UPDATE_ROOT2("1") \
+			"movd	%%xmm6,%%r8d \n\t"				/* else, extract nroot1,2 from xmm6 */ \
+			"movd	%%xmm7,%%r9d \n\t"				/* else, extract nroot2,2 from xmm7 */ \
+			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
+			"psrldq $4,%%xmm6 \n\t" 				/* nextn root1 */ \
+			"jae    3f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT1("1") \
+			"3:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT2,2 ========== */	\
 				/* ================================================ */	\
-			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
-			"jae    1f \n\t" 						/* jump if CF = 1 */ \
-			UPDATE_ROOT1("1") \
-			"2:		\n\t" \
-			"1:		\n\t" \
+			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
+			"psrldq $4,%%xmm7 \n\t" 				/* nextn nroot2 */ \
+			"jae    3f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT2("1") \
+			"3:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT1,3 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$2,%%xmm7,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
-			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$2,%%xmm6,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
-			UPDATE_ROOT2("2") \
+			"movd	%%xmm6,%%r8d \n\t"				/* else, extract nroot1,3 from xmm6 */ \
+			"movd	%%xmm7,%%r9d \n\t"				/* else, extract nroot2,3 from xmm7 */ \
+			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
+			"psrldq $4,%%xmm6 \n\t" 				/* nextn root1 */ \
+			"jae    5f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT1("2") \
+			"5:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT2,3 ========== */	\
 				/* ================================================ */	\
-			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
-			"jae    1f \n\t" 						/* jump if CF = 1 */ \
-			UPDATE_ROOT1("2") \
-			"2:		\n\t" \
-			"1:		\n\t" \
+			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
+			"psrldq $4,%%xmm7 \n\t" 				/* nextn nroot2 */ \
+			"jae    5f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT2("2") \
+			"5:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT1,4 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$3,%%xmm7,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
-			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$3,%%xmm6,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
-			UPDATE_ROOT2("3") \
+			"movd	%%xmm6,%%r8d \n\t"				/* else, extract nroot1,4 from xmm6 */ \
+			"movd	%%xmm7,%%r9d \n\t"				/* else, extract nroot2,4 from xmm7 */ \
+			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
+			"jae    7f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT1("3") \
+			"7:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT2,4 ========== */	\
 				/* ================================================ */	\
-			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
-			"jae    1f \n\t" 						/* jump if CF = 1 */ \
-			UPDATE_ROOT1("3") \
-			"2:		\n\t" \
-			"1:		\n\t" \
+			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
+			"jae    7f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT2("3") \
+			"7:		\n\t" \
 				/* ================================================ */	\
 				/* ======== END OF LOOP - UPDATE AND CHECK ======== */	\
 				/* ================================================ */	\
@@ -879,9 +893,8 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 			"9:		\n\t"				\
 			"movl	%%r15d, %%eax \n\t" \
 			:  \
-			: "g"(&helperstruct) \
-			: "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", 
-				"xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "memory", "cc");
+			: "m"(helperstruct) \
+			: "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "memory", "cc");
 
 		bound_index = helperstruct.bound_index;
 		logp = helperstruct.logp;
@@ -951,6 +964,7 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 
 
 #else
+
 		logp = update_data.logp[j-1];
 		for (j=large_B;j<bound;j++,ptr++)				
 		{				
@@ -1007,11 +1021,6 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 		for (j=sconf->sieve_small_fb_start; 
 			j < sconf->factor_base->fb_10bit_B; j++, ptr++)
 		{
-
-			// as soon as we are aligned, use more efficient sse2 based methods...
-			if ((j & 7) == 0)
-				break;
-
 			prime = update_data.prime[j];
 			root1 = (uint32_t)update_data.sm_firstroots1[j];
 			root2 = (uint32_t)update_data.sm_firstroots2[j];
@@ -1040,7 +1049,7 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 			}
 		}
 		
-#if defined(GCC_ASM64X) || defined(_MSC_VER) //NOTDEF //GCC_ASM64X
+#if defined(D_HAS_SSE2) && (defined(GCC_ASM64X) || defined(_MSC_VER)) //NOTDEF //GCC_ASM64X
 		// update 8 at a time using SSE2 and no branching		
 		sm_ptr = &dconf->sm_rootupdates[(v-1) * med_B];
 		{
@@ -1054,7 +1063,7 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 			h.fbn2 = fb_n->root2;							// 40
 			h.primes = fb_p->prime;							// 48
 			h.updates = sm_ptr;								// 56
-			h.start = j;									// 64
+			h.start = sconf->factor_base->fb_10bit_B;		// 64
 			h.stop = sconf->factor_base->fb_15bit_B;		// 68
 			if ((h.stop - 8) > h.start)
 				h.stop -= 8;
@@ -1067,6 +1076,7 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 		
 
 #else
+
 		ptr = &dconf->rootupdates[(v-1) * bound + sconf->factor_base->fb_10bit_B];
 		for (j=sconf->factor_base->fb_10bit_B; j < sconf->factor_base->fb_15bit_B; j++, ptr++)
 		{
@@ -1110,7 +1120,7 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 			root1 = (uint16_t)update_data.sm_firstroots1[j];
 			root2 = (uint16_t)update_data.sm_firstroots2[j];
 
-			if ((prime > 32768) && ((j & 7) == 0))
+			if ((prime > 32768) && ((j&7) == 0))
 				break;
 
 			COMPUTE_NEXT_ROOTS_N;
@@ -1139,33 +1149,6 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 
 		// continue one at a time once we exceed 15 bits, because the 8x SSE2
 		// code has a hard time with unsigned 16 bit comparisons
-#if defined(GCC_ASM64X) || (defined(_MSC_VER) && defined(_WIN64))
-
-		// update 8 at a time using SSE2 and no branching		
-		sm_ptr = &dconf->sm_rootupdates[(v-1) * med_B];
-		{
-			small_update_t h;
-			
-			h.first_r1 = update_data.sm_firstroots1;		// 0
-			h.first_r2 = update_data.sm_firstroots2;		// 8
-			h.fbp1 = fb_p->root1;							// 16
-			h.fbp2 = fb_p->root2;							// 24
-			h.fbn1 = fb_n->root1;							// 32
-			h.fbn2 = fb_n->root2;							// 40
-			h.primes = fb_p->prime;							// 48
-			h.updates = sm_ptr;								// 56
-			h.start = j;									// 64
-			h.stop = med_B;									// 68
-
-			COMPUTE_8X_SMALL_NROOTS_SSE41;
-
-			j = h.stop;
-		}
-        sm_ptr = &dconf->sm_rootupdates[(v - 1) * med_B + j];
-		
-		
-#else
-
 		for ( ; j < med_B; j++, ptr++)
 		{
 			prime = update_data.prime[j];
@@ -1195,9 +1178,6 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 				fb_n->root2[j] = (uint16_t)(prime - root1);
 			}
 		}	
-		
-
-#endif
 
 		bound_index = 0;
 		bound_val = med_B;
@@ -1238,7 +1218,6 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 		helperstruct.bound_index = bound_index;		//100
 		helperstruct.check_bound = check_bound;		//104
 		helperstruct.logp = logp;					//108
-		helperstruct.intervalm1 = interval-1;		//112
 
 		ASM_G (		\
 			"movq	%0,%%rsi \n\t"					/* move helperstruct into rsi */ \
@@ -1274,11 +1253,8 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 			"pand	%%xmm0, %%xmm4 \n\t"			/* copy prime to overflow locations (are set to 1) */ \
 			"pand	%%xmm0, %%xmm5 \n\t"			/* copy prime to overflow locations (are set to 1) */ \
 			"psubd	%%xmm4, %%xmm1 \n\t"			/* selectively sub back prime (modular addition) */ \
-			"psubd	%%xmm5, %%xmm2 \n\t"			/* selectively sub back prime (modular addition) */ \
-			"movdqa %%xmm1, %%xmm9 \n\t"					/* xmm5 = root1 copy */	\
-			"pminud	%%xmm2, %%xmm1 \n\t"					/* xmm2 = root2 < root1 ? root2 : root1 */	\
-			"pmaxud	%%xmm9, %%xmm2 \n\t"					/* xmm5 = root2 > root1 ? root2 : root1 */	\
 			"movdqa %%xmm1, (%%r14,%%r15,4) \n\t"	/* save new root1 values */ \
+			"psubd	%%xmm5, %%xmm2 \n\t"			/* selectively sub back prime (modular addition) */ \
 			"movdqa %%xmm2, (%%r13,%%r15,4) \n\t"	/* save new root2 values */ \
 			"psubd	%%xmm1, %%xmm6 \n\t"			/* form negative root1's; prime - root1 */ \
 			"psubd	%%xmm2, %%xmm7 \n\t"			/* form negative root2's; prime - root2 */ \
@@ -1289,141 +1265,159 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT1,1 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$0,%%xmm1,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
+			"movd	%%xmm1,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
+			"movd	%%xmm2,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
+			"movd	%%xmm0,%%edx \n\t"				/* else, extract prime from xmm0 */ \
 			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$0,%%xmm2,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
-			"pextrd	$0,%%xmm0,%%edx \n\t"				/* else, extract prime from xmm0 */ \
+			"psrldq $4,%%xmm1 \n\t" 				/* next root1 */ \
+			"jae    1f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT1_LOOP("0") \
+			"1:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT2,1 ========== */	\
 				/* ================================================ */	\
 			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
+			"psrldq $4,%%xmm2 \n\t" 				/* next root1 */ \
 			"jae    1f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT2_LOOP("0") \
-			"2:		\n\t" \
 			"1:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT1,2 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$1,%%xmm1,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
+			"psrldq $4,%%xmm0 \n\t" 				/* next prime */ \
+			"movd	%%xmm1,%%r8d \n\t"				/* else, extract root1,2 from xmm1 */ \
+			"movd	%%xmm2,%%r9d \n\t"				/* else, extract root2,2 from xmm2 */ \
+			"movd	%%xmm0,%%edx \n\t"				/* else, extract prime from xmm0 */ \
 			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$1,%%xmm2,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
-			"pextrd	$1,%%xmm0,%%edx \n\t"				/* else, extract prime from xmm0 */ \
+			"psrldq $4,%%xmm1 \n\t" 				/* next root1 */ \
+			"jae    3f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT1_LOOP("1") \
+			"3:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT2,2 ========== */	\
 				/* ================================================ */	\
 			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
-			"jae    1f \n\t" 						/* jump if CF = 1 */ \
+			"psrldq $4,%%xmm2 \n\t" 				/* next root1 */ \
+			"jae    3f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT2_LOOP("1") \
-			"2:		\n\t" \
-			"1:		\n\t" \
+			"3:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT1,3 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$2,%%xmm1,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
+			"psrldq $4,%%xmm0 \n\t" 				/* next prime */ \
+			"movd	%%xmm1,%%r8d \n\t"				/* else, extract root1,3 from xmm1 */ \
+			"movd	%%xmm2,%%r9d \n\t"				/* else, extract root2,3 from xmm2 */ \
+			"movd	%%xmm0,%%edx \n\t"				/* else, extract prime from xmm0 */ \
 			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$2,%%xmm2,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
-			"pextrd	$2,%%xmm0,%%edx \n\t"				/* else, extract prime from xmm0 */ \
+			"psrldq $4,%%xmm1 \n\t" 				/* next root1 */ \
+			"jae    5f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT1_LOOP("2") \
+			"5:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT2,3 ========== */	\
 				/* ================================================ */	\
 			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
-			"jae    1f \n\t" 						/* jump if CF = 1 */ \
+			"psrldq $4,%%xmm2 \n\t" 				/* next root1 */ \
+			"jae    5f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT2_LOOP("2") \
-			"2:		\n\t" \
-			"1:		\n\t" \
+			"5:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT1,4 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$3,%%xmm1,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
+			"psrldq $4,%%xmm0 \n\t" 				/* next prime */ \
+			"movd	%%xmm1,%%r8d \n\t"				/* else, extract root1,4 from xmm1 */ \
+			"movd	%%xmm2,%%r9d \n\t"				/* else, extract root2,4 from xmm2 */ \
+			"movd	%%xmm0,%%edx \n\t"				/* else, extract prime from xmm0 */ \
 			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$3,%%xmm2,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
-			"pextrd	$3,%%xmm0,%%edx \n\t"				/* else, extract prime from xmm0 */ \
+			"jae    7f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT1_LOOP("3") \
+			"7:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT2,4 ========== */	\
 				/* ================================================ */	\
 			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
-			"jae    1f \n\t" 						/* jump if CF = 1 */ \
+			"jae    7f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT2_LOOP("3") \
-			"2:		\n\t" \
-			"1:		\n\t" \
+			"7:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT1,1 ========== */	\
 				/* ================================================ */	\
 			"movq	0(%%rsi,1),%%r10 \n\t"			/* numptr_n into r10 */ \
 			"movq	16(%%rsi,1),%%r11 \n\t"			/* sliceptr_n into r10 */ \
-			"pextrd	$0,%%xmm7,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
-			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$0,%%xmm6,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
-			"pextrd	$0,%%xmm8,%%edx \n\t"				/* else, extract prime from xmm0 */ \
-			UPDATE_ROOT2_LOOP("0") \
+			"movd	%%xmm6,%%r8d \n\t"				/* else, extract nroot1,1 from xmm6 */ \
+			"movd	%%xmm7,%%r9d \n\t"				/* else, extract nroot2,1 from xmm7 */ \
+			"movd	%%xmm8,%%edx \n\t"				/* else, extract prime from xmm8 */ \
+			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
+			"psrldq $4,%%xmm6 \n\t" 				/* nextn root1 */ \
+			"jae    1f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT1_LOOP("0") \
+			"1:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT2,1 ========== */	\
 				/* ================================================ */	\
-			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
+			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
+			"psrldq $4,%%xmm7 \n\t" 				/* nextn nroot2 */ \
 			"jae    1f \n\t" 						/* jump if CF = 1 */ \
-			UPDATE_ROOT1_LOOP("0") \
-			"2:		\n\t" \
+			UPDATE_ROOT2_LOOP("0") \
 			"1:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT1,2 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$1,%%xmm7,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
-			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$1,%%xmm6,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
-			"pextrd	$1,%%xmm8,%%edx \n\t"				/* else, extract prime from xmm0 */ \
-			UPDATE_ROOT2_LOOP("1") \
+			"psrldq $4,%%xmm8 \n\t" 				/* next prime */ \
+			"movd	%%xmm6,%%r8d \n\t"				/* else, extract nroot1,2 from xmm6 */ \
+			"movd	%%xmm7,%%r9d \n\t"				/* else, extract nroot2,2 from xmm7 */ \
+			"movd	%%xmm8,%%edx \n\t"				/* else, extract prime from xmm8 */ \
+			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
+			"psrldq $4,%%xmm6 \n\t" 				/* nextn root1 */ \
+			"jae    3f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT1_LOOP("1") \
+			"3:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT2,2 ========== */	\
 				/* ================================================ */	\
-			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
-			"jae    1f \n\t" 						/* jump if CF = 1 */ \
-			UPDATE_ROOT1_LOOP("1") \
-			"2:		\n\t" \
-			"1:		\n\t" \
+			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
+			"psrldq $4,%%xmm7 \n\t" 				/* nextn nroot2 */ \
+			"jae    3f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT2_LOOP("1") \
+			"3:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT1,3 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$2,%%xmm7,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
-			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$2,%%xmm6,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
-			"pextrd	$2,%%xmm8,%%edx \n\t"				/* else, extract prime from xmm0 */ \
-			UPDATE_ROOT2_LOOP("2") \
+			"psrldq $4,%%xmm8 \n\t" 				/* next prime */ \
+			"movd	%%xmm6,%%r8d \n\t"				/* else, extract nroot1,3 from xmm6 */ \
+			"movd	%%xmm7,%%r9d \n\t"				/* else, extract nroot2,3 from xmm7 */ \
+			"movd	%%xmm8,%%edx \n\t"				/* else, extract prime from xmm8 */ \
+			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
+			"psrldq $4,%%xmm6 \n\t" 				/* nextn root1 */ \
+			"jae    5f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT1_LOOP("2") \
+			"5:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT2,3 ========== */	\
 				/* ================================================ */	\
-			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
-			"jae    1f \n\t" 						/* jump if CF = 1 */ \
-			UPDATE_ROOT1_LOOP("2") \
-			"2:		\n\t" \
-			"1:		\n\t" \
+			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
+			"psrldq $4,%%xmm7 \n\t" 				/* nextn nroot2 */ \
+			"jae    5f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT2_LOOP("2") \
+			"5:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT1,4 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$3,%%xmm7,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
-			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$3,%%xmm6,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
-			"pextrd	$3,%%xmm8,%%edx \n\t"				/* else, extract prime from xmm0 */ \
-			UPDATE_ROOT2_LOOP("3") \
+			"psrldq $4,%%xmm8 \n\t" 				/* next prime */ \
+			"movd	%%xmm6,%%r8d \n\t"				/* else, extract nroot1,4 from xmm6 */ \
+			"movd	%%xmm7,%%r9d \n\t"				/* else, extract nroot2,4 from xmm7 */ \
+			"movd	%%xmm8,%%edx \n\t"				/* else, extract prime from xmm8 */ \
+			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
+			"jae    7f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT1_LOOP("3") \
+			"7:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT2,4 ========== */	\
 				/* ================================================ */	\
-			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
-			"jae    1f \n\t" 						/* jump if CF = 1 */ \
-			UPDATE_ROOT1_LOOP("3") \
-			"2:		\n\t" \
-			"1:		\n\t" \
+			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
+			"jae    7f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT2_LOOP("3") \
+			"7:		\n\t" \
 				/* ================================================ */	\
 				/* ======== END OF LOOP - UPDATE AND CHECK ======== */	\
 				/* ================================================ */	\
@@ -1433,9 +1427,8 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 			"9:		\n\t"				\
 			"movl	%%r15d, %%eax \n\t" \
 			:  \
-			: "g"(&helperstruct) \
-			: "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", 
-				"xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "xmm9", "memory", "cc");
+			: "m"(helperstruct) \
+			: "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "memory", "cc");
 
 		// refresh local pointers and constants before entering the next loop
 		numptr_n = helperstruct.numptr_n;
@@ -1459,47 +1452,47 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 
 			COMPUTE_4_NROOTS(j);
 
-			root1 = update_data.firstroots1[j];
-			root2 = update_data.firstroots2[j];
-			prime = update_data.prime[j];
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
             nroot1 = (prime - root1);
             nroot2 = (prime - root2);
+            prime = update_data.prime[j];
 
-			FILL_ONE_PRIME_LOOP_P(j);
-			FILL_ONE_PRIME_LOOP_N(j);
+            FILL_ONE_PRIME_LOOP_P(j);
+            FILL_ONE_PRIME_LOOP_N(j);
 
-			j++;
+            j++;
 
-			root1 = update_data.firstroots1[j];
-			root2 = update_data.firstroots2[j];
-			prime = update_data.prime[j];
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
             nroot1 = (prime - root1);
             nroot2 = (prime - root2);
+            prime = update_data.prime[j];
 
-			FILL_ONE_PRIME_LOOP_P(j);
-			FILL_ONE_PRIME_LOOP_N(j);
+            FILL_ONE_PRIME_LOOP_P(j);
+            FILL_ONE_PRIME_LOOP_N(j);
 
-			j++;
+            j++;
 
-			root1 = update_data.firstroots1[j];
-			root2 = update_data.firstroots2[j];
-			prime = update_data.prime[j];
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
             nroot1 = (prime - root1);
             nroot2 = (prime - root2);
+            prime = update_data.prime[j];
 
-			FILL_ONE_PRIME_LOOP_P(j);
-			FILL_ONE_PRIME_LOOP_N(j);
+            FILL_ONE_PRIME_LOOP_P(j);
+            FILL_ONE_PRIME_LOOP_N(j);
 
-			j++;
+            j++;
 
-			root1 = update_data.firstroots1[j];
-			root2 = update_data.firstroots2[j];
-			prime = update_data.prime[j];
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
             nroot1 = (prime - root1);
             nroot2 = (prime - root2);
+            prime = update_data.prime[j];
 
-			FILL_ONE_PRIME_LOOP_P(j);
-			FILL_ONE_PRIME_LOOP_N(j);
+            FILL_ONE_PRIME_LOOP_P(j);
+            FILL_ONE_PRIME_LOOP_N(j);
 
 			j++;
 		}
@@ -1522,17 +1515,15 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 
 			update_data.firstroots1[j] = root1;
 			update_data.firstroots2[j] = root2;
+            nroot1 = prime - root1;
+            nroot2 = prime - root2;
 
-			FILL_ONE_PRIME_LOOP_P(j);
-
-			nroot1 = (prime - update_data.firstroots1[j]);
-			nroot2 = (prime - update_data.firstroots2[j]);
-
-			FILL_ONE_PRIME_LOOP_N(j);
+            FILL_ONE_PRIME_LOOP_P(j);
+            FILL_ONE_PRIME_LOOP_N(j);
 		}
 
 #endif
-		
+	
 #if defined(USE_POLY_SSE2_ASM) && defined(GCC_ASM64X) && !defined(PROFILING)
 		logp = update_data.logp[large_B-1];
 		
@@ -1567,7 +1558,6 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 		helperstruct.bound_index = bound_index;		//100
 		helperstruct.check_bound = check_bound;		//104
 		helperstruct.logp = logp;					//108
-		helperstruct.intervalm1 = interval-1;		//112
 
 		ASM_G (		\
 			"movq	%0,%%rsi \n\t"					/* move helperstruct into rsi */ \
@@ -1602,11 +1592,8 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 			"movdqa %%xmm0, %%xmm7 \n\t"			/* copy prime to xmm7 */ \
 			"pand	%%xmm0, %%xmm5 \n\t"			/* copy prime to overflow locations (are set to 1) */ \
 			"psubd	%%xmm4, %%xmm1 \n\t"			/* selectively sub back prime (modular addition) */ \
-			"psubd	%%xmm5, %%xmm2 \n\t"			/* selectively sub back prime (modular addition) */ \
-			"movdqa %%xmm1, %%xmm8 \n\t"					/* xmm5 = root1 copy */	\
-			"pminud	%%xmm2, %%xmm1 \n\t"					/* xmm2 = root2 < root1 ? root2 : root1 */	\
-			"pmaxud	%%xmm8, %%xmm2 \n\t"					/* xmm5 = root2 > root1 ? root2 : root1 */	\
 			"movdqa %%xmm1, (%%r14,%%r15,4) \n\t"	/* save new root1 values */ \
+			"psubd	%%xmm5, %%xmm2 \n\t"			/* selectively sub back prime (modular addition) */ \
 			"movdqa %%xmm2, (%%r13,%%r15,4) \n\t"	/* save new root2 values */ \
 			"psubd	%%xmm1, %%xmm6 \n\t"			/* form negative root1's; prime - root1 */ \
 			"psubd	%%xmm2, %%xmm7 \n\t"			/* form negative root2's; prime - root2 */ \
@@ -1618,135 +1605,145 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT1,1 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$0,%%xmm1,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
-			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval?, if so then so is root2 */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$0,%%xmm2,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
+			"movd	%%xmm1,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
+			"movd	%%xmm2,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
+			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
+			"psrldq $4,%%xmm1 \n\t" 				/* next root1 */ \
+			"jae    1f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT1("0") \
+			"1:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT2,1 ========== */	\
 				/* ================================================ */	\
 			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
+			"psrldq $4,%%xmm2 \n\t" 				/* next root1 */ \
 			"jae    1f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT2("0") \
-			"2: \n\t" \
 			"1:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT1,2 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$1,%%xmm1,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
+			"movd	%%xmm1,%%r8d \n\t"				/* else, extract root1,2 from xmm1 */ \
+			"movd	%%xmm2,%%r9d \n\t"				/* else, extract root2,2 from xmm2 */ \
 			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$1,%%xmm2,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
+			"psrldq $4,%%xmm1 \n\t" 				/* next root1 */ \
+			"jae    3f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT1("1") \
+			"3:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT2,2 ========== */	\
 				/* ================================================ */	\
 			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
-			"jae    1f \n\t" 						/* jump if CF = 1 */ \
+			"psrldq $4,%%xmm2 \n\t" 				/* next root1 */ \
+			"jae    3f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT2("1") \
-			"2:		\n\t" \
-			"1:		\n\t" \
+			"3:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT1,3 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$2,%%xmm1,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
+			"movd	%%xmm1,%%r8d \n\t"				/* else, extract root1,3 from xmm1 */ \
+			"movd	%%xmm2,%%r9d \n\t"				/* else, extract root2,3 from xmm2 */ \
 			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$2,%%xmm2,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
+			"psrldq $4,%%xmm1 \n\t" 				/* next root1 */ \
+			"jae    5f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT1("2") \
-			
+			"5:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT2,3 ========== */	\
 				/* ================================================ */	\
 			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
-			"jae    1f \n\t" 						/* jump if CF = 1 */ \
+			"psrldq $4,%%xmm2 \n\t" 				/* next root1 */ \
+			"jae    5f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT2("2") \
-			"2:		\n\t" \
-			"1:		\n\t" \
+			"5:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT1,4 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$3,%%xmm1,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
+			"movd	%%xmm1,%%r8d \n\t"				/* else, extract root1,4 from xmm1 */ \
+			"movd	%%xmm2,%%r9d \n\t"				/* else, extract root2,4 from xmm2 */ \
 			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$3,%%xmm2,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
+			"jae    7f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT1("3") \
+			"7:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE POS BUCKET - ROOT2,4 ========== */	\
 				/* ================================================ */	\
 			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
-			"jae    1f \n\t" 						/* jump if CF = 1 */ \
+			"jae    7f \n\t" 						/* jump if CF = 1 */ \
 			UPDATE_ROOT2("3") \
-			"2:		\n\t" \
-			"1:		\n\t" \
+			"7:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT1,1 ========== */	\
 				/* ================================================ */	\
 			"movq	0(%%rsi,1),%%r10 \n\t"			/* numptr_n into r10 */ \
 			"movq	16(%%rsi,1),%%r11 \n\t"			/* sliceptr_n into r10 */ \
-			"pextrd	$0,%%xmm7,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
-			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? , if so then so is root 1*/ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$0,%%xmm6,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
-			UPDATE_ROOT2("0") \
+			"movd	%%xmm6,%%r8d \n\t"				/* else, extract nroot1,1 from xmm6 */ \
+			"movd	%%xmm7,%%r9d \n\t"				/* else, extract nroot2,1 from xmm7 */ \
+			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
+			"psrldq $4,%%xmm6 \n\t" 				/* nextn root1 */ \
+			"jae    1f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT1("0") \
+			"1:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT2,1 ========== */	\
 				/* ================================================ */	\
-			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
+			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
+			"psrldq $4,%%xmm7 \n\t" 				/* nextn nroot2 */ \
 			"jae    1f \n\t" 						/* jump if CF = 1 */ \
-			UPDATE_ROOT1("0") \
-			"2:		\n\t" \
+			UPDATE_ROOT2("0") \
 			"1:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT1,2 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$1,%%xmm7,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
-			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? , if so then so is root 1*/ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$1,%%xmm6,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
-			UPDATE_ROOT2("1") \
+			"movd	%%xmm6,%%r8d \n\t"				/* else, extract nroot1,2 from xmm6 */ \
+			"movd	%%xmm7,%%r9d \n\t"				/* else, extract nroot2,2 from xmm7 */ \
+			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
+			"psrldq $4,%%xmm6 \n\t" 				/* nextn root1 */ \
+			"jae    3f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT1("1") \
+			"3:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT2,2 ========== */	\
 				/* ================================================ */	\
-			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
-			"jae    1f \n\t" 						/* jump if CF = 1 */ \
-			UPDATE_ROOT1("1") \
-			"2:		\n\t" \
-			"1:		\n\t" \
+			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
+			"psrldq $4,%%xmm7 \n\t" 				/* nextn nroot2 */ \
+			"jae    3f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT2("1") \
+			"3:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT1,3 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$2,%%xmm7,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
-			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? , if so then so is root 1*/ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$2,%%xmm6,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
-			UPDATE_ROOT2("2") \
+			"movd	%%xmm6,%%r8d \n\t"				/* else, extract nroot1,3 from xmm6 */ \
+			"movd	%%xmm7,%%r9d \n\t"				/* else, extract nroot2,3 from xmm7 */ \
+			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
+			"psrldq $4,%%xmm6 \n\t" 				/* nextn root1 */ \
+			"jae    5f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT1("2") \
+			"5:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT2,3 ========== */	\
 				/* ================================================ */	\
-			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
-			"jae    1f \n\t" 						/* jump if CF = 1 */ \
-			UPDATE_ROOT1("2") \
-			"2:		\n\t" \
-			"1:		\n\t" \
+			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
+			"psrldq $4,%%xmm7 \n\t" 				/* nextn nroot2 */ \
+			"jae    5f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT2("2") \
+			"5:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT1,4 ========== */	\
 				/* ================================================ */	\
-			"pextrd	$3,%%xmm7,%%r9d \n\t"				/* else, extract root2,1 from xmm2 */ \
-			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? , if so then so is root 1*/ \
-			"jae    2f \n\t" 						/* jump if CF = 1 */ \
-			"pextrd	$3,%%xmm6,%%r8d \n\t"				/* else, extract root1,1 from xmm1 */ \
-			UPDATE_ROOT2("3") \
-			
+			"movd	%%xmm6,%%r8d \n\t"				/* else, extract nroot1,4 from xmm6 */ \
+			"movd	%%xmm7,%%r9d \n\t"				/* else, extract nroot2,4 from xmm7 */ \
+			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
+			"jae    7f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT1("3") \
+			"7:		\n\t" \
 				/* ================================================ */	\
 				/* =========== UPDATE NEG BUCKET - ROOT2,4 ========== */	\
 				/* ================================================ */	\
-			"cmpl	%%r13d,%%r8d \n\t"				/* root1 > interval? */ \
-			"jae    1f \n\t" 						/* jump if CF = 1 */ \
-			UPDATE_ROOT1("3") \
-			"2:		\n\t" \
-			"1:		\n\t" \
+			"cmpl	%%r13d,%%r9d \n\t"				/* root2 > interval? */ \
+			"jae    7f \n\t" 						/* jump if CF = 1 */ \
+			UPDATE_ROOT2("3") \
+			"7:		\n\t" \
 				/* ================================================ */	\
 				/* ======== END OF LOOP - UPDATE AND CHECK ======== */	\
 				/* ================================================ */	\
@@ -1756,9 +1753,8 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 			"9:		\n\t"				\
 			"movl	%%r15d, %%eax \n\t" \
 			:  \
-			: "g"(&helperstruct) \
-			: "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", 
-				"xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "xmm8", "memory", "cc");
+			: "m"(helperstruct) \
+			: "rax", "rbx", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7", "memory", "cc");
 
 		bound_index = helperstruct.bound_index;
 		logp = helperstruct.logp;
@@ -1863,4 +1859,1087 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 	return;
 }
 
-#endif // USE_SSE41
+void nextRoots_32k_generic(static_conf_t *sconf, dynamic_conf_t *dconf)
+{
+    //update the roots 
+    sieve_fb_compressed *fb_p = dconf->comp_sieve_p;
+    sieve_fb_compressed *fb_n = dconf->comp_sieve_n;
+    int *rootupdates = dconf->rootupdates;
+    update_t update_data = dconf->update_data;
+    uint32_t startprime = 2;
+    uint32_t bound = sconf->factor_base->B;
+    char v = dconf->curr_poly->nu[dconf->numB];
+    char sign = dconf->curr_poly->gray[dconf->numB];
+    int *ptr;
+    lp_bucket *lp_bucket_p = dconf->buckets;
+    uint32_t med_B = sconf->factor_base->med_B;
+    uint32_t large_B = sconf->factor_base->large_B;
+    uint32_t j, interval; //, fb_offset;
+    int k, numblocks;
+    uint32_t root1, root2, nroot1, nroot2, prime;
+    int bound_index = 0;
+    int check_bound = BUCKET_ALLOC / 2 - 1;
+    uint32_t bound_val = med_B;
+    uint32_t *numptr_p, *numptr_n, *sliceptr_p, *sliceptr_n;
+    uint8_t* slicelogp_ptr = NULL;
+    uint32_t* slicebound_ptr = NULL;
+    uint32_t *bptr;
+    int bnum, room;
+    uint8_t logp = 0;
+
+    numblocks = sconf->num_blocks;
+    interval = numblocks << 15;
+
+    if (lp_bucket_p->alloc_slices != 0) // != NULL)
+    {
+        lp_bucket_p->fb_bounds[0] = med_B;
+
+        sliceptr_p = lp_bucket_p->list;
+        sliceptr_n = lp_bucket_p->list + (numblocks << BUCKET_BITS);
+
+        numptr_p = lp_bucket_p->num;
+        numptr_n = lp_bucket_p->num + numblocks;
+
+        // reset bucket counts
+        for (j = 0; j < lp_bucket_p->list_size; j++)
+            numptr_p[j] = 0;
+
+        lp_bucket_p->num_slices = 0;
+
+        slicelogp_ptr = lp_bucket_p->logp;
+        slicebound_ptr = lp_bucket_p->fb_bounds;
+
+    }
+    else
+    {
+        sliceptr_p = NULL;
+        sliceptr_n = NULL;
+        numptr_p = NULL;
+        numptr_n = NULL;
+    }
+
+    k = 0;
+    ptr = &rootupdates[(v - 1) * bound + startprime];
+
+    if (sign > 0)
+    {
+        for (j = startprime; j<sconf->sieve_small_fb_start; j++, ptr++)
+        {
+            prime = update_data.prime[j];
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
+
+            COMPUTE_NEXT_ROOTS_P;
+
+            //we don't sieve these, so ordering doesn't matter
+            update_data.firstroots1[j] = root1;
+            update_data.firstroots2[j] = root2;
+
+            fb_p->root1[j] = (uint16_t)root1;
+            fb_p->root2[j] = (uint16_t)root2;
+            fb_n->root1[j] = (uint16_t)(prime - root2);
+            fb_n->root2[j] = (uint16_t)(prime - root1);
+            if (fb_n->root1[j] == prime)
+                fb_n->root1[j] = 0;
+            if (fb_n->root2[j] == prime)
+                fb_n->root2[j] = 0;
+
+        }
+
+        // do one at a time up to the 10bit boundary, where
+        // we can start doing things 8 at a time and be
+        // sure we can use aligned moves (static_data_init).		
+        for (j = sconf->sieve_small_fb_start;
+            j < sconf->factor_base->fb_10bit_B; j++, ptr++)
+        {
+            prime = update_data.prime[j];
+            root1 = (uint32_t)update_data.sm_firstroots1[j];
+            root2 = (uint32_t)update_data.sm_firstroots2[j];
+
+            COMPUTE_NEXT_ROOTS_P;
+
+            if (root2 < root1)
+            {
+                update_data.sm_firstroots1[j] = (uint16_t)root2;
+                update_data.sm_firstroots2[j] = (uint16_t)root1;
+
+                fb_p->root1[j] = (uint16_t)root2;
+                fb_p->root2[j] = (uint16_t)root1;
+                fb_n->root1[j] = (uint16_t)(prime - root1);
+                fb_n->root2[j] = (uint16_t)(prime - root2);
+            }
+            else
+            {
+                update_data.sm_firstroots1[j] = (uint16_t)root1;
+                update_data.sm_firstroots2[j] = (uint16_t)root2;
+
+                fb_p->root1[j] = (uint16_t)root1;
+                fb_p->root2[j] = (uint16_t)root2;
+                fb_n->root1[j] = (uint16_t)(prime - root2);
+                fb_n->root2[j] = (uint16_t)(prime - root1);
+            }
+        }
+
+        ptr = &dconf->rootupdates[(v - 1) * bound + sconf->factor_base->fb_10bit_B];
+        for (j = sconf->factor_base->fb_10bit_B; j < sconf->factor_base->fb_15bit_B; j++, ptr++)
+        {
+            prime = update_data.prime[j];
+            root1 = update_data.sm_firstroots1[j];
+            root2 = update_data.sm_firstroots2[j];
+
+            COMPUTE_NEXT_ROOTS_P;
+
+            if (root2 < root1)
+            {
+                update_data.sm_firstroots1[j] = (uint16_t)root2;
+                update_data.sm_firstroots2[j] = (uint16_t)root1;
+
+                fb_p->root1[j] = (uint16_t)root2;
+                fb_p->root2[j] = (uint16_t)root1;
+                fb_n->root1[j] = (uint16_t)(prime - root1);
+                fb_n->root2[j] = (uint16_t)(prime - root2);
+            }
+            else
+            {
+                update_data.sm_firstroots1[j] = (uint16_t)root1;
+                update_data.sm_firstroots2[j] = (uint16_t)root2;
+
+                fb_p->root1[j] = (uint16_t)root1;
+                fb_p->root2[j] = (uint16_t)root2;
+                fb_n->root1[j] = (uint16_t)(prime - root2);
+                fb_n->root2[j] = (uint16_t)(prime - root1);
+            }
+        }
+
+        // assembly code may not get all the way to 15 bits since we 
+        // do things in blocks of 8 there.  Make sure we are at the 15 bit
+        // boundary before we switch to using update_data.firstroots1/2.
+        // this should only run a few iterations, if any.
+        ptr = &dconf->rootupdates[(v - 1) * bound + j];
+        for (; j < med_B; j++, ptr++)
+        {
+            prime = update_data.prime[j];
+            root1 = (uint16_t)update_data.sm_firstroots1[j];
+            root2 = (uint16_t)update_data.sm_firstroots2[j];
+
+            if ((prime > 32768) && ((j & 7) == 0))
+                break;
+
+            COMPUTE_NEXT_ROOTS_P;
+
+            if (root2 < root1)
+            {
+                update_data.sm_firstroots1[j] = (uint16_t)root2;
+                update_data.sm_firstroots2[j] = (uint16_t)root1;
+
+                fb_p->root1[j] = (uint16_t)root2;
+                fb_p->root2[j] = (uint16_t)root1;
+                fb_n->root1[j] = (uint16_t)(prime - root1);
+                fb_n->root2[j] = (uint16_t)(prime - root2);
+            }
+            else
+            {
+                update_data.sm_firstroots1[j] = (uint16_t)root1;
+                update_data.sm_firstroots2[j] = (uint16_t)root2;
+
+                fb_p->root1[j] = (uint16_t)root1;
+                fb_p->root2[j] = (uint16_t)root2;
+                fb_n->root1[j] = (uint16_t)(prime - root2);
+                fb_n->root2[j] = (uint16_t)(prime - root1);
+            }
+        }
+
+        // continue one at a time once we exceed 15 bits, because the 8x SSE2
+        // code has a hard time with unsigned 16 bit comparisons
+        for (; j < med_B; j++, ptr++)
+        {
+            prime = update_data.prime[j];
+            root1 = update_data.sm_firstroots1[j];
+            root2 = update_data.sm_firstroots2[j];
+
+            COMPUTE_NEXT_ROOTS_P;
+
+            if (root2 < root1)
+            {
+                update_data.sm_firstroots1[j] = (uint16_t)root2;
+                update_data.sm_firstroots2[j] = (uint16_t)root1;
+
+                fb_p->root1[j] = (uint16_t)root2;
+                fb_p->root2[j] = (uint16_t)root1;
+                fb_n->root1[j] = (uint16_t)(prime - root1);
+                fb_n->root2[j] = (uint16_t)(prime - root2);
+            }
+            else
+            {
+                update_data.sm_firstroots1[j] = (uint16_t)root1;
+                update_data.sm_firstroots2[j] = (uint16_t)root2;
+
+                fb_p->root1[j] = (uint16_t)root1;
+                fb_p->root2[j] = (uint16_t)root2;
+                fb_n->root1[j] = (uint16_t)(prime - root2);
+                fb_n->root2[j] = (uint16_t)(prime - root1);
+            }
+        }
+
+        bound_index = 0;
+        bound_val = med_B;
+        check_bound = med_B + BUCKET_ALLOC / 2;
+
+
+
+#if defined(D_HAS_SSE2)
+
+        logp = update_data.logp[j - 1];
+        for (j = med_B; j<large_B;)
+        {
+            CHECK_NEW_SLICE(j);
+
+            COMPUTE_4_PROOTS(j);
+
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
+            prime = update_data.prime[j];
+            nroot1 = (prime - root1);
+            nroot2 = (prime - root2);
+
+            FILL_ONE_PRIME_LOOP_P(j);
+            FILL_ONE_PRIME_LOOP_N(j);
+
+            j++;
+
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
+            prime = update_data.prime[j];
+            nroot1 = (prime - root1);
+            nroot2 = (prime - root2);
+
+            FILL_ONE_PRIME_LOOP_P(j);
+            FILL_ONE_PRIME_LOOP_N(j);
+
+            j++;
+
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
+            prime = update_data.prime[j];
+            nroot1 = (prime - root1);
+            nroot2 = (prime - root2);
+
+            FILL_ONE_PRIME_LOOP_P(j);
+            FILL_ONE_PRIME_LOOP_N(j);
+
+            j++;
+
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
+            prime = update_data.prime[j];
+            nroot1 = (prime - root1);
+            nroot2 = (prime - root2);
+
+            FILL_ONE_PRIME_LOOP_P(j);
+            FILL_ONE_PRIME_LOOP_N(j);
+
+            j++;
+        }
+
+
+#else
+
+        ptr = &rootupdates[(v - 1) * bound + med_B];
+        logp = update_data.logp[med_B - 1];
+        for (j = med_B; j<large_B; j++, ptr++)
+        {
+            CHECK_NEW_SLICE(j);
+
+            prime = update_data.prime[j];
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
+
+            COMPUTE_NEXT_ROOTS_P;
+
+            update_data.firstroots1[j] = root1;
+            update_data.firstroots2[j] = root2;
+            nroot1 = prime - root1;
+            nroot2 = prime - root2;
+
+            FILL_ONE_PRIME_LOOP_P(j);
+            FILL_ONE_PRIME_LOOP_N(j);
+        }
+
+#endif
+
+#if defined(D_HAS_SSE2)
+
+        logp = update_data.logp[j - 1];
+        for (j = large_B; j<bound;)
+        {
+            CHECK_NEW_SLICE(j);
+
+            COMPUTE_4_PROOTS(j);
+
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
+            prime = update_data.prime[j];
+
+            FILL_ONE_PRIME_P(j);
+
+            root1 = (prime - root1);
+            root2 = (prime - root2);
+
+            FILL_ONE_PRIME_N(j);
+
+            j++;
+
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
+            prime = update_data.prime[j];
+
+            FILL_ONE_PRIME_P(j);
+
+            root1 = (prime - root1);
+            root2 = (prime - root2);
+
+            FILL_ONE_PRIME_N(j);
+
+            j++;
+
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
+            prime = update_data.prime[j];
+
+            FILL_ONE_PRIME_P(j);
+
+            root1 = (prime - root1);
+            root2 = (prime - root2);
+
+            FILL_ONE_PRIME_N(j);
+
+            j++;
+
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
+            prime = update_data.prime[j];
+
+            FILL_ONE_PRIME_P(j);
+
+            root1 = (prime - root1);
+            root2 = (prime - root2);
+
+            FILL_ONE_PRIME_N(j);
+
+            j++;
+        }
+
+
+#else
+
+        ptr = &rootupdates[(v - 1) * bound + large_B];
+        logp = update_data.logp[large_B - 1];
+        for (j = large_B; j<bound; j++, ptr++)
+        {
+            CHECK_NEW_SLICE(j);
+
+            prime = update_data.prime[j];
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
+
+            COMPUTE_NEXT_ROOTS_P;
+
+            update_data.firstroots1[j] = root1;
+            update_data.firstroots2[j] = root2;
+
+            FILL_ONE_PRIME_P(j);
+
+            root1 = (prime - root1);
+            root2 = (prime - root2);
+
+            FILL_ONE_PRIME_N(j);
+        }
+
+#endif
+
+    }
+    else
+    {
+        for (j = startprime; j<sconf->sieve_small_fb_start; j++, ptr++)
+        {
+            prime = update_data.prime[j];
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
+
+            COMPUTE_NEXT_ROOTS_N;
+
+            //we don't sieve these, so ordering doesn't matter
+            update_data.firstroots1[j] = root1;
+            update_data.firstroots2[j] = root2;
+
+            fb_p->root1[j] = (uint16_t)root1;
+            fb_p->root2[j] = (uint16_t)root2;
+            fb_n->root1[j] = (uint16_t)(prime - root2);
+            fb_n->root2[j] = (uint16_t)(prime - root1);
+            if (fb_n->root1[j] == prime)
+                fb_n->root1[j] = 0;
+            if (fb_n->root2[j] == prime)
+                fb_n->root2[j] = 0;
+
+        }
+
+        // do one at a time up to the 10bit boundary, where
+        // we can start doing things 8 at a time and be
+        // sure we can use aligned moves (static_data_init).	
+        for (j = sconf->sieve_small_fb_start;
+            j < sconf->factor_base->fb_10bit_B; j++, ptr++)
+        {
+            prime = update_data.prime[j];
+            root1 = (uint32_t)update_data.sm_firstroots1[j];
+            root2 = (uint32_t)update_data.sm_firstroots2[j];
+
+            COMPUTE_NEXT_ROOTS_N;
+
+            if (root2 < root1)
+            {
+                update_data.sm_firstroots1[j] = (uint16_t)root2;
+                update_data.sm_firstroots2[j] = (uint16_t)root1;
+
+                fb_p->root1[j] = (uint16_t)root2;
+                fb_p->root2[j] = (uint16_t)root1;
+                fb_n->root1[j] = (uint16_t)(prime - root1);
+                fb_n->root2[j] = (uint16_t)(prime - root2);
+            }
+            else
+            {
+                update_data.sm_firstroots1[j] = (uint16_t)root1;
+                update_data.sm_firstroots2[j] = (uint16_t)root2;
+
+                fb_p->root1[j] = (uint16_t)root1;
+                fb_p->root2[j] = (uint16_t)root2;
+                fb_n->root1[j] = (uint16_t)(prime - root2);
+                fb_n->root2[j] = (uint16_t)(prime - root1);
+            }
+        }
+
+        ptr = &dconf->rootupdates[(v - 1) * bound + sconf->factor_base->fb_10bit_B];
+        for (j = sconf->factor_base->fb_10bit_B; j < sconf->factor_base->fb_15bit_B; j++, ptr++)
+        {
+            prime = update_data.prime[j];
+            root1 = update_data.sm_firstroots1[j];
+            root2 = update_data.sm_firstroots2[j];
+
+            COMPUTE_NEXT_ROOTS_N;
+
+            if (root2 < root1)
+            {
+                update_data.sm_firstroots1[j] = (uint16_t)root2;
+                update_data.sm_firstroots2[j] = (uint16_t)root1;
+
+                fb_p->root1[j] = (uint16_t)root2;
+                fb_p->root2[j] = (uint16_t)root1;
+                fb_n->root1[j] = (uint16_t)(prime - root1);
+                fb_n->root2[j] = (uint16_t)(prime - root2);
+            }
+            else
+            {
+                update_data.sm_firstroots1[j] = (uint16_t)root1;
+                update_data.sm_firstroots2[j] = (uint16_t)root2;
+
+                fb_p->root1[j] = (uint16_t)root1;
+                fb_p->root2[j] = (uint16_t)root2;
+                fb_n->root1[j] = (uint16_t)(prime - root2);
+                fb_n->root2[j] = (uint16_t)(prime - root1);
+            }
+        }
+
+        // assembly code may not get all the way to 15 bits since we 
+        // do things in blocks of 8 there.  Make sure we are at the 15 bit
+        // boundary before we switch to using update_data.firstroots1/2.
+        // this should only run a few iterations, if any.
+        ptr = &dconf->rootupdates[(v - 1) * bound + j];
+        for (; j < med_B; j++, ptr++)
+        {
+            prime = update_data.prime[j];
+            root1 = (uint16_t)update_data.sm_firstroots1[j];
+            root2 = (uint16_t)update_data.sm_firstroots2[j];
+
+            if ((prime > 32768) && ((j & 7) == 0))
+                break;
+
+            COMPUTE_NEXT_ROOTS_N;
+
+            if (root2 < root1)
+            {
+                update_data.sm_firstroots1[j] = (uint16_t)root2;
+                update_data.sm_firstroots2[j] = (uint16_t)root1;
+
+                fb_p->root1[j] = (uint16_t)root2;
+                fb_p->root2[j] = (uint16_t)root1;
+                fb_n->root1[j] = (uint16_t)(prime - root1);
+                fb_n->root2[j] = (uint16_t)(prime - root2);
+            }
+            else
+            {
+                update_data.sm_firstroots1[j] = (uint16_t)root1;
+                update_data.sm_firstroots2[j] = (uint16_t)root2;
+
+                fb_p->root1[j] = (uint16_t)root1;
+                fb_p->root2[j] = (uint16_t)root2;
+                fb_n->root1[j] = (uint16_t)(prime - root2);
+                fb_n->root2[j] = (uint16_t)(prime - root1);
+            }
+        }
+
+        // continue one at a time once we exceed 15 bits, because the 8x SSE2
+        // code has a hard time with unsigned 16 bit comparisons
+        for (; j < med_B; j++, ptr++)
+        {
+            prime = update_data.prime[j];
+            root1 = update_data.sm_firstroots1[j];
+            root2 = update_data.sm_firstroots2[j];
+
+            COMPUTE_NEXT_ROOTS_N;
+
+            if (root2 < root1)
+            {
+                update_data.sm_firstroots1[j] = (uint16_t)root2;
+                update_data.sm_firstroots2[j] = (uint16_t)root1;
+
+                fb_p->root1[j] = (uint16_t)root2;
+                fb_p->root2[j] = (uint16_t)root1;
+                fb_n->root1[j] = (uint16_t)(prime - root1);
+                fb_n->root2[j] = (uint16_t)(prime - root2);
+            }
+            else
+            {
+                update_data.sm_firstroots1[j] = (uint16_t)root1;
+                update_data.sm_firstroots2[j] = (uint16_t)root2;
+
+                fb_p->root1[j] = (uint16_t)root1;
+                fb_p->root2[j] = (uint16_t)root2;
+                fb_n->root1[j] = (uint16_t)(prime - root2);
+                fb_n->root2[j] = (uint16_t)(prime - root1);
+            }
+        }
+
+        bound_index = 0;
+        bound_val = med_B;
+        check_bound = med_B + BUCKET_ALLOC / 2;
+
+
+#if defined(D_HAS_SSE2)
+
+        logp = update_data.logp[j - 1];
+        for (j = med_B; j<large_B;)
+        {
+            CHECK_NEW_SLICE(j);
+
+            COMPUTE_4_NROOTS(j);
+
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
+            prime = update_data.prime[j];
+            nroot1 = (prime - root1);
+            nroot2 = (prime - root2);
+            
+
+            FILL_ONE_PRIME_LOOP_P(j);
+            FILL_ONE_PRIME_LOOP_N(j);
+
+            j++;
+
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
+            prime = update_data.prime[j];
+            nroot1 = (prime - root1);
+            nroot2 = (prime - root2);
+            
+
+            FILL_ONE_PRIME_LOOP_P(j);
+            FILL_ONE_PRIME_LOOP_N(j);
+
+            j++;
+
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
+            prime = update_data.prime[j];
+            nroot1 = (prime - root1);
+            nroot2 = (prime - root2);
+            
+
+            FILL_ONE_PRIME_LOOP_P(j);
+            FILL_ONE_PRIME_LOOP_N(j);
+
+            j++;
+
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
+            prime = update_data.prime[j];
+            nroot1 = (prime - root1);
+            nroot2 = (prime - root2);
+            
+
+            FILL_ONE_PRIME_LOOP_P(j);
+            FILL_ONE_PRIME_LOOP_N(j);
+
+            j++;
+        }
+
+
+#else
+
+        ptr = &rootupdates[(v - 1) * bound + med_B];
+        logp = update_data.logp[med_B - 1];
+        for (j = med_B; j<large_B; j++, ptr++)
+        {
+            CHECK_NEW_SLICE(j);
+
+            prime = update_data.prime[j];
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
+
+            COMPUTE_NEXT_ROOTS_N;
+
+            update_data.firstroots1[j] = root1;
+            update_data.firstroots2[j] = root2;
+            nroot1 = prime - root1;
+            nroot2 = prime - root2;
+
+            FILL_ONE_PRIME_LOOP_P(j);
+            FILL_ONE_PRIME_LOOP_N(j);
+        }
+
+#endif
+
+#if defined(D_HAS_SSE2)
+
+        logp = update_data.logp[j - 1];
+        for (j = large_B; j<bound;)
+        {
+            CHECK_NEW_SLICE(j);
+
+            COMPUTE_4_NROOTS(j);
+
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
+            prime = update_data.prime[j];
+
+            FILL_ONE_PRIME_P(j);
+
+            root1 = (prime - root1);
+            root2 = (prime - root2);
+
+            FILL_ONE_PRIME_N(j);
+
+            j++;
+
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
+            prime = update_data.prime[j];
+
+            FILL_ONE_PRIME_P(j);
+
+            root1 = (prime - root1);
+            root2 = (prime - root2);
+
+            FILL_ONE_PRIME_N(j);
+
+            j++;
+
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
+            prime = update_data.prime[j];
+
+            FILL_ONE_PRIME_P(j);
+
+            root1 = (prime - root1);
+            root2 = (prime - root2);
+
+            FILL_ONE_PRIME_N(j);
+
+            j++;
+
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
+            prime = update_data.prime[j];
+
+            FILL_ONE_PRIME_P(j);
+
+            root1 = (prime - root1);
+            root2 = (prime - root2);
+
+            FILL_ONE_PRIME_N(j);
+
+            j++;
+        }
+
+
+#else
+
+        ptr = &rootupdates[(v - 1) * bound + large_B];
+        logp = update_data.logp[large_B - 1];
+        for (j = large_B; j<bound; j++, ptr++)
+        {
+            CHECK_NEW_SLICE(j);
+
+            prime = update_data.prime[j];
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
+
+            COMPUTE_NEXT_ROOTS_N;
+
+            update_data.firstroots1[j] = root1;
+            update_data.firstroots2[j] = root2;
+
+            FILL_ONE_PRIME_P(j);
+
+            root1 = (prime - root1);
+            root2 = (prime - root2);
+
+            FILL_ONE_PRIME_N(j);
+        }
+
+#endif
+
+    }
+
+    if (lp_bucket_p->list != NULL)
+    {
+        lp_bucket_p->num_slices = bound_index + 1;
+        lp_bucket_p->logp[bound_index] = logp;
+    }
+
+    return;
+}
+
+void nextRoots_32k_generic_small(static_conf_t *sconf, dynamic_conf_t *dconf)
+{
+    //update the roots 
+    sieve_fb_compressed *fb_p = dconf->comp_sieve_p;
+    sieve_fb_compressed *fb_n = dconf->comp_sieve_n;
+    int *rootupdates = dconf->rootupdates;
+    update_t update_data = dconf->update_data;
+    uint32_t startprime = 2;
+    uint32_t bound = sconf->factor_base->B;
+    char v = dconf->curr_poly->nu[dconf->numB];
+    char sign = dconf->curr_poly->gray[dconf->numB];
+    int *ptr;
+    uint32_t j;
+    uint32_t root1, root2, prime;
+
+    ptr = &rootupdates[(v - 1) * bound + startprime];
+    //ptr = rootupdates;
+
+    if (sign > 0)
+    {
+        for (j = startprime; j < sconf->sieve_small_fb_start; j++, ptr++)
+        {
+            prime = update_data.prime[j];
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
+
+            COMPUTE_NEXT_ROOTS_P;
+
+            //we don't sieve these, so ordering doesn't matter
+            update_data.firstroots1[j] = root1;
+            update_data.firstroots2[j] = root2;
+
+            fb_p->root1[j] = (uint16_t)root1;
+            fb_p->root2[j] = (uint16_t)root2;
+            fb_n->root1[j] = (uint16_t)(prime - root2);
+            fb_n->root2[j] = (uint16_t)(prime - root1);
+            if (fb_n->root1[j] == prime)
+                fb_n->root1[j] = 0;
+            if (fb_n->root2[j] == prime)
+                fb_n->root2[j] = 0;
+
+        }
+
+        for (j = sconf->sieve_small_fb_start;
+            j < sconf->factor_base->med_B; j++, ptr++)
+        {
+            prime = update_data.prime[j];
+            root1 = (uint32_t)update_data.sm_firstroots1[j];
+            root2 = (uint32_t)update_data.sm_firstroots2[j];
+
+            COMPUTE_NEXT_ROOTS_P;
+
+            if (root2 < root1)
+            {
+                update_data.sm_firstroots1[j] = (uint16_t)root2;
+                update_data.sm_firstroots2[j] = (uint16_t)root1;
+
+                fb_p->root1[j] = (uint16_t)root2;
+                fb_p->root2[j] = (uint16_t)root1;
+                fb_n->root1[j] = (uint16_t)(prime - root1);
+                fb_n->root2[j] = (uint16_t)(prime - root2);
+            }
+            else
+            {
+                update_data.sm_firstroots1[j] = (uint16_t)root1;
+                update_data.sm_firstroots2[j] = (uint16_t)root2;
+
+                fb_p->root1[j] = (uint16_t)root1;
+                fb_p->root2[j] = (uint16_t)root2;
+                fb_n->root1[j] = (uint16_t)(prime - root2);
+                fb_n->root2[j] = (uint16_t)(prime - root1);
+            }
+        }
+    }
+    else
+    {
+        for (j = startprime; j < sconf->sieve_small_fb_start; j++, ptr++)
+        {
+            prime = update_data.prime[j];
+            root1 = update_data.firstroots1[j];
+            root2 = update_data.firstroots2[j];
+
+            COMPUTE_NEXT_ROOTS_N;
+
+            //we don't sieve these, so ordering doesn't matter
+            update_data.firstroots1[j] = root1;
+            update_data.firstroots2[j] = root2;
+
+            fb_p->root1[j] = (uint16_t)root1;
+            fb_p->root2[j] = (uint16_t)root2;
+            fb_n->root1[j] = (uint16_t)(prime - root2);
+            fb_n->root2[j] = (uint16_t)(prime - root1);
+            if (fb_n->root1[j] == prime)
+                fb_n->root1[j] = 0;
+            if (fb_n->root2[j] == prime)
+                fb_n->root2[j] = 0;
+
+        }
+
+        for (j = sconf->sieve_small_fb_start;
+            j < sconf->factor_base->med_B; j++, ptr++)
+        {
+            prime = update_data.prime[j];
+            root1 = (uint32_t)update_data.sm_firstroots1[j];
+            root2 = (uint32_t)update_data.sm_firstroots2[j];
+
+            COMPUTE_NEXT_ROOTS_N;
+
+            if (root2 < root1)
+            {
+                update_data.sm_firstroots1[j] = (uint16_t)root2;
+                update_data.sm_firstroots2[j] = (uint16_t)root1;
+
+                fb_p->root1[j] = (uint16_t)root2;
+                fb_p->root2[j] = (uint16_t)root1;
+                fb_n->root1[j] = (uint16_t)(prime - root1);
+                fb_n->root2[j] = (uint16_t)(prime - root2);
+            }
+            else
+            {
+                update_data.sm_firstroots1[j] = (uint16_t)root1;
+                update_data.sm_firstroots2[j] = (uint16_t)root2;
+
+                fb_p->root1[j] = (uint16_t)root1;
+                fb_p->root2[j] = (uint16_t)root2;
+                fb_n->root1[j] = (uint16_t)(prime - root2);
+                fb_n->root2[j] = (uint16_t)(prime - root1);
+            }
+        }
+
+    }
+
+
+    return;
+}
+
+void nextRoots_32k_generic_polybatch(static_conf_t *sconf, dynamic_conf_t *dconf)
+{
+    int *rootupdates = dconf->rootupdates;
+    update_t update_data = dconf->update_data;
+
+    uint32_t bound = sconf->factor_base->B;
+    char *nu = dconf->curr_poly->nu;
+    char *gray = dconf->curr_poly->gray;
+    int numB = dconf->numB;
+    uint32_t poly_offset = 2 * sconf->num_blocks * dconf->buckets->alloc_slices;
+
+    lp_bucket *lp_bucket_p = dconf->buckets;
+    uint32_t med_B = sconf->factor_base->med_B;
+    uint32_t large_B = sconf->factor_base->large_B;
+
+    uint32_t j, interval;
+    int k, numblocks;
+    uint32_t root1, root2, nroot1, nroot2, prime;
+
+    int bound_index = 0;
+    int check_bound = BUCKET_ALLOC / 2 - 1;
+    uint32_t bound_val = med_B;
+    uint32_t *numptr_p, *numptr_n, *sliceptr_p, *sliceptr_n;
+    uint8_t* slicelogp_ptr;
+    uint32_t* slicebound_ptr;
+
+    uint32_t *bptr;
+    int bnum, room;
+    uint8_t logp = 0;
+
+    numblocks = sconf->num_blocks;
+    interval = numblocks << 15;
+
+    if (lp_bucket_p->alloc_slices != 0) // != NULL)
+    {
+        lp_bucket_p->fb_bounds[0] = med_B;
+
+        sliceptr_p = lp_bucket_p->list;
+        sliceptr_n = lp_bucket_p->list + (numblocks << BUCKET_BITS);
+
+        numptr_p = lp_bucket_p->num;
+        numptr_n = lp_bucket_p->num + numblocks;
+
+        // reset bucket counts
+        for (j = 0; j < lp_bucket_p->list_size; j++)
+            numptr_p[j] = 0;
+
+        lp_bucket_p->num_slices = 0;
+
+        slicelogp_ptr = lp_bucket_p->logp;
+        slicebound_ptr = lp_bucket_p->fb_bounds;
+
+    }
+    else
+    {
+        sliceptr_p = NULL;
+        sliceptr_n = NULL;
+        numptr_p = NULL;
+        numptr_n = NULL;
+    }
+   
+    bound_index = 0;
+    bound_val = med_B;
+    check_bound = med_B + BUCKET_ALLOC / 2;
+
+    logp = update_data.logp[med_B];
+    for (j = med_B; j < large_B; j += 16)
+    {
+        int p;
+
+        CHECK_NEW_SLICE_BATCH(j);
+
+        for (p = 0; (p < dconf->poly_batchsize) && ((numB + p) < dconf->maxB); p++)
+        {
+            if (gray[numB + p] > 0)
+            {
+                for (k = 0; k < 16; k++)
+                {
+                    prime = update_data.prime[j + k];
+                    root1 = update_data.firstroots1[j + k];
+                    root2 = update_data.firstroots2[j + k];
+
+                    COMPUTE_NEXT_ROOTS_BATCH_P(p);
+
+                    update_data.firstroots1[j + k] = root1;
+                    update_data.firstroots2[j + k] = root2;
+                    nroot1 = prime - root1;
+                    nroot2 = prime - root2;
+                    FILL_ONE_PRIME_LOOP_P(j + k);
+                    FILL_ONE_PRIME_LOOP_N(j + k);
+                }
+            }
+            else
+            {
+                for (k = 0; k < 16; k++)
+                {
+                    prime = update_data.prime[j + k];
+                    root1 = update_data.firstroots1[j + k];
+                    root2 = update_data.firstroots2[j + k];
+
+                    COMPUTE_NEXT_ROOTS_BATCH_N(p);
+
+                    update_data.firstroots1[j + k] = root1;
+                    update_data.firstroots2[j + k] = root2;
+                    nroot1 = prime - root1;
+                    nroot2 = prime - root2;
+                    FILL_ONE_PRIME_LOOP_P(j + k);
+                    FILL_ONE_PRIME_LOOP_N(j + k);
+                }
+            }
+
+            // advance pointers
+            sliceptr_p += poly_offset * BUCKET_ALLOC;
+            sliceptr_n += poly_offset * BUCKET_ALLOC;
+            numptr_p += poly_offset;
+            numptr_n += poly_offset;
+        }
+
+        // reset pointers
+        sliceptr_p -= p * poly_offset * BUCKET_ALLOC;
+        sliceptr_n -= p * poly_offset * BUCKET_ALLOC;
+        numptr_p -= p * poly_offset;
+        numptr_n -= p * poly_offset;
+
+    }
+
+    logp = update_data.logp[j - 1];
+    for (j = large_B; j < bound; j += 16)
+    {
+        int p;
+
+        CHECK_NEW_SLICE_BATCH(j);
+
+        for (p = 0; (p < dconf->poly_batchsize) && ((numB + p) < dconf->maxB); p++)
+        {
+            if (gray[numB + p] > 0)
+            {
+                for (k = 0; k < 16; k++)
+                {
+                    prime = update_data.prime[j + k];
+                    root1 = update_data.firstroots1[j + k];
+                    root2 = update_data.firstroots2[j + k];
+
+                    COMPUTE_NEXT_ROOTS_BATCH_P(p);
+
+                    update_data.firstroots1[j + k] = root1;
+                    update_data.firstroots2[j + k] = root2;
+
+                    FILL_ONE_PRIME_P(j + k);
+                    root1 = prime - root1;
+                    root2 = prime - root2;
+                    FILL_ONE_PRIME_N(j + k);
+                }
+            }
+            else
+            {
+                for (k = 0; k < 16; k++)
+                {
+                    prime = update_data.prime[j + k];
+                    root1 = update_data.firstroots1[j + k];
+                    root2 = update_data.firstroots2[j + k];
+
+                    COMPUTE_NEXT_ROOTS_BATCH_N(p);
+
+                    update_data.firstroots1[j + k] = root1;
+                    update_data.firstroots2[j + k] = root2;
+
+                    FILL_ONE_PRIME_P(j + k);
+                    root1 = prime - root1;
+                    root2 = prime - root2;
+                    FILL_ONE_PRIME_N(j + k);
+                }
+            }
+
+            // advance pointers
+            sliceptr_p += poly_offset * BUCKET_ALLOC;
+            sliceptr_n += poly_offset * BUCKET_ALLOC;
+            numptr_p += poly_offset;
+            numptr_n += poly_offset;
+
+        }
+
+        // reset pointers
+        sliceptr_p -= p * poly_offset * BUCKET_ALLOC;
+        sliceptr_n -= p * poly_offset * BUCKET_ALLOC;
+        numptr_p -= p * poly_offset;
+        numptr_n -= p * poly_offset;
+
+    }
+
+
+    if (lp_bucket_p->list != NULL)
+    {
+        lp_bucket_p->num_slices = bound_index + 1;
+        lp_bucket_p->logp[bound_index] = logp;
+    }
+
+    return;
+}

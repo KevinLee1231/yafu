@@ -31,10 +31,6 @@ extern "C" {  /* yafu-cpp-linkage */
 
 #include <stdlib.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 //#define USE_TPOOL_AFFINITY
 
 #ifdef USE_TPOOL_AFFINITY
@@ -55,8 +51,6 @@ extern "C" {
 #include <unistd.h>
 
 #endif /* WIN32 */
-
-
 
 enum tpool_state {
     TPOOL_STATE_INIT,
@@ -119,18 +113,10 @@ typedef struct
 
 } tpool_t;
 
-
 void tpool_go(tpool_t *thread_data);
 void tpool_add_work_fcn(tpool_t *tdata, void *work_fcn);
 tpool_t * tpool_setup(int num_threads, void *start_fcn, void *stop_fcn,
     void *sync_fcn, void *dispatch_fcn, void *udata);
-
-
-#ifdef __cplusplus
-}
-#endif
-
-
 
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */

@@ -116,7 +116,7 @@ static int SIQS_ABORT;
 void siqs_start(void *vptr)
 {
     tpool_t *tdata = (tpool_t *)vptr;
-    siqs_userdata_t *udata = tdata->user_data;
+    siqs_userdata_t *udata = (siqs_userdata_t*)tdata->user_data;
     static_conf_t *static_conf = udata->thread_data[0].sconf;
     fact_obj_t *fobj = static_conf->obj;
     int i;
@@ -182,7 +182,7 @@ void siqs_start(void *vptr)
 void siqs_sync(void *vptr)
 {
     tpool_t *tdata = (tpool_t *)vptr;
-    siqs_userdata_t *udata = tdata->user_data;
+    siqs_userdata_t *udata = (siqs_userdata_t*)tdata->user_data;
     thread_sievedata_t *t = udata->thread_data;
     static_conf_t *static_conf = udata->thread_data[0].sconf;
     fact_obj_t *fobj = static_conf->obj;
@@ -324,7 +324,7 @@ void siqs_sync(void *vptr)
 void siqs_dispatch(void *vptr)
 {
     tpool_t *tdata = (tpool_t *)vptr;
-    siqs_userdata_t *udata = tdata->user_data;
+    siqs_userdata_t *udata = (siqs_userdata_t*)tdata->user_data;
     thread_sievedata_t *t = udata->thread_data;
     static_conf_t *static_conf = t[0].sconf;
     fact_obj_t *fobj = static_conf->obj;
@@ -776,8 +776,8 @@ void SIQS(fact_obj_t *fobj)
 	udata.thread_data = thread_data;
 
 	tpool_data = tpool_setup(fobj->THREADS, NULL, NULL,
-		&siqs_sync, &siqs_dispatch, &udata);
-	tpool_add_work_fcn(tpool_data, &process_poly);
+		(void *)&siqs_sync, (void *)&siqs_dispatch, &udata);
+	tpool_add_work_fcn(tpool_data, (void *)&process_poly);
 
 	// this function is not run by tpool. It puts things into the user
 	// data portion of the tpool structure and runs a few initialization 
@@ -1600,7 +1600,7 @@ void* process_poly(void* vptr)
     // new a coefficient.  has pthread calling conventions, meant to be
     // used in a multi-threaded environment
     tpool_t* tdata = (tpool_t*)vptr;
-    siqs_userdata_t* udata = tdata->user_data;
+    siqs_userdata_t* udata = (siqs_userdata_t*)tdata->user_data;
     thread_sievedata_t* thread_data = &udata->thread_data[tdata->tindex];
     static_conf_t* sconf = thread_data->sconf;
     dynamic_conf_t* dconf = thread_data->dconf;

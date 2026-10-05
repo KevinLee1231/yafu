@@ -1870,13 +1870,13 @@ void vececm(thread_data_t* tdata)
         printf("found %"PRIu64" primes in range [%"PRIu64" : %"PRIu64"]\n", ecm_nump, rangemin, rangemax);
     }
 
-    tpool_data = tpool_setup(tdata[0].total_threads, NULL, NULL, &vec_ecm_sync,
-        &vec_ecm_dispatch, tdata);
+    tpool_data = tpool_setup(tdata[0].total_threads, NULL, NULL, (void *)&vec_ecm_sync,
+        (void *)&vec_ecm_dispatch, tdata);
 
-    tpool_add_work_fcn(tpool_data, &vec_ecm_build_curve_work_fcn);
-    tpool_add_work_fcn(tpool_data, &vec_ecm_stage1_work_fcn);
-    tpool_add_work_fcn(tpool_data, &vec_ecm_stage2_init_work_fcn);
-    tpool_add_work_fcn(tpool_data, &vec_ecm_stage2_work_fcn);
+    tpool_add_work_fcn(tpool_data, (void *)&vec_ecm_build_curve_work_fcn);
+    tpool_add_work_fcn(tpool_data, (void *)&vec_ecm_stage1_work_fcn);
+    tpool_add_work_fcn(tpool_data, (void *)&vec_ecm_stage2_init_work_fcn);
+    tpool_add_work_fcn(tpool_data, (void *)&vec_ecm_stage2_work_fcn);
 
     for (j = 0; j < VECLEN; j++)
     {

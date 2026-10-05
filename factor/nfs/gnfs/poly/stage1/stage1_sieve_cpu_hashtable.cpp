@@ -797,6 +797,8 @@ sieve_specialq_64(task_data_t *task, int threadid, int64 sieve_size,
 				((uint32)1 << hashtable_size_log2));
 
 	/* handle trivial lattice */
+	uint64 q_last = 0;
+	uint64 q_tot = 0;
 	if (special_q_min == 1) {
 		quit = handle_special_q(obj, threadid, hashtable,
 				hashtable_size_log2, &hash_array,
@@ -815,8 +817,6 @@ sieve_specialq_64(task_data_t *task, int threadid, int64 sieve_size,
 			1, MAX_ROOTS);
 
 
-	uint64 q_tot = 0;
-	uint64 q_last = 0;
 
 	while (1) {
 		p_packed_t *qptr = specialq_array.packed_array;

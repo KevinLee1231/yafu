@@ -30,10 +30,6 @@ extern "C" {  /* yafu-cpp-linkage */
 #define mpz_get_ull mpz_get_ui
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 	/* Note that when GMP_LIMB_BITS == 64 it is possible
 	   to use mpz_set_{ui|si}, except that 64-bit
 	   MSVC forces the input argument in these calls to
@@ -140,12 +136,6 @@ static INLINE int64 gmp2int64(mpz_t src) {
 		return (int64)magnitude;
 	}
 }
-
-
-#ifdef __cplusplus
-}
-#endif
-
 
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */

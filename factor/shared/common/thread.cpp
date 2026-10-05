@@ -471,12 +471,12 @@ struct threadpool* threadpool_init(int num_of_threads,
 	}
 
 	/* Create the thr_arr. */
-	if ((pool->thr_arr = malloc(sizeof(pthread_t) * num_of_threads)) == NULL) {
+	if ((pool->thr_arr = (pthread_t *)malloc(sizeof(pthread_t) * num_of_threads)) == NULL) {
 		perror("malloc: ");
 		goto allocation_failed;
 	}
 
-	if ((pool->thr_init = malloc(sizeof(struct thread_init) * num_of_threads)) == NULL) {
+	if ((pool->thr_init = (struct thread_init *)malloc(sizeof(struct thread_init) * num_of_threads)) == NULL) {
 		perror("malloc: ");
 		goto allocation_failed;
 	}

@@ -29,16 +29,11 @@ extern "C" {  /* yafu-cpp-linkage */
 #include <pthread.h>
 #endif
 
-
 #if defined(__x86_64__) && !defined(FORCE_GENERIC)
 // protect non-x86 builds
 #define HAS_MMX
 #endif
 #define HAS_CMOV
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 /* routines for cache-efficient multiplication of
    sparse matrices */
@@ -167,12 +162,6 @@ void yafu_mul_packed_core(qs_msieve_thread_data_t *t);
 void yafu_mul_trans_packed_core(qs_msieve_thread_data_t *t);
 
 #ifdef __cplusplus
-}
-#endif
-
-
-#ifdef __cplusplus
 }  /* yafu-cpp-linkage */
 #endif
 #endif /* !_LANCZOS_H_ */
-

@@ -1219,17 +1219,17 @@ static v_t * block_lanczos_core(msieve_obj *obj,
 		tmp = winv[2]; 
 		winv[2] = winv[1]; 
 		winv[1] = winv[0]; 
-		winv[0] = tmp;
+		winv[0] = (v_t*)tmp;
 		
 		tmp = vt_v0[2]; 
 		vt_v0[2] = vt_v0[1]; 
 		vt_v0[1] = vt_v0[0]; 
 		vt_v0[0] = vt_v0_next; 
-		vt_v0_next = tmp;
+		vt_v0_next = (v_t*)tmp;
 		
-		tmp = vt_a_v[1]; vt_a_v[1] = vt_a_v[0]; vt_a_v[0] = tmp;
+		tmp = vt_a_v[1]; vt_a_v[1] = vt_a_v[0]; vt_a_v[0] = (v_t*)tmp;
 		
-		tmp = vt_a2_v[1]; vt_a2_v[1] = vt_a2_v[0]; vt_a2_v[0] = tmp;
+		tmp = vt_a2_v[1]; vt_a2_v[1] = vt_a2_v[0]; vt_a2_v[0] = (v_t*)tmp;
 
 		memcpy(s[1], s[0], VBITS * sizeof(uint32));
 		mask1 = mask0;

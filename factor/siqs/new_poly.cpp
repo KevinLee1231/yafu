@@ -375,9 +375,9 @@ void new_poly_a(static_conf_t *sconf, dynamic_conf_t *dconf, int gen_and_test_on
 		randindex = 0;
 		for (i=0;i<fb->small_B;i++)
 		{
-            if ((uint32_t)abs(a1 - fb->list->prime[i]) < mindiff)
+            if ((uint32_t)abs((int)(a1 - fb->list->prime[i])) < mindiff)
             {
-                mindiff = abs(a1 - fb->list->prime[i]);
+                mindiff = abs((int)(a1 - fb->list->prime[i]));
                 randindex = i;
             }
 		}

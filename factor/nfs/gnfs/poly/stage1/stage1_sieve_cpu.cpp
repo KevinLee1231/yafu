@@ -1273,6 +1273,8 @@ stage1_specialq_cpu(task_data_t *task, uint32 threadid,
 
 	/* handle trivial lattice */
 
+	uint64 q_last = 0;
+	uint64 q_tot = 0;
 	if (special_q_min == 1) {
 		td->curr_q = 1;
 		memset(&td->curr_q_root, 0, sizeof(uint128));
@@ -1286,8 +1288,6 @@ stage1_specialq_cpu(task_data_t *task, uint32 threadid,
 	sieve_fb_reset(t->sieve_q_fb, special_q_min, 
 			special_q_max, 1, MAX_ROOTS);
 
-	uint64 q_tot = 0;
-	uint64 q_last = 0;
 
 	while (1) {
 		q_packed_t * qptr;

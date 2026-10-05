@@ -1178,7 +1178,7 @@ uint32_t parse_job_file(fact_obj_t *fobj, nfs_job_t *job)
  		{
  			if (strstr(substr + 5, "snfs")) // case sensitive
  			{
- 				job->snfs = malloc(sizeof(snfs_t));
+ 				job->snfs = (snfs_t*)malloc(sizeof(snfs_t));
                 is_snfs = 1;
  				if (job->snfs == NULL)
  				{
@@ -1419,7 +1419,7 @@ uint32_t parse_job_file(fact_obj_t *fobj, nfs_job_t *job)
 			}
 			else
 			{
-				side = select_side_from_norms(a, r, flog, fobj->VFLAG);
+				side = (special_q_e)select_side_from_norms(a, r, flog, fobj->VFLAG);
 			}
             info1 = 1;
             
@@ -1691,7 +1691,7 @@ void fill_job_file(fact_obj_t *fobj, nfs_job_t *job, uint32_t missing_params)
 					flog = stdout;
 				}
 
-				job->poly->side = select_side_from_norms(spoly.anorm, spoly.rnorm, flog, fobj->VFLAG);
+				job->poly->side = (special_q_e)select_side_from_norms(spoly.anorm, spoly.rnorm, flog, fobj->VFLAG);
 
 				if (flog != stdout)
 				{
@@ -1714,7 +1714,7 @@ void fill_job_file(fact_obj_t *fobj, nfs_job_t *job, uint32_t missing_params)
 				{
 					flog = stdout;
 				}
-				job->poly->side = select_side_from_norms(job->snfs->anorm, job->snfs->rnorm, flog, fobj->VFLAG);
+				job->poly->side = (special_q_e)select_side_from_norms(job->snfs->anorm, job->snfs->rnorm, flog, fobj->VFLAG);
 				if (flog != stdout)
 				{
 					fclose(flog);

@@ -26,10 +26,6 @@ extern "C" {  /* yafu-cpp-linkage */
 #endif
 #define _COMMON_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #define _(x) #x
 #define STRING(x) _(x)
 
@@ -55,7 +51,6 @@ extern "C" {
 
 #if defined(__INTEL_COMPILER) || defined(__INTEL_LLVM_COMPILER) || defined(__clang__)
 
-	
 	#define ASM_M __asm
 
 	/* for inline assembler on Unix/Linux */
@@ -121,11 +116,8 @@ extern "C" {
 		#define MSC_ASM32X
 	#elif defined(_WIN64)	
 		
-
 	#endif
 #endif
-
-
 
 /* loop alignment directives need to know whether
    we're using MSVC */
@@ -136,14 +128,7 @@ extern "C" {
 	#define ALIGN_LOOP /* nothing */
 #endif
 
-
-#ifdef __cplusplus
-}
-#endif
-
-
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */
 #endif
 #endif /* _COMMON_H_ */
-

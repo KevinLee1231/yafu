@@ -861,8 +861,8 @@ uint64_t spSOE(soe_staticdata_t *sdata, mpz_t offset,
         udata.res_steps = res_steps;
         udata.res_table = res_table;
 
-        tpool_data = tpool_setup(threads, NULL, NULL, &bitmap_sync,
-            &bitmap_dispatch, &udata);
+        tpool_data = tpool_setup(threads, NULL, NULL, (void *)&bitmap_sync,
+            (void *)&bitmap_dispatch, &udata);
 
         for (i = 0; i < threads; i++, b += blocks_per_thread)
         {
@@ -875,7 +875,7 @@ uint64_t spSOE(soe_staticdata_t *sdata, mpz_t offset,
         {
             if (threads > 1)
             {
-                tpool_add_work_fcn(tpool_data, &bitmap_2class_work_fcn);
+                tpool_add_work_fcn(tpool_data, (void *)&bitmap_2class_work_fcn);
                 tpool_go(tpool_data);
             }
             else
@@ -885,7 +885,7 @@ uint64_t spSOE(soe_staticdata_t *sdata, mpz_t offset,
         {
             if (threads > 1)
             {
-                tpool_add_work_fcn(tpool_data, &bitmap_8class_work_fcn);
+                tpool_add_work_fcn(tpool_data, (void *)&bitmap_8class_work_fcn);
                 tpool_go(tpool_data);
             }
             else
@@ -895,7 +895,7 @@ uint64_t spSOE(soe_staticdata_t *sdata, mpz_t offset,
         {            
             if (threads > 1)
             {
-                tpool_add_work_fcn(tpool_data, &bitmap_48class_work_fcn);
+                tpool_add_work_fcn(tpool_data, (void *)&bitmap_48class_work_fcn);
                 tpool_go(tpool_data);
             }
             else
@@ -962,8 +962,8 @@ void do_soe_sieving(soe_staticdata_t *sdata, thread_soedata_t *thread_data, int 
 
     udata.sdata = sdata;
     udata.ddata = thread_data;
-    tpool_data = tpool_setup(sdata->THREADS, NULL, NULL, &sieve_sync,
-        &sieve_dispatch, &udata);
+    tpool_data = tpool_setup(sdata->THREADS, NULL, NULL, (void *)&sieve_sync,
+        (void *)&sieve_dispatch, &udata);
 
     if (sdata->THREADS == 1)
     {
@@ -980,7 +980,7 @@ void do_soe_sieving(soe_staticdata_t *sdata, thread_soedata_t *thread_data, int 
     else
     {
         sdata->sync_count = 0;
-        tpool_add_work_fcn(tpool_data, &sieve_work_fcn);
+        tpool_add_work_fcn(tpool_data, (void *)&sieve_work_fcn);
         tpool_go(tpool_data);
     }
 

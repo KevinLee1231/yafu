@@ -23,6 +23,7 @@ code to the public domain.
 #include "microecm.h"
 #include "tinyecm.h"
 #include "arith.h"
+#include "autofactor.h"
 #include "ytools.h"
 #include "qs.h"
 #include "factor.h"

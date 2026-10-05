@@ -26,10 +26,6 @@ $Id: filter.h 1020 2018-05-18 13:33:21Z jasonp_sf $
 extern "C" {  /* yafu-cpp-linkage */
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* the singleton removal phase uses a packed representation
    of each relation. The following maps relations to large ideals;
    the ideals themselves don't matter, only the unique number
@@ -154,11 +150,6 @@ void filter_postproc_relsets(msieve_obj *obj, merge_t *merge);
 void filter_free_relsets(merge_t *merge);
 
 void filter_dump_relsets(msieve_obj *obj, merge_t *merge);
-
-#ifdef __cplusplus
-}
-#endif
-
 
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */

@@ -2816,11 +2816,14 @@ int feval(int funcnum, int nargs, meta_t *metadata)
         }
         break;
 
+        // C++ 不允许跳到后面的 case 时跨过带初始化的声明，
+        // 所以这里只声明，赋值放在各自的 case 里。
+        int oldvflag;
     case 65:
         // sigma - sum of divisors function
         if (check_args(funcnum, nargs)) break;
 
-        int oldvflag = fobj->VFLAG;
+        oldvflag = fobj->VFLAG;
         if (mpz_sizeinbase(operands[0], 2) < 192)
         {
             fobj->VFLAG = -1;
@@ -4103,7 +4106,7 @@ int feval(int funcnum, int nargs, meta_t *metadata)
 
         printf("found %"PRIu64" primes < %"PRIu64", elapsed time = % 6.4f\n", num_p, limit, t);
 
-        uint32_t* evens = xcalloc(limit / 32 + 1000, sizeof(uint32_t));
+        uint32_t* evens = (uint32_t*)xcalloc(limit / 32 + 1000, sizeof(uint32_t));
 
         uint64_t n;
         uint32_t min_id = 0;
@@ -4435,7 +4438,7 @@ int new_strvar(const char* name, char* data)
     strcpy(strvars.vars[strvars.num].name, name);
     if (strvars.vars[strvars.num].alloc < (strlen(data) + 1))
     {
-        strvars.vars[strvars.num].data = xrealloc(
+        strvars.vars[strvars.num].data = (char*)xrealloc(
             strvars.vars[strvars.num].data, strlen(data) + 2);
         strvars.vars[strvars.num].alloc = strlen(data) + 2;
     }
@@ -4457,7 +4460,7 @@ int set_strvar(const char* name, char* data)
         {
             if (strvars.vars[i].alloc < (strlen(data) + 1))
             {
-                strvars.vars[i].data = xrealloc(strvars.vars[i].data, strlen(data) + 2);
+                strvars.vars[i].data = (char*)xrealloc(strvars.vars[i].data, strlen(data) + 2);
                 strvars.vars[i].alloc = strlen(data) + 2;
             }
             strcpy(strvars.vars[i].data, data);

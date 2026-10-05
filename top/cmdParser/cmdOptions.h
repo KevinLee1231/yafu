@@ -35,10 +35,6 @@ extern "C" {  /* yafu-cpp-linkage */
 #endif
 #define CMD_PARSE_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdint.h>
 
     // the number of recognized command line options
@@ -73,12 +69,10 @@ typedef struct
     int numRequired;
     // ========================================================================
 
-
     // ========================================================================
     // These variables define the required and optional arguments
     char *inputExpr;
     // ========================================================================
-
 
     // ========================================================================
     // These variables define things that change program behavior and can be
@@ -228,7 +222,6 @@ typedef struct
     uint32_t soe_blocksize;
     int soe_analysis;
 
-
     // ========================================================================
 
 } options_t;
@@ -238,14 +231,7 @@ extern void applyOpt(char* opt, char* arg, options_t* options);
 extern int processOpts(int argc, char** argv, options_t* options);
 extern int readINI(const char* filename, options_t* options);
 
-
-#ifdef __cplusplus
-}
-#endif
-
-
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */
 #endif
 #endif /* #ifndef CMD_PARSE_H */
-

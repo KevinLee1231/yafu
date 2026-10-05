@@ -22,10 +22,6 @@ $Id: ddcomplex.h 32 2009-07-28 13:03:52Z jasonp_sf $
 extern "C" {  /* yafu-cpp-linkage */
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 typedef struct {
 	dd_t r, i;
 } dd_complex_t;
@@ -89,11 +85,6 @@ static INLINE dd_complex_t cplx_div(dd_complex_t a, dd_complex_t b) {
 
 	return ans;
 }
-
-#ifdef __cplusplus
-}
-#endif
-
 
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */

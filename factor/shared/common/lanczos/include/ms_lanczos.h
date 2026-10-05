@@ -21,10 +21,6 @@ $Id: lanczos.h 1025 2018-08-19 02:20:28Z jasonp_sf $
 extern "C" {  /* yafu-cpp-linkage */
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* the number of dependencies that will be generated
    internally (a max of 64 dependencies will be exposed
    to calling code) */
@@ -270,11 +266,6 @@ void vv_mul_NxB_BxB_acc(packed_matrix_t *A, void *v, v_t *x,
 
 void vv_mul_BxN_NxB(packed_matrix_t *A, void *x, void *y, 
 			v_t *xy, uint32 n);
-
-#ifdef __cplusplus
-}
-#endif
-
 
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */

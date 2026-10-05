@@ -305,7 +305,7 @@ uint64_t count_twins(soe_staticdata_t* sdata, thread_soedata_t* thread_data)
     udata.sdata = sdata;
     udata.ddata = thread_data;
     tpool_data = tpool_setup(sdata->THREADS, NULL, NULL, NULL,
-        &count_twins_dispatch, &udata);
+        (void *)&count_twins_dispatch, &udata);
 
     if (sdata->THREADS == 1)
     {
@@ -315,7 +315,7 @@ uint64_t count_twins(soe_staticdata_t* sdata, thread_soedata_t* thread_data)
     else
     {
         sdata->sync_count = 0;
-        tpool_add_work_fcn(tpool_data, &count_twins_work_fcn);
+        tpool_add_work_fcn(tpool_data, (void *)&count_twins_work_fcn);
         tpool_go(tpool_data);
     }
     free(tpool_data);

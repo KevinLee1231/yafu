@@ -336,47 +336,47 @@ uint64_t hash64(uint64_t in)
     uint64_t hash = 14695981039346656037ULL;
     uint64_t prime = 1099511628211ULL;
     uint64_t hash_mask;
-    uint64_t xor;
+    uint64_t xor_cxx;
 
     hash = hash * prime;
     hash_mask = 0xffffffffffffff00ULL;
-    xor = hash ^ in;
-    hash = (hash & hash_mask) | (xor &(~hash_mask));
+    xor_cxx = hash ^ in;
+    hash = (hash & hash_mask) | (xor_cxx &(~hash_mask));
 
     hash = hash * prime;
     hash_mask = 0xffffffffffff00ffULL;
-    xor = hash ^ in;
-    hash = (hash & hash_mask) | (xor &(~hash_mask));
+    xor_cxx = hash ^ in;
+    hash = (hash & hash_mask) | (xor_cxx &(~hash_mask));
 
     hash = hash * prime;
     hash_mask = 0xffffffffff00ffffULL;
-    xor = hash ^ in;
-    hash = (hash & hash_mask) | (xor &(~hash_mask));
+    xor_cxx = hash ^ in;
+    hash = (hash & hash_mask) | (xor_cxx &(~hash_mask));
 
     hash = hash * prime;
     hash_mask = 0xffffffff00ffffffULL;
-    xor = hash ^ in;
-    hash = (hash & hash_mask) | (xor &(~hash_mask));
+    xor_cxx = hash ^ in;
+    hash = (hash & hash_mask) | (xor_cxx &(~hash_mask));
 
     hash = hash * prime;
     hash_mask = 0xffffff00ffffffffULL;
-    xor = hash ^ in;
-    hash = (hash & hash_mask) | (xor &(~hash_mask));
+    xor_cxx = hash ^ in;
+    hash = (hash & hash_mask) | (xor_cxx &(~hash_mask));
 
     hash = hash * prime;
     hash_mask = 0xffff00ffffffffffULL;
-    xor = hash ^ in;
-    hash = (hash & hash_mask) | (xor &(~hash_mask));
+    xor_cxx = hash ^ in;
+    hash = (hash & hash_mask) | (xor_cxx &(~hash_mask));
 
     hash = hash * prime;
     hash_mask = 0xff00ffffffffffffULL;
-    xor = hash ^ in;
-    hash = (hash & hash_mask) | (xor &(~hash_mask));
+    xor_cxx = hash ^ in;
+    hash = (hash & hash_mask) | (xor_cxx &(~hash_mask));
 
     hash = hash * prime;
     hash_mask = 0x00ffffffffffffffULL;
-    xor = hash ^ in;
-    hash = (hash & hash_mask) | (xor &(~hash_mask));
+    xor_cxx = hash ^ in;
+    hash = (hash & hash_mask) | (xor_cxx &(~hash_mask));
 
     return hash;
 }

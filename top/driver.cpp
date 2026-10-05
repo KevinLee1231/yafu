@@ -546,7 +546,7 @@ int main(int argc, char *argv[])
 
             if (strlen(input_str.s) >= fobj->input_str_alloc)
             {
-                fobj->input_str = xrealloc(fobj->input_str, strlen(input_str.s) + 2);
+                fobj->input_str = (char*)xrealloc(fobj->input_str, strlen(input_str.s) + 2);
                 fobj->input_str_alloc = strlen(input_str.s) + 2;
             }
             fobj->argc = argc;

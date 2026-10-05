@@ -2066,7 +2066,7 @@ void init_poly_threaddata(nfs_threaddata_t *t, msieve_obj *obj,
 	// the savefile field
 	t->obj = msieve_obj_new(obj->input, flags, t->polyfilename, t->logfilename, t->fbfilename, 
 		fobj->seed1, fobj->seed2, (uint32_t)0,
-		9, (uint32_t)fobj->L1CACHE, (uint32_t)fobj->L2CACHE,
+		(cpu_type)9, (uint32_t)fobj->L1CACHE, (uint32_t)fobj->L2CACHE,
         (uint32_t)num_msieve_threads, (uint32_t)0, nfs_args);	// fobj->THREADS
 
 	// pointers to things that are static during poly select

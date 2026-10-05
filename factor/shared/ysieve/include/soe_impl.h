@@ -26,10 +26,6 @@ SOFTWARE.
 #define SOE_IMPL_H
 
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdint.h>
 #if defined(_MSC_VER) && defined(__clang__)
 #include <x86intrin.h>
@@ -340,9 +336,6 @@ extern void(*sieve_line_ptr)(thread_soedata_t*);
 
 
 
-#ifdef __cplusplus
-}
-#endif
 
 
 #ifdef __cplusplus

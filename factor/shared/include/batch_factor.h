@@ -30,10 +30,6 @@ either or both sides.
 extern "C" {  /* yafu-cpp-linkage */
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 	/* prototypes for the subsystem that batch-factors the
 	   portions of relations that contain large primes. The
 	   current system is designed for cofactors containing up to
@@ -194,11 +190,6 @@ extern "C" {
 	   lp_cutoff_[ra] */
 
 	uint32_t relation_batch_run(relation_batch_t* rb, mpz_t prime_prod, uint64_t* lcg_state);
-
-#ifdef __cplusplus
-}
-#endif
-
 
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */

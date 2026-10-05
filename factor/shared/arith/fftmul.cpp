@@ -256,10 +256,10 @@ void fftr(double* dar, double* dai, int fftlen, int invert)
 	if (fftlen == 1)
 		return;
 
-	double* a0r = xmalloc(fftlen / 2 * sizeof(double));
-	double* a0i = xmalloc(fftlen / 2 * sizeof(double));
-	double* a1r = xmalloc(fftlen / 2 * sizeof(double));
-	double* a1i = xmalloc(fftlen / 2 * sizeof(double));
+	double* a0r = (double*)xmalloc(fftlen / 2 * sizeof(double));
+	double* a0i = (double*)xmalloc(fftlen / 2 * sizeof(double));
+	double* a1r = (double*)xmalloc(fftlen / 2 * sizeof(double));
+	double* a1i = (double*)xmalloc(fftlen / 2 * sizeof(double));
 
 	for (i = 0; 2 * i < fftlen; i++) {
 		a0r[i] = dar[2 * i];

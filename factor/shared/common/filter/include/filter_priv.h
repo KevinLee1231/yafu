@@ -26,10 +26,6 @@ $Id: filter_priv.h 1038 2021-02-07 20:21:24Z jasonp_sf $
 extern "C" {  /* yafu-cpp-linkage */
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* structure for the mapping between large ideals 
    and relations (used during clique removal) */
 
@@ -96,11 +92,6 @@ void filter_merge_2way(msieve_obj *obj, filter_t *filter, merge_t *merge);
    this). */
 
 int32 filter_merge_full(msieve_obj *obj, merge_t *merge, uint32 min_cycles);
-
-#ifdef __cplusplus
-}
-#endif
-
 
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */

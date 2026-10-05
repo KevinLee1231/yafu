@@ -28,10 +28,6 @@ extern "C" {  /* yafu-cpp-linkage */
 #define uchar unsigned char
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* ECM 的 B2 scheme 描述（原先是 ecm.c 里的 typedef） */
 typedef struct {
   u32_t B1;
@@ -122,11 +118,6 @@ extern __thread lasieve_ctx *lasieve_current_ctx;
 lasieve_ctx *lasieve_ctx_current(void);
 
 #define LASIEVE_CTX (lasieve_ctx_current())
-
-#ifdef __cplusplus
-}
-#endif
-
 
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */

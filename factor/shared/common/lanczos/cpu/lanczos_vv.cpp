@@ -132,7 +132,7 @@ static void core_NxB_BxB_acc(v_t *v, v_t *c, v_t *y, uint32 n) {
 		mov	    edi,c
 		mov	    esi,v
 		mov     ebx,y
-		xor	    ecx,ecx
+		xor_cxx	    ecx,ecx
 		align 16
 	L0:	movq	mm0,[ebx+ecx*8]
 		mov	eax,[esi+ecx*8]
@@ -420,7 +420,7 @@ static void core_BxN_NxB(v_t *x, v_t *c, v_t *y, uint32 n) {
 		mov	    edi,c
 		mov	    esi,x
 		mov     ebx,y
-		xor	    ecx,ecx
+		xor_cxx	    ecx,ecx
 		align 16
     L0:	movq	mm0,[ebx+ecx*8]
 		mov	    eax,[esi+ecx*8]

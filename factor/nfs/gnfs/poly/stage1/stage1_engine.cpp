@@ -43,16 +43,6 @@ void stage1_specialq_cpu_hashtable(task_data_t *task, uint32 threadid,
 
 static const stage1_engine_vtable_t stage1_engines[STAGE1_NUM_ENGINES] = {
 
-	/* #2 -- the reference; always present */
-	[STAGE1_ENGINE_CPU_GERBICZ] = {
-		"cpu_gerbicz", STAGE1_ENGINE_CPU_GERBICZ,
-		{ ENV_FULL_Q, ENV_FULL_P, 0 },
-		STAGE1_OVERFLOW_NONE, 0,
-		NULL, NULL,
-		cpu_thread_data_init, cpu_thread_data_free,
-		stage1_specialq_cpu,
-	},
-
 #ifdef HAVE_CPU_HASHTABLE
 	/* #1 -- trunk hashtable, wrapped (build item 2) */
 	[STAGE1_ENGINE_CPU_HASHTABLE] = {
@@ -64,6 +54,16 @@ static const stage1_engine_vtable_t stage1_engines[STAGE1_NUM_ENGINES] = {
 		stage1_specialq_cpu_hashtable,
 	},
 #endif
+
+	/* #2 -- the reference; always present */
+	[STAGE1_ENGINE_CPU_GERBICZ] = {
+		"cpu_gerbicz", STAGE1_ENGINE_CPU_GERBICZ,
+		{ ENV_FULL_Q, ENV_FULL_P, 0 },
+		STAGE1_OVERFLOW_NONE, 0,
+		NULL, NULL,
+		cpu_thread_data_init, cpu_thread_data_free,
+		stage1_specialq_cpu,
+	},
 
 #ifdef HAVE_CUDA_POLY
 	/* #3 -- trunk CUB radix-sort (build item 3) */
