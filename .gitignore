@@ -5,7 +5,6 @@
 /build/
 /yafu
 /msieve
-/factor/nfs/lasieve/bin/local/
 /gnfs-lasieve4I1[1-6]e
 /gnfs-lasieve4I1[1-6]e.exe
 /factor/nfs/lasieve/asm/ls-defs-os.asm

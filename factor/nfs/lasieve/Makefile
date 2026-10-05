@@ -44,7 +44,7 @@
 # Standalone usage examples:
 #   make alle
 #   make alle AVX512_ALL=1
-#   make alle BINDIR=bin/local
+#   make alle BINDIR=/some/output/dir
 #   make alle GMP_INCDIR=/path/to/include GMP_LIBDIR=/path/to/lib
 #   make clean
 # -----------------------------------------------------------------------------
