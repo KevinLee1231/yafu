@@ -34,6 +34,9 @@ MA 02111-1307, USA. */
 #include <gmp.h>
 
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 mpz_t mpz_compos_witness;
 static short witness_initialized=0;
 short have_compos_witness;
@@ -156,5 +159,4 @@ mpz_probab_prime_p1(mpz_srcptr m, int reps)
   mpz_clear (q);
   return is_prime;
 }
-
-
+}  /* namespace lasieve_ns */

@@ -39,6 +39,9 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #define BUF_INC    256
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 extern ulong montgomery_inv_n;
 extern ulong *montgomery_modulo_n;
 extern ulong montgomery_modulo_R2[NMAX_ULONGS];
@@ -971,22 +974,8 @@ zeitB(10);
 
 /* ------------------ elliptic curve operations --------------------- */
 
-ulong mm_b[NMAX_ULONGS];
-ulong mm_one[NMAX_ULONGS];
-ulong mm_u[NMAX_ULONGS];
-ulong mm_v[NMAX_ULONGS];
-ulong mm_w[NMAX_ULONGS];
-ulong mm_prod[NMAX_ULONGS];
 
-ulong mm_a[NMAX_ULONGS];
-ulong mm_x[NMAX_ULONGS];
-ulong mm_z[NMAX_ULONGS];
-  ulong mm_x1[NMAX_ULONGS];
-  ulong mm_z1[NMAX_ULONGS];
 
-ulong mm_A[NMAX_ULONGS];
-ulong mm_B[NMAX_ULONGS];
-ulong mm_C[NMAX_ULONGS];
 
 /* computes 2P=(x2:z2) from P=(x1:z1), with 5 mul, 4 add/sub, 1 copy
      Uses the following global variables:
@@ -1529,4 +1518,4 @@ int ecm_factor(mpz_t N, u32_t B1, u32_t B2, mpz_t **fptr, u32_t ncurves)
   ecm_curve_clear(e);
   return 0;
 }
-
+}  /* namespace lasieve_ns */

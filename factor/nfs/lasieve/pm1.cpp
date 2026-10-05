@@ -36,6 +36,9 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 #define BUF_INC    256
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 extern ulong montgomery_inv_n;
 extern ulong *montgomery_modulo_n;
 extern ulong montgomery_modulo_R2[NMAX_ULONGS];
@@ -776,4 +779,4 @@ int pm1_factor(mpz_t N, u32_t B1, u32_t B2, mpz_t **fptr)
   suc=pm1(fptr);
   return suc;
 }
-
+}  /* namespace lasieve_ns */

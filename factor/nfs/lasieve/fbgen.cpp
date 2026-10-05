@@ -32,6 +32,9 @@
 #include "primgen32.h"
 #include "fbgen.h"
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 volatile u32_t modulo32;
 u32_t modulo32hbit;
 i32_t modulo32bit[32],modulo32ebits;
@@ -306,3 +309,4 @@ root_finder(u32_t *root_buf,mpz_t *A,u32_t adeg,u32_t p)
   if(mpz_fdiv_ui(A[adeg],p)==0) root_buf[res++]=p;
   return res;
 }
+}  /* namespace lasieve_ns */

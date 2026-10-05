@@ -21,6 +21,10 @@ $Id: batch_factor.c 638 2011-09-11 15:31:19Z jasonp_sf $
 #include "mpz_aprcl.h"
 #include <math.h>
 
+/* 这里链的是单份对象，lasieve_ns 解析成 lasieve_single；per-I 的名字
+ * 现在都在命名空间里，所以要显式引进来。*/
+using namespace lasieve_ns;
+
 /*------------------------------------------------------------------
 
 Jasonp's batch GCD for relation factoring, using R. Gerbicz's 

@@ -1,4 +1,3 @@
-/*2:*/
 
 #include <stdlib.h> 
 #include <sys/types.h> 
@@ -7,6 +6,9 @@
 #include "siever-config.h"
 #include "if.h"
 #include "gmp-aux.h"
+
+/* 单份对象：lasieve_ns 解析成 lasieve_single，下面用它链进来 complain。*/
+using namespace lasieve_ns;
 
 
 
@@ -37,7 +39,8 @@ if(l==0){
 mpz_set_ui(rop,0);
 return -1;
 }
-y= (char*)xmalloc(l+1);
+if((y= (char*)malloc(l+1))==NULL)
+  complain("string2mpz: out of memory\n");
 memcpy(y,x,l);
 y[l]= '\0';
 rv= mpz_set_str(rop,y,base);

@@ -37,22 +37,16 @@
 #include "siever-config.h"
 #include "siever-asm.h"
 
-/* each of these is the renamed main() of objI<N>/gnfs-lasieve4e.o */
-int mainI11(int argc, char **argv);
-int mainI12(int argc, char **argv);
-int mainI13(int argc, char **argv);
-int mainI14(int argc, char **argv);
-int mainI15(int argc, char **argv);
-int mainI16(int argc, char **argv);
-
-/* the per-I copies of the flag, renamed by the build.  One declaration each:
- * there is no way to write one name that reaches all six. */
-extern int lasieve_in_processI11;
-extern int lasieve_in_processI12;
-extern int lasieve_in_processI13;
-extern int lasieve_in_processI14;
-extern int lasieve_in_processI15;
-extern int lasieve_in_processI16;
+/* objI<N>/gnfs-lasieve4e.o puts its main() and its lasieve_in_process flag in
+ * namespace lasieve_I<N>, and this file is compiled once, outside every one of
+ * them.  So each pair has to be declared under its own namespace qualifier --
+ * there is no way to write one declaration that reaches all six. */
+namespace lasieve_I11 { int main(int, char **); extern int lasieve_in_process; }
+namespace lasieve_I12 { int main(int, char **); extern int lasieve_in_process; }
+namespace lasieve_I13 { int main(int, char **); extern int lasieve_in_process; }
+namespace lasieve_I14 { int main(int, char **); extern int lasieve_in_process; }
+namespace lasieve_I15 { int main(int, char **); extern int lasieve_in_process; }
+namespace lasieve_I16 { int main(int, char **); extern int lasieve_in_process; }
 
 /* The frame lasieve_bail() unwinds to.  Defined in lasieve_bail.c because the
  * standalone sieve regressions link that instead of this file; setjmp has to run
@@ -71,12 +65,12 @@ int lasieve_run(int I, int argc, char **argv)
 
 	switch (I)
 	{
-	case 11: lasieve_in_processI11 = 1; break;
-	case 12: lasieve_in_processI12 = 1; break;
-	case 13: lasieve_in_processI13 = 1; break;
-	case 14: lasieve_in_processI14 = 1; break;
-	case 15: lasieve_in_processI15 = 1; break;
-	case 16: lasieve_in_processI16 = 1; break;
+	case 11: lasieve_I11::lasieve_in_process = 1; break;
+	case 12: lasieve_I12::lasieve_in_process = 1; break;
+	case 13: lasieve_I13::lasieve_in_process = 1; break;
+	case 14: lasieve_I14::lasieve_in_process = 1; break;
+	case 15: lasieve_I15::lasieve_in_process = 1; break;
+	case 16: lasieve_I16::lasieve_in_process = 1; break;
 	default:
 		fprintf(stderr, "lasieve: sieve parameter must be 11 to 16, got %d\n", I);
 		return 1;
@@ -89,12 +83,12 @@ int lasieve_run(int I, int argc, char **argv)
 		lasieve_bail_armed = 0;
 		switch (I)
 		{
-		case 11: rc = mainI11(argc, argv); break;
-		case 12: rc = mainI12(argc, argv); break;
-		case 13: rc = mainI13(argc, argv); break;
-		case 14: rc = mainI14(argc, argv); break;
-		case 15: rc = mainI15(argc, argv); break;
-		case 16: rc = mainI16(argc, argv); break;
+		case 11: rc = lasieve_I11::main(argc, argv); break;
+		case 12: rc = lasieve_I12::main(argc, argv); break;
+		case 13: rc = lasieve_I13::main(argc, argv); break;
+		case 14: rc = lasieve_I14::main(argc, argv); break;
+		case 15: rc = lasieve_I15::main(argc, argv); break;
+		case 16: rc = lasieve_I16::main(argc, argv); break;
 		}
 	}
 	lasieve_bail_armed = 0;

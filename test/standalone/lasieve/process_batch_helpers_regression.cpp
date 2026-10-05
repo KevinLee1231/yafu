@@ -2,6 +2,10 @@
 #include "factor/nfs/lasieve/process_batch.cpp"
 #undef main
 #include <assert.h>
+
+/* 这个驱动链的是单份对象，lasieve_ns 解析成 lasieve_single；per-I 的
+ * 名字现在都在命名空间里，所以要显式引进来。 */
+using namespace lasieve_ns;
 int main(void) {
     uint64_t value;
     uint32_t factors[32], count;

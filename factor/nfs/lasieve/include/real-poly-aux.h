@@ -1,4 +1,6 @@
 
+#include "lasieve_ns.h"
+
 /*
   Copyright (C) 2001 Jens Franke.
   This file is part of gnfs4linux, distributed under the terms of the 
@@ -10,6 +12,7 @@
   02111-1307, USA.
 */
 
+namespace lasieve_ns {
 void tpol(double *rop,double *op,i32_t deg,i32_t x0,i32_t x1,i32_t y0,i32_t y1);
 void tpol64(double *rop,double *op,i32_t deg,i64_t x0,i64_t x1,
             i64_t y0,i64_t y1);
@@ -19,3 +22,5 @@ void get_sieve_report_bounds(unsigned char**,double*,i32_t,
 			     i32_t,i32_t,i32_t,double,double);
 
 double rpol_eval0(double *p,i32_t d,i32_t x0,u16_t y0);
+}  /* namespace lasieve_ns */
+

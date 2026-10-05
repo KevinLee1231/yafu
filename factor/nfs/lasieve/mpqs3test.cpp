@@ -26,6 +26,10 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "zeit.h"
 #include "lasieve_mpqs.h"
 
+/* 单份对象链的是 lasieve_single 这一份（lasieve_ns.h 的默认值），
+ * 而 per-I 的名字现在都在命名空间里，所以这里要把它引进来。 */
+using namespace lasieve_ns;
+
 int iter=0;
 u64_t stat_asm_eval=0, stat_asm_td=0;
 u64_t stat_td_cand=0,stat_td_surv=0;

@@ -1,5 +1,4 @@
 
-/*1:*/
 
 void adjust_mpz_bufsize(mpz_t**x,size_t*alloc_ptr,size_t size,size_t increment);
 int string2mpz(mpz_t rop,char*x,int base);

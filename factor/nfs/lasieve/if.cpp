@@ -1,4 +1,3 @@
-/*2:*/
 
 
 #include "if.h"
@@ -16,6 +15,9 @@
 #include "siever-config.h"
 #include "lasieve_bail.h"
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 int verbose= 0;
 static unsigned int used_cols,ncol= 80;
 
@@ -273,7 +275,6 @@ return 0;
 /*:13*//*14:*/
 
 #ifdef BIGENDIAN
-/*15:*/
 
 static u32_t
 bswap_32(u32_t x)
@@ -550,3 +551,4 @@ if(*xx> *yy)return-1;
 return 0;
 }
 /*:32*/
+}  /* namespace lasieve_ns */

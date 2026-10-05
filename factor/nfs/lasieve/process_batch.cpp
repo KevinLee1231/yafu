@@ -10,6 +10,10 @@
 #include "lasieve_batch_factor.h"
 #include "gmp.h"
 
+/* 这里链的是单份对象，lasieve_ns 解析成 lasieve_single；per-I 的名字
+ * 现在都在命名空间里，所以要显式引进来。 */
+using namespace lasieve_ns;
+
 // build line:
 // 编译见 test/test_lasieve.sh，不要再按本文件里的路径手工编译
 // 
