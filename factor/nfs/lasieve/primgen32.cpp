@@ -207,7 +207,7 @@ ps->Prime+= 2*primediffs[ps->Pind];
 return ps->Prime;
 }else{
 if(ps->use_private==0)return 0;
-ps->first_in_sieve= (u32_t)(size_t)(unsigned char*)ps->Prime+2;
+ps->first_in_sieve= ps->Prime+2;
 ps->Pind= 0;
 ps->nPrim= 0;
 /*9:*/
