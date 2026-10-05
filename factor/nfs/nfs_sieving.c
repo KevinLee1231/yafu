@@ -966,6 +966,14 @@ void nfs_sieve_start(void* vptr)
 		// copy needed info to the thread's job structure.
 		sprintf(udata->thread_data[i].outfilename, "rels%d_%d.dat", i, 
 			job->filenumber++);
+		/* job_infile_name is char[80] (nfs_threaddata_t) and job_infile is
+		 * GSTR_MAXSIZE: the plain sprintf copies with no bound. */
+		if (strlen(fobj->nfs_obj.job_infile) >= sizeof(udata->thread_data[i].job_infile_name))
+		{
+		    printf("nfs: job file name is too long\n");
+		    NFS_ABORT = 1;
+		    return;
+		}
 		sprintf(udata->thread_data[i].job_infile_name, "%s", fobj->nfs_obj.job_infile);
 		udata->thread_data[i].job.poly = job->poly;
 		udata->thread_data[i].job.rlim = job->rlim;
@@ -2724,6 +2732,14 @@ void do_sieving_nfs(fact_obj_t *fobj, nfs_job_t *job)
 	for (i = 0; i < fobj->THREADS; i++)
 	{
 		sprintf(thread_data[i].outfilename, "rels%d.dat", i);
+		/* job_infile_name is char[80] (nfs_threaddata_t) and job_infile is
+		 * GSTR_MAXSIZE: the plain sprintf copies with no bound. */
+		if (strlen(fobj->nfs_obj.job_infile) >= sizeof(thread_data[i].job_infile_name))
+		{
+		    printf("nfs: job file name is too long\n");
+		    NFS_ABORT = 1;
+		    return;
+		}
 		sprintf(thread_data[i].job_infile_name, "%s", fobj->nfs_obj.job_infile);
 		thread_data[i].job.poly = job->poly;
 		thread_data[i].job.rlim = job->rlim;

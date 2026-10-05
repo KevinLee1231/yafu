@@ -3512,8 +3512,23 @@ int siqs_dynamic_init(dynamic_conf_t *dconf, static_conf_t *sconf)
             dconf->buckets->alloc_slices * dconf->poly_batchsize, sizeof(uint8_t));
 
         // the total number of buckets (size of buckets->num)
-        dconf->buckets->list_size = dconf->poly_batchsize * 2 *
-            sconf->num_blocks * dconf->buckets->alloc_slices;
+        /* list_size is uint32_t but the products below are not, and the
+         * allocation multiplies it by BUCKET_ALLOC a third time.  Compute in
+         * 64 bits and refuse a configuration that cannot fit, rather than
+         * wrapping into a small allocation that the sieve then writes past.
+         * num_blocks comes from -siqsNB, which only had a lower bound. */
+        {
+            uint64_t ls = (uint64_t)dconf->poly_batchsize * 2 *
+                         (uint64_t)sconf->num_blocks * dconf->buckets->alloc_slices;
+            uint64_t bytes = ls * BUCKET_ALLOC * sizeof(uint32_t);
+            if ((ls > UINT32_MAX) || (bytes > (uint64_t)SIZE_MAX / 2))
+            {
+                printf("sieve parameters too large: num_blocks=%u alloc_slices=%u\n",
+                       sconf->num_blocks, dconf->buckets->alloc_slices);
+                exit(-1);
+            }
+            dconf->buckets->list_size = (uint32_t)ls;
+        }
 
         dconf->buckets->num_slices_batch = (uint32_t*)xmalloc(dconf->poly_batchsize * sizeof(uint32_t));
 
