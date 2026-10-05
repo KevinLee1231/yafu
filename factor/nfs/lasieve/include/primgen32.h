@@ -1,5 +1,5 @@
+
 /*2:*/
-#line 52 "primgen32.w"
 
 typedef struct{
 u32_t Pind;

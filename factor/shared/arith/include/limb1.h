@@ -984,6 +984,4 @@ uint64_t gcd64(uint64_t x, uint64_t y);
 uint64_t spBinGCD(uint64_t u, uint64_t v);
 uint64_t spBinGCD_odd(uint64_t u, uint64_t v);
 void     dblGCD(double x, double y, double *w);
-
-
 #endif /* LIMB1_H */

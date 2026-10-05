@@ -18,14 +18,11 @@
 #include "siever-config.h"
 #include "montgomery_mul.h"
 
+
 /* 各 .c 原本各自 #define uchar；在头里给一个受保护的统一版本 */
 #ifndef LASIEVE_UCHAR_DEFINED
 #define LASIEVE_UCHAR_DEFINED
 #define uchar unsigned char
-#endif
-
-#ifdef __cplusplus
-extern "C" {
 #endif
 
 /* ECM 的 B2 scheme 描述（原先是 ecm.c 里的 typedef） */
@@ -118,9 +115,4 @@ extern __thread lasieve_ctx *lasieve_current_ctx;
 lasieve_ctx *lasieve_ctx_current(void);
 
 #define LASIEVE_CTX (lasieve_ctx_current())
-
-#ifdef __cplusplus
-}
-#endif
-
 #endif /* _LASIEVE_LASIEVE_CTX_H_ */

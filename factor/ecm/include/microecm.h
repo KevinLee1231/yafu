@@ -84,6 +84,4 @@ int prp_uecm(uint64_t n);
 #ifdef __cplusplus
 }
 #endif
-
-
 #endif

@@ -23,10 +23,6 @@ $Id: dd.h 849 2013-03-09 08:02:27Z brgladman $
 #include <mp.h>
 #include <ms_gmp_xface.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
    /* These routines *require* IEEE 53-bit double precision,
       even on x86 processors that support higher precision */
 
@@ -217,7 +213,6 @@ static INLINE double __fmsub (double a, double c, double b) {
 }
 
 #endif
-
 
 static INLINE dd_t dd_mul_d(dd_t a, double b) {
 
@@ -427,7 +422,6 @@ static INLINE void dd_dd2mp(dd_t d, mp_t *x) {
 
 #else
 
-
 	mp_t x1, x2;
 
 	mp_d2mp(&d.hi, &x1);
@@ -443,11 +437,5 @@ static INLINE void dd_dd2mp(dd_t d, mp_t *x) {
 
 #endif
 
-
 }
-
-#ifdef __cplusplus
-}
-#endif
-
 #endif /* _DD_H_ */

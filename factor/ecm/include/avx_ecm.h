@@ -1237,7 +1237,3 @@ void vec_ecm_pt_init(ecm_pt *pt, uint32_t words);
 void vec_ecm_pt_free(ecm_pt *pt);
 void vec_ecm_work_init(ecm_work *work);
 void vec_ecm_work_free(ecm_work *work);
-
-
-
-

@@ -1,6 +1,7 @@
 // SMJS This file should be included at the top of asm files which use C external variables or functions.
 //      It compensates for any name mangling underscores in the C variable names
 #ifndef __UNDERSCORE_H__
+
 #define __UNDERSCORE_H__
 
 #if defined(__APPLE__)
@@ -72,5 +73,6 @@
 #define mpqs3_nAdiv_total _mpqs3_nAdiv_total
 
 #endif
+
 
 #endif

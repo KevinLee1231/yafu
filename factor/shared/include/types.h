@@ -394,7 +394,6 @@ code to the public domain.
 	#error "unrecognized compiler"
 
 #endif
-
 #endif /* my types */
 
 

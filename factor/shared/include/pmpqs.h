@@ -25,7 +25,6 @@ code to the public domain.
 #include "gmp.h"
 
 extern mpz_t* pmpqs(mpz_t n, int *num_factors);
-
 #endif /* _PMPQS_H_ */
 
 

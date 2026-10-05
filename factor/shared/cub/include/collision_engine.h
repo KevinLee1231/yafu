@@ -69,5 +69,4 @@ typedef void (*collision_engine_run_func)(void * engine,
 #ifdef __cplusplus
 }
 #endif
-
 #endif /* !_COLLISION_ENGINE_H_ */

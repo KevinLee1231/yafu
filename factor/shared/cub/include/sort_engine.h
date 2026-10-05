@@ -35,5 +35,4 @@ typedef void (*sort_engine_run_func)(void * engine,
 #ifdef __cplusplus
 }
 #endif
-
 #endif /* !_SORT_ENGINE_H_ */

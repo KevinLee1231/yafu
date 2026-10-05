@@ -18,15 +18,7 @@ $Id: poly_skew.h 1025 2018-08-19 02:20:28Z jasonp_sf $
 #include "poly.h"
 #include "poly_stats.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* external interface to skewed polynomial selector */
-
-
-
-
 
 /* interface to size optimization */
 
@@ -59,7 +51,6 @@ void poly_sizeopt_init(poly_sizeopt_t *data,
 void poly_sizeopt_free(poly_sizeopt_t *data);
 void poly_sizeopt_run(poly_sizeopt_t *data, mpz_t ad, mpz_t p, mpz_t d);
 
-
 /* interface to root optimization */
 
 typedef void (*rootopt_callback_t)(void *extra, uint32 deg,
@@ -86,8 +77,6 @@ typedef struct {
 	void *callback_data;
 } poly_rootopt_t;
 
-
-
 typedef struct {
 	FILE* all_poly_file;
 	poly_config_t* config;
@@ -101,7 +90,6 @@ typedef struct {
 	poly_stage_stats_t* stats;
 } sizeopt_callback_data_t;
 
-
 void poly_rootopt_init(poly_rootopt_t *data, msieve_obj *obj,
 		      rootopt_callback_t callback,
 		      void *callback_data);
@@ -109,7 +97,6 @@ void poly_rootopt_free(poly_rootopt_t *data);
 void poly_rootopt_run(poly_rootopt_t *data, mpz_t *alg_coeffs, 
 			mpz_t *rat_coeffs, double sizeopt_norm, 
 			double projective_alpha);
-
 
 /* one per stage-2 worker: private sizeopt/rootopt state, shared file/best/stats */
 typedef struct {
@@ -122,7 +109,6 @@ typedef struct {
 /* interface to stage 1 */
 
 typedef void (*stage1_callback_t)(mpz_t ad, mpz_t p, mpz_t m, void* extra);
-
 
 typedef struct {
 	mpz_t gmp_N;
@@ -148,10 +134,4 @@ void poly_stage1_init(poly_stage1_t* data,
 	void* callback_data);
 void poly_stage1_free(poly_stage1_t* data);
 void poly_stage1_run(msieve_obj* obj, poly_stage1_t* data);
-
-
-#ifdef __cplusplus
-}
-#endif
-
 #endif /* _GNFS_POLY_POLY_SKEW_H_ */

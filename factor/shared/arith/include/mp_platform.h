@@ -619,5 +619,4 @@ MP_FORCE_INLINE uint64_t _trail_full_zcnt(uint64_t n) {
   #define _subborrow_u64 mp_subborrow_u64
   #define _subborrow_u32 mp_subborrow_u32
 #endif
-
 #endif /* MP_PLATFORM_H */

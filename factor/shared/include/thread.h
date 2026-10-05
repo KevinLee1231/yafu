@@ -103,5 +103,4 @@ int threadpool_drain(struct threadpool *pool,
 #ifdef __cplusplus
 }
 #endif
-
 #endif /* !_THREAD_H_ */

@@ -1,0 +1,1910 @@
+/*----------------------------------------------------------------------
+This source distribution is placed in the public domain by its author,
+Ben Buhrow. You may use it for any purpose, free of charge,
+without having to notify anyone. I disclaim any responsibility for any
+errors.
+
+Optionally, please be nice and tell me if you find this source to be
+useful. Again optionally, if you add to the functionality present here
+please consider making those additions public too, so that others may 
+benefit from your work.	
+
+Some parts of the code (and also this header), included in this 
+distribution have been reused from other sources. In particular I 
+have benefitted greatly from the work of Jason Papadopoulos's msieve @ 
+www.boo.net/~jasonp, Scott Contini's mpqs implementation, and Tom St. 
+Denis Tom's Fast Math library.  Many thanks to their kind donation of 
+code to the public domain.
+       				   --bbuhrow@gmail.com 7/28/10
+----------------------------------------------------------------------*/
+
+#define _POSIX_C_SOURCE 200112L
+#include <inttypes.h>
+#include "yafu.h"
+#include "soe.h"
+#include "calc.h"
+#include "ytools.h"
+#include "factor.h"
+#include "autofactor.h"
+#include "gmp.h"
+#include "microecm.h"
+#include "cofactorize.h"
+#ifdef HAVE_GMP_ECM
+#include <ecm.h>
+#endif
+#ifndef __aarch64__
+#include <immintrin.h>
+#endif
+#include <stdio.h>
+#include <math.h>
+#include "tinyecm.h"
+
+#if defined(__unix__)
+#include <termios.h>
+#elif defined(_MSC_VER)
+#include <io.h>         // _isatty
+#include <direct.h>     // _getcwd
+#endif
+
+#if defined(__INTEL_LLVM_COMPILER) || defined(__GNUC__)
+#include <unistd.h>
+#include <errno.h>
+#include <string.h>
+#include <ctype.h>
+#endif
+
+#if defined(__clang__) && !defined(_MSC_VER)
+#include <unistd.h>		// for nice()
+#endif
+
+
+#include "cmdOptions.h"
+
+// function to read the .ini file and populate options
+void apply_tuneinfo(yafu_obj_t* yobj, fact_obj_t *fobj, char *arg);
+
+// function to print the splash screen to file/screen
+void print_splash(fact_obj_t* fobj, info_t* comp_info, int is_cmdline_run,
+    FILE* logfile, int VFLAG, double freq, int numwit, char *cwd);
+void helpfunc(char* s);
+
+// functions to make a batchfile ready to execute, and to process batchfile lines
+void prepare_batchfile(char *input_exp);
+char * process_batchline(yafu_obj_t* yobj, char *input_exp, char *indup, int *code, int num);
+void finalize_batchline(yafu_obj_t* yobj);
+int exp_is_open(char *line, int firstline);
+static int read_stream_line(FILE *stream, str_t *line);
+static char batch_tempname[1100];
+
+// functions to process all incoming arguments
+int check_expression(options_t *options);
+char * get_input(char *input_exp, uint32_t *insize);
+void options_to_factobj(fact_obj_t* fobj, options_t* options);
+
+#if defined(__unix__)
+#define CMDHIST_SIZE 16
+static char **CMDHIST;
+static int CMDHIST_HEAD = 0;
+static int CMDHIST_TAIL = 0;
+#endif
+
+int main(int argc, char *argv[])
+{
+	uint32_t insize = GSTR_MAXSIZE;
+	char *input_exp, *ptr, *indup, *input_line;
+    str_t input_str;
+    
+	int slog,is_cmdline_run=0;
+	FILE *logfile;
+    FILE *scriptfile = NULL;
+	fact_obj_t *fobj;
+    int firstline = 1;
+    options_t *options;
+    meta_t calc_metadata = { 0 };
+    yafu_obj_t yafu_obj;
+    //soe_staticdata_t* sdata;
+    info_t comp_info;
+    int i;
+    int ini_success;
+    int batchnum = 1;
+    int exit_status = 0;
+    str_t script_line;
+
+#if defined(__unix__)
+
+    static struct termios oldtio, newtio;
+    tcgetattr(0, &oldtio);
+    newtio = oldtio;
+    newtio.c_lflag &= ~(ICANON | ECHO | ECHOE | ECHOK);
+
+    CMDHIST = (char **)malloc(CMDHIST_SIZE * sizeof(char *));
+    for (i = 0; i < CMDHIST_SIZE; i++)
+    {
+        CMDHIST[i] = (char *)malloc(GSTR_MAXSIZE*sizeof(char));
+    }
+
+#endif
+
+	//the input expression
+	input_exp = (char *)malloc(GSTR_MAXSIZE*sizeof(char));
+	indup = (char *)malloc(GSTR_MAXSIZE*sizeof(char));
+    input_line = (char *)malloc(GSTR_MAXSIZE*sizeof(char));
+    sInit(&input_str);
+    sInit(&script_line);
+	strcpy(input_exp,"");
+    strcpy(input_line, "");
+	
+	// set defaults for various things and read the .ini file, if any.
+	yafu_init(&yafu_obj);
+    options = initOpt();
+    ini_success = readINI("yafu.ini", options);
+
+    // then process the command line, overriding any .ini settings.
+    processOpts(argc, argv, options);
+    strcpy(yafu_obj.scriptname, options->scriptfile);
+
+    // some things go into globals, but this is being phased out
+    yafu_obj.VFLAG = options->verbosity;
+    yafu_obj.THREADS = options->threads;
+    yafu_obj.CMD_LINE_REPEAT = options->repeat;
+    yafu_obj.VERBOSE_PROC_INFO = options->vproc;
+    yafu_obj.LATHREADS = options->lathreads;
+    if (strlen(options->factorlog) == 0)
+    {
+        yafu_obj.LOGFLAG = 0;
+    }
+    if (strlen(options->batchfile) > 0)
+    {
+        yafu_obj.USEBATCHFILE = 1;
+        strcpy(yafu_obj.batchfilename, options->batchfile);
+        batchnum = 1;
+    }
+    if (strlen(options->sessionlog) > 0)
+    {
+        strcpy(yafu_obj.sessionname, options->sessionlog);
+    }
+    if (options->rand_seed == 0)
+    {
+        uint32_t seed1, seed2;
+        get_random_seeds(&seed1, &seed2);
+        options->rand_seed = ((uint64_t)seed2 << 32) | (uint64_t)seed1;
+    }
+    else
+    {
+        printf("input user seed %" PRIu64" detected\n", options->rand_seed);
+        yafu_obj.USERSEED = 1;
+    }
+
+    //if (yafu_obj.VFLAG > 0)
+    {
+        if (ini_success)
+        {
+#ifdef _MSC_VER
+            if (_getcwd(yafu_obj.CWD, sizeof(yafu_obj.CWD)) == NULL)
+#else
+            if (getcwd(yafu_obj.CWD, sizeof(yafu_obj.CWD)) == NULL)
+#endif
+                yafu_obj.CWD[0] = '\0';
+        }
+        else
+        {
+            strcpy(yafu_obj.CWD, "");
+        }
+    }
+
+    // get_computer_info has issues with AMD chips?
+    // processor name string is empty and many flags are not set.
+
+    // get the computer name, cache sizes, etc.  store in globals
+    // we need to have the cpu id string before calling apply_tuneinfo so that
+    // any tune_info lines are applied correctly.
+    ytools_get_computer_info(&comp_info, options->vproc);
+    strncpy(yafu_obj.CPU_ID_STR, comp_info.idstr, 255);
+
+	// a factorization object that gets passed around to any factorization routine
+	// called out in the input expression.  if no factorization routine is specified,
+	// this is not used.  initialize and pass in all of the options.
+	fobj = (fact_obj_t *)malloc(sizeof(fact_obj_t));
+	init_factobj(fobj);
+    
+    options_to_factobj(fobj, options);
+    for (i = 0; i < options->num_tune_info; i++)
+    {
+        apply_tuneinfo(&yafu_obj, fobj, options->tune_info[i]);
+    }
+
+    fobj->MEAS_CPU_FREQUENCY = 42;  // not used anymore
+    strcpy(fobj->CPU_ID_STR, comp_info.idstr);
+    
+    fobj->NUM_WITNESSES = yafu_obj.NUM_WITNESSES = options->num_prp_witnesses;
+    fobj->cache_size1 = fobj->L1CACHE = comp_info.L1cache;
+    fobj->cache_size2 = fobj->L2CACHE = comp_info.L2cache;
+    fobj->LOGFLAG = yafu_obj.LOGFLAG;
+    fobj->THREADS = yafu_obj.THREADS;
+    strcpy(fobj->yafu_version, YAFU_VERSION_STRING);
+
+
+#if defined(__INTEL_COMPILER) || defined(__INTEL_LLVM_COMPILER)
+    if (_may_i_use_cpu_feature(_FEATURE_SSE4_1))
+#elif defined(__aarch64__)
+    if (0)
+#elif defined(__GNUC__)
+    if (__builtin_cpu_supports("sse4.1"))
+#else
+    if (1)
+#endif
+    {
+        fobj->HAS_SSE41 = comp_info.bSSE41Extensions = 1;
+    }
+
+#if defined(__INTEL_COMPILER) || defined(__INTEL_LLVM_COMPILER)
+    if (_may_i_use_cpu_feature(_FEATURE_AVX2))
+#elif defined(__aarch64__)
+    if (0)
+#elif defined(__GNUC__)
+    if (__builtin_cpu_supports("avx2"))
+#else
+    if (1)
+#endif
+    {
+        fobj->HAS_AVX2 = comp_info.AVX2 = 1;
+    }
+
+#if defined(__INTEL_COMPILER) || defined(__INTEL_LLVM_COMPILER)
+    if (_may_i_use_cpu_feature(_FEATURE_AVX))
+#elif defined(__aarch64__)
+    if (0)
+#elif defined(__GNUC__)
+    if (__builtin_cpu_supports("avx"))
+#else
+    if (1)
+#endif
+    {
+        fobj->HAS_AVX = comp_info.AVX = 1;
+    }
+
+#if defined(__INTEL_COMPILER) || defined(__INTEL_LLVM_COMPILER)
+    if (_may_i_use_cpu_feature(_FEATURE_BMI))
+#elif defined(__aarch64__)
+    if (0)
+#elif defined(__GNUC__)
+    if (__builtin_cpu_supports("bmi2"))
+#else
+    if (1)
+#endif
+    {
+        fobj->HAS_BMI2 = comp_info.BMI2 = 1;
+    }  
+
+#if defined(__INTEL_COMPILER) || defined(__INTEL_LLVM_COMPILER)
+    if (_may_i_use_cpu_feature(_FEATURE_AVX512F))
+#elif defined(__aarch64__)
+    if (0)
+#elif defined(__GNUC__)
+    if (__builtin_cpu_supports("avx512f"))
+#else
+    if (1)
+#endif
+    {
+        fobj->HAS_AVX512F = comp_info.AVX512F = 1;
+    }
+
+#if defined( __INTEL_COMPILER) || defined(__INTEL_LLVM_COMPILER)
+    if (_may_i_use_cpu_feature(_FEATURE_AVX512BW))
+#elif defined(__aarch64__)
+    if (0)
+#elif defined(__GNUC__)
+    if (__builtin_cpu_supports("avx512bw"))
+#else
+    if (1)
+#endif
+    {
+        fobj->HAS_AVX512BW = comp_info.AVX512BW = 1;
+    }
+
+#if BITS_PER_DIGIT == 64
+    fobj->lcg_state = options->rand_seed;
+#else
+    fobj->lcg_state = (uint32_t)options->rand_seed;
+#endif	
+
+    calc_metadata.fobj = fobj;
+    calc_metadata.pscreen = options->pscreen;
+    calc_metadata.pfile = options->pfile;
+    calc_metadata.soe_analysis = options->soe_analysis;
+    calc_metadata.comp_info = &comp_info;
+
+	// check/process input arguments
+	is_cmdline_run = check_expression(options);
+
+    // 命令行表达式可以长于初始缓冲区；后续复制和批处理都使用这些副本。
+    if (strlen(options->inputExpr) + 9 > insize)
+    {
+        insize = (uint32_t)(strlen(options->inputExpr) + 9);
+        input_exp = (char*)xrealloc(input_exp, insize);
+        input_line = (char*)xrealloc(input_line, insize);
+        indup = (char*)xrealloc(indup, insize);
+    }
+
+    //printf("check_expression returned %d, batchfile flag = %d\n", 
+    //    is_cmdline_run, yafu_obj.USEBATCHFILE);
+
+    if (is_cmdline_run == 3)
+    {
+        // a default function applied to text that has no other function.
+        int len = (int)strlen(options->inputExpr) + 9;
+        options->inputExpr = (char*)xrealloc(options->inputExpr, len);
+        sprintf(input_exp, "factor(%s)", options->inputExpr);
+        strcpy(options->inputExpr, input_exp);
+        strcpy(input_line, options->inputExpr);
+        is_cmdline_run = 1;
+    }
+    else
+    {
+        strcpy(input_line, options->inputExpr);
+        strcpy(input_exp, options->inputExpr);
+    }
+
+	if (is_cmdline_run == 2)
+	{
+		// batchfile from stdin
+        yafu_obj.USEBATCHFILE = 2;
+	}
+
+	// get the batchfile ready, if requested
+	if (yafu_obj.USEBATCHFILE > 0)
+	{
+        //printf("preparing batchfile with flag %d\n", yafu_obj.USEBATCHFILE);
+		prepare_batchfile(input_exp);		
+		
+		// batchfile jobs are command line in nature
+		is_cmdline_run = 1;		
+	}
+
+    if (strlen(yafu_obj.scriptname) > 0)
+    {
+        scriptfile = fopen(yafu_obj.scriptname, "r");
+        if (scriptfile == NULL)
+        {
+            printf("could not find %s\n", yafu_obj.scriptname);
+            exit(1);
+        }
+        else
+        {
+            is_cmdline_run = 1;
+        }
+    }
+
+    if (yafu_obj.USEBATCHFILE || (yafu_obj.CMD_LINE_REPEAT > 0))
+    {
+        strcpy(indup, input_exp);	//remember the input expression
+    }
+
+	//never run silently when run interactively, else the results of
+	//calculations will never be displayed.
+    if (!is_cmdline_run && yafu_obj.VFLAG < 0)
+    {
+        yafu_obj.VFLAG = 0;
+    }
+
+	//session log
+    if (yafu_obj.LOGFLAG)
+    {
+        logfile = fopen(yafu_obj.sessionname, "a");
+        if (logfile == NULL)
+        {
+            printf("fopen error: %s\n", strerror(errno));
+            printf("couldn't open %s for appending\n", yafu_obj.sessionname);
+            slog = 0;
+        }
+        else
+            slog = 1;
+    }
+    else
+    {
+        logfile = NULL;
+        slog = 0;
+    }
+		
+	// print the splash screen, to the logfile and depending on options, to the screen
+	print_splash(fobj, &comp_info, is_cmdline_run, logfile, yafu_obj.VFLAG, 
+        yafu_obj.MEAS_CPU_FREQUENCY, yafu_obj.NUM_WITNESSES, yafu_obj.CWD);
+	
+	// start the calculator
+	// right now this just allocates room for user variables
+	calc_init(options->rand_seed);
+		
+	logprint(logfile,"Random seed: %" PRIu64 "\n", options->rand_seed);
+	fflush(logfile);
+
+	//printf("WARNING: constant seed is set\n");
+	//g_rand.hi = 123;
+	//g_rand.low = 123;
+    srand((unsigned int)options->rand_seed);
+
+    if (options->obase == 8)
+    {
+        process_expression("OBASE=8;", &calc_metadata, 0, 1);
+        fobj->OBASE = 8;
+    }
+    else if (options->obase == 16)
+    {
+        process_expression("OBASE=16;", &calc_metadata, 0, 1);
+        fobj->OBASE = 16;
+    }
+    else if (options->obase == 2)
+    {
+        process_expression("OBASE=2;", &calc_metadata, 0, 1);
+        fobj->OBASE = 2;
+    }
+
+	// command line
+	while (1)
+	{		
+        // running interactively, reset the fobj every line.
+        reset_factobj(fobj);
+
+        // don't need to re-announce anything every time the user
+        // hits the return key
+        options_to_factobj(fobj, options);
+        int verbose_level = fobj->VFLAG;
+        fobj->VFLAG = yafu_obj.VFLAG = -1;
+        for (i = 0; i < options->num_tune_info; i++)
+        {
+            apply_tuneinfo(&yafu_obj, fobj, options->tune_info[i]);
+        }
+        fobj->VFLAG = yafu_obj.VFLAG = verbose_level;
+
+		// handle a batch file, if passed in.
+		if (yafu_obj.USEBATCHFILE)
+		{
+			int code;
+            input_line = process_batchline(&yafu_obj, input_line, indup, &code, batchnum);
+            batchnum++;
+			if (code == 1)
+			{
+
+				if (input_str.nchars > 1)
+                {
+                    fprintf(stderr, "incomplete expression at end of input\n");
+                    exit_status = 1;
+                }
+				break;
+			}
+            else if (code == 2)
+            {
+                //printf("finalizing batchline and continuing\n");
+                finalize_batchline(&yafu_obj);
+                continue;
+            }
+		}
+        else if (strlen(yafu_obj.scriptname) > 0)
+        {
+            if (scriptfile != NULL)
+            {
+                int read_status = read_stream_line(scriptfile, &script_line);
+                if (read_status <= 0)
+                {
+                    if (read_status < 0 || input_str.nchars > 1)
+                    {
+                        fprintf(stderr, "cannot read a complete script expression\n");
+                        exit_status = 1;
+                        break;
+                    }
+                    if (yafu_obj.CMD_LINE_REPEAT > 0)
+                    {
+                        yafu_obj.CMD_LINE_REPEAT--;
+                        rewind(scriptfile);
+                        continue;
+                    }
+                    break;
+                }
+                insize = (uint32_t)strlen(script_line.s) + 1;
+                input_line = (char *)xrealloc(input_line, insize);
+                strcpy(input_line, script_line.s);
+            }
+        }
+		else if (!is_cmdline_run)
+		{
+#if defined(__unix__)
+            tcsetattr(0, TCSANOW, &newtio);
+#endif
+            input_line = get_input(input_line, &insize);
+#if defined(__unix__)
+            tcsetattr(0, TCSANOW, &oldtio);
+#endif
+		}
+		else
+		{
+			// input expression already read in.  nothing to do here.
+
+		}
+		
+		// help, exit, or execute the current expression...
+        ptr = strstr(input_line, "help");
+		if (ptr != NULL)
+            helpfunc(input_line);
+        else if ((strcmp(input_line, "quit") == 0) || (strcmp(input_line, "exit") == 0))
+			break;
+		else
+		{
+            char* result;
+            sAppend(input_line, &input_str);
+            if (exp_is_open(input_line, firstline))
+            {
+                if (is_cmdline_run && !yafu_obj.USEBATCHFILE && scriptfile == NULL)
+                {
+                    fprintf(stderr, "incomplete expression\n");
+                    exit_status = 1;
+                    break;
+                }
+                if (strlen(input_line) > 0)
+                    sAppend(",", &input_str);
+                firstline = 0;
+                continue;
+            }
+
+            if (strlen(input_str.s) >= fobj->input_str_alloc)
+            {
+                fobj->input_str = (char*)xrealloc(fobj->input_str, strlen(input_str.s) + 2);
+                fobj->input_str_alloc = strlen(input_str.s) + 2;
+            }
+            fobj->argc = argc;
+            fobj->argv = argv;            
+            strcpy(fobj->input_str, input_str.s);
+            firstline = 1;
+            reset_preprocessor();
+            logprint(logfile, "Processing   : %s\n", input_str.s);
+            result = process_expression(input_str.s, &calc_metadata, fobj->VFLAG, 0);
+            generate_factorization_str(fobj->factors);
+            if (strlen(fobj->factors->factorization_str) > 0)
+            {
+                logprint(logfile, "Factorization: %s\n", fobj->factors->factorization_str);
+            }
+            logprint(logfile, "Result       : %s\n", result != NULL ? result : "error");
+            if (result == NULL)
+                exit_status = 1;
+            sClear(&input_str);
+            if (result != NULL)
+            {
+                free(result);
+            }
+		}
+
+        // support changing options from the command line in an interactive session
+        options->verbosity = fobj->VFLAG;
+        options->B1ecm = fobj->ecm_obj.B1;
+        options->B2ecm = fobj->ecm_obj.B2;
+        options->B1pm1 = fobj->pm1_obj.B1;
+        options->B2pm1 = fobj->pm1_obj.B2;
+        options->B1pp1 = fobj->pp1_obj.B1;
+        options->B2pp1 = fobj->pp1_obj.B2;
+        fobj->pm1_obj.stg2_is_default = (options->B2pm1 == 0);
+        fobj->pp1_obj.stg2_is_default = (options->B2pp1 == 0);
+        fobj->ecm_obj.stg2_is_default = (options->B2ecm == 0);
+        options->rhomax = fobj->rho_obj.iterations;
+        options->num_prp_witnesses = fobj->NUM_WITNESSES;
+        options->threads = fobj->THREADS;
+
+#if defined(WIN32) && !defined(__MINGW32__)
+		fflush(stdin);	//important!  otherwise scanf will process printf's output
+		
+#else
+		if (!is_cmdline_run)
+		{
+			fflush(stdin);	//important!  otherwise scanf will process printf's output
+			fflush(stdout);
+		}
+#endif
+
+		// get the next expression, if running a batchfile, or
+		// re-display the command prompt
+		if (yafu_obj.CMD_LINE_REPEAT == 0)
+		{
+            input_line = (char *)realloc(input_line, GSTR_MAXSIZE*sizeof(char));
+            insize = GSTR_MAXSIZE;
+            if (input_line == NULL)
+			{
+				printf("couldn't reallocate string during cleanup\n");
+				exit(-1);
+			}
+
+            input_line[0] = '\0';
+		}
+
+		if (is_cmdline_run)
+		{
+			if (yafu_obj.USEBATCHFILE)
+			{
+				// the line from the batchfile finished.  make the temporary file
+				// created in processs_batchline the new batchfile, with the line
+				// we just finished removed.
+				finalize_batchline(&yafu_obj);
+			}
+            else if (scriptfile != NULL)
+            {
+                /* 下一次读取处理 EOF 和重复执行，末行只执行一次。 */
+            }
+			else if (yafu_obj.CMD_LINE_REPEAT > 0)
+			{
+                yafu_obj.CMD_LINE_REPEAT--;
+                strcpy(input_line, indup);
+			}
+			else
+				break;
+		}
+        else
+        {
+            printf(">> ");
+            fflush(stdout);
+        }
+
+	}
+
+    if (scriptfile != NULL)
+    {
+        fclose(scriptfile);
+    }
+    if (batch_tempname[0] != '\0')
+        remove(batch_tempname);
+
+    if (slog)
+    {
+        fclose(logfile);
+    }
+
+	calc_finalize();
+	yafu_finalize(&yafu_obj);	
+	free(input_exp);
+    free(input_line);
+	free(indup);	
+	free_factobj(fobj);
+	free(fobj);      
+    sFree(&input_str);
+    sFree(&script_line);
+    free(options->inputExpr);
+    for (i = 0; i < options->num_tune_info; i++)
+    {
+        free(options->tune_info[i]);
+    }
+    free(options->tune_info);
+    free(options);
+    //soe_finalize(sdata);
+    //free(sdata);
+
+
+#if defined(__unix__)
+    for (i = 0; i < CMDHIST_SIZE; i++)
+    {
+        free(CMDHIST[i]);
+    }
+    free(CMDHIST);
+#endif
+
+	return exit_status;
+}
+
+int exp_is_open(char *line, int firstline)
+{
+    int i;
+    static int openp, closedp, openb, closedb;
+
+    if (firstline)
+    {
+        openp = openb = closedp = closedb = 0;
+    }
+
+    for (i = 0; i < strlen(line); i++)
+    {
+        if (line[i] == '(') openp++;
+        if (line[i] == ')') closedp++;
+        if (line[i] == '{') openb++;
+        if (line[i] == '}') closedb++;
+    }
+    return openp > closedp || openb > closedb;
+}
+
+char * get_input(char *input_exp, uint32_t*insize)
+{
+#if !defined(__unix__)
+
+    // get command from user
+    if (fgets(input_exp, GSTR_MAXSIZE, stdin) == NULL)
+    {
+        strcpy(input_exp, "quit");
+        return input_exp;
+    }
+
+    while (1)
+    {
+        if (input_exp[strlen(input_exp) - 1] == 13 || input_exp[strlen(input_exp) - 1] == 10)
+        {
+            // replace with a null char and continue
+            printf("\n");
+            fflush(stdout);
+            input_exp[strlen(input_exp) - 1] = '\0';
+            break;
+        }
+        else
+        {
+            // last char is not a carriage return means
+            // the input is longer than allocated.
+            // reallocate and get another chunk
+            *insize += GSTR_MAXSIZE;
+            input_exp = (char *)realloc(input_exp, *insize * sizeof(char));
+            if (input_exp == NULL)
+            {
+                printf("couldn't reallocate string when parsing\n");
+                exit(-1);
+            }
+            if (fgets(input_exp + strlen(input_exp), GSTR_MAXSIZE, stdin) == NULL)
+                break;
+        }
+    }
+
+#else
+    
+    int n = 0;
+    int p = CMDHIST_HEAD;
+    strcpy(CMDHIST[p], "");
+
+    while (1)
+    {        
+        int c = getc(stdin);
+
+        // is this an escape sequence?
+        if (c == 27) {
+            // "throw away" next two characters which specify escape sequence
+            int c1 = getc(stdin);
+            int c2 = getc(stdin);
+            int i;
+
+            if ((c1 == 91) && (c2 == 65))
+            {
+                // clear the current screen contents
+                for (i = 0; i < n; i++)
+                    printf("\b");
+
+                for (i = 0; i < n; i++)
+                    printf(" ");
+
+                for (i = 0; i < n; i++)
+                    printf("\b");
+
+                // save whatever is currently entered                
+                if (p == CMDHIST_HEAD)
+                {
+                    input_exp[n] = '\0';
+                    CMDHIST[CMDHIST_HEAD] = (char *)xrealloc(CMDHIST[CMDHIST_HEAD], (size_t)n + 1);
+                    strcpy(CMDHIST[CMDHIST_HEAD], input_exp);
+                }
+
+                // uparrow     
+                if (CMDHIST_HEAD >= CMDHIST_TAIL)
+                {
+                    p--;
+
+                    // wrap
+                    if (p < 0)
+                    {
+                        // but not past tail
+                        p = 0;
+                    }
+                }
+                else
+                {
+                    p--;
+
+                    // wrap
+                    if (p < 0)
+                    {
+                        p = CMDHIST_SIZE - 1;
+                    }
+                }                                
+
+                // and print the previous one
+                printf("%s", CMDHIST[p]);
+                if (strlen(CMDHIST[p]) + 1 > *insize)
+                {
+                    *insize = (uint32_t)strlen(CMDHIST[p]) + 1;
+                    input_exp = (char *)xrealloc(input_exp, *insize);
+                }
+                strcpy(input_exp, CMDHIST[p]);
+                n = strlen(input_exp);
+            }
+            else if ((c1 == 91) && (c2 == 66))
+            {
+                // downarrow
+                // clear the current screen contents
+                for (i = 0; i < strlen(CMDHIST[p]); i++)
+                    printf("\b");
+
+                for (i = 0; i < strlen(CMDHIST[p]); i++)
+                    printf(" ");
+
+                for (i = 0; i < strlen(CMDHIST[p]); i++)
+                    printf("\b");
+
+                if (p != CMDHIST_HEAD)
+                {
+                    p++;
+
+                    // wrap
+                    if (p == CMDHIST_SIZE)
+                    {
+                        p = 0;
+                    }
+                }                            
+
+                // and print the next one
+                printf("%s", CMDHIST[p]);
+                if (strlen(CMDHIST[p]) + 1 > *insize)
+                {
+                    *insize = (uint32_t)strlen(CMDHIST[p]) + 1;
+                    input_exp = (char *)xrealloc(input_exp, *insize);
+                }
+                strcpy(input_exp, CMDHIST[p]);
+                n = strlen(input_exp);
+            }
+            else if ((c1 == 91) && (c2 == 67))
+            {
+                // rightarrow
+            }
+            else if ((c1 == 91) && (c2 == 68))
+            {
+                // leftarrow
+            }
+            else
+            {
+                printf("unknown escape sequence %d %d\n", c1, c2);
+            }
+
+            continue;
+        }
+
+        // if backspace
+        if (c == 0x7f)
+        {
+            //fprintf(stderr,"saw a backspace\n"); fflush(stderr);
+            if (n > 0)
+            {
+                // go one char left
+                printf("\b");
+                // overwrite the char with whitespace
+                printf(" ");
+                // go back to "now removed char position"
+                printf("\b");
+                n--;
+            }
+            continue;
+        }
+
+        if (c == EOF || c == 4)
+        {
+            if (n == 0)
+                strcpy(input_exp, "quit");
+            else
+                input_exp[n] = '\0';
+            break;
+        }
+
+        if ((c == 13) || (c == 10))
+        {
+            input_exp[n++] = '\0';
+            break;
+        }
+
+        putc(c, stdout);
+
+        if ((uint32_t)n + 1 >= *insize)
+        {
+            *insize += GSTR_MAXSIZE;
+            input_exp = (char *)xrealloc(input_exp, *insize * sizeof(char));
+            if (input_exp == NULL)
+            {
+                printf("couldn't reallocate string when parsing\n");
+                exit(-1);
+            }
+        }
+
+        input_exp[n++] = (char)c;
+    }
+
+    printf("\n");
+    fflush(stdout);
+
+    if (strlen(input_exp) > 0)
+    {
+        CMDHIST[CMDHIST_HEAD] = (char *)xrealloc(CMDHIST[CMDHIST_HEAD], strlen(input_exp) + 1);
+        strcpy(CMDHIST[CMDHIST_HEAD++], input_exp);
+
+        if (CMDHIST_TAIL > 0)
+        {
+            CMDHIST_TAIL++;
+            if (CMDHIST_TAIL == CMDHIST_SIZE)
+                CMDHIST_TAIL = 0;
+        }
+
+        if (CMDHIST_HEAD == CMDHIST_SIZE)
+        {
+            CMDHIST_HEAD = 0;
+            if (CMDHIST_TAIL == 0)
+                CMDHIST_TAIL = 1;
+        }
+    }
+
+#endif
+
+    return input_exp;
+}
+
+void helpfunc(char *s)
+{
+	//search the docfile for the right entry
+	//just search for the heading, and print everything until
+	//the next heading is found
+	FILE *doc;
+	char *func;
+	char *str;
+	int printtopic = 0;
+	int j;
+
+	j=4;
+	if (s[j] == '\0')
+		j = 0;
+	else
+		while (isspace((int)s[j])) j++;		//skip white space
+	func = s + j;
+
+	//func now points to a string with the desired help topic
+	//open the doc file and search matching topics
+	// the help text lives in top/ now; look in the working directory first so
+	// an installed copy still wins, then fall back to the source tree
+	doc = fopen("docfile.txt","r");
+	if (doc == NULL)
+		doc = fopen("top/docfile.txt","r");
+	if (doc == NULL)
+	{
+		printf("documentation file not found (looked for docfile.txt and"
+			" top/docfile.txt)\n");
+		return;
+	}
+
+	printf("searching for help on '%s'\n",func);
+	str = (char *)malloc(1024*sizeof(char));
+	while (fgets(str, 1024, doc) != NULL)
+	{
+		//is this a header?
+		//printf("(%d) %s",strlen(str),str);
+        char* start = strchr(str, '[');
+        char* stop = strchr(str, ']');
+
+        if ((start == NULL) || (stop == NULL))
+        {
+            // not a header line
+            if (printtopic)
+                printf("%s", str);
+        }
+        else if ((start != NULL) && (stop != NULL))
+        {
+            // possibly a header line.  also check that the start character
+            // is the first one
+            if (str[0] == '[')
+            {
+                if (!printtopic)
+                {
+                    // if we are not currently printing a topic, then check if
+                    // the text in between the braces matches what we're searching for
+                    char* funcptr = strstr(str, func);
+                    if (funcptr != NULL)
+                    {
+                        if (str[1 + strlen(func)] == ']')
+                        {
+                            // this is our guy, start printing
+                            printtopic = 1;
+                        }
+                    }
+                }
+                else
+                {
+                    // if we are printing a topic then we stop, since we've found a new one.
+                    // note: this could be fooled by description lines that happen to start
+                    // with a '[' character and also include a ']' somewhere else in the line.
+                    printtopic = 0;
+                    break;
+                }
+            }
+        }
+	}
+	fclose(doc);
+	free(str);
+	return;
+}
+
+void prepare_batchfile(char *input_exp)
+{
+	char *ptr;
+	
+	//look for @ symbol in input expression
+	ptr = strchr(input_exp,'@');
+	if (ptr == NULL)
+	{
+		printf("no variable indicator (@): interpreting batchfile lines as input expressions\n");
+		sprintf(input_exp,"@");
+	}
+
+	return;
+}
+
+int check_expression(options_t* options)
+{
+    int piped = 0;
+#ifndef NO_PIPE
+#if defined(__MINGW32__)
+    piped = 0;
+#elif defined(WIN32)
+    piped = (_isatty(_fileno(stdin)) == 0);
+#else
+    piped = (isatty(fileno(stdin)) == 0);
+#endif
+#endif
+    if (options->batchfile[0] != '\0' || options->scriptfile[0] != '\0')
+        return 1;
+    if (options->inputExpr[0] != '\0')
+    {
+        /* 带 @ 的表达式仍可作为管道模板，其余显式表达式直接执行。 */
+        if (piped && strchr(options->inputExpr, '@') != NULL)
+            return 2;
+        return strchr(options->inputExpr, '(') == NULL ? 3 : 1;
+    }
+    return piped ? 2 : 0;
+}
+void print_splash(fact_obj_t *fobj, info_t *comp_info, int is_cmdline_run, 
+    FILE* logfile, int VFLAG, double freq, int numwit, char *cwd)
+{
+	if (VFLAG >= 0)
+		printf("\n\n");
+
+	if ((VFLAG > 0) || !is_cmdline_run)
+	{	
+		logprint(NULL,"System/Build Info: \n");
+        fflush(stdout);
+	}
+    logprint(logfile, "=====================================\n");
+	logprint(logfile,"System/Build Info: \n");
+
+    if ((VFLAG > 0) || !is_cmdline_run)
+    {
+        printf("YAFU Version %s\n", YAFU_VERSION_STRING);
+        logprint(logfile, "YAFU Version %s\n", YAFU_VERSION_STRING);
+#ifdef _MSC_VER
+#if defined(__INTEL_COMPILER)
+        printf("Built with Microsoft Visual Studio %d and Intel Compiler %d\n", _MSC_VER, __INTEL_COMPILER);
+        logprint(logfile, "Built with Microsoft Visual Studio %d and Intel Compiler %d\n", _MSC_VER, __INTEL_COMPILER);
+#elif defined(__INTEL_LLVM_COMPILER)
+        printf("Built with Microsoft Visual Studio %d and Intel LLVM Compiler %d\n", _MSC_VER, __clang_version__);
+        logprint(logfile, "Built with Microsoft Visual Studio %d and Intel LLVM Compiler %d\n", _MSC_VER, __clang_version__);
+#elif defined(__clang_version__)
+        printf("Built with Microsoft Visual Studio %d and LLVM Compiler %s\n", _MSC_VER, __clang_version__);
+        logprint(logfile, "Built with Microsoft Visual Studio %d and LLVM Compiler %s\n", _MSC_VER, __clang_version__);
+#else
+        printf("Built with Microsoft Visual Studio %d\n", _MSC_VER);
+        logprint(logfile, "Built with Microsoft Visual Studio % d\n", _MSC_VER);
+#endif
+#elif defined (__INTEL_COMPILER)
+        printf("Built with Intel Compiler %d\n", __INTEL_COMPILER);
+        logprint(logfile, "Built with Intel Compiler %d\n", __INTEL_COMPILER);
+#elif defined(__INTEL_LLVM_COMPILER)
+        printf("Built with Intel LLVM Compiler %s\n", __clang_version__);
+        logprint(logfile, "Built with Intel LLVM Compiler %s\n", __clang_version__);
+#elif defined(__clang_version__)
+        printf("Built with llvm compiler %s\n", __clang_version__);
+        logprint(logfile, "Built with llvm compiler %s\n", __clang_version__);
+#elif defined (__GNUC__)
+        printf("Built with GCC %d\n", __GNUC__);
+        logprint(logfile, "Built with GCC %d\n", __GNUC__);
+#else 
+        printf("Built with undefined compiler\n");
+        logprint(logfile, "Built with undefined compiler\n");
+#endif
+
+#ifdef _MSC_MPIR_VERSION
+#ifdef ECM_VERSION
+        printf("Using GMP-ECM %s, Powered by MPIR %s\n", ECM_VERSION,
+            _MSC_MPIR_VERSION);
+        logprint(logfile, "Using GMP-ECM %s, Powered by MPIR %s\n", ECM_VERSION,
+            _MSC_MPIR_VERSION);
+#elif defined(VERSION)
+
+        printf("Using GMP-ECM %s, Powered by MPIR %s\n", VERSION,
+            _MSC_MPIR_VERSION);
+        logprint(logfile,"Using GMP-ECM %s, Powered by MPIR %s\n", VERSION,
+            _MSC_MPIR_VERSION);
+
+#else
+        printf("Using GMP-ECM <unknown>, Powered by MPIR %s\n", 
+            _MSC_MPIR_VERSION);
+        logprint(logfile,"Using GMP-ECM <unknown>, Powered by MPIR %s\n",
+            _MSC_MPIR_VERSION);
+
+
+#endif
+#else
+#ifdef ECM_VERSION
+        printf("Using GMP-ECM %s, Powered by GMP %d.%d.%d\n", ECM_VERSION, 
+            __GNU_MP_VERSION,__GNU_MP_VERSION_MINOR,__GNU_MP_VERSION_PATCHLEVEL);
+        logprint(logfile,"Using GMP-ECM %s, Powered by GMP %d.%d.%d\n", ECM_VERSION,
+            __GNU_MP_VERSION,__GNU_MP_VERSION_MINOR,__GNU_MP_VERSION_PATCHLEVEL);
+#else
+        printf("Using GMP-ECM, Powered by GMP\n");
+        logprint(logfile,"Using GMP-ECM, Powered by GMP\n");
+#endif
+
+#endif
+
+        fflush(stdout);
+    }
+
+    logprint(logfile,"detected %s\ndetected L1 = %d bytes, L2 = %d bytes, CL = %d bytes\n",
+		comp_info->idstr, comp_info->L1cache, comp_info->L2cache, comp_info->cachelinesize);
+
+    logprint(logfile, "CPU features enabled: ");
+#ifdef USE_SSE41 
+    if (comp_info->bSSE41Extensions) logprint(logfile, "SSE41 ");
+#endif
+#ifdef USE_AVX2
+    if (comp_info->AVX2) logprint(logfile, "AVX2 ");
+#endif
+#ifdef USE_BMI2
+    if (comp_info->BMI2) logprint(logfile, "BMI2 ");
+#endif
+#ifdef USE_AVX512F
+    if (comp_info->AVX512F) logprint(logfile, "AVX512F ");
+#endif
+#ifdef USE_AVX512BW
+    if (comp_info->AVX512BW) logprint(logfile, "AVX512BW ");
+#endif
+#ifdef IFMA
+    if (comp_info->AVX512IFMA) logprint(logfile, "AVX512IFMA ");
+#endif
+    logprint(logfile, "\n");
+
+    if (freq > 100.0)
+        logprint(logfile,"measured cpu frequency ~= %f\n", freq);
+    if (numwit == 1)
+        logprint(logfile,"using %u random witness for Rabin-Miller PRP checks\n", numwit);
+    else
+        logprint(logfile, "using %u random witnesses for Rabin-Miller PRP checks\n", numwit);
+    logprint(logfile, "Cached %"PRIu64" primes: max prime is %"PRIu64"\n", fobj->num_p, fobj->max_p);
+    if (strlen(cwd) == 0)
+    {
+        char buf[1024];
+#ifdef _MSC_VER
+        if (_getcwd(buf, sizeof(buf)) == NULL)
+#else
+        if (getcwd(buf, sizeof(buf)) == NULL)
+#endif
+            strcpy(buf, "(unavailable)");
+        logprint(logfile, "Could not parse yafu.ini from %s\n\n", buf);
+    }
+    else
+    {
+        logprint(logfile, "Parsed yafu.ini from %s\n", cwd);
+    }
+
+	if (VFLAG > 0 || !is_cmdline_run)
+	{		
+		printf("Detected %s\nDetected L1 = %d bytes, L2 = %d bytes, CL = %d bytes\n",
+            comp_info->idstr, comp_info->L1cache, comp_info->L2cache, comp_info->cachelinesize);
+
+        printf("CPU features enabled: ");
+#ifdef USE_SSE41 
+        if (comp_info->bSSE41Extensions) printf("SSE41 ");
+#endif
+#ifdef USE_AVX2
+        if (comp_info->AVX2) printf("AVX2 ");
+#endif
+#ifdef USE_BMI2
+        if (comp_info->BMI2) printf("BMI2 ");
+#endif
+#ifdef USE_AVX512F
+        if (comp_info->AVX512F) printf("AVX512F ");
+#endif
+#ifdef USE_AVX512BW
+        if (comp_info->AVX512BW) printf("AVX512BW ");
+#endif
+#ifdef IFMA 
+        if (comp_info->AVX512IFMA) printf("AVX512IFMA ");
+#endif
+        printf("\n");
+
+        if (freq > 100.0)
+		    printf("Measured cpu frequency ~= %f\n", freq);
+        if (numwit == 1)
+		    printf("Using %u random witness for Rabin-Miller PRP checks\n", numwit);
+        else
+            printf("Using %u random witnesses for Rabin-Miller PRP checks\n", numwit);
+
+        printf("Cached %"PRIu64" primes; max prime is %"PRIu64"\n", fobj->num_p, fobj->max_p);
+        if (strlen(cwd) == 0)
+        {
+            char buf[1024];
+#ifdef _MSC_VER
+            if (_getcwd(buf, sizeof(buf)) == NULL)
+#else
+            if (getcwd(buf, sizeof(buf)) == NULL)
+#endif
+                strcpy(buf, "(unavailable)");
+            printf("Could not parse yafu.ini from %s\n\n", buf);
+        }
+        else
+        {
+            printf("Parsed yafu.ini from %s\n\n", cwd);
+        }
+
+		printf("===============================================================\n");
+		printf("======= Welcome to YAFU (Yet Another Factoring Utility) =======\n");
+		printf("=======             bbuhrow@gmail.com                   =======\n");
+		printf("=======     Type help at any time, or quit to quit      =======\n");
+		printf("===============================================================\n");
+		printf("\n>> ");
+        fflush(stdout);
+	}
+
+	return;
+}
+
+void yafu_set_idle_priority(void) {
+
+#if defined(WIN32) || defined(_WIN64)
+	SetPriorityClass(GetCurrentProcess(),
+			IDLE_PRIORITY_CLASS);
+#else
+#if __GNUC__ < 14
+    nice(100);
+#endif
+#endif
+}
+
+void yafu_init(yafu_obj_t* yobj)
+{
+    memset(yobj, 0, sizeof(*yobj));
+    yobj->VFLAG = 0;
+    yobj->VERBOSE_PROC_INFO = 0;
+    yobj->LOGFLAG = 1;
+    yobj->NUM_WITNESSES = 1;
+    yobj->NO_CLK_TEST = 0;
+    yobj->USEBATCHFILE = 0;
+    yobj->USERSEED = 0;
+    yobj->THREADS = 1;
+    yobj->LATHREADS = 0;
+    yobj->CMD_LINE_REPEAT = 0;
+    yobj->MEAS_CPU_FREQUENCY = 0.0;
+    strcpy(yobj->batchfilename, "");
+	strcpy(yobj->sessionname,"session.log");
+    strcpy(yobj->scriptname, "");
+
+	return;
+}
+
+void yafu_finalize(yafu_obj_t* yobj)
+{
+
+	return;
+}
+
+static int read_stream_line(FILE *stream, str_t *line)
+{
+    char buffer[GSTR_MAXSIZE];
+    size_t len;
+    sClear(line);
+    while (fgets(buffer, sizeof(buffer), stream) != NULL)
+    {
+        sAppend(buffer, line);
+        len = strlen(buffer);
+        if (len > 0 && buffer[len - 1] == '\n')
+            break;
+    }
+    if (ferror(stream))
+        return -1;
+    len = strlen(line->s);
+    if (len == 0)
+        return 0;
+    while (len > 0 && (line->s[len - 1] == '\n' || line->s[len - 1] == '\r'))
+        line->s[--len] = '\0';
+    line->nchars = (int)len + 1;
+    return 1;
+}
+
+void finalize_batchline(yafu_obj_t* yobj)
+{
+    if (yobj->USEBATCHFILE == 1 && batch_tempname[0] != '\0')
+    {
+        /* 临时文件和原文件在同一目录；替换失败时保留原始输入。 */
+#if defined(WIN32) || defined(_WIN64)
+        int failed = !MoveFileExA(batch_tempname, yobj->batchfilename,
+            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
+#else
+        int failed = rename(batch_tempname, yobj->batchfilename);
+#endif
+        if (failed)
+        {
+            fprintf(stderr, "cannot replace batch file %s with %s\n",
+                yobj->batchfilename, batch_tempname);
+            exit(EXIT_FAILURE);
+        }
+        batch_tempname[0] = '\0';
+    }
+}
+
+char * process_batchline(yafu_obj_t* yobj, char *input_exp, char *indup, int *code, int num)
+{
+    FILE *batchfile = yobj->USEBATCHFILE == 2 ? stdin : fopen(yobj->batchfilename, "r");
+    str_t line;
+    int read_status;
+    char *p, *out;
+    size_t count = 0, length, line_length;
+    if (batchfile == NULL)
+    {
+        fprintf(stderr, "cannot open batch file %s: %s\n", yobj->batchfilename, strerror(errno));
+        exit(EXIT_FAILURE);
+    }
+    sInit(&line);
+    do
+    {
+        read_status = read_stream_line(batchfile, &line);
+        p = line.s;
+        while (isspace((unsigned char)*p))
+            p++;
+    } while (read_status > 0 && *p == '\0');
+    if (read_status <= 0)
+    {
+        if (yobj->USEBATCHFILE == 1)
+            fclose(batchfile);
+        sFree(&line);
+        if (read_status < 0)
+        {
+            fprintf(stderr, "error reading batch input\n");
+            exit(EXIT_FAILURE);
+        }
+        *code = 1;
+        return input_exp;
+    }
+
+    if (yobj->USEBATCHFILE == 1)
+    {
+        FILE *pending;
+        unsigned char buffer[8192];
+        size_t bytes;
+        int failed;
+        snprintf(batch_tempname, sizeof(batch_tempname), "%s.yafu-tmp", yobj->batchfilename);
+        pending = fopen(batch_tempname, "wx");
+        if (pending == NULL)
+        {
+            fprintf(stderr, "cannot create %s: %s\n", batch_tempname, strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+        failed = 0;
+        while ((bytes = fread(buffer, 1, sizeof(buffer), batchfile)) != 0)
+        {
+            if (fwrite(buffer, 1, bytes, pending) != bytes)
+            {
+                failed = 1;
+                break;
+            }
+        }
+        failed |= ferror(batchfile);
+        failed |= fclose(pending) != 0;
+        fclose(batchfile);
+        if (failed)
+        {
+            fprintf(stderr, "cannot write pending batch input to %s\n", batch_tempname);
+            exit(EXIT_FAILURE);
+        }
+    }
+    if (*p == '%' || (p[0] == '/' && p[1] == '/'))
+    {
+        sFree(&line);
+        *code = 2;
+        return input_exp;
+    }
+
+    length = strlen(indup);
+    line_length = strlen(line.s);
+    for (p = indup; *p != '\0'; p++)
+        count += (*p == '@');
+    if (count != 0 && line_length > (SIZE_MAX - length - 1) / count)
+    {
+        fprintf(stderr, "batch expression is too long\n");
+        exit(EXIT_FAILURE);
+    }
+    input_exp = (char *)xrealloc(input_exp, length + count * line_length + 1);
+    out = input_exp;
+    for (p = indup; *p != '\0'; p++)
+    {
+        if (*p == '@')
+        {
+            memcpy(out, line.s, line_length);
+            out += line_length;
+        }
+        else
+            *out++ = *p;
+    }
+    *out = '\0';
+    if (yobj->VFLAG >= 0)
+        printf("=== Starting work on batchfile expression #%d ===\n%s\n", num, input_exp);
+    sFree(&line);
+    *code = 0;
+    return input_exp;
+}
+void apply_tuneinfo(yafu_obj_t* yobj, fact_obj_t *fobj, char *arg)
+{
+    char cpustr[80], osstr[80];
+    double values[9] = {0};
+    int end = 0, i;
+#if defined(_WIN64)
+    const char *os = "WIN64";
+#elif defined(WIN32)
+    const char *os = "WIN32";
+#else
+    const char *os = "LINUX64";
+#endif
+    /* 整条记录验证成功后再应用，避免长名称越界及部分更新配置。 */
+    if (sscanf(arg, "%79[^,],%79[^,],%lg,%lg,%lg,%lg,%lg,%lg,%lg,%lg,%lg %n",
+        cpustr, osstr, &values[0], &values[1], &values[2], &values[3],
+        &values[4], &values[5], &values[6], &values[7], &values[8], &end) != 11 ||
+        arg[end] != '\0')
+    {
+        /* 兼容只包含 QS/NFS 参数和频率的旧记录，未提供的 ECM 参数保持零。 */
+        end = 0;
+        if (sscanf(arg, "%79[^,],%79[^,],%lg,%lg,%lg,%lg,%lg,%lg %n",
+            cpustr, osstr, &values[0], &values[1], &values[2], &values[3],
+            &values[4], &values[5], &end) != 8 || arg[end] != '\0')
+        {
+            fprintf(stderr, "ignoring malformed tune_info\n");
+            return;
+        }
+        values[8] = values[5];
+        values[5] = values[6] = values[7] = 0.0;
+    }
+    for (i = 0; i < 9; i++)
+    {
+        if (!isfinite(values[i]))
+        {
+            fprintf(stderr, "ignoring non-finite tune_info\n");
+            return;
+        }
+    }
+    if (strcmp(cpustr, yobj->CPU_ID_STR) != 0 || strcmp(osstr, os) != 0)
+        return;
+    if (yobj->VFLAG > 0)
+        printf("Applying tune_info entry for %s - %s\n", osstr, cpustr);
+    fobj->qs_obj.qs_multiplier = values[0];
+    fobj->qs_obj.qs_exponent = values[1];
+    fobj->nfs_obj.gnfs_multiplier = values[2];
+    fobj->nfs_obj.gnfs_exponent = values[3];
+    if (!fobj->autofact_obj.prefer_xover)
+        fobj->autofact_obj.qs_gnfs_xover = values[4];
+    fobj->qs_obj.qs_tune_freq = fobj->nfs_obj.gnfs_tune_freq = values[8];
+}
+void options_to_factobj(fact_obj_t* fobj, options_t* options)
+{
+    // set any parameters of fobj changed by user options
+    uint32_t seed1, seed2;
+    int i;
+
+    fobj->num_threads = options->threads;
+    strcpy(fobj->flogname, options->factorlog);
+    strcpy(fobj->factor_json_name, options->jsonlog);
+
+    // initialize global stuff in fobj
+    if (options->rand_seed != 0)
+    {
+        fobj->seed1 = (uint32_t)options->rand_seed & 0xffffffff;
+        fobj->seed2 = (uint32_t)(options->rand_seed >> 32);
+        fobj->lcg_state = options->rand_seed;
+    }
+
+    fobj->NUM_WITNESSES = options->num_prp_witnesses;
+
+    // initialize stuff for rho	
+    fobj->rho_obj.iterations = options->rhomax;
+    fobj->rho_obj.curr_poly = 0;
+
+    // initialize stuff for pm1	
+    fobj->pm1_obj.B1 = options->B1pm1;
+    fobj->pm1_obj.B2 = options->B2pm1;
+    fobj->pm1_obj.stg2_is_default = (options->B2pm1 == 0);
+    fobj->pm1_obj.pm1_exponent = 0;
+    fobj->pm1_obj.pm1_multiplier = 0;
+    fobj->pm1_obj.pm1_tune_freq = 0;
+    strncpy(fobj->pm1_obj.vpm1_work_file, options->vpm1_work_file, 256);
+    strncpy(fobj->pm1_obj.resume_file, options->resume_file, 256);
+
+    // initialize stuff for pp1	
+    fobj->pp1_obj.B1 = options->B1pp1;
+    fobj->pp1_obj.B2 = options->B2pp1;
+    fobj->pp1_obj.stg2_is_default = (options->B2pp1 == 0);
+    fobj->pp1_obj.pp1_exponent = 0;
+    fobj->pp1_obj.pp1_multiplier = 0;
+    fobj->pp1_obj.pp1_tune_freq = 0;
+    fobj->pp1_obj.lcg_state = hash64(lcg_rand_64(&fobj->lcg_state));
+    strncpy(fobj->pp1_obj.vpp1_work_file, options->vpp1_work_file, 256);
+    strncpy(fobj->pp1_obj.resume_file, options->resume_file, 256);
+
+    // initialize stuff for ecm	
+    fobj->ecm_obj.B1 = options->B1ecm;
+    fobj->ecm_obj.B2 = options->B2ecm;
+    fobj->ecm_obj.stg2_is_default = (options->B2ecm == 0);
+    fobj->ecm_obj.sigma = options->sigma;
+    fobj->ecm_obj.num_curves = 90;
+    fobj->ecm_obj.curves_run = 0;
+    fobj->ecm_obj.ecm_exponent = 0;
+    fobj->ecm_obj.ecm_multiplier = 0;
+    fobj->ecm_obj.ecm_tune_freq = 0;
+    fobj->ecm_obj.bail_on_factor = 1;
+    fobj->ecm_obj.save_b1 = options->saveB1;
+    fobj->ecm_obj.rand_seed1 = fobj->seed1;
+    fobj->ecm_obj.rand_seed2 = fobj->seed2;
+    fobj->ecm_obj.lcg_state = (uint64_t*)xrealloc(fobj->ecm_obj.lcg_state,
+        options->threads * sizeof(uint64_t));
+    for (i = 0; i < (int)options->threads; i++)
+    {
+        fobj->ecm_obj.lcg_state[i] =
+            hash64(lcg_rand_64(&fobj->lcg_state));
+    }
+    fobj->ecm_obj.use_cgbn = options->use_cgbn;
+    fobj->ecm_obj.use_gpudev = options->use_gpudev;
+    fobj->ecm_obj.use_gpuecm = options->use_gpuecm;
+    fobj->ecm_obj.gpucurves = options->gpucurves;
+
+    // unlike ggnfs, ecm does not *require* external binaries.  
+    // an empty string indicates the use of the built-in GMP-ECM hooks, while
+    // a non-empty string (filled in by the user) will indicate the use of
+    // an external binary
+    strcpy(fobj->ecm_obj.ecm_path, options->ecm_path);
+    fobj->ecm_obj.use_external = 0;
+    fobj->ecm_obj.prefer_gmpecm = options->prefer_gmpecm;
+    fobj->ecm_obj.prefer_gmpecm_stg2 = options->prefer_gmpecm_stg2;
+    fobj->ecm_obj.ecm_ext_xover = options->ext_ecm_xover;
+
+    // initialize stuff for squfof
+    fobj->squfof_obj.num_factors = 0;
+
+    // initialize stuff for qs	
+    fobj->qs_obj.gbl_override_B_flag = (options->siqsB > 0);
+    fobj->qs_obj.gbl_override_B = options->siqsB;
+    fobj->qs_obj.gbl_override_small_cutoff_flag = (options->siqsTFSm > 0);
+    fobj->qs_obj.gbl_override_small_cutoff = options->siqsTFSm;
+    fobj->qs_obj.gbl_override_blocks_flag = (options->siqsNB > 0);
+    fobj->qs_obj.gbl_override_blocks = options->siqsNB;
+    fobj->qs_obj.gbl_override_lpmult_flag = (options->siqsM > 0);
+    fobj->qs_obj.gbl_override_lpmult = options->siqsM;
+    fobj->qs_obj.gbl_override_rel_flag = (options->siqsR > 0);
+    fobj->qs_obj.gbl_override_rel = options->siqsR;
+    fobj->qs_obj.gbl_override_tf_flag = (options->siqsTF > 0);
+    fobj->qs_obj.gbl_override_tf = options->siqsTF;
+    fobj->qs_obj.gbl_override_time_flag = (options->siqsT > 0);
+    fobj->qs_obj.gbl_override_time = options->siqsT;
+    fobj->qs_obj.gbl_override_ssidx_flag = (options->siqsSSidx > 0);
+    fobj->qs_obj.gbl_override_ssidx = options->siqsSSidx;
+    fobj->qs_obj.gbl_override_ssalloc_flag = (options->siqsSSalloc > 0);
+    fobj->qs_obj.gbl_override_ssalloc = options->siqsSSalloc;
+    fobj->qs_obj.inmem_cutoff = options->inmem_cutoff;
+    if ((options->siqsMFBD < 1.0) || (options->siqsMFBD > 2.0))
+    {
+        if (options->siqsMFBD < 1.0)
+            options->siqsMFBD = 1.0;
+        if (options->siqsMFBD > 2.0)
+            options->siqsMFBD = 2.0;
+        printf("DLP Tdiv exponent should be between 1.0 and 2.0; setting MFBD = %1.2f\n",
+            options->siqsMFBD);
+    }
+    if ((options->siqsMFBT < 2.0) || (options->siqsMFBT > 3.0))
+    {
+        if (options->siqsMFBT < 2.0)
+            options->siqsMFBT = 2.0;
+        if (options->siqsMFBT > 3.0)
+            options->siqsMFBT = 3.0;
+        printf("TLP Tdiv exponent should be between 2.0 and 3.0; setting MFBT = %1.2f\n",
+            options->siqsMFBT);
+    }
+    if ((options->siqsMFBQ < 3.0) || (options->siqsMFBQ > 4.0))
+    {
+        if (options->siqsMFBQ < 3.0)
+            options->siqsMFBQ = 3.0;
+        if (options->siqsMFBQ > 4.0)
+            options->siqsMFBQ = 4.0;
+        printf("QLP Tdiv exponent should be between 3.0 and 4.0; setting MFBQ = %1.2f\n",
+            options->siqsMFBQ);
+    }
+    fobj->qs_obj.gbl_override_mfbd = options->siqsMFBD;
+    fobj->qs_obj.gbl_override_mfbt = options->siqsMFBT;
+    fobj->qs_obj.gbl_override_mfbq = options->siqsMFBQ;
+    fobj->qs_obj.gbl_override_lpb = options->siqsLPB;
+    if (options->siqsBDiv < 1.0)
+    {
+        printf("Batch divisor cannot be less than 1.0; setting BDiv = 1.0\n");
+        options->siqsBDiv = 1.0;
+    }
+    fobj->qs_obj.gbl_override_bdiv = (float)options->siqsBDiv;
+    fobj->qs_obj.gbl_override_3lp_bat = options->siqsNobat;
+    fobj->qs_obj.gbl_btarget = options->siqsBT;
+    fobj->qs_obj.flags = 0;
+    fobj->qs_obj.gbl_force_DLP = options->siqsForceDLP;
+    fobj->qs_obj.gbl_force_TLP = options->siqsForceTLP;
+    fobj->qs_obj.gbl_force_QLP = options->siqsForceQLP;
+    fobj->qs_obj.qs_exponent = 0;
+    fobj->qs_obj.qs_multiplier = 0;
+    fobj->qs_obj.qs_tune_freq = 0;
+    fobj->qs_obj.no_small_cutoff_opt = options->no_opt;
+    strcpy(fobj->qs_obj.siqs_savefile, options->qssave);
+
+    init_lehman();
+
+    // initialize stuff for trial division	
+    fobj->div_obj.print = 0;
+    fobj->div_obj.limit = 10000;
+    fobj->div_obj.fmtlimit = options->fermat_max;
+
+    //initialize stuff for nfs
+    fobj->nfs_obj.snfs = 0;
+    fobj->nfs_obj.gnfs = options->force_gnfs;
+    fobj->nfs_obj.gnfs_exponent = 0;
+    fobj->nfs_obj.gnfs_multiplier = 0;
+    fobj->nfs_obj.gnfs_tune_freq = 0;
+    fobj->nfs_obj.min_digits = 85;
+    fobj->nfs_obj.minrels = options->minrels;
+    fobj->nfs_obj.td = options->td;
+    fobj->nfs_obj.poly_percent_max = options->poly_percent_max;
+    fobj->nfs_obj.poly_testsieve = options->poly_testsieve;
+    fobj->nfs_obj.batch_3lp = options->nfs_batch_3lp;
+    fobj->nfs_obj.keep_afb = options->keep_afb;
+    strcpy(fobj->nfs_obj.cuda_sieve, options->cuda_sieve);
+    strcpy(fobj->nfs_obj.cuda_dev, options->cuda_dev);
+    if ((fobj->nfs_obj.cuda_sieve[0] != '\0') && fobj->nfs_obj.batch_3lp)
+    {
+        // cuda-sieve cofactors on the GPU inline; there are no raw files to batch.
+        printf("nfs: cuda_sieve selected, ignoring nfs_batch_3lp\n");
+        fobj->nfs_obj.batch_3lp = 0;
+    }
+
+    // raise min_rels bounds by a percentage
+    // on unsuccessful filtering
+    fobj->nfs_obj.filter_min_rels_nudge = 1.0 + options->filt_bump / 100.0;
+
+    fobj->nfs_obj.siever = options->ggnfs_siever;
+
+    // Q-ranges: default state would be sieveQstart,stop = 0,0
+    // if ns is specified with no range then sieveQstart,stop = 1,1.
+    // else if ns is specified with only a start then sieveQstart,stop = start,0.
+    // else if ns is specified with a full range then sieveQstart,stop = start,stop.
+    // The only condition in which we'll stop NFS sieving early is with a full range.
+    // as a further complication, the rest of the code expect start/stop to be
+    // encoded as start,range, so that the end of the range would have to be computed as start+range.
+
+    fobj->nfs_obj.startq = options->sieveQstart;
+    fobj->nfs_obj.rangeq = options->sieveQstop;
+    if ((fobj->nfs_obj.rangeq < fobj->nfs_obj.startq) && (fobj->nfs_obj.rangeq > 0))
+    {
+        printf("sieve stop cannot be < sieve start\n");
+        exit(1);
+    }
+    else
+    {
+        // if both start and stop were specified then we sieve over
+        // just that range.  If just start then we modify the 
+        // default startq and sieve normally.
+        if (fobj->nfs_obj.rangeq > 0)
+            fobj->nfs_obj.rangeq = fobj->nfs_obj.rangeq - fobj->nfs_obj.startq;
+    }
+    if (options->sieveQstart > 0)
+    {
+        if ((options->sieveQstart == 1) && (options->sieveQstop == 1))
+        {
+            // this is option -ns with no arguments.  Sieve only 
+            // with default parameters.
+            fobj->nfs_obj.startq = fobj->nfs_obj.rangeq = 0;
+        }
+        fobj->nfs_obj.nfs_phases |= NFS_PHASE_SIEVE;
+    }
+
+    fobj->nfs_obj.polystart = options->polystart;
+    fobj->nfs_obj.polyrange = options->polystop;
+    if (fobj->nfs_obj.polyrange < fobj->nfs_obj.polystart)
+    {
+        printf("ignoring poly stop < poly start\n");
+    }
+    else
+    {
+        fobj->nfs_obj.polyrange = fobj->nfs_obj.polyrange - fobj->nfs_obj.polystart;
+    }
+    if (options->polystart > 0)
+    {
+        if ((options->polystart == 1) && (options->polystop == 1))
+        {
+            fobj->nfs_obj.polystart = fobj->nfs_obj.polyrange = 0;
+        }
+        fobj->nfs_obj.nfs_phases |= NFS_PHASE_POLY;
+    }
+
+    if (options->nc)
+    {
+        fobj->nfs_obj.nfs_phases |= NFS_PHASE_FILTER;
+        fobj->nfs_obj.nfs_phases |= NFS_PHASE_LA;
+        fobj->nfs_obj.nfs_phases |= NFS_PHASE_SQRT;
+    }
+    if (options->ncr)
+    {
+        fobj->nfs_obj.nfs_phases |= NFS_PHASE_LA_RESUME;
+    }
+    if (options->nc1)
+    {
+        fobj->nfs_obj.nfs_phases |= NFS_PHASE_FILTER;
+    }
+    if (options->nc2)
+    {
+        fobj->nfs_obj.nfs_phases |= NFS_PHASE_LA;
+    }
+    if (options->nc3)
+    {
+        fobj->nfs_obj.nfs_phases |= NFS_PHASE_SQRT;
+    }
+    if (options->np1 > 0)
+    {
+        fobj->nfs_obj.nfs_phases |= NFS_PHASE_POLY;
+        fobj->nfs_obj.np1 = 1;
+    }
+    if (options->nps > 0)
+    {
+        fobj->nfs_obj.nfs_phases |= NFS_PHASE_POLY;
+        fobj->nfs_obj.nps = 1;
+    }
+    if (options->npr > 0)
+    {
+        fobj->nfs_obj.nfs_phases |= NFS_PHASE_POLY;
+        fobj->nfs_obj.npr = 1;
+    }
+
+
+    char tmp[MAXARGLEN];
+    char* cptr;
+    strcpy(fobj->nfs_obj.params_file, options->params_file);
+    strcpy(fobj->nfs_obj.outputfile, options->nfs_outfile);
+    strcpy(tmp, fobj->nfs_obj.outputfile);
+    cptr = strchr(tmp, 46);
+    if (cptr == NULL)
+    {
+        //no . in provided filename
+        sprintf(fobj->nfs_obj.outputfile, "%s.dat", tmp);
+        sprintf(fobj->nfs_obj.logfile, "%s.log", fobj->nfs_obj.outputfile);
+        sprintf(fobj->nfs_obj.fbfile, "%s.fb", fobj->nfs_obj.outputfile);
+    }
+    else
+    {
+        cptr[0] = '\0';
+        sprintf(fobj->nfs_obj.logfile, "%s.log", tmp);
+        sprintf(fobj->nfs_obj.fbfile, "%s.fb", tmp);
+    }
+
+    if (options->rat_side)
+        fobj->nfs_obj.sq_side = -1;
+    else if (options->alg_side)
+        fobj->nfs_obj.sq_side = 1;
+    else
+        fobj->nfs_obj.sq_side = 0;					// default: choose what makes sense
+
+    fobj->nfs_obj.timeout = options->nfs_timeout;
+    strcpy(fobj->nfs_obj.job_infile, options->nfs_jobfile);
+    strcpy(fobj->nfs_obj.stage1_args, options->nfs_stage1_args);
+
+    // default = fast search
+    fobj->nfs_obj.poly_option = 4;
+    if (strcmp(options->poly_method, "wide") == 0)
+        fobj->nfs_obj.poly_option = 1;
+    else if (strcmp(options->poly_method, "deep") == 0)
+        fobj->nfs_obj.poly_option = 2;
+    else if (strcmp(options->poly_method, "fast") == 0)
+        fobj->nfs_obj.poly_option = 0;
+    else if (strcmp(options->poly_method, "min") == 0)
+        fobj->nfs_obj.poly_option = 3;
+    else if (strcmp(options->poly_method, "avg") == 0)
+        fobj->nfs_obj.poly_option = 4;
+    else if (strcmp(options->poly_method, "good") == 0)
+        fobj->nfs_obj.poly_option = 5;
+
+    fobj->nfs_obj.restart_flag = options->nfs_resume;
+    fobj->nfs_obj.snfs_testsieve_threshold = options->snfs_testsieve_threshold;
+    *fobj->nfs_obj.filearg = '\0';
+
+    fobj->nfs_obj.polybatch = options->poly_batch;
+
+    fobj->nfs_obj.cadoMsieve = options->cadoMsieve;
+    strcpy(fobj->nfs_obj.cado_dir, options->cado_dir);
+    strcpy(fobj->nfs_obj.convert_poly_path, options->convert_poly_path);
+    fobj->nfs_obj.skip_snfs_check = options->skip_snfscheck;
+
+    // initialize autofactor object
+    // whether we want to output certain info to their own files...
+    fobj->autofact_obj.want_output_primes = 0;
+    fobj->autofact_obj.want_output_factors = 0;
+    fobj->autofact_obj.want_output_unfactored = 0;
+    fobj->autofact_obj.want_output_expressions = options->want_output_expr;
+    if (strlen(options->opfile) > 0)
+    {
+        fobj->autofact_obj.want_output_primes = 1;
+        strcpy(fobj->autofact_obj.op_str, options->opfile);
+    }
+    if (strlen(options->offile) > 0)
+    {
+        fobj->autofact_obj.want_output_factors = 1;
+        strcpy(fobj->autofact_obj.of_str, options->offile);
+    }
+    if (strlen(options->oufile) > 0)
+    {
+        fobj->autofact_obj.want_output_unfactored = 1;
+        strcpy(fobj->autofact_obj.ou_str, options->oufile);
+    }
+
+    fobj->autofact_obj.qs_gnfs_xover = options->xover;
+    fobj->autofact_obj.qs_snfs_xover = options->qs_snfs_xover;
+    // use xover even when timing info is available
+    fobj->autofact_obj.prefer_xover = (options->xover != 95);   // not equal to default value
+    fobj->autofact_obj.want_only_1_factor = options->one_factor;
+    fobj->autofact_obj.no_ecm = options->no_ecm;
+    fobj->autofact_obj.target_pretest_ratio = options->pretest_ratio;
+    fobj->autofact_obj.initial_work = options->work;
+    fobj->autofact_obj.has_snfs_form = -1;		// not checked yet
+
+    //pretesting plan used by factor()
+    fobj->autofact_obj.yafu_pretest_plan = PRETEST_NORMAL;
+    strcpy(fobj->autofact_obj.plan_str, options->fact_plan);
+
+    if (strcmp(options->fact_plan, "none") == 0)
+        fobj->autofact_obj.yafu_pretest_plan = PRETEST_NONE;
+    else if (strcmp(options->fact_plan, "noecm") == 0)
+        fobj->autofact_obj.yafu_pretest_plan = PRETEST_NOECM;
+    else if (strcmp(options->fact_plan, "light") == 0)
+        fobj->autofact_obj.yafu_pretest_plan = PRETEST_LIGHT;
+    else if (strcmp(options->fact_plan, "normal") == 0)
+        fobj->autofact_obj.yafu_pretest_plan = PRETEST_NORMAL;
+    else if (strcmp(options->fact_plan, "deep") == 0)
+        fobj->autofact_obj.yafu_pretest_plan = PRETEST_DEEP;
+    else if (strcmp(options->fact_plan, "custom") == 0)
+        fobj->autofact_obj.yafu_pretest_plan = PRETEST_CUSTOM;
+    fobj->autofact_obj.only_pretest = options->pretest;
+    fobj->autofact_obj.autofact_active = 0;
+    fobj->autofact_obj.json_pretty = options->json_pretty;
+    fobj->autofact_obj.stopbase = options->stopbase;
+    fobj->autofact_obj.stopeq = options->stopeq;
+    fobj->autofact_obj.stopge = options->stopge;
+    fobj->autofact_obj.stopgt = options->stopgt;
+    fobj->autofact_obj.stople = options->stople;
+    fobj->autofact_obj.stoplt = options->stoplt;
+    fobj->autofact_obj.stopk = options->stopk;
+    fobj->autofact_obj.stop_strict = options->strict;
+    fobj->autofact_obj.stopprime = options->stopprime;
+    fobj->autofact_obj.check_stop_conditions = options->check_stop_conditions;
+    fobj->autofact_obj.max_siqs = options->max_siqs;
+    fobj->autofact_obj.max_nfs = options->max_nfs;
+
+    // if a number is <= aprcl_prove_cutoff, we will prove it prime or composite
+    fobj->factors->aprcl_prove_cutoff = options->aprcl_p;
+    // if a number is >= aprcl_display_cutoff, we will show the APRCL progress
+    fobj->factors->aprcl_display_cutoff = options->aprcl_d;
+
+    fobj->VFLAG = options->verbosity;
+    fobj->OUTPUT_TERSE = options->terse_output;
+    if (strlen(options->factorlog) == 0)
+    {
+        fobj->LOGFLAG = 0;
+    }
+    else
+    {
+        fobj->LOGFLAG = 1;
+    }
+
+    return;
+}
+
+

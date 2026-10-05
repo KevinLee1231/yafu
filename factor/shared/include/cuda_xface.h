@@ -22,10 +22,6 @@ $Id$
 #include <string.h>
 #include <stdio.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #define MAX_GPU 4
 
 typedef struct {
@@ -112,10 +108,5 @@ void gpu_launch_init(CUmodule gpu_module, const char *func_name,
 
 void gpu_launch_set(gpu_launch_t *launch, gpu_arg_t *args);
 
-#ifdef __cplusplus
-}
-#endif
-
 #endif /* HAVE_CUDA */
-
 #endif /* !_CUDA_XFACE_H_ */

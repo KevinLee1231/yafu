@@ -17,10 +17,6 @@ $Id: stage2.h 732 2012-08-04 02:32:46Z jasonp_sf $
 
 #include <poly_skew.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /*-----------------------------------------------------------------------*/
 /* data used in the current polynomial */
 
@@ -135,7 +131,6 @@ typedef struct {
 	uint8 roots[MAX_ROOTS][3];
 } hit_t;
 
-
 void compute_lattices(hit_t *hitlist, uint32 num_lattice_primes,
 			lattice_t *lattices, uint64 lattice_size,
 			uint32 num_lattices, uint32 dim);
@@ -143,7 +138,6 @@ void compute_line_size(double max_norm, dpoly_t *apoly,
 		  double dbl_p, double dbl_d, double direction[3],
 		  double last_line_min_in, double last_line_max_in,
 		  double *line_min, double *line_max);
-
 
 /* sieve for selecting XYZ triplets */
 
@@ -196,7 +190,6 @@ typedef struct {
 
 void sieve_xy_alloc(sieve_xy_t *xy);
 void sieve_xy_free(sieve_xy_t *xy);
-
 
 /* root sieve for selecting X lines */
 
@@ -290,9 +283,4 @@ typedef struct {
 	assess_t assess;
 	double size_cutoff;
 } stage2_curr_data_t;
-
-#ifdef __cplusplus
-}
-#endif
-
 #endif /* !_STAGE2_H_ */

@@ -23,10 +23,6 @@
 #include <stdint.h>
 #include "testkit.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* Deterministic, exact for all n < 2^64. Returns 1 if prime, else 0. */
 int tk_is_prime_u64(uint64_t n);
 
@@ -54,8 +50,4 @@ extern const int             tk_semiprimes_u64_count;
 
 /* The module descriptor for the corpus self-check (Layer -1). */
 extern const tk_module tk_module_selfcheck;
-
-#ifdef __cplusplus
-}
-#endif
 #endif /* YAFU_TEST_DATA_H */

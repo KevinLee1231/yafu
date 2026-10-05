@@ -25,16 +25,11 @@ Purpose:	Port into Yafu-1.14.
 #include <pthread.h>
 #endif
 
-
 #if defined(__x86_64__) && !defined(FORCE_GENERIC)
 // protect non-x86 builds
 #define HAS_MMX
 #endif
 #define HAS_CMOV
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 /* routines for cache-efficient multiplication of
    sparse matrices */
@@ -161,10 +156,4 @@ void yafu_mul_64xN_Nx64(uint64_t *x, uint64_t *y, uint64_t *xy, uint32_t n);
 void yafu_mul_packed_core(qs_msieve_thread_data_t *t);
 
 void yafu_mul_trans_packed_core(qs_msieve_thread_data_t *t);
-
-#ifdef __cplusplus
-}
-#endif
-
 #endif /* !_LANCZOS_H_ */
-

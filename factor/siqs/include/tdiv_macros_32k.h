@@ -631,4 +631,3 @@
 	if (result & 0x8000){			  \
 		DIVIDE_RESIEVED_PRIME(7);	  \
 	}
-

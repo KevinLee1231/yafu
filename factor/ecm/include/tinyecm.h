@@ -90,6 +90,4 @@ uint8_t MR_2sprp_104x8(uint64_t* n);
 #ifdef __cplusplus
 }
 #endif
-
-
 #endif

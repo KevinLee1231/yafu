@@ -19,10 +19,6 @@ $Id: sieve.h 638 2011-09-11 15:31:19Z jasonp_sf $
 #include "gnfs.h"
 #include "savefile.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* factors smaller than the following are not printed */
 
 #define MAX_SKIPPED_FACTOR 256
@@ -56,9 +52,4 @@ double get_log_base(mpz_poly_t *poly,
 uint32 read_last_line(msieve_obj *obj, mpz_t n);
 
 void write_last_line(msieve_obj *obj, mpz_t n, uint32 b);
-
-#ifdef __cplusplus
-}
-#endif
-
 #endif /* _GNFS_SIEVE_SIEVE_H_ */

@@ -29,5 +29,4 @@ void bitonic_sort32_dir_64(uint32_t* data, int dir);
 void bitonic_sort32_dir_128(uint32_t* data, int dir);
 void bitonic_sort32_dir_256(uint32_t* data, int dir);
 void bitonic_sort32(uint32_t *data, uint32_t sz, int dir);
-
 #endif

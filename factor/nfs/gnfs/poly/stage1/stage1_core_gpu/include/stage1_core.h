@@ -45,5 +45,4 @@ typedef struct {
 }
 
 #endif
-
 #endif /* !_STAGE1_CORE_GPU_3PROG_H_ */

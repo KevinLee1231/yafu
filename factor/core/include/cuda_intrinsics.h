@@ -1701,4 +1701,3 @@ extern "C"
 #endif
 
 #endif /* defined(__CUDACC__) && !defined(CUDA_INTRINSICS_H) */
-

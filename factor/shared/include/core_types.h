@@ -186,5 +186,3 @@ msieve_obj* msieve_obj_new(char* input_integer,
 	const char* nfs_args);
 
 msieve_obj* msieve_obj_free(msieve_obj* obj);
-
-

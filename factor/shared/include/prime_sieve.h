@@ -42,5 +42,4 @@ typedef struct {
 void fill_prime_list(prime_list_t *prime_list,
     uint32_t max_size,
     uint32_t max_prime);
-
 #endif /* _PRIME_SIEVE_H_ */

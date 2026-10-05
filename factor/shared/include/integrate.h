@@ -17,10 +17,6 @@ $Id: integrate.h 23 2009-07-20 02:59:07Z jasonp_sf $
 
 #include "util.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /* generic interface for performing numerical integration */
 
 /* type of integrator */
@@ -60,9 +56,4 @@ void integrate_free(integrate_t *aux);
 
 uint32 integrate_run(integrate_t *aux, integrand_t func, void *params,
 			double *endpoints, uint32 num_endpoints);
-
-#ifdef __cplusplus
-}
-#endif
-
 #endif /* !_INTEGRATE_H_ */

@@ -6,6 +6,11 @@
 #include <sys/types.h> 
 #include <gmp.h> 
 
+#ifdef __cplusplus
+extern "C" {  /* yafu-asm-abi */
+#endif
+
+
 
 
 
@@ -146,6 +151,9 @@ u64_t ASM_ATTR asm_modmul64(u64_t,u64_t);
 
 #define N_PRIMEBOUNDS 12
 
+#ifdef __cplusplus
+}  /* yafu-asm-abi */
+#endif
 #endif
 #line 157 "siever-config.w"
 

@@ -52,6 +52,9 @@
 
 # --- Standalone fallbacks (overridden when called from top-level) ------------
 CC         ?= gcc
+CXX        ?= g++
+CXX        ?= g++
+CXX        ?= g++
 BINDIR     ?= .
 
 # GMP locations differ between distributions: Debian/Ubuntu keep gmp.h and
@@ -80,6 +83,15 @@ endif
 # Compiler family — mirrors the top-level detection so ifeq ($(CC),icc) checks
 # work correctly even when CC is a full path or versioned name.
 CC_BASENAME := $(notdir $(CC))
+
+# C++：本子构建里的 .cpp 与主 Makefile 用同一套标准。
+CXX_STD := -std=c++26
+
+# C++：本子构建里的 .cpp 与主 Makefile 用同一套标准。
+CXX_STD := -std=c++26
+
+# C++：本子构建里的 .cpp 与主 Makefile 用同一套标准。
+CXX_STD := -std=c++26
 ifneq (,$(findstring icx,$(CC_BASENAME)))
     COMPILER_FAMILY := icc
 else ifneq (,$(findstring icc,$(CC_BASENAME)))
@@ -209,7 +221,7 @@ endif
 # --- Build rules -------------------------------------------------------------
 
 .SUFFIXES:
-.SECONDARY: *.c *.o *.a
+.SECONDARY: *.cpp *.o *.a
 
 ASMDIRS = asm
 
@@ -225,6 +237,9 @@ asm/%: force
 # Generic compile rules
 %.o: %.c include/if.h asm/include/siever-config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
+
+%.o: %.cpp include/if.h asm/include/siever-config.h
+	$(CXX) $(CFLAGS) $(CXX_STD) -c -o $@ $<
 
 %.o: %.s
 	$(CC) $(CFLAGS) -c $^
@@ -251,7 +266,7 @@ fbgen.o: include/gmp-aux.h
 fbgen.o lasieve-prepn.o: asm/include/32bit.h
 redu2.o: include/redu2.h
 primgen32.o fbgen.o: include/primgen32.h
-gnfs-lasieve4e.c: la-cs.c
+gnfs-lasieve4e.cpp: la-cs.cpp
 lasieve-prepn.o: include/lasieve-prepn.h include/recurrence6.h
 mpqs3.o: asm/include/mpqs-config.h
 
@@ -263,7 +278,7 @@ mpqs3.o: asm/include/mpqs-config.h
 # executables: the six liblasieveI%d.a libraries define the same names and ld
 # refuses to link two of them.  Every source is now compiled once per I with
 # the colliding names suffixed, all six sets go into one image, and
-# lasieve_dispatch.c picks between them from the first argument.
+# lasieve_dispatch.cpp picks between them from the first argument.
 #
 # The per-I copies are not only about collisions.  Each I value ends up with a
 # private factor base, montgomery state, ECM/P-1 cache and strategy counters,
@@ -275,13 +290,13 @@ I_VALUES := 11 12 13 14 15 16
 IRENAME_SYMS := $(shell grep -v '^[[:space:]]*#' I_SYMBOLS)
 
 SIEVER_SRCS := \
-	gnfs-lasieve4e.c if.c input-poly.c \
-	redu2.c fbgen.c fbgen64.c \
-	real-poly-aux.c mpqs.c primgen32.c \
-	lasieve-prepn.c pprime_p.c strategy.c \
-	ecm.c mpqs3.c pm1.c \
-	microecm.c micropm1.c tinyecm.c \
-	recurrence6.c
+	gnfs-lasieve4e.cpp if.cpp input-poly.cpp \
+	redu2.cpp fbgen.cpp fbgen64.cpp \
+	real-poly-aux.cpp mpqs.cpp primgen32.cpp \
+	lasieve-prepn.cpp pprime_p.cpp strategy.cpp \
+	ecm.cpp mpqs3.cpp pm1.cpp \
+	microecm.cpp micropm1.cpp tinyecm.cpp \
+	recurrence6.cpp
 
 define SIEVER_IRULES
 I$(1)_OBJS := $$(foreach s,$$(SIEVER_SRCS),objI$(1)/$$(basename $$s).o)
@@ -289,6 +304,12 @@ I$(1)_OBJS := $$(foreach s,$$(SIEVER_SRCS),objI$(1)/$$(basename $$s).o)
 objI$(1)/%.o: %.c
 	@mkdir -p objI$(1)
 	$$(CC) $$(CFLAGS) -DI_bits=$(1) \
+		$$(foreach s,$$(IRENAME_SYMS),-D$$(s)=$$(s)I$(1)) \
+		-DMODULO32_ASM_NAME='"modulo32I$(1)"' -c -o $$@ $$<
+
+objI$(1)/%.o: %.cpp
+	@mkdir -p objI$(1)
+	$$(CXX) $$(CFLAGS) $$(CXX_STD) -DI_bits=$(1) \
 		$$(foreach s,$$(IRENAME_SYMS),-D$$(s)=$$(s)I$(1)) \
 		-DMODULO32_ASM_NAME='"modulo32I$(1)"' -c -o $$@ $$<
 endef
@@ -299,15 +320,15 @@ ALL_OBJS := $(foreach i,$(I_VALUES),$(I$(i)_OBJS))
 ALL_ASM  := $(foreach i,$(I_VALUES),asm/libcoreI$(i).a asm/liblasieveI$(i).a)
 
 # shared, and none of its symbols collide between I values
-lasieve_dispatch.o: lasieve_dispatch.c
+lasieve_dispatch.o: lasieve_dispatch.cpp
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-# Also linked by the standalone sieve regressions, which compile if.c and
-# redu2.c directly and so need lasieve_bail() without the whole dispatch.
-lasieve_bail.o: lasieve_bail.c
+# Also linked by the standalone sieve regressions, which compile if.cpp and
+# redu2.cpp directly and so need lasieve_bail() without the whole dispatch.
+lasieve_bail.o: lasieve_bail.cpp
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-lasieve_ctx.o: lasieve_ctx.c include/lasieve_ctx.h | include/lasieve_ctx.h
+lasieve_ctx.o: lasieve_ctx.cpp include/lasieve_ctx.h | include/lasieve_ctx.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 libgmp-aux.a: gmp-aux.o mpz-ull.o
@@ -335,7 +356,7 @@ bobs:
 $(BINPREFIX)check_sieve: $(LASIEVE_OBJS) $(LASIEVE_LIBS) check_sieve.o
 	$(CC) $(CFLAGS) -no-pie -o $@ $^ $(GMP_LIB) -lm
 
-check_sieve.o: check_sieve.c lasieve_dispatch.c include/lasieve_bail.h
+check_sieve.o: check_sieve.cpp lasieve_dispatch.cpp include/lasieve_bail.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 # The six I values at once, one thread each.  sieve_oracle.sh runs them one after
@@ -344,7 +365,7 @@ check_sieve.o: check_sieve.c lasieve_dispatch.c include/lasieve_bail.h
 $(BINPREFIX)check_sieve_mt: $(LASIEVE_OBJS) $(LASIEVE_LIBS) check_sieve_mt.o
 	$(CC) $(CFLAGS) -no-pie -o $@ $^ $(GMP_LIB) -lm -lpthread
 
-check_sieve_mt.o: check_sieve_mt.c lasieve_dispatch.c
+check_sieve_mt.o: check_sieve_mt.cpp lasieve_dispatch.cpp
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 alle: objects
@@ -355,13 +376,13 @@ allf allg:
 
 # --- Test / stat targets -----------------------------------------------------
 
-mpqsz.o: mpqs.c asm/include/mpqs-config.h
+mpqsz.o: mpqs.cpp asm/include/mpqs-config.h
 	$(CC) $(CFLAGS) -O2 -DMPQS_STAT -DMPQS_ZEIT -c -o $@ $<
 
 mpqstest: mpqstest.o mpqsz.o lasieve_bail.o if.o mpz-ull.o asm/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
-mpqs3z.o: mpqs3.c asm/include/mpqs-config.h
+mpqs3z.o: mpqs3.cpp asm/include/mpqs-config.h
 	$(CC) $(CFLAGS) -O2 -DMPQS3_STAT -DMPQS3_ZEIT -c -o $@ $<
 
 mpqs3test: mpqs3test.o mpqs3z.o lasieve_bail.o if.o lasieve_ctx.o libgmp-aux.a asm/liblasieve.a
@@ -371,7 +392,7 @@ mpqsstat: mpqsstat.o mpqs.o mpqs3.o lasieve_bail.o if.o lasieve_ctx.o mpz-ull.o 
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
 # 多实例验证：两个实例的 ECM/PM1 状态必须互不干扰
-ctx_test.o: ctx_test.c include/lasieve_ctx.h include/ecm.h include/pm1.h \
+ctx_test.o: ctx_test.cpp include/lasieve_ctx.h include/ecm.h include/pm1.h \
 	include/if.h asm/include/siever-config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
@@ -380,7 +401,7 @@ $(BINPREFIX)ctx_test: ctx_test.o lasieve_ctx.o lasieve_bail.o if.o
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
 # ECM/P-1 的数值正确性，以及两个实例交错推进的隔离性
-ecm_pm1_test.o: ecm_pm1_test.c include/lasieve_ctx.h include/ecm.h include/pm1.h \
+ecm_pm1_test.o: ecm_pm1_test.cpp include/lasieve_ctx.h include/ecm.h include/pm1.h \
 	include/if.h asm/include/siever-config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
@@ -389,7 +410,7 @@ $(BINPREFIX)ecm_pm1_test: ecm_pm1_test.o ecm.o pm1.o lasieve_ctx.o lasieve_bail.
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
 
-ecmz.o: ecm.c asm/include/siever-config.h
+ecmz.o: ecm.cpp asm/include/siever-config.h
 	$(CC) $(CFLAGS) -DECM_STAT -DECM_ZEIT -c -o $@ $<
 
 ecmtest: ecmtest.o ecmz.o lasieve_bail.o if.o lasieve_ctx.o asm/liblasieve.a
@@ -398,7 +419,7 @@ ecmtest: ecmtest.o ecmz.o lasieve_bail.o if.o lasieve_ctx.o asm/liblasieve.a
 ecmstat: ecmstat.o ecmz.o lasieve_bail.o if.o lasieve_ctx.o asm/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
-pm1z.o: pm1.c asm/include/siever-config.h
+pm1z.o: pm1.cpp asm/include/siever-config.h
 	$(CC) $(CFLAGS) -DPM1_STAT -DPM1_ZEIT -c -o $@ $<
 
 pm1test: pm1test.o pm1z.o lasieve_bail.o if.o lasieve_ctx.o asm/liblasieve.a

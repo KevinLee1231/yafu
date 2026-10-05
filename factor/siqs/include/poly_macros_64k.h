@@ -177,4 +177,3 @@
 		"jb		1b \n\t"						/* repeat if necessary */
 
 #endif
-

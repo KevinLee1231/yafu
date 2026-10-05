@@ -24,10 +24,6 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #define TK_VERSION "0.1"
 
 /* ------------------------------------------------------------------ *
@@ -146,9 +142,26 @@ typedef struct {
  * Runner. Parses argv (see --help), runs the selected tests, prints a
  * per-module + grand-total table, returns 0 iff all checks passed.
  * ------------------------------------------------------------------ */
-int tk_run(const tk_module *const *modules, int nmodules, int argc, char **argv);
 
-#ifdef __cplusplus
-}
-#endif
+/* Each layer file defines one of these; test_main collects them into the
+ * list it hands to tk_run. */
+extern const tk_module tk_module_aprcl_review;
+extern const tk_module tk_module_calc;
+extern const tk_module tk_module_ecm_review;
+extern const tk_module tk_module_microecm;
+extern const tk_module tk_module_modular;
+extern const tk_module tk_module_monty_review;
+extern const tk_module tk_module_mp_arith;
+extern const tk_module tk_module_mp_bitscan;
+extern const tk_module tk_module_options;
+extern const tk_module tk_module_primality;
+extern const tk_module tk_module_qs_review;
+extern const tk_module tk_module_selfcheck;
+extern const tk_module tk_module_sieve;
+extern const tk_module tk_module_siqs;
+extern const tk_module tk_module_sp_arith;
+extern const tk_module tk_module_tinyecm;
+extern const tk_module tk_module_tinyprp_review;
+
+int tk_run(const tk_module *const *modules, int nmodules, int argc, char **argv);
 #endif /* YAFU_TESTKIT_H */

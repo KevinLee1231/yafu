@@ -37,11 +37,6 @@ SOFTWARE.
 #ifndef YCALC_H
 #define YCALC_H
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-
 #include "gmp.h"
 #include "factor.h"
 #include "soe.h"
@@ -131,10 +126,4 @@ extern char* process_expression(char* input_exp, meta_t* metadata,
 extern void reset_preprocessor(void);
 extern void calc_finalize(void);
 extern int calc_init(uint64_t rand_seed);
-
-
-#ifdef __cplusplus
-}
-#endif
-
 #endif /* #ifndef YCALC_H */

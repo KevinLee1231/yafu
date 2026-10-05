@@ -10,8 +10,10 @@
  * reach the same definition.
  */
 #ifndef LASIEVE_BAIL_H
+
 #define LASIEVE_BAIL_H
 
 void lasieve_bail(int status);
+
 
 #endif

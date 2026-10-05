@@ -312,4 +312,3 @@
 			RESIEVE_1X_16BIT_MAX(0x8000);									\
 		} while (0); 
 #endif
-

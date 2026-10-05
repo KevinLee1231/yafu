@@ -1029,8 +1029,4 @@ extern uint64_t* siqs_primes;
 extern uint64_t siqs_nump;
 extern uint64_t siqs_minp;
 extern uint64_t siqs_maxp;
-
-
-
-
 #endif

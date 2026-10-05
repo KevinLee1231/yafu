@@ -31,6 +31,13 @@ code to the public domain.
 #include <stdint.h>
 #include "batch_factor.h"
 
+/* Split the work file into per-thread pieces.  yafu 内部使用，
+ * 也被 test/standalone/nfs/nfs_review.c 直接调用。 */
+void split_file(int nthreads, char* base_filename, const char* file_extension);
+
+/* Trial division of a 64-bit value，同样被 standalone review 直接调用。 */
+int tdiv_int(int x, int *factors, uint64_t *primes, uint64_t num_p);
+
 #ifdef HAVE_CUDA_BATCH_FACTOR
 #include "gpu_cofactorization.h"
 #endif
@@ -322,8 +329,6 @@ extern double** snfs_table;
 extern int gnfs_table_rows;
 extern int snfs_table_rows;
 extern double ggnfs_table_Gimarel[GGNFS_TABLE_ROWS_NEW][GGNFS_TABLE_COLS_NEW];
-
-
 #endif
 
 

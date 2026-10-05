@@ -85,9 +85,3 @@ uint8_t MR_sprp_104x8base(uint64_t* n, uint64_t* one, uint64_t* bases);
 
 // test routine for the above
 int test_tinyprp(void);
-
-
-
-
-
-

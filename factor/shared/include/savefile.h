@@ -1,15 +1,7 @@
 #pragma once
 
-
-
 #ifndef _SAVEFILE_H_
 #define _SAVEFILE_H_
-
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 
 #include <stdint.h>
 #include <stdio.h>
@@ -21,7 +13,6 @@ extern "C" {
 #include <sys/types.h> 
 #include <sys/stat.h>
 #endif
-
 
 #ifdef NO_ZLIB
 #define gzFile   FILE
@@ -78,12 +69,4 @@ void savefile_rewind(savefile_t* s);
 void savefile_read_line(char* buf, size_t max_len, savefile_t* s);
 void savefile_write_line(savefile_t* s, char* buf);
 void savefile_flush(savefile_t* s);
-
-
-
-
-#ifdef __cplusplus
-}
-#endif
-
 #endif /* _SAVEFILE_H_ */

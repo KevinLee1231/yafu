@@ -18,10 +18,6 @@ $Id: common.h 1025 2018-08-19 02:20:28Z jasonp_sf $
 #include <ms_msieve.h>
 #include <ms_gmp_xface.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #ifdef HAVE_MPI
 	#define MAX_MPI_GRID_DIM 35
 
@@ -38,7 +34,6 @@ extern "C" {
 	#define MPI_ERR_ASSERT 22
 	#endif
 #endif
-
 
 /*--------------PRIME SIEVE RELATED DECLARATIONS ---------------------*/
 
@@ -184,7 +179,6 @@ static INLINE uint32 hash_function(uint32 *data, uint32 num_words) {
    that matches blob[]. blob[] is assigned a counter value
    that starts from zero, and the counter for the entry
    matching blob[] is output in *ordinal_id (if non-NULL) */
-
 
 void *hashtable_find(hashtable_t *h, void *blob, 
 		uint32 *ordinal_id, uint32 *present);
@@ -397,9 +391,4 @@ typedef struct {
 void dickman_init(dickman_t *aux);
 void dickman_free(dickman_t *aux);
 double dickman(dickman_t *aux, double arg);
-
-#ifdef __cplusplus
-}
-#endif
-
 #endif /* _MS_MS_COMMON_H_ */

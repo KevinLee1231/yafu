@@ -1,3 +1,4 @@
+
 #pragma once
 #include <immintrin.h>
 
@@ -32,5 +33,3 @@ __inline __m512i _mm512_rem_epu32(__m512i dividend, __m512i divisor);
 
 
 #endif
-
-

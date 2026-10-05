@@ -85,5 +85,4 @@ typedef struct
 
 extern void yafu_init(yafu_obj_t* yobj);
 extern void yafu_finalize(yafu_obj_t* yobj);
-
 #endif //ifndef HEAD_DEF

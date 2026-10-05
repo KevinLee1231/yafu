@@ -36,5 +36,4 @@ compute_bucket(uint64_t key, int hash_mode) {
 	}
 	return (uint32_t)(key & BUCKET_MASK);
 }
-
 #endif /* !_COLLISION_BUCKET_H_ */

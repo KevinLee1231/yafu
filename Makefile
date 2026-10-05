@@ -23,10 +23,7 @@
 # Feature flags (pass on command line or set in config.mk):
 #   OMP=1          OpenMP threading
 #   ECM=1          Link GMP-ECM, enable ECM factorisation
-#   BATCH_CUDA=1   GPU cofactorisation for NFS/SIQS  (requires CUDA; falls
-#                  back to OpenCL if no CUDA toolkit is found)
-#   WITH_OPENCL=1  GPU cofactorisation via OpenCL, no CUDA needed
-#                  (mutually exclusive with BATCH_CUDA / CUDA_POLY)
+#   BATCH_CUDA=1   GPU cofactorisation for NFS/SIQS  (requires CUDA)
 #   CUDA_POLY=1    GPU NFS polynomial selection       (requires CUDA)
 #   MPI=1          MPI parallel processing
 #   VBITS=N        Linear algebra vector width: 64 (default), 128, 256
@@ -221,10 +218,8 @@ else
     CUDA_LPATH        :=
     NVCC              :=
     # If user requested CUDA features but toolkit not found, warn and disable
-    # (BATCH_CUDA is the generic "GPU batch cofactorisation" switch: when no
-    # CUDA toolkit is present it falls back to OpenCL, see section 4d.)
     ifdef BATCH_CUDA
-        _BATCH_CUDA_NO_TOOLKIT := 1
+        $(warning CUDA toolkit not found — disabling BATCH_CUDA)
         override BATCH_CUDA :=
     endif
     ifdef CUDA_POLY
@@ -238,30 +233,11 @@ else
 endif
 
 
-# ---- 4d. OpenCL  (optional, independent of CUDA) ---------------------------
-# OpenCL is an alternative to CUDA for GPU cofactorisation on AMD and other
-# non-NVIDIA hardware.  It is enabled with WITH_OPENCL=1 and needs no CUDA
-# toolkit.  For compatibility, BATCH_CUDA=1 on a machine without a CUDA
-# toolkit also falls back to OpenCL.  The CUDA and OpenCL backends define the
-# same gpu_* / device_* symbols, so they are mutually exclusive.
-# (BATCH_CUDA / CUDA_POLY were already cleared in 4c if there is no toolkit,
-# so these only fire when CUDA is really going to be used.)
-ifdef WITH_OPENCL
-    ifdef BATCH_CUDA
-        $(error WITH_OPENCL and BATCH_CUDA are mutually exclusive)
-    endif
-    ifdef CUDA_POLY
-        $(error WITH_OPENCL and CUDA_POLY cannot be combined: both define the same gpu_* symbols)
-    endif
-endif
-ifdef _BATCH_CUDA_NO_TOOLKIT
-    ifndef WITH_OPENCL
-        WITH_OPENCL := 1
-        _OCL_FALLBACK := 1
-    endif
-endif
-
-ifdef WITH_OPENCL
+# ---- 4d. OpenCL  (optional, only meaningful with BATCH_CUDA) ---------------
+# OpenCL is used as an alternative to CUDA for GPU cofactorisation on AMD
+# and other non-NVIDIA hardware.  There is no point probing for it or linking
+# it when BATCH_CUDA is not enabled.
+ifdef BATCH_CUDA
 ifdef OCL_PREFIX
     OCL_INCDIR ?= $(OCL_PREFIX)/include
     OCL_LIBDIR ?= $(OCL_PREFIX)/lib
@@ -303,23 +279,8 @@ else
     OCL_LPATH   :=
     OCL_LIBS    :=
 endif
-
-# Requested but unusable: warn and turn the feature off.
-ifeq (,$(HAVE_OPENCL))
-    ifdef _OCL_FALLBACK
-        $(warning neither a CUDA toolkit nor OpenCL found — disabling BATCH_CUDA)
-    else
-        $(warning OpenCL (CL/cl.h and libOpenCL) not found — disabling WITH_OPENCL. \
-            Set OCL_PREFIX in config.mk if you have it installed.)
-    endif
-    override WITH_OPENCL :=
 else
-    ifdef _OCL_FALLBACK
-        $(info BATCH_CUDA: no CUDA toolkit found, using the OpenCL backend)
-    endif
-endif
-else
-    # WITH_OPENCL not set — skip OpenCL entirely
+    # BATCH_CUDA not set — skip OpenCL entirely
     HAVE_OPENCL :=
     OCL_INC     :=
     OCL_LPATH   :=
@@ -726,10 +687,6 @@ ifdef BATCH_CUDA
     CFLAGS += -DTOOLKIT_VERSION=$(TOOLKIT_VERSION)
 endif
 
-ifdef WITH_OPENCL
-    CFLAGS += -DHAVE_OCL_BATCH_FACTOR
-endif
-
 ifdef CUDA_POLY
     CFLAGS += -DHAVE_CUDA_POLY -DTOOLKIT_VERSION=$(TOOLKIT_VERSION) -Ifactor/shared/cub/include
 	CUDA_PTX_ARCH ?= compute_$(SM)
@@ -857,196 +814,192 @@ LIBS        += $(USER_LDFLAGS) $(LDFLAGS_EXTRA)
 # =============================================================================
 
 OBJ_EXT := .o
+NO_EXT   := .no
+# .c and .cpp have to land on the same object name while the tree is mixed.
+# A substitution reference keeps the stem; patsubst replaces the whole word.
+# $(call) takes the *value*, so the argument has to be $(VAR) and not VAR.
+cxx_objs = $(foreach s,$(1),$(if $(filter %.cpp,$(s)),$(s:.cpp=$(OBJ_EXT)),$(s:.c=$(OBJ_EXT))))
+cxx_no   = $(foreach s,$(1),$(if $(filter %.cpp,$(s)),$(s:.cpp=$(NO_EXT)),$(s:.c=$(NO_EXT))))
 
 # -----------------------------------------------------------------------------
 # 12. MSIEVE / YAFU shared sources
 # -----------------------------------------------------------------------------
 MSIEVE_YAFU_SRCS = \
-    factor/siqs/msieve/lanczos.c \
-    factor/siqs/msieve/lanczos_matmul0.c \
-    factor/siqs/msieve/lanczos_matmul1.c \
-    factor/siqs/msieve/lanczos_matmul2.c \
-    factor/siqs/msieve/lanczos_pre.c \
-    factor/siqs/msieve/sqrt.c \
-    factor/siqs/msieve/gf2.c
+    factor/siqs/msieve/lanczos.cpp \
+    factor/siqs/msieve/lanczos_matmul0.cpp \
+    factor/siqs/msieve/lanczos_matmul1.cpp \
+    factor/siqs/msieve/lanczos_matmul2.cpp \
+    factor/siqs/msieve/lanczos_pre.cpp \
+    factor/siqs/msieve/sqrt.cpp \
+    factor/siqs/msieve/gf2.cpp
 
-MSIEVE_YAFU_OBJS = $(MSIEVE_YAFU_SRCS:.c=$(OBJ_EXT))
-
-
+MSIEVE_YAFU_OBJS = $(call cxx_objs,$(MSIEVE_YAFU_SRCS))
 # -----------------------------------------------------------------------------
 # 13. YAFU top-level sources
 # -----------------------------------------------------------------------------
 YAFU_SRCS = \
-    top/driver.c \
-    top/test.c \
-    factor/core/tune.c \
-    factor/core/autofactor.c \
-    top/cmdParser/cmdOptions.c \
-    top/cmdParser/calc.c
+    top/driver.cpp \
+    top/test.cpp \
+    factor/core/tune.cpp \
+    factor/core/autofactor.cpp \
+    top/cmdParser/cmdOptions.cpp \
+    top/cmdParser/calc.cpp
 
 
 # -----------------------------------------------------------------------------
 # 14. COMMON (shared across yafu targets)
 # -----------------------------------------------------------------------------
 COMMON_SRCS = \
-    factor/core/batch_factor.c \
-    factor/core/factor_common.c \
-    factor/trialdiv/rho.c \
-    factor/trialdiv/squfof.c \
-    factor/trialdiv/trialdiv.c \
-    factor/shared/arith/arith.c \
-    factor/shared/arith/monty.c \
-    factor/shared/arith/fftmul.c \
-    factor/shared/aprcl/tinyprp.c \
-    factor/ecm/tinyecm.c \
-    factor/ecm/micropm1.c \
-    factor/ecm/microecm.c \
-    factor/shared/ytools/threadpool.c \
-    factor/shared/ytools/ytools.c \
-    factor/shared/ysieve/presieve.c \
-    factor/shared/ysieve/count.c \
-    factor/shared/ysieve/offsets.c \
-    factor/shared/ysieve/primes.c \
-    factor/shared/ysieve/roots.c \
-    factor/shared/ysieve/linesieve.c \
-    factor/shared/ysieve/soe.c \
-    factor/shared/ysieve/tiny.c \
-    factor/shared/ysieve/worker.c \
-    factor/shared/ysieve/soe_util.c \
-    factor/shared/ysieve/wrapper.c \
-    factor/shared/aprcl/mpz_aprcl.c \
-    factor/core/gpu_cofactorization.c \
-	factor/shared/common/vec_bitonic_sort.c
+    factor/core/batch_factor.cpp \
+    factor/core/factor_common.cpp \
+    factor/trialdiv/rho.cpp \
+    factor/trialdiv/squfof.cpp \
+    factor/trialdiv/trialdiv.cpp \
+    factor/shared/arith/arith.cpp \
+    factor/shared/arith/monty.cpp \
+    factor/shared/arith/fftmul.cpp \
+    factor/shared/aprcl/tinyprp.cpp \
+    factor/ecm/tinyecm.cpp \
+    factor/ecm/micropm1.cpp \
+    factor/ecm/microecm.cpp \
+    factor/shared/ytools/threadpool.cpp \
+    factor/shared/ytools/ytools.cpp \
+    factor/shared/ysieve/presieve.cpp \
+    factor/shared/ysieve/count.cpp \
+    factor/shared/ysieve/offsets.cpp \
+    factor/shared/ysieve/primes.cpp \
+    factor/shared/ysieve/roots.cpp \
+    factor/shared/ysieve/linesieve.cpp \
+    factor/shared/ysieve/soe.cpp \
+    factor/shared/ysieve/tiny.cpp \
+    factor/shared/ysieve/worker.cpp \
+    factor/shared/ysieve/soe_util.cpp \
+    factor/shared/ysieve/wrapper.cpp \
+    factor/shared/aprcl/mpz_aprcl.cpp \
+    factor/core/gpu_cofactorization.cpp \
+	factor/shared/common/vec_bitonic_sort.cpp
 
 COMMON_BATCH_GPU_SRCS = \
     factor/core/cuda_tinyecm.cu \
     factor/core/cuda_intrinsics.h
-
-# OpenCL batch cofactorisation backend.  Its kernels (factor/opencl_*.cl) are
-# compiled by the OpenCL runtime at run time, so only host code is built here.
-ifdef WITH_OPENCL
-COMMON_SRCS += \
-    factor/gpu_cofactorization_cl.c \
-    common/ocl_xface.c
-endif
 
 
 # -----------------------------------------------------------------------------
 # 15. ECM sources
 # -----------------------------------------------------------------------------
 ECM_SRCS = \
-    factor/ecm/ecm.c \
-    factor/ecm/pp1.c \
-    factor/ecm/pm1.c \
-    factor/ecm/avxecm.c \
-    factor/ecm/avx_ecm_main.c \
-    factor/ecm/vec_common.c \
-    factor/ecm/vecarith.c \
-    factor/ecm/vecarith52.c \
-    factor/ecm/vecarith52_special.c \
-    factor/ecm/vecarith52_common.c
+    factor/ecm/ecm.cpp \
+    factor/ecm/pp1.cpp \
+    factor/ecm/pm1.cpp \
+    factor/ecm/avxecm.cpp \
+    factor/ecm/avx_ecm_main.cpp \
+    factor/ecm/vec_common.cpp \
+    factor/ecm/vecarith.cpp \
+    factor/ecm/vecarith52.cpp \
+    factor/ecm/vecarith52_special.cpp \
+    factor/ecm/vecarith52_common.cpp
 
 
 # -----------------------------------------------------------------------------
 # 16. SIQS sources  (base + ISA-specific additions)
 # -----------------------------------------------------------------------------
 YAFU_SIQS_SRCS = \
-    factor/siqs/filter.c \
-    factor/siqs/tdiv.c \
-    factor/siqs/tdiv_small.c \
-    factor/siqs/tdiv_large.c \
-    factor/siqs/tdiv_scan.c \
-    factor/siqs/large_sieve.c \
-    factor/siqs/new_poly.c \
-    factor/siqs/siqs_test.c \
-    factor/siqs/siqs_aux.c \
-    factor/pmpqs/pmpqs.c \
-    factor/siqs/SIQS.c \
-    factor/siqs/med_sieve_32k.c \
-    factor/siqs/poly_roots_32k.c \
-    factor/siqs/cofactorize_siqs.c
+    factor/siqs/filter.cpp \
+    factor/siqs/tdiv.cpp \
+    factor/siqs/tdiv_small.cpp \
+    factor/siqs/tdiv_large.cpp \
+    factor/siqs/tdiv_scan.cpp \
+    factor/siqs/large_sieve.cpp \
+    factor/siqs/new_poly.cpp \
+    factor/siqs/siqs_test.cpp \
+    factor/siqs/siqs_aux.cpp \
+    factor/pmpqs/pmpqs.cpp \
+    factor/siqs/SIQS.cpp \
+    factor/siqs/med_sieve_32k.cpp \
+    factor/siqs/poly_roots_32k.cpp \
+    factor/siqs/cofactorize_siqs.cpp
 
 ifeq ($(USE_SSE41),1)
     YAFU_SIQS_SRCS += \
-        factor/siqs/update_poly_roots_32k_sse4.1.c \
-        factor/siqs/med_sieve_32k_sse4.1.c
+        factor/siqs/update_poly_roots_32k_sse4.1.cpp \
+        factor/siqs/med_sieve_32k_sse4.1.cpp
 endif
 
 ifeq ($(USE_AVX2),1)
     YAFU_SIQS_SRCS += \
-        factor/siqs/tdiv_med_32k_avx2.c \
-        factor/siqs/update_poly_roots_32k_avx2.c \
-        factor/siqs/med_sieve_32k_avx2.c \
-        factor/siqs/tdiv_resieve_32k_avx2.c
+        factor/siqs/tdiv_med_32k_avx2.cpp \
+        factor/siqs/update_poly_roots_32k_avx2.cpp \
+        factor/siqs/med_sieve_32k_avx2.cpp \
+        factor/siqs/tdiv_resieve_32k_avx2.cpp
 endif
 
 ifeq ($(USE_AVX512),1)
-    YAFU_SIQS_SRCS += factor/siqs/update_poly_roots_32k_knl.c
+    YAFU_SIQS_SRCS += factor/siqs/update_poly_roots_32k_knl.cpp
 endif
 
 # Always-included generic SIQS files (appended after any ISA variants)
 YAFU_SIQS_SRCS += \
-    factor/siqs/update_poly_roots_32k.c \
-    factor/siqs/tdiv_med_32k.c \
-    factor/siqs/tdiv_resieve_32k.c
+    factor/siqs/update_poly_roots_32k.cpp \
+    factor/siqs/tdiv_med_32k.cpp \
+    factor/siqs/tdiv_resieve_32k.cpp
 
 
 # -----------------------------------------------------------------------------
 # 18. NFS sources
 # -----------------------------------------------------------------------------
 YAFU_NFS_SRCS = \
-    factor/nfs/nfs_sieving.c \
-    factor/nfs/nfs_poly.c \
-    factor/nfs/nfs_postproc.c \
-    factor/nfs/nfs_filemanip.c \
-    factor/nfs/nfs_threading.c \
-    factor/nfs/snfs.c \
-    factor/nfs/nfs.c
+    factor/nfs/nfs_sieving.cpp \
+    factor/nfs/nfs_poly.cpp \
+    factor/nfs/nfs_postproc.cpp \
+    factor/nfs/nfs_filemanip.cpp \
+    factor/nfs/nfs_threading.cpp \
+    factor/nfs/snfs.cpp \
+    factor/nfs/nfs.cpp
 
 ifdef BATCH_CUDA
-    YAFU_NFS_SRCS += factor/shared/common/cuda_xface.c
+    YAFU_NFS_SRCS += factor/shared/common/cuda_xface.cpp
 endif
 
 NFS_SRCS = \
-    factor/nfs/gnfs/poly/poly.c \
-    factor/nfs/gnfs/poly/poly_param.c \
-    factor/nfs/gnfs/poly/poly_skew.c \
-	factor/nfs/gnfs/poly/poly_stats.c \
-    factor/nfs/gnfs/poly/polyutil.c \
-    factor/nfs/gnfs/poly/root_score.c \
-    factor/nfs/gnfs/poly/size_score.c \
-	factor/nfs/gnfs/poly/stage1/stage1_sieve_cpu_hashtable.c \
-	factor/nfs/gnfs/poly/stage1/stage1_sieve_cpu.c \
-	factor/nfs/gnfs/poly/stage1/stage1_engine.c \
-    factor/nfs/gnfs/poly/stage1/stage1.c \
-    factor/nfs/gnfs/poly/stage1/stage1_roots.c \
-    factor/nfs/gnfs/poly/stage2/optimize.c \
-    factor/nfs/gnfs/poly/stage2/optimize_deg6.c \
-    factor/nfs/gnfs/poly/stage2/root_sieve.c \
-    factor/nfs/gnfs/poly/stage2/root_sieve_deg45_x.c \
-    factor/nfs/gnfs/poly/stage2/root_sieve_deg5_xy.c \
-    factor/nfs/gnfs/poly/stage2/root_sieve_deg6_x.c \
-    factor/nfs/gnfs/poly/stage2/root_sieve_deg6_xy.c \
-    factor/nfs/gnfs/poly/stage2/root_sieve_deg6_xyz.c \
-    factor/nfs/gnfs/poly/stage2/root_sieve_line.c \
-    factor/nfs/gnfs/poly/stage2/root_sieve_util.c \
-    factor/nfs/gnfs/poly/stage2/stage2.c \
-    factor/nfs/gnfs/filter/duplicate.c \
-    factor/nfs/gnfs/filter/filter.c \
-    factor/nfs/gnfs/filter/singleton.c \
-    factor/nfs/gnfs/sieve/sieve_line.c \
-    factor/nfs/gnfs/sieve/sieve_util.c \
-    factor/nfs/gnfs/sqrt/sqrt.c \
-    factor/nfs/gnfs/sqrt/sqrt_a.c \
-    factor/nfs/gnfs/fb.c \
-    factor/nfs/gnfs/ffpoly.c \
-    factor/nfs/gnfs/gf2.c \
-    factor/nfs/gnfs/gnfs.c \
-    factor/nfs/gnfs/relation.c
+    factor/nfs/gnfs/poly/poly.cpp \
+    factor/nfs/gnfs/poly/poly_param.cpp \
+    factor/nfs/gnfs/poly/poly_skew.cpp \
+	factor/nfs/gnfs/poly/poly_stats.cpp \
+    factor/nfs/gnfs/poly/polyutil.cpp \
+    factor/nfs/gnfs/poly/root_score.cpp \
+    factor/nfs/gnfs/poly/size_score.cpp \
+	factor/nfs/gnfs/poly/stage1/stage1_sieve_cpu_hashtable.cpp \
+	factor/nfs/gnfs/poly/stage1/stage1_sieve_cpu.cpp \
+	factor/nfs/gnfs/poly/stage1/stage1_engine.cpp \
+    factor/nfs/gnfs/poly/stage1/stage1.cpp \
+    factor/nfs/gnfs/poly/stage1/stage1_roots.cpp \
+    factor/nfs/gnfs/poly/stage2/optimize.cpp \
+    factor/nfs/gnfs/poly/stage2/optimize_deg6.cpp \
+    factor/nfs/gnfs/poly/stage2/root_sieve.cpp \
+    factor/nfs/gnfs/poly/stage2/root_sieve_deg45_x.cpp \
+    factor/nfs/gnfs/poly/stage2/root_sieve_deg5_xy.cpp \
+    factor/nfs/gnfs/poly/stage2/root_sieve_deg6_x.cpp \
+    factor/nfs/gnfs/poly/stage2/root_sieve_deg6_xy.cpp \
+    factor/nfs/gnfs/poly/stage2/root_sieve_deg6_xyz.cpp \
+    factor/nfs/gnfs/poly/stage2/root_sieve_line.cpp \
+    factor/nfs/gnfs/poly/stage2/root_sieve_util.cpp \
+    factor/nfs/gnfs/poly/stage2/stage2.cpp \
+    factor/nfs/gnfs/filter/duplicate.cpp \
+    factor/nfs/gnfs/filter/filter.cpp \
+    factor/nfs/gnfs/filter/singleton.cpp \
+    factor/nfs/gnfs/sieve/sieve_line.cpp \
+    factor/nfs/gnfs/sieve/sieve_util.cpp \
+    factor/nfs/gnfs/sqrt/sqrt.cpp \
+    factor/nfs/gnfs/sqrt/sqrt_a.cpp \
+    factor/nfs/gnfs/fb.cpp \
+    factor/nfs/gnfs/ffpoly.cpp \
+    factor/nfs/gnfs/gf2.cpp \
+    factor/nfs/gnfs/gnfs.cpp \
+    factor/nfs/gnfs/relation.cpp
 
-NFS_GPU_SRCS  = factor/nfs/gnfs/poly/stage1/stage1_sieve_gpu.c
+NFS_GPU_SRCS  = factor/nfs/gnfs/poly/stage1/stage1_sieve_gpu.cpp
 NFS_NOGPU_SRCS = 
-#factor/nfs/gnfs/poly/stage1/stage1_sieve_cpu.c
+#factor/nfs/gnfs/poly/stage1/stage1_sieve_cpu.cpp
 
 ifeq ($(CUDA_POLY),1)
     NFS_SRCS += $(NFS_GPU_SRCS)
@@ -1059,55 +1012,55 @@ endif
 # 19. Msieve common sources
 # -----------------------------------------------------------------------------
 MSIEVE_COMMON_SRCS = \
-    factor/shared/common/filter/clique.c \
-    factor/shared/common/filter/filter.c \
-    factor/shared/common/filter/merge.c \
-    factor/shared/common/filter/merge_post.c \
-    factor/shared/common/filter/merge_pre.c \
-    factor/shared/common/filter/merge_util.c \
-    factor/shared/common/filter/singleton.c \
-    factor/shared/common/lanczos/lanczos.c \
-    factor/shared/common/lanczos/lanczos_io.c \
-    factor/shared/common/lanczos/lanczos_matmul.c \
-    factor/shared/common/lanczos/lanczos_pre.c \
-    factor/shared/common/lanczos/matmul_util.c \
-    factor/shared/common/smallfact/gmp_ecm.c \
-    factor/shared/common/smallfact/smallfact.c \
-    factor/shared/common/smallfact/squfof.c \
-    factor/shared/common/smallfact/tinyqs.c \
-    factor/shared/common/cuda_xface.c \
-    factor/shared/common/cuda_xface_la.c \
-    factor/shared/common/dickman.c \
-    factor/shared/common/driver.c \
-    factor/shared/common/expr_eval.c \
-    factor/shared/common/hashtable.c \
-    factor/shared/common/integrate.c \
-    factor/shared/common/minimize.c \
-    factor/shared/common/minimize_global.c \
-    factor/shared/common/mp.c \
-    factor/shared/common/ms_batch_factor.c \
-    factor/shared/common/polyroot.c \
-    factor/shared/common/prime_delta.c \
-    factor/shared/common/prime_sieve.c \
-    factor/shared/common/savefile.c \
-    factor/shared/common/strtoll.c \
-    factor/shared/common/thread.c \
-    factor/shared/common/util.c \
-    factor/shared/aprcl/mpz_aprcl32.c
+    factor/shared/common/filter/clique.cpp \
+    factor/shared/common/filter/filter.cpp \
+    factor/shared/common/filter/merge.cpp \
+    factor/shared/common/filter/merge_post.cpp \
+    factor/shared/common/filter/merge_pre.cpp \
+    factor/shared/common/filter/merge_util.cpp \
+    factor/shared/common/filter/singleton.cpp \
+    factor/shared/common/lanczos/lanczos.cpp \
+    factor/shared/common/lanczos/lanczos_io.cpp \
+    factor/shared/common/lanczos/lanczos_matmul.cpp \
+    factor/shared/common/lanczos/lanczos_pre.cpp \
+    factor/shared/common/lanczos/matmul_util.cpp \
+    factor/shared/common/smallfact/gmp_ecm.cpp \
+    factor/shared/common/smallfact/smallfact.cpp \
+    factor/shared/common/smallfact/squfof.cpp \
+    factor/shared/common/smallfact/tinyqs.cpp \
+    factor/shared/common/cuda_xface.cpp \
+    factor/shared/common/cuda_xface_la.cpp \
+    factor/shared/common/dickman.cpp \
+    factor/shared/common/driver.cpp \
+    factor/shared/common/expr_eval.cpp \
+    factor/shared/common/hashtable.cpp \
+    factor/shared/common/integrate.cpp \
+    factor/shared/common/minimize.cpp \
+    factor/shared/common/minimize_global.cpp \
+    factor/shared/common/mp.cpp \
+    factor/shared/common/ms_batch_factor.cpp \
+    factor/shared/common/polyroot.cpp \
+    factor/shared/common/prime_delta.cpp \
+    factor/shared/common/prime_sieve.cpp \
+    factor/shared/common/savefile.cpp \
+    factor/shared/common/strtoll.cpp \
+    factor/shared/common/thread.cpp \
+    factor/shared/common/util.cpp \
+    factor/shared/aprcl/mpz_aprcl32.cpp
 	
 ifeq ($(OS),Windows_NT)
-	MSIEVE_COMMON_SRCS += factor/shared/common/mpz-ull.c
+	MSIEVE_COMMON_SRCS += factor/shared/common/mpz-ull.cpp
 endif
 
 COMMON_GPU_SRCS = \
-    factor/shared/common/lanczos/gpu/lanczos_matmul_gpu.c \
-    factor/shared/common/lanczos/gpu/lanczos_vv.c
+    factor/shared/common/lanczos/gpu/lanczos_matmul_gpu.cpp \
+    factor/shared/common/lanczos/gpu/lanczos_vv.cpp
 
 COMMON_NOGPU_SRCS = \
-    factor/shared/common/lanczos/cpu/lanczos_matmul0.c \
-    factor/shared/common/lanczos/cpu/lanczos_matmul1.c \
-    factor/shared/common/lanczos/cpu/lanczos_matmul2.c \
-    factor/shared/common/lanczos/cpu/lanczos_vv.c
+    factor/shared/common/lanczos/cpu/lanczos_matmul0.cpp \
+    factor/shared/common/lanczos/cpu/lanczos_matmul1.cpp \
+    factor/shared/common/lanczos/cpu/lanczos_matmul2.cpp \
+    factor/shared/common/lanczos/cpu/lanczos_vv.cpp
 
 ifdef CUDA_LA
     MSIEVE_COMMON_SRCS += $(COMMON_GPU_SRCS)
@@ -1122,28 +1075,28 @@ endif
 #     mpqs.h and yafu disagree on the size of mp_t)
 # -----------------------------------------------------------------------------
 QS_SRCS = \
-    factor/mpqs/gf2.c \
-    factor/mpqs/mpqs.c \
-    factor/mpqs/mpqs_xface.c \
-    factor/mpqs/poly.c \
-    factor/mpqs/relation.c \
-    factor/mpqs/sieve.c \
-    factor/mpqs/sieve_core.c \
-    factor/mpqs/sqrt.c
+    factor/mpqs/gf2.cpp \
+    factor/mpqs/mpqs.cpp \
+    factor/mpqs/mpqs_xface.cpp \
+    factor/mpqs/poly.cpp \
+    factor/mpqs/relation.cpp \
+    factor/mpqs/sieve.cpp \
+    factor/mpqs/sieve_core.cpp \
+    factor/mpqs/sqrt.cpp
 
 
 # -----------------------------------------------------------------------------
 # 21. OBJECT LISTS
 # -----------------------------------------------------------------------------
-YAFU_OBJS         = $(YAFU_SRCS:.c=$(OBJ_EXT))
-YAFU_SIQS_OBJS    = $(YAFU_SIQS_SRCS:.c=$(OBJ_EXT))
-YAFU_ECM_OBJS     = $(ECM_SRCS:.c=$(OBJ_EXT))
-YAFU_COMMON_OBJS  = $(COMMON_SRCS:.c=$(OBJ_EXT))
-YAFU_NFS_OBJS     = $(YAFU_NFS_SRCS:.c=$(OBJ_EXT))
-MSIEVE_COMMON_OBJS = $(MSIEVE_COMMON_SRCS:.c=$(OBJ_EXT))
-NFS_OBJS          = $(NFS_SRCS:.c=.no)
-NFS_GPU_OBJS      = $(NFS_GPU_SRCS:.c=.no)
-NFS_NOGPU_OBJS    = $(NFS_NOGPU_SRCS:.c=.no)
+YAFU_OBJS         = $(call cxx_objs,$(YAFU_SRCS))
+YAFU_SIQS_OBJS    = $(call cxx_objs,$(YAFU_SIQS_SRCS))
+YAFU_ECM_OBJS     = $(call cxx_objs,$(ECM_SRCS))
+YAFU_COMMON_OBJS  = $(call cxx_objs,$(COMMON_SRCS))
+YAFU_NFS_OBJS     = $(call cxx_objs,$(YAFU_NFS_SRCS))
+MSIEVE_COMMON_OBJS = $(call cxx_objs,$(MSIEVE_COMMON_SRCS))
+NFS_OBJS          = $(call cxx_no,$(NFS_SRCS))
+NFS_GPU_OBJS      = $(call cxx_no,$(NFS_GPU_SRCS))
+NFS_NOGPU_OBJS    = $(call cxx_no,$(NFS_NOGPU_SRCS))
 QS_OBJS = \
     factor/mpqs/gf2.qo \
     factor/mpqs/mpqs.qo \
@@ -1257,14 +1210,14 @@ LASIEVE_VARS := \
 # real up-to-date checking; this only has to run.
 .PHONY: lasieve-force
 lasieve-force:
-	$(MAKE) -C $(LASIEVE_DIR) objects $(LASIEVE_VARS)
+	$(MAKE) -C $(LASIEVE_DIR) objects $(LASIEVE_VARS) CXX="$(CXX)"
 
 # Order-only: the objects must exist before the link, but they are not what
 # decides whether yafu relinks.  LASIEVE_FILES is a := list rather than a set of
 # prerequisites, so a change to sieve source reaches the link through the
 # sub-make rebuilding those object files.
 yafu: _dep_status $(YAFU_OBJS) $(ARCHIVES) $(GPU_OBJS) | lasieve-force
-	$(CC) $(CFLAGS) -no-pie $(YAFU_OBJS) -o yafu$(EXE_EXT) \
+	$(CXX) $(CXXFLAGS) -no-pie $(YAFU_OBJS) -o yafu$(EXE_EXT) \
 	    $(ARCHIVES) $(LASIEVE_FILES) $(LIBS)
 
 
@@ -1296,35 +1249,31 @@ yafu: _dep_status $(YAFU_OBJS) $(ARCHIVES) $(GPU_OBJS) | lasieve-force
 
 TEST_DIR  := test
 TEST_SRCS := \
-    $(TEST_DIR)/testkit.c \
-    $(TEST_DIR)/test_data.c \
-    $(TEST_DIR)/test_main.c \
-    $(TEST_DIR)/layer0/test_mp_arith.c \
-    $(TEST_DIR)/layer0/test_mp_bitscan.c \
-    $(TEST_DIR)/layer1/test_sp_arith.c \
-    $(TEST_DIR)/layer1/test_modular.c \
-    $(TEST_DIR)/layer1/test_monty_review.c \
-    $(TEST_DIR)/layer1/test_primality.c \
-    $(TEST_DIR)/layer1/test_aprcl_review.c \
-    $(TEST_DIR)/layer1/test_tinyprp_review.c \
-    $(TEST_DIR)/layer1/test_sieve.c \
-    $(TEST_DIR)/layer2/test_ecm.c
-# OpenCL kernel tests: need the OpenCL backend (make WITH_OPENCL=1 test)
-ifdef WITH_OPENCL
-TEST_SRCS += $(TEST_DIR)/layer2/test_ocl_ecm.c
-endif
-TEST_OBJS := $(TEST_SRCS:.c=$(OBJ_EXT))
+    $(TEST_DIR)/testkit.cpp \
+    $(TEST_DIR)/test_data.cpp \
+    $(TEST_DIR)/test_main.cpp \
+    $(TEST_DIR)/layer0/test_mp_arith.cpp \
+    $(TEST_DIR)/layer0/test_mp_bitscan.cpp \
+    $(TEST_DIR)/layer1/test_sp_arith.cpp \
+    $(TEST_DIR)/layer1/test_modular.cpp \
+    $(TEST_DIR)/layer1/test_monty_review.cpp \
+    $(TEST_DIR)/layer1/test_primality.cpp \
+    $(TEST_DIR)/layer1/test_aprcl_review.cpp \
+    $(TEST_DIR)/layer1/test_tinyprp_review.cpp \
+    $(TEST_DIR)/layer1/test_sieve.cpp \
+    $(TEST_DIR)/layer2/test_ecm.cpp
+TEST_OBJS := $(call cxx_objs,$(TEST_SRCS))
 TEST_BIN  := yafu_test$(EXE_EXT)
 
 # YAFU objects the layered tests link against (overridable).
 TEST_KERNEL_OBJS ?= $(YAFU_COMMON_OBJS)
 
 # 测试对象同样跟踪所包含的头文件，修改算术实现后自动重编译。
-$(TEST_DIR)/%.o: $(TEST_DIR)/%.c $(TEST_DIR)/testkit.h $(TEST_DIR)/test_data.h
+$(TEST_DIR)/%.o: $(TEST_DIR)/%.cpp $(TEST_DIR)/testkit.h $(TEST_DIR)/test_data.h
 	$(MKDIR) $(DEPS_DIR)/$(dir $<)
-	$(CC) $(CFLAGS) -I$(TEST_DIR) -MMD -MP -MF $(DEPS_DIR)/$(patsubst %.c,%.d,$<) -c -o $@ $<
+	$(CXX) $(CXXFLAGS) -I$(TEST_DIR) -MMD -MP -MF $(DEPS_DIR)/$(patsubst %.cpp,%.d,$<) -c -o $@ $<
 
--include $(patsubst %.c,$(DEPS_DIR)/%.d,$(TEST_SRCS))
+-include $(patsubst %.cpp,$(DEPS_DIR)/%.d,$(TEST_SRCS))
 
 $(BUILD_DIR)/libyafu_common.a: $(TEST_KERNEL_OBJS)
 	@mkdir -p $(@D)
@@ -1333,7 +1282,7 @@ $(BUILD_DIR)/libyafu_common.a: $(TEST_KERNEL_OBJS)
 	ranlib $@
 
 test: _dep_status $(TEST_OBJS) $(BUILD_DIR)/libyafu_common.a
-	$(CC) $(CFLAGS) $(TEST_OBJS) -o $(TEST_BIN) $(BUILD_DIR)/libyafu_common.a $(LIBS)
+	$(CXX) $(CXXFLAGS) $(TEST_OBJS) -o $(TEST_BIN) $(BUILD_DIR)/libyafu_common.a $(LIBS)
 	@echo "built $(TEST_BIN) — run it:  ./$(TEST_BIN)   (try --list, --bench, --help)"
 
 test-run: test
@@ -1356,10 +1305,10 @@ test-clean:
 # -----------------------------------------------------------------------------
 .PHONY: test-full test-full-run
 
-TEST_L3_SRCS  := $(TEST_DIR)/layer3/test_siqs.c $(TEST_DIR)/layer3/test_calc.c \
-    $(TEST_DIR)/layer3/test_options.c \
-    $(TEST_DIR)/layer3/test_ecm_review.c $(TEST_DIR)/layer3/test_qs_review.c \
-    factor/shared/common/vec_bitonic_sort.c
+TEST_L3_SRCS  := $(TEST_DIR)/layer3/test_siqs.cpp $(TEST_DIR)/layer3/test_calc.cpp \
+    $(TEST_DIR)/layer3/test_options.cpp \
+    $(TEST_DIR)/layer3/test_ecm_review.cpp $(TEST_DIR)/layer3/test_qs_review.cpp \
+    factor/shared/common/vec_bitonic_sort.cpp
 TEST_FRONTEND_OBJS := $(filter-out top/driver$(OBJ_EXT),$(YAFU_OBJS))
 TEST_FULL_BIN := yafu_test_full$(EXE_EXT)
 TEST_SAN_BIN := yafu_test_sanitize$(EXE_EXT)
@@ -1401,8 +1350,8 @@ test-cli: yafu
 
 .PHONY: test-standalone
 test-standalone:
-	CC="$(CC)" CFLAGS="$(USER_CFLAGS)" sh $(TEST_DIR)/test_nfs.sh
-	CC="$(CC)" CFLAGS="$(USER_CFLAGS)" sh $(TEST_DIR)/test_lasieve.sh
+	CC="$(CC)" CFLAGS="$(USER_CFLAGS)" CXX="$(CXX)" CXXFLAGS="$(USER_CXXFLAGS)" sh $(TEST_DIR)/test_nfs.sh
+	CC="$(CC)" CFLAGS="$(USER_CFLAGS)" CXX="$(CXX)" CXXFLAGS="$(USER_CXXFLAGS)" sh $(TEST_DIR)/test_lasieve.sh
 
 # 为所有参与链接的项目源码启用检查；下次常规 make 会按配置记录自动重建。
 .PHONY: test-sanitize
@@ -1415,7 +1364,7 @@ test-sanitize:
 test-calc-sanitize: _dep_status $(ARCHIVES) $(TEST_FRONTEND_OBJS)
 	$(CC) $(CFLAGS) -O1 -fsanitize=address,undefined -fno-omit-frame-pointer \
 	    -DTK_WITH_LAYER3 -I$(TEST_DIR) $(TEST_SRCS) $(TEST_L3_SRCS) \
-	    top/cmdParser/calc.c factor/core/factor_common.c \
+	    top/cmdParser/calc.cpp factor/core/factor_common.cpp \
 	    $(filter-out top/cmdParser/calc$(OBJ_EXT),$(TEST_FRONTEND_OBJS)) \
 	    -o $(TEST_SAN_BIN) $(ARCHIVES) $(LIBS)
 	./$(TEST_SAN_BIN) calc
@@ -1466,18 +1415,31 @@ $(sort $(ALL_COMPILED) $(TEST_OBJS)): $(BUILD_CONFIG)
 
 # Standard .c → .o
 # -MF redirects the dependency file into .deps/, mirroring the source tree.
+CXX ?= g++
+# C++26 is the newest this compiler has.  What that buys the migration:
+# one- and two-dimensional local VLAs are in C++ and this tree uses them heavily
+# (2579 sites), so they carry over unchanged.  What it does not buy: `int a[n]` as
+# a *parameter* is still C-only and has to become `int a[]` or a reference to
+# array; a substitution reference keeps the stem where patsubst would not.
+CXXFLAGS := $(filter-out -std=gnu11,$(CFLAGS)) -std=c++26
+# 与 USER_CFLAGS 对应的 C++ 覆盖入口，供 test-standalone 传下去。
+USER_CXXFLAGS ?= $(filter-out -std=gnu11 -std=c++26,$(CFLAGS))
+
 %.o: %.c | $(DEPS_SUBDIRS)
 	$(CC) $(CFLAGS) -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
 
+%.o: %.cpp | $(DEPS_SUBDIRS)
+	$(CXX) $(CXXFLAGS) -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
+
 # QS objects (.qo) — also get dependency files now
-factor/mpqs/sieve_core_generic_32k.qo: factor/mpqs/sieve_core.c | $(DEPS_SUBDIRS)
-	$(CC) $(CFLAGS) -DBLOCK_KB=32 -DHAS_SSE2 \
+factor/mpqs/sieve_core_generic_32k.qo: factor/mpqs/sieve_core.cpp | $(DEPS_SUBDIRS)
+	$(CXX) $(CXXFLAGS) -DBLOCK_KB=32 -DHAS_SSE2 \
 	    -DROUTINE_NAME=qs_core_sieve_generic_32k \
 	    -MMD -MP -MF $(DEPS_DIR)/factor/mpqs/sieve_core_generic_32k.d \
 	    -c -o $@ $<
 
-factor/mpqs/sieve_core_generic_64k.qo: factor/mpqs/sieve_core.c | $(DEPS_SUBDIRS)
-	$(CC) $(CFLAGS) -DBLOCK_KB=64 -DHAS_SSE2 \
+factor/mpqs/sieve_core_generic_64k.qo: factor/mpqs/sieve_core.cpp | $(DEPS_SUBDIRS)
+	$(CXX) $(CXXFLAGS) -DBLOCK_KB=64 -DHAS_SSE2 \
 	    -DROUTINE_NAME=qs_core_sieve_generic_64k \
 	    -MMD -MP -MF $(DEPS_DIR)/factor/mpqs/sieve_core_generic_64k.d \
 	    -c -o $@ $<
@@ -1485,9 +1447,14 @@ factor/mpqs/sieve_core_generic_64k.qo: factor/mpqs/sieve_core.c | $(DEPS_SUBDIRS
 %.qo: %.c | $(DEPS_SUBDIRS)
 	$(CC) $(CFLAGS) -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
 
+%.qo: %.cpp | $(DEPS_SUBDIRS)
+	$(CXX) $(CXXFLAGS) -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
+
 # NFS objects (.no) — add -Ifactor/nfs/gnfs for NFS-internal includes
 %.no: %.c | $(DEPS_SUBDIRS)
 	$(CC) $(CFLAGS) -Ifactor/nfs/gnfs -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
+%.no: %.cpp | $(DEPS_SUBDIRS)
+	$(CXX) $(CXXFLAGS) -Ifactor/nfs/gnfs -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
 
 # GPU / PTX rules
 stage1_core.ptx: factor/nfs/gnfs/poly/stage1/stage1_core_gpu/stage1_core.cu $(NFS_GPU_HDR)
@@ -1589,7 +1556,6 @@ info:
 	@echo "  Optional features"
 	@echo "    OMP            : yes (required)"
 	@echo "    BATCH_CUDA     : $(if $(BATCH_CUDA),yes,no)"
-	@echo "    WITH_OPENCL    : $(if $(WITH_OPENCL),yes,no)"
 	@echo "    CUDA_POLY      : $(if $(CUDA_POLY),yes,no)"
 	@echo "    MPI            : $(if $(filter 1,$(MPI)),yes,no)"
 	@echo "    STATIC_WIN     : $(if $(STATIC_WIN),yes,no)"
@@ -1658,7 +1624,6 @@ help:
 	@echo "    make OMP=1           OpenMP threading"
 	@echo "    make ECM=1           GMP-ECM support"
 	@echo "    make BATCH_CUDA=1    GPU cofactorisation (NFS/SIQS)"
-	@echo "    make WITH_OPENCL=1   GPU cofactorisation via OpenCL (no CUDA needed)"
 	@echo "    make CUDA_POLY=1     GPU NFS polynomial selection"
 	@echo "    make MPI=1           MPI parallel processing"
 	@echo "    make VBITS=128       linear algebra vector width (64/128/256)"

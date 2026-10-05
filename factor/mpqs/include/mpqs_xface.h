@@ -20,5 +20,4 @@ mpz_t *mpqs_xface(mpz_t n, int *num_factors);
 
 /* Release an array returned by mpqs_xface(). */
 void mpqs_xface_free(mpz_t *factors, int num_factors);
-
 #endif /* _MPQS_XFACE_H_ */

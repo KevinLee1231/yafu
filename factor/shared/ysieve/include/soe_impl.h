@@ -26,10 +26,6 @@ SOFTWARE.
 #define SOE_IMPL_H
 
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdint.h>
 #if defined(_MSC_VER) && defined(__clang__)
 #include <x86intrin.h>
@@ -333,12 +329,5 @@ uint32_t compute_8_bytes_bmi2(soe_staticdata_t* sdata,
 extern uint32_t(*compute_8_bytes_ptr)(soe_staticdata_t*, uint32_t, uint64_t*, uint64_t);
 extern void (*pre_sieve_ptr)(soe_dynamicdata_t*, soe_staticdata_t*, uint8_t*);
 extern void(*sieve_line_ptr)(thread_soedata_t*);
-
-
-
-#ifdef __cplusplus
-}
-#endif
-
 #endif /* #ifndef SOE_IMPL_H */
 

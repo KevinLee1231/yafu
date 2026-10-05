@@ -259,6 +259,5 @@ montmul32_w(uint32 n) {
 #ifdef __cplusplus
 }
 #endif
-
 #endif /* !CPU_INTRINSICS_H */
 

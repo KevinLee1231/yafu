@@ -158,6 +158,5 @@ montmul64_r(uint64 n)
 #ifdef __cplusplus
 }
 #endif
-
 #endif /* !HT_INTRINSICS_H */
 

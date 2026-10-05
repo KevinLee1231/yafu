@@ -328,7 +328,6 @@ void fp_mul_2(z * a, z * b);
 int fp_montgomery_setup(z *a, fp_digit *rho);
 void fp_montgomery_reduce(z *a, z *m, fp_digit mp);
 void s_fp_sub(z *a, z *b, z *c);
-
 #endif
 
 

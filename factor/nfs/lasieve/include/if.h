@@ -1,12 +1,15 @@
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-asm-abi */
+#endif
+
 /*1:*/
-#line 18 "if.w"
 
 #ifdef _WIN64
 #define NEED_ASPRINTF
 #define NEED_FNMATCH
 #define NEED_GETLINE
 #endif
-#line 24 "if.w"
 
 #include <stdarg.h> 
 #include <stdio.h> 
@@ -24,12 +27,17 @@
 #include"filesys.h"
 #endif
 #endif
-#line 41 "if.w"
 
+/* 这四个名字 yafu 那边也有一套（ytools.h 声明、util.h 定义），
+ * 两边用 YA_ALLOC_DECLARED 约定先到者提供。筛法器自己这套是汇编
+ * 需要的裸名字，所以在这里先把宏定下来让 yafu 那边让位。 */
+#ifndef YA_ALLOC_DECLARED
+#define YA_ALLOC_DECLARED
 void*xmalloc(size_t size);
 void*xvalloc(size_t size);
 void*xcalloc(size_t n,size_t s);
 void*xrealloc(void*x,size_t size);
+#endif /* YA_ALLOC_DECLARED */
 void complain(char*fmt,...);
 void Schlendrian(char*fmt,...);
 void logbook(int l,char*fmt,...);
@@ -47,7 +55,6 @@ int read_u64(FILE*,u64_t*,size_t);
 int read_i32(FILE*,i32_t*,size_t);
 int read_u32(FILE*,u32_t*,size_t);
 #else
-#line 63 "if.w"
 #define write_i64(ofile,buffer,count) fwrite((void*)buffer,sizeof(i64_t),count,ofile)
 #define write_u64(ofile,buffer,count) fwrite((void*)buffer,sizeof(u64_t),count,ofile)
 #define write_u32(ofile,buffer,count) fwrite((void*)buffer,sizeof(u32_t),count,ofile)
@@ -57,7 +64,6 @@ int read_u32(FILE*,u32_t*,size_t);
 #define read_u32(ofile,buffer,count) fread((void*)buffer,sizeof(u32_t),count,ofile)
 #define read_i32(ofile,buffer,count) fread((void*)buffer,sizeof(i32_t),count,ofile)
 #endif 
-#line 72 "if.w"
 int yn_query(char*fmt,...);
 ssize_t skip_blanks_comments(char**,size_t*,FILE*);
 int u32_cmp012(const void*,const void*);
@@ -71,20 +77,17 @@ int u64_cmp210(const void*,const void*);
 
 
 #ifdef NEED_ASPRINTF
-int vasprintf(char**ptr,const char*template,va_list ap);
+int vasprintf(char**ptr,const char*fmt,va_list ap);
 int asprintf(char**,const char*,...);
 #endif
-#line 83 "if.w"
 
 #ifdef NEED_GETLINE
 ssize_t getline(char**,size_t*,FILE*);
 #endif
-#line 87 "if.w"
 
 #ifdef NEED_FNMATCH
 int fnmatch(char*,char*,int);
 #endif
-#line 91 "if.w"
 
 typedef unsigned long long ullong;
 
@@ -97,13 +100,15 @@ typedef unsigned long long ullong;
 #define UL_xFMTSTR "%"PRIx64
 #define SIZET_FMTSTR "%zu"
 #else
-#line 103 "if.w"
 #define UL_FMTSTR "%lu"
 #define DLL_FMTSTR "%ld"
 #define UL_XFMTSTR "%lX"
 #define UL_xFMTSTR "%lx"
 #define SIZET_FMTSTR "%zu"
 #endif
-#line 109 "if.w"
 
 /*:1*/
+
+#ifdef __cplusplus
+}  /* yafu-asm-abi */
+#endif

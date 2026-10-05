@@ -842,6 +842,5 @@ typedef struct
         root2 -= ((root2 >= prime) * prime); \
 
 #endif
-
 #endif
 

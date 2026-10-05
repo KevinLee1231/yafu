@@ -22,10 +22,6 @@ $Id: poly.h 1025 2018-08-19 02:20:28Z jasonp_sf $
 #include <polyroot.h>
 #include "gnfs.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #if MAX_POLY_DEGREE < 6
 #error "Polynomial generation assumes degree <= 6 allowed"
 #endif
@@ -114,9 +110,4 @@ void get_poly_combined_score(poly_select_t *poly);
 void analyze_poly(poly_config_t *config, poly_select_t *poly);
 
 void save_poly(poly_config_t *config, poly_select_t *poly);
-
-#ifdef __cplusplus
-}
-#endif
-
 #endif /* _GNFS_POLY_POLY_H_ */

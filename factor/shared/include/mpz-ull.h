@@ -55,5 +55,4 @@ void mpz_tdiv_q_ull(mpz_t rop, mpz_t op1, ullong op2);
 #define mpz_add_ull mpz_add_ui
 #define mpz_tdiv_q_ull mpz_tdiv_q_ui
 #endif
-
 #endif /* _MPZ_ULL_H_ */

@@ -96,5 +96,4 @@ extern void remove_algebraic_factors(fact_obj_t* fobj,
     snfs_t* poly, uint64_t* primes, uint64_t num_p, int VFLAG);
 extern void remove_algebraic_factors_lucas(fact_obj_t* fobj,
     snfs_t* poly, uint64_t* primes, uint64_t num_p, int VFLAG);
-
 #endif

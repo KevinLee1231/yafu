@@ -5846,5 +5846,4 @@ static const struct jpq_t jpqs[JPQSMAX+1]={
 {232792561,28868,17},
 {232792561,28884,19},
 {0,0,0}};
-
 #endif
