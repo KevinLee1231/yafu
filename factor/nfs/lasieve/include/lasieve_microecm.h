@@ -1,3 +1,7 @@
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 /*
 Copyright (c) 2014, Ben Buhrow and (c) 2022, Jeff Hurchalla.
 All rights reserved.
@@ -53,9 +57,6 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #ifndef _LASIEVE_MICROECM_H_
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #define _LASIEVE_MICROECM_H_
 
 #include <stdint.h>
@@ -91,7 +92,9 @@ uint64_t getfactor_upm1(uint64_t q64, uint32_t b1);
 
 
 
+#endif
+
+
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */
-#endif
 #endif

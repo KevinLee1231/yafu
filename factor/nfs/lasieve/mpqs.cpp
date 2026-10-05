@@ -24,6 +24,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "if.h"
 #include "gmp-aux.h"
 #include "mpqs-config.h"
+#include "siever-asm.h"
+#include "lasieve_mpqs.h"
 
 #ifdef MPQS_ZEIT
 #include "zeit.h"

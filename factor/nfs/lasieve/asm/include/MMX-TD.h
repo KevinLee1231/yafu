@@ -3,6 +3,7 @@
 extern "C" {  /* yafu-cpp-linkage */
 #endif
 
+
 static u16_t *
 mmx_xmalloc(size_t n);
 void
@@ -14,6 +15,7 @@ MMX_TdInit(int side,u16_t *x,u16_t *x_ub,u32_t *pbound_ptr,
 MMX_TdUpdate(int side,int j_step);
 u32_t *
 MMX_Td(u32_t *pbuf,int side,u16_t strip_i);
+
 
 
 #ifdef __cplusplus

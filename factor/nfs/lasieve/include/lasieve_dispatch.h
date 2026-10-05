@@ -1,9 +1,10 @@
 #ifndef YAFU_LASIEVE_DISPATCH_H
-#define YAFU_LASIEVE_DISPATCH_H
 
 #ifdef __cplusplus
 extern "C" {  /* yafu-cpp-linkage */
 #endif
+#define YAFU_LASIEVE_DISPATCH_H
+
 
 /* Run the in-process lattice siever for one I value (11..16).
  * Defined in factor/nfs/lasieve/lasieve_dispatch.c, which is still compiled
@@ -13,8 +14,9 @@ extern "C" {  /* yafu-cpp-linkage */
  */
 int lasieve_run(int I, int argc, char **argv);
 
+
+
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */
 #endif
-
 #endif /* YAFU_LASIEVE_DISPATCH_H */

@@ -1,5 +1,4 @@
 /*4:*/
-#line 35 "redu2.w"
 
 #include <math.h> 
 #include <sys/types.h> 
@@ -159,7 +158,6 @@ if(mpz_sizeinbase(r2_b1,2)> 31)return 1;
 *a1_ptr= (i32_t)mpz_get_si(r2_a1);
 *b1_ptr= (i32_t)mpz_get_si(r2_b1);
 #else
-#line 194 "redu2.w"
  if(mpz_sizeinbase(r2_a0,2)> 63)return 1;
 if(mpz_sizeinbase(r2_b0,2)> 63)return 1;
 if(mpz_sizeinbase(r2_a1,2)> 63)return 1;
@@ -169,9 +167,7 @@ if(mpz_sizeinbase(r2_b1,2)> 63)return 1;
 *a1_ptr= (i64_t)mpz_get_sll(r2_a1);
 *b1_ptr= (i64_t)mpz_get_sll(r2_b1);
 #endif
-#line 203 "redu2.w"
  return 0;
 }
 #endif
-#line 206 "redu2.w"
 /*:4*/

@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "siever-asm.h"
 
 /* serial mode: one siever at a time inside this process */
 static pthread_mutex_t serial_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -53,7 +54,7 @@ struct work
 
 static void *sieve_thread(void *arg)
 {
-	struct work *w = arg;
+	struct work *w = (struct work *)arg;
 	char inname[64], startbuf[32], countbuf[32];
 	int slot = w->slot;
 

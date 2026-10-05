@@ -18,8 +18,8 @@ input_poly(mpz_t N,mpz_t **A,i32_t *adeg,mpz_t **B,i32_t *bdeg,mpz_t m,
   mpz_t tmpA, tmpB;
 
   *adeg = *bdeg = 0;
-  *A = xmalloc(9*sizeof(**A)); /* plenty o' room. */
-  *B = xmalloc(9*sizeof(**B));
+  *A = (__mpz_struct (*)[1])xmalloc(9*sizeof(**A)); /* plenty o' room. */
+  *B = (__mpz_struct (*)[1])xmalloc(9*sizeof(**B));
   for (i=0; i<9; i++) {
     mpz_init_set_ui((*A)[i], 0);
     mpz_init_set_ui((*B)[i], 0);

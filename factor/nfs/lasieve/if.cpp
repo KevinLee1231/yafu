@@ -1,5 +1,4 @@
 /*2:*/
-#line 111 "if.w"
 
 
 #include <time.h> 
@@ -7,7 +6,6 @@
 #ifndef _WIN64 
 #include <sys/times.h> 
 #endif
-#line 118 "if.w"
 #include <stdio.h> 
 #include <stdlib.h> 
 #include <stdarg.h> 
@@ -22,18 +20,16 @@ int verbose= 0;
 static unsigned int used_cols,ncol= 80;
 
 /*:2*//*3:*/
-#line 132 "if.w"
 
 void*xmalloc(size_t size)
 {
 char*x;
 if(size==0)return NULL;
-if((x= malloc(size))==NULL)complain("xmalloc: %m\n");
+if((x= (char*)malloc(size))==NULL)complain("xmalloc: %m\n");
 return x;
 }
 
 /*:3*//*4:*/
-#line 142 "if.w"
 
 #if defined( _MSC_VER ) && defined( _WIN64 )
 #error _MSC_VER
@@ -53,7 +49,6 @@ return x;
 }
 
 #elif defined (_WIN64)
-#line 161 "if.w"
 
 void*xvalloc(size_t size)
 {
@@ -64,20 +59,17 @@ return x;
 }
 
 #else
-#line 171 "if.w"
 
 void*xvalloc(size_t size)
 {
 char*x;
 if(size==0)return NULL;
-if((x= valloc(size))==NULL)complain("xvalloc: %m\n");
+if((x= (char*)valloc(size))==NULL)complain("xvalloc: %m\n");
 return x;
 }
 #endif
-#line 180 "if.w"
 
 /*:4*//*5:*/
-#line 182 "if.w"
 
 void*
 xcalloc(size_t n,size_t s)
@@ -89,7 +81,6 @@ return p;
 }
 
 /*:5*//*6:*/
-#line 193 "if.w"
 
 void*xrealloc(void*x,size_t size)
 {
@@ -98,12 +89,11 @@ if(size==0){
 if(x!=NULL)free(x);
 return NULL;
 }
-if((y= realloc(x,size))==NULL&&size!=0)complain("xrealloc: %m\n");
+if((y= (char*)realloc(x,size))==NULL&&size!=0)complain("xrealloc: %m\n");
 return y;
 }
 
 /*:6*//*7:*/
-#line 207 "if.w"
 
 FILE*logfile= NULL;
 
@@ -131,7 +121,6 @@ msg[qlen-2]= '\0';
 snprintf(msg,MAXMSGLEN,"%s%s\n",msg,strerror(errno));
 }
 #endif
-#line 234 "if.w"
 }
 
 
@@ -145,14 +134,11 @@ fprintf(logfile,"%s",msg);
 #ifdef HAVE_BOINC
 boinc_finish(1);
 #else
-#line 247 "if.w"
  lasieve_bail(1);
 #endif
-#line 249 "if.w"
 }
 
 /*:7*//*8:*/
-#line 252 "if.w"
 
 void Schlendrian(char*fmt,...)
 {
@@ -168,14 +154,11 @@ va_end(arglist);
 #ifdef HAVE_BOINC
 boinc_finish(1);
 #else
-#line 262 "if.w"
  lasieve_bail(1);
 #endif
-#line 264 "if.w"
 }
 
 /*:8*//*9:*/
-#line 267 "if.w"
 
 #define NEW_NUMBER -0x10000
 void logbook(int l, char* fmt, ...)
@@ -209,7 +192,6 @@ void logbook(int l, char* fmt, ...)
 }
 
 /*:9*//*10:*/
-#line 297 "if.w"
 
 int
 errprintf(char*fmt,...)
@@ -229,7 +211,6 @@ return res;
 }
 
 /*:10*//*11:*/
-#line 311 "if.w"
 
 void adjust_bufsize(void**buf,size_t*alloc,size_t req,
 size_t incr,size_t item_size)
@@ -244,7 +225,6 @@ else*buf= xmalloc(new_alloc*item_size);
 }
 
 /*:11*//*12:*/
-#line 327 "if.w"
 
 int yn_query(char*fmt,...)
 {
@@ -279,7 +259,6 @@ return result;
 
 
 /*:12*//*13:*/
-#line 356 "if.w"
 
 ssize_t
 skip_blanks_comments(char**iline,size_t*iline_alloc,FILE*ifi)
@@ -292,11 +271,9 @@ return 0;
 }
 
 /*:13*//*14:*/
-#line 368 "if.w"
 
 #ifdef BIGENDIAN
 /*15:*/
-#line 375 "if.w"
 
 static u32_t
 bswap_32(u32_t x)
@@ -306,7 +283,6 @@ return((x&0x000000ffUL)<<24)|((x&0x0000ff00UL)<<8)|
 }
 
 /*:15*//*16:*/
-#line 384 "if.w"
 
 static u64_t
 bswap_64(u64_t x)
@@ -318,7 +294,6 @@ return((x&0xffULL)<<56)|((x&0xff00ULL)<<40)|((x&0xff0000ULL)<<24)|
 }
 
 /*:16*//*17:*/
-#line 395 "if.w"
 
 int
 write_i64(FILE*ofile,i64_t*buffer,size_t count)
@@ -335,7 +310,6 @@ return res;
 }
 
 /*:17*//*18:*/
-#line 411 "if.w"
 
 int
 write_u64(FILE*ofile,u64_t*buffer,size_t count)
@@ -352,7 +326,6 @@ return res;
 }
 
 /*:18*//*19:*/
-#line 427 "if.w"
 
 int
 write_i32(FILE*ofile,i32_t*buffer,size_t count)
@@ -369,7 +342,6 @@ return res;
 }
 
 /*:19*//*20:*/
-#line 443 "if.w"
 
 int
 write_u32(FILE*ofile,u32_t*buffer,size_t count)
@@ -386,7 +358,6 @@ return res;
 }
 
 /*:20*//*21:*/
-#line 459 "if.w"
 
 int
 read_i64(FILE*ifile,i64_t*buffer,size_t count)
@@ -401,7 +372,6 @@ return res;
 }
 
 /*:21*//*22:*/
-#line 473 "if.w"
 
 int
 read_u64(FILE*ifile,u64_t*buffer,size_t count)
@@ -416,7 +386,6 @@ return res;
 }
 
 /*:22*//*23:*/
-#line 487 "if.w"
 
 int
 read_i32(FILE*ifile,i32_t*buffer,size_t count)
@@ -431,7 +400,6 @@ return res;
 }
 
 /*:23*//*24:*/
-#line 501 "if.w"
 
 int
 read_u32(FILE*ifile,u32_t*buffer,size_t count)
@@ -446,14 +414,11 @@ return res;
 }
 
 /*:24*/
-#line 370 "if.w"
 
 #endif 
-#line 372 "if.w"
 
 
 /*:14*//*25:*/
-#line 516 "if.w"
 
 #ifdef NEED_GETLINE
 #define GETL_INCR 128
@@ -480,10 +445,8 @@ if(rv==0||(*lineptr)[rv-1]=='\n')break;
 return rv;
 }
 #endif
-#line 542 "if.w"
 
 /*:25*//*26:*/
-#line 544 "if.w"
 
 #ifdef NEED_ASPRINTF
 int
@@ -505,10 +468,8 @@ size= n>=0?n+1:size*2;
 }
 }
 #endif
-#line 562 "if.w"
 
 /*:26*//*27:*/
-#line 564 "if.w"
 
 #ifdef NEED_ASPRINTF
 int asprintf(char**ptr,const char*template,...)
@@ -522,10 +483,8 @@ va_end(ap);
 return rv;
 }
 #endif
-#line 577 "if.w"
 
 /*:27*//*28:*/
-#line 579 "if.w"
 
 #ifdef NEED_FNMATCH
 int fnmatch(char*s,char*fname,int dummy)
@@ -537,60 +496,55 @@ if(*(fname--)!='.')return 1;
 return 0;
 }
 #endif
-#line 590 "if.w"
 
 
 /*:28*//*29:*/
-#line 594 "if.w"
 
 int
 u32_cmp012(const void*x,const void*y)
 {
 const u32_t*xx,*yy;
-xx= x;
-yy= y;
+xx= (const u32_t*)x;
+yy= (const u32_t*)y;
 if(*xx<*yy)return-1;
 if(*xx> *yy)return 1;
 return 0;
 }
 
 /*:29*//*30:*/
-#line 607 "if.w"
 
 int
 u32_cmp210(const void*x,const void*y)
 {
 const u32_t*xx,*yy;
-xx= x;
-yy= y;
+xx= (const u32_t*)x;
+yy= (const u32_t*)y;
 if(*xx<*yy)return 1;
 if(*xx> *yy)return-1;
 return 0;
 }
 
 /*:30*//*31:*/
-#line 620 "if.w"
 
 int
 u64_cmp012(const void*x,const void*y)
 {
 const u64_t*xx,*yy;
-xx= x;
-yy= y;
+xx= (const u64_t*)x;
+yy= (const u64_t*)y;
 if(*xx<*yy)return-1;
 if(*xx> *yy)return 1;
 return 0;
 }
 
 /*:31*//*32:*/
-#line 633 "if.w"
 
 int
 u64_cmp210(const void*x,const void*y)
 {
 const u64_t*xx,*yy;
-xx= x;
-yy= y;
+xx= (const u64_t*)x;
+yy= (const u64_t*)y;
 if(*xx<*yy)return 1;
 if(*xx> *yy)return-1;
 return 0;

@@ -1210,7 +1210,7 @@ LASIEVE_VARS := \
 # real up-to-date checking; this only has to run.
 .PHONY: lasieve-force
 lasieve-force:
-	$(MAKE) -C $(LASIEVE_DIR) objects $(LASIEVE_VARS)
+	$(MAKE) -C $(LASIEVE_DIR) objects $(LASIEVE_VARS) CXX="$(CXX)"
 
 # Order-only: the objects must exist before the link, but they are not what
 # decides whether yafu relinks.  LASIEVE_FILES is a := list rather than a set of
@@ -1350,8 +1350,8 @@ test-cli: yafu
 
 .PHONY: test-standalone
 test-standalone:
-	CC="$(CC)" CFLAGS="$(USER_CFLAGS)" sh $(TEST_DIR)/test_nfs.sh
-	CC="$(CC)" CFLAGS="$(USER_CFLAGS)" sh $(TEST_DIR)/test_lasieve.sh
+	CC="$(CC)" CFLAGS="$(USER_CFLAGS)" CXX="$(CXX)" CXXFLAGS="$(USER_CXXFLAGS)" sh $(TEST_DIR)/test_nfs.sh
+	CC="$(CC)" CFLAGS="$(USER_CFLAGS)" CXX="$(CXX)" CXXFLAGS="$(USER_CXXFLAGS)" sh $(TEST_DIR)/test_lasieve.sh
 
 # 为所有参与链接的项目源码启用检查；下次常规 make 会按配置记录自动重建。
 .PHONY: test-sanitize
@@ -1422,6 +1422,8 @@ CXX ?= g++
 # a *parameter* is still C-only and has to become `int a[]` or a reference to
 # array; a substitution reference keeps the stem where patsubst would not.
 CXXFLAGS := $(filter-out -std=gnu11,$(CFLAGS)) -std=c++26
+# 与 USER_CFLAGS 对应的 C++ 覆盖入口，供 test-standalone 传下去。
+USER_CXXFLAGS ?= $(filter-out -std=gnu11 -std=c++26,$(CFLAGS))
 
 %.o: %.c | $(DEPS_SUBDIRS)
 	$(CC) $(CFLAGS) -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<

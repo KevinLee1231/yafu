@@ -359,7 +359,7 @@ root_finder64(u64_t *root_buf,mpz_t *A,u32_t adeg,u64_t p)
     /* CAVE falls adeg==0? */
     if(polr_alloc>0) free(polr);
     polr_alloc=300*adeg*adeg;
-    polr=xmalloc(polr_alloc*sizeof(*polr));
+    polr= (u64_t*)xmalloc(polr_alloc*sizeof(*polr));
   }
   if(p==2) {
     u32_t i,pv;

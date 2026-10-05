@@ -18,7 +18,6 @@
 
 
 /*4:*/
-#line 19 "lasieve-prepn.w"
 
 #include <sys/types.h> 
 #include <math.h> 
@@ -33,6 +32,8 @@
 #include "avx512_aux.h"
 
 #include <fenv.h>
+#include "siever-asm.h"
+#include "lasieve-prepn.h"
 #pragma STDC FENV_ACCESS ON
 
 #ifdef _MSC_VER
@@ -224,21 +225,21 @@ __m512i modmul32_16(__m512i z, __mmask16 ndmsk, __m512i x, __m512i y, __m512i p)
 	// multiply the 16-element 32-bit vectors a and b to produce two 8-element
 	// 64-bit vector products e64 and o64, where e64 is the even elements
 	// of a*b and o64 is the odd elements of a*b
-	//__m512i t1 = _mm512_shuffle_epi32(a, 0xB1);
-	//__m512i t2 = _mm512_shuffle_epi32(b, 0xB1);
+	//__m512i t1 = _mm512_shuffle_epi32(a,static_cast<_MM_PERM_ENUM>(0xB1));
+	//__m512i t2 = _mm512_shuffle_epi32(b,static_cast<_MM_PERM_ENUM>(0xB1));
 
-	//_mm512_shuffle_epi32(a, 0xB1);
-	//_mm512_shuffle_epi32(b, 0xB1);
+	//_mm512_shuffle_epi32(a,static_cast<_MM_PERM_ENUM>(0xB1));
+	//_mm512_shuffle_epi32(b,static_cast<_MM_PERM_ENUM>(0xB1));
 	__m512i e = _mm512_mul_epu32(x, y);
-	__m512i o = _mm512_mul_epu32(_mm512_shuffle_epi32(x, 0xB1), _mm512_shuffle_epi32(y, 0xB1));
+	__m512i o = _mm512_mul_epu32(_mm512_shuffle_epi32(x,static_cast<_MM_PERM_ENUM>(0xB1)), _mm512_shuffle_epi32(y,static_cast<_MM_PERM_ENUM>(0xB1)));
 
 	//e = _mm512_rem_epu64(e, _mm512_and_epi64(p, _mm512_set1_epi64(0x00000000ffffffff)));
-	//o = _mm512_rem_epu64(o, _mm512_and_epi64(_mm512_shuffle_epi32(p, 0xB1), _mm512_set1_epi64(0x00000000ffffffff)));
+	//o = _mm512_rem_epu64(o, _mm512_and_epi64(_mm512_shuffle_epi32(p,static_cast<_MM_PERM_ENUM>(0xB1)), _mm512_set1_epi64(0x00000000ffffffff)));
 
 	e = rem_epu64_x8(e, _mm512_and_epi64(p, _mm512_set1_epi64(0x00000000ffffffff)));
-	o = rem_epu64_x8(o, _mm512_and_epi64(_mm512_shuffle_epi32(p, 0xB1), _mm512_set1_epi64(0x00000000ffffffff)));
+	o = rem_epu64_x8(o, _mm512_and_epi64(_mm512_shuffle_epi32(p,static_cast<_MM_PERM_ENUM>(0xB1)), _mm512_set1_epi64(0x00000000ffffffff)));
 
-	x = _mm512_or_epi64(e, _mm512_shuffle_epi32(o, 0xB1));
+	x = _mm512_or_epi64(e, _mm512_shuffle_epi32(o,static_cast<_MM_PERM_ENUM>(0xB1)));
 	return _mm512_mask_blend_epi32(ndmsk, z, x);
 }
 
@@ -388,7 +389,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 
 #if !defined(AVX512_LASIEVE_SETUP) && defined( HAVE_ASM_LASIEVE_SETUP)
 	/*7:*/
-#line 155 "lasieve-prepn.w"
 
 	if (FB[fbsz - 1] < FLOAT_SETUP_BOUND1 &&
 		fabs(a0) + FB[fbsz - 1] * b0 < FLOAT_SETUP_BOUND2 &&
@@ -396,7 +396,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 		asm_lasieve_setup(FB, proots, fbsz, a0, a1, b0, b1, ri_ptr);
 		return;
 	}/*:7*/
-#line 39 "lasieve-prepn.w"
 
 #endif
 
@@ -416,7 +415,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 #define A1MOD0(p) (absa1%p)
 #define A1MOD1(p) absa1
 			/*5:*/
-#line 95 "lasieve-prepn.w"
 
 			{
 				u32_t fbi, fbp_bound;
@@ -435,7 +433,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 
 				
 				for (fbi = 0; (fbi < (fbsz - 16)) && (fbsz >= 16); fbi += 16)/*6:*/
-#line 129 "lasieve-prepn.w"
 
 				{
 					__m512i x;
@@ -529,7 +526,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 
 #else
 				for (fbi = 0; fbi < fbsz && FB[fbi] <= fbp_bound; fbi++)/*6:*/
-#line 129 "lasieve-prepn.w"
 
 				{
 					u32_t x;
@@ -559,7 +555,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 #endif
 
 				/*:6*/
-#line 108 "lasieve-prepn.w"
 
 #undef A0MOD
 #undef A1MOD
@@ -575,7 +570,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 #ifdef AVX512_LASIEVE_SETUP
 				
 				for (; (fbi < (fbsz - 16)) && (fbsz >= 16); fbi += 16)/*6:*/
-#line 129 "lasieve-prepn.w"
 
 				{
 					__m512i x;
@@ -660,7 +654,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 
 #else
 				for (; fbi < fbsz; fbi++)/*6:*/
-#line 129 "lasieve-prepn.w"
 
 				{
 					u32_t x;
@@ -693,7 +686,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 #endif
 
 				/*:6*/
-#line 121 "lasieve-prepn.w"
 
 #undef B0MOD
 #undef B1MOD
@@ -702,7 +694,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 			}
 
 			/*:5*/
-#line 55 "lasieve-prepn.w"
 
 #undef A1MOD0
 #undef A1MOD1
@@ -714,7 +705,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 #define A1MOD0(p) ((aux= absa1%p)> 0 ? p-aux : 0 )
 #define A1MOD1(p) (p-absa1)
 			/*5:*/
-#line 95 "lasieve-prepn.w"
 
 			{
 				u32_t fbi, fbp_bound;
@@ -731,7 +721,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 
 #ifdef AVX512_LASIEVE_SETUP
 				for (fbi = 0; (fbi < (fbsz - 16)) && (fbsz >= 16); fbi += 16)/*6:*/
-#line 129 "lasieve-prepn.w"
 
 				{
 					__m512i x;
@@ -826,7 +815,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 
 #else
 				for (fbi = 0; fbi < fbsz && FB[fbi] <= fbp_bound; fbi++)/*6:*/
-#line 129 "lasieve-prepn.w"
 
 				{
 					u32_t x;
@@ -856,7 +844,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 #endif
 
 				/*:6*/
-#line 108 "lasieve-prepn.w"
 
 #undef A0MOD
 #undef A1MOD
@@ -952,7 +939,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 
 #else
 				for (; fbi < fbsz; fbi++)/*6:*/
-#line 129 "lasieve-prepn.w"
 
 				{
 					u32_t x;
@@ -983,7 +969,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 #endif
 
 				/*:6*/
-#line 121 "lasieve-prepn.w"
 
 #undef B0MOD
 #undef B1MOD
@@ -992,7 +977,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 			}
 
 			/*:5*/
-#line 64 "lasieve-prepn.w"
 
 #undef A1MOD0
 #undef A1MOD1
@@ -1010,7 +994,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 #define A1MOD0(p) (absa1%p)
 #define A1MOD1(p) absa1
 			/*5:*/
-#line 95 "lasieve-prepn.w"
 
 			{
 				u32_t fbi, fbp_bound;
@@ -1028,7 +1011,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 #ifdef AVX512_LASIEVE_SETUP
 
 				for (fbi = 0; (fbi < (fbsz - 16)) && (fbsz >= 16); fbi += 16)/*6:*/
-#line 129 "lasieve-prepn.w"
 
 				{
 					__m512i x;
@@ -1124,7 +1106,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 
 #else
 				for (fbi = 0; fbi < fbsz && FB[fbi] <= fbp_bound; fbi++)/*6:*/
-#line 129 "lasieve-prepn.w"
 
 				{
 					u32_t x;
@@ -1154,7 +1135,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 #endif
 
 				/*:6*/
-#line 108 "lasieve-prepn.w"
 
 #undef A0MOD
 #undef A1MOD
@@ -1252,7 +1232,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 #else
 
 				for (; fbi < fbsz; fbi++)/*6:*/
-#line 129 "lasieve-prepn.w"
 
 				{
 					u32_t x;
@@ -1282,7 +1261,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 #endif
 
 				/*:6*/
-#line 121 "lasieve-prepn.w"
 
 #undef B0MOD
 #undef B1MOD
@@ -1291,7 +1269,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 			}
 
 			/*:5*/
-#line 79 "lasieve-prepn.w"
 
 #undef A1MOD0
 #undef A1MOD1
@@ -1302,7 +1279,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 #define A1MOD0(p) ((aux= absa1%p)> 0 ? p-aux : 0 )
 #define A1MOD1(p) (p-absa1)
 			/*5:*/
-#line 95 "lasieve-prepn.w"
 
 			{
 				u32_t fbi, fbp_bound;
@@ -1319,7 +1295,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 
 #ifdef AVX512_LASIEVE_SETUP
 				for (fbi = 0; (fbi < (fbsz - 16)) && (fbsz >= 16); fbi += 16)/*6:*/
-#line 129 "lasieve-prepn.w"
 
 				{
 					__m512i x;
@@ -1418,7 +1393,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 
 #else
 				for (fbi = 0; fbi < fbsz && FB[fbi] <= fbp_bound; fbi++)/*6:*/
-#line 129 "lasieve-prepn.w"
 
 				{
 					u32_t x;
@@ -1449,7 +1423,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 
 
 				/*:6*/
-#line 108 "lasieve-prepn.w"
 
 #undef A0MOD
 #undef A1MOD
@@ -1548,7 +1521,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 
 
 				for (; fbi < fbsz; fbi++)/*6:*/
-#line 129 "lasieve-prepn.w"
 
 				{
 					u32_t x;
@@ -1578,7 +1550,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 #endif
 
 				/*:6*/
-#line 121 "lasieve-prepn.w"
 
 #undef B0MOD
 #undef B1MOD
@@ -1587,7 +1558,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 			}
 
 			/*:5*/
-#line 87 "lasieve-prepn.w"
 
 #undef A1MOD0
 #undef A1MOD1

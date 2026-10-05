@@ -35,6 +35,7 @@
 #include <string.h>
 
 #include "siever-config.h"
+#include "siever-asm.h"
 
 /* each of these is the renamed main() of objI<N>/gnfs-lasieve4e.o */
 int mainI11(int argc, char **argv);

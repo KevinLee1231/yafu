@@ -1,5 +1,4 @@
 /*2:*/
-#line 50 "gmp-aux.w"
 
 #include <stdlib.h> 
 #include <sys/types.h> 
@@ -23,7 +22,6 @@
 
 
 /*:2*//*3:*/
-#line 82 "gmp-aux.w"
 
 int
 string2mpz(mpz_t rop,char*x,int base)
@@ -39,7 +37,7 @@ if(l==0){
 mpz_set_ui(rop,0);
 return -1;
 }
-y= xmalloc(l+1);
+y= (char*)xmalloc(l+1);
 memcpy(y,x,l);
 y[l]= '\0';
 rv= mpz_set_str(rop,y,base);
@@ -48,7 +46,6 @@ return rv;
 }
 
 /*:3*//*4:*/
-#line 103 "gmp-aux.w"
 
 #ifdef NEED_MPZ_MUL_SI
 void mpz_mul_si(mpz_t x,mpz_t y,long int z)

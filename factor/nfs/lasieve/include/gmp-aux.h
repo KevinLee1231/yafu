@@ -2,8 +2,8 @@
 #ifdef __cplusplus
 extern "C" {  /* yafu-cpp-linkage */
 #endif
+
 /*1:*/
-#line 12 "gmp-aux.w"
 
 void adjust_mpz_bufsize(mpz_t**x,size_t*alloc_ptr,size_t size,size_t increment);
 int string2mpz(mpz_t rop,char*x,int base);
@@ -13,7 +13,6 @@ int string2mpz(mpz_t rop,char*x,int base);
 
 
 #endif
-#line 21 "gmp-aux.w"
 
 #define mpz_add_si(r,o,s) \
   ({ int _s; _s= (s); \
@@ -34,7 +33,6 @@ void mpz_set_ull(mpz_t,unsigned long long);
 void mpz_add_ull(mpz_t rop, mpz_t op1, ullong op2);
 void mpz_tdiv_q_ull(mpz_t rop, mpz_t op1, ullong op2);
 #else
-#line 39 "gmp-aux.w"
 #define mpz_ull_init()
 #define mpz_mul_ull mpz_mul_ui
 #define mpz_mul_sll mpz_mul_si
@@ -47,8 +45,8 @@ void mpz_tdiv_q_ull(mpz_t rop, mpz_t op1, ullong op2);
 #define mpz_add_ull mpz_add_ui
 #define mpz_tdiv_q_ull mpz_tdiv_q_ui
 #endif
-#line 49 "gmp-aux.w"
 /*:1*/
+
 
 
 #ifdef __cplusplus

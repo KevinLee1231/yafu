@@ -1,3 +1,7 @@
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 /* lasieve_bail.h -- leaving the siever without leaving the process.
  *
  * The siever used to be a program, so its error paths and its main() could
@@ -11,15 +15,14 @@
  */
 #ifndef LASIEVE_BAIL_H
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-cpp-linkage */
-#endif
 #define LASIEVE_BAIL_H
 
 void lasieve_bail(int status);
 
 
+#endif
+
+
 #ifdef __cplusplus
 }  /* yafu-cpp-linkage */
-#endif
 #endif

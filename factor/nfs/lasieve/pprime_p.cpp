@@ -45,13 +45,7 @@ static gmp_randstate_t randstate;
 #endif
 
 static int
-possibly_prime (n, n_minus_1, x, y, q, k)
-     mpz_srcptr n;
-     mpz_srcptr n_minus_1;
-     mpz_ptr x;
-     mpz_ptr y;
-     mpz_srcptr q;
-     ulong k;
+possibly_prime(mpz_srcptr n, mpz_srcptr n_minus_1, mpz_ptr x, mpz_ptr y, mpz_srcptr q, ulong k)
 {
   ulong i;
 
@@ -106,9 +100,7 @@ int
 #if __STDC__
 mpz_probab_prime_p1 (mpz_srcptr m, int reps)
 #else
-mpz_probab_prime_p1 (m, reps)
-     mpz_srcptr m;
-     int reps;
+mpz_probab_prime_p1(mpz_srcptr m, int reps)
 #endif
 {
   mpz_t n, n_minus_1, x, y, q;

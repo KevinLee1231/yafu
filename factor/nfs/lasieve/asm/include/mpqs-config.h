@@ -3,6 +3,7 @@
 extern "C" {  /* yafu-cpp-linkage */
 #endif
 
+
 #define uchar unsigned char
 
 #define USE_MEMCPY
@@ -165,6 +166,7 @@ static ushort mpqs3_param[15][7]={
 #endif
 
 #define MOD3
+
 
 
 

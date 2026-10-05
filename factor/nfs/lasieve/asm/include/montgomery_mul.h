@@ -7,9 +7,28 @@
 // SMJS For ulong type
 #include "siever-config.h"
 
+/* 这几个 montgomery 暂存区在 C 时代靠 -fcommon 在 ecm 与 pm1
+ * 之间合成一份；C++ 里每个定义都是强的，所以改成头里声明、
+ * 只留一份定义（在 ecm.cpp）。*/
+extern ulong mm_A[NMAX_ULONGS];
+extern ulong mm_B[NMAX_ULONGS];
+extern ulong mm_C[NMAX_ULONGS];
+extern ulong mm_a[NMAX_ULONGS];
+extern ulong mm_b[NMAX_ULONGS];
+extern ulong mm_one[NMAX_ULONGS];
+extern ulong mm_prod[NMAX_ULONGS];
+extern ulong mm_u[NMAX_ULONGS];
+extern ulong mm_v[NMAX_ULONGS];
+extern ulong mm_w[NMAX_ULONGS];
+extern ulong mm_x[NMAX_ULONGS];
+extern ulong mm_x1[NMAX_ULONGS];
+extern ulong mm_z[NMAX_ULONGS];
+extern ulong mm_z1[NMAX_ULONGS];
+
 #ifdef __cplusplus
 extern "C" {  /* yafu-cpp-linkage */
 #endif
+
 /*
 #ifdef _WIN64
 typedef  unsigned long long ulong;
@@ -76,6 +95,7 @@ void asm_sqm192(ulong *,ulong *);
 void asm_diff192(ulong *,ulong *,ulong *);
 void asm_add192_ui(ulong *,ulong);
 int asm_inv192(ulong *,ulong *);
+
 
 
 #ifdef __cplusplus

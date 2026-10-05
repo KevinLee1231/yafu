@@ -1,5 +1,5 @@
 #define main process_batch_program_main
-#include "factor/nfs/lasieve/process_batch.c"
+#include "factor/nfs/lasieve/process_batch.cpp"
 #undef main
 #include <assert.h>
 int main(void) {

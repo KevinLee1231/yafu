@@ -1,5 +1,4 @@
 /*3:*/
-#line 33 "strategy.w"
 
 #include <stdio.h> 
 #include <sys/types.h> 
@@ -38,6 +37,7 @@ static i64_t mpqsaux_clock;
 
 // for tinyecm/microecm
 #include "lasieve_microecm.h"
+#include "siever-asm.h"
 static uint64_t pran;
 static mpz_t uecm_factors[3];
 static int uecm_initialized = 0;
@@ -51,18 +51,15 @@ static double cost,yield;
 static u64_t cf_n= 0,cf_necm= 0,cf_naux= 0,cf_nauxmpqs= 0,cf_nauxmpqs3= 0;
 static u64_t cf_nauxmpqstoobig= 0,cf_nauxecm= 0;
 #endif
-#line 74 "strategy.w"
 
 #ifdef CF_STAT_EXACT
 static u32_t**stat_cand;
 static u32_t**stat_success;
 static u32_t*stat_mpqsaux,*stat_aux;
 #endif
-#line 80 "strategy.w"
 
 
 /*:3*//*4:*/
-#line 83 "strategy.w"
 
 void print_strategy(strat_t s)
 {
@@ -98,7 +95,6 @@ void print_strategy(strat_t s)
 
 
 /*:4*//*5:*/
-#line 118 "strategy.w"
 
 static u32_t get_pm1_type(u32_t B1, u32_t B2)
 {
@@ -111,7 +107,6 @@ static u32_t get_pm1_type(u32_t B1, u32_t B2)
 
 
 /*:5*//*6:*/
-#line 130 "strategy.w"
 
 static void get_pm1_param(u32_t* b1ptr, u32_t* b2ptr, u32_t type)
 {
@@ -121,7 +116,6 @@ static void get_pm1_param(u32_t* b1ptr, u32_t* b2ptr, u32_t type)
 
 
 /*:6*//*7:*/
-#line 139 "strategy.w"
 
 static u32_t get_ecm_type(u32_t B1, u32_t B2)
 {
@@ -134,7 +128,6 @@ static u32_t get_ecm_type(u32_t B1, u32_t B2)
 
 
 /*:7*//*8:*/
-#line 151 "strategy.w"
 
 static void get_ecm_param(u32_t* b1ptr, u32_t* b2ptr, u32_t type)
 {
@@ -144,7 +137,6 @@ static void get_ecm_param(u32_t* b1ptr, u32_t* b2ptr, u32_t type)
 
 
 /*:8*//*9:*/
-#line 160 "strategy.w"
 
 u32_t get_fm_type(char** lptr)
 {
@@ -188,7 +180,6 @@ u32_t get_fm_type(char** lptr)
 
 
 /*:9*//*10:*/
-#line 200 "strategy.w"
 
 void read_strategy(strat_t* s, u16_t* maxcomp, char* basename, u16_t* maxpr)
 {
@@ -224,7 +215,6 @@ void read_strategy(strat_t* s, u16_t* maxcomp, char* basename, u16_t* maxpr)
 		stat_yield[i] = (double*)xcalloc((size_t)(1 + maxcomp[1]), sizeof(double));
 	cost = 0.; yield = 0.;
 #endif
-#line 235 "strategy.w"
 #ifdef CF_STAT_EXACT
 	stat_cand = (u32_t**)xmalloc((1 + maxcomp[0]) * sizeof(u32_t*));
 	for (i = 0; i <= maxcomp[0]; i++)
@@ -236,7 +226,6 @@ void read_strategy(strat_t* s, u16_t* maxcomp, char* basename, u16_t* maxpr)
 	stat_aux = (u32_t*)xcalloc((size_t)(1 + i), sizeof(u32_t));
 	stat_mpqsaux = (u32_t*)xcalloc((size_t)(1 + i), sizeof(u32_t));
 #endif
-#line 246 "strategy.w"
 
 	asprintf(&ifn, "%s.st", basename);
 	if ((ifile = fopen(ifn, "r")) != 0) {
@@ -265,7 +254,6 @@ void read_strategy(strat_t* s, u16_t* maxcomp, char* basename, u16_t* maxpr)
 				complain("file %s contains corrupt line:\n%s", ifn, input_line);
 			line = tail;
 #endif
-#line 274 "strategy.w"
 			while (*line) {
 				if (*line == 'X')break;
 				if (*line == 'Y')break;
@@ -356,7 +344,6 @@ void read_strategy(strat_t* s, u16_t* maxcomp, char* basename, u16_t* maxpr)
 
 
 /*:10*//*11:*/
-#line 363 "strategy.w"
 
 int cofactorisation(strat_t* st, mpz_t** large_primes, mpz_t* large_factors,
 	u16_t* max_primebits, u32_t* nlp, mpz_t* FBb_sq,
@@ -399,12 +386,10 @@ int cofactorisation(strat_t* st, mpz_t** large_primes, mpz_t* large_factors,
 #ifdef CF_STAT
 		yield += 1.;
 #endif
-#line 393 "strategy.w"
 #ifdef CF_STAT_EXACT
 		stat_cand[0][0]++;
 		stat_success[0][0]++;
 #endif
-#line 397 "strategy.w"
 		return 0;
 	}
 
@@ -413,11 +398,9 @@ int cofactorisation(strat_t* st, mpz_t** large_primes, mpz_t* large_factors,
 	yield += stat_yield[nb[0]][nb[1]];
 	cost += stat_cost[nb[0]][nb[1]];
 #endif
-#line 404 "strategy.w"
 #ifdef CF_STAT_EXACT
 	stat_cand[nb[0]][nb[1]]++;
 #endif
-#line 407 "strategy.w"
 
 	if (cf_ecm_init == 0) {
 		ecm_curve_init(e[0]);
@@ -434,7 +417,6 @@ int cofactorisation(strat_t* st, mpz_t** large_primes, mpz_t* large_factors,
 	cf_n++;
 #endif
 
-#line 419 "strategy.w"
 
 	for (s = 0; s < 2; s++)
 		if (nlp[s] == 2) { nlp[s] = 0; done[s] = 0; pm1done[s] = 0; }
@@ -892,7 +874,6 @@ int cofactorisation(strat_t* st, mpz_t** large_primes, mpz_t* large_factors,
 			if (nf < 0)return-3;
 			if (nf) {
 				/*12:*/
-#line 480 "strategy.w"
 				printf("trying big ecm\n");
 				{
 					int es, need_test[2], order[2], o;
@@ -900,7 +881,6 @@ int cofactorisation(strat_t* st, mpz_t** large_primes, mpz_t* large_factors,
 #ifdef CF_STAT
 					cf_necm++;
 #endif
-#line 487 "strategy.w"
 					mpz_set(ecm_f[0], fac[0]);
 					sf[0] = mpz_sizeinbase(ecm_f[0], 2);
 					if (sf[0] <= 1)return-4;
@@ -937,13 +917,10 @@ int cofactorisation(strat_t* st, mpz_t** large_primes, mpz_t* large_factors,
 #ifdef CF_STAT_EXACT
 								stat_aux[mpz_sizeinbase(ecm_f[es], 2)]++;
 #endif
-#line 522 "strategy.w"
 #ifdef CF_STAT
 								cf_naux++;
 #endif
-#line 525 "strategy.w"
 								/*13:*/
-#line 534 "strategy.w"
 
 								{
 									u32_t ne;
@@ -957,11 +934,9 @@ int cofactorisation(strat_t* st, mpz_t** large_primes, mpz_t* large_factors,
 #ifdef CF_STAT_EXACT
 											stat_mpqsaux[sz]++;
 #endif
-#line 547 "strategy.w"
 #ifdef CF_STAT
 											cf_nauxmpqs++;
 #endif
-#line 550 "strategy.w"
 											nf = mpqs_factor(ecm_f[es], max_primebits[s], &fac);
 										}
 										else {
@@ -969,16 +944,13 @@ int cofactorisation(strat_t* st, mpz_t** large_primes, mpz_t* large_factors,
 #ifdef CF_STAT
 												cf_nauxmpqs3++;
 #endif
-#line 556 "strategy.w"
 #ifdef CF_STAT_EXACT
 												stat_mpqsaux[sz]++;
 #endif
-#line 559 "strategy.w"
 												if (sz > 128) {
 #ifdef CF_STAT
 													cf_nauxmpqstoobig++;
 #endif
-#line 563 "strategy.w"
 													mpqsaux_clock += clock() - cl; return-1;
 												}
 												nf = mpqs3_factor(ecm_f[es], max_primebits[s], &fac);
@@ -1004,7 +976,6 @@ int cofactorisation(strat_t* st, mpz_t** large_primes, mpz_t* large_factors,
 #ifdef CF_STAT
 												cf_nauxecm++;
 #endif
-#line 586 "strategy.w"
 												nf = ecm(e[s], &fac);
 												nfecm++; if (nf > 0)nsecm++;
 												ne++;
@@ -1051,7 +1022,6 @@ int cofactorisation(strat_t* st, mpz_t** large_primes, mpz_t* large_factors,
 								}
 
 								/*:13*/
-#line 525 "strategy.w"
 								;
 							}
 						}
@@ -1061,7 +1031,6 @@ int cofactorisation(strat_t* st, mpz_t** large_primes, mpz_t* large_factors,
 				}
 
 				/*:12*/
-#line 458 "strategy.w"
 
 			}
 		}
@@ -1077,12 +1046,10 @@ int cofactorisation(strat_t* st, mpz_t** large_primes, mpz_t* large_factors,
 #ifdef CF_STAT_EXACT
 	stat_success[nb[0]][nb[1]]++;
 #endif
-#line 470 "strategy.w"
 	return 0;
 }
 
 /*:11*//*14:*/
-#line 631 "strategy.w"
 
 void print_strategy_stat()
 {
@@ -1096,7 +1063,6 @@ logbook(0,"COF: %llu tests, %llu ecm, %llu aux:\n",cf_n,cf_necm,cf_naux);
 logbook(0,"       %llu mpqs, %llu mpqs3, %llu ecm, %llu too big\n",
 cf_nauxmpqs,cf_nauxmpqs3,cf_nauxecm,cf_nauxmpqstoobig);
 #endif
-#line 644 "strategy.w"
 
 #ifdef CF_STAT_EXACT
 {
@@ -1116,5 +1082,4 @@ if(stat_aux[i])
 logbook(0,"%u: %u (%u)\n",i,stat_aux[i],stat_mpqsaux[i]);
 }
 #endif
-#line 663 "strategy.w"
 }/*:14*/

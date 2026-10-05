@@ -13,6 +13,7 @@ extern "C" {  /* yafu-cpp-linkage */
 
 
 
+
 #define HAVE_CMOV
 
 #ifdef _WIN64
@@ -149,6 +150,7 @@ u64_t ASM_ATTR asm_modmul64(u64_t,u64_t);
 #line 153 "siever-config.w"
 
 #define N_PRIMEBOUNDS 12
+
 
 
 #ifdef __cplusplus

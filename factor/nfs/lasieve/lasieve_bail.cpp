@@ -21,6 +21,7 @@
 
 #include <setjmp.h>
 #include <stdlib.h>
+#include "lasieve_bail.h"
 
 __thread jmp_buf lasieve_bail_frame;
 __thread int lasieve_bail_armed;

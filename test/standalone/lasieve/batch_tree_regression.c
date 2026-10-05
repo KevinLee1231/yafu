@@ -1,9 +1,9 @@
-#include "factor/nfs/lasieve/batch_factor.c"
+#include "factor/nfs/lasieve/batch_factor.cpp"
 #include <assert.h>
 int main(void) {
     bintree_t tree;
     tree.size = tree.alloc = 1;
-    tree.nodes = calloc(1, sizeof(*tree.nodes));
+    tree.nodes = (bintree_element_t *)calloc(1, sizeof(*tree.nodes));
     assert(tree.nodes != NULL);
     tree.nodes[0].low = 0;
     tree.nodes[0].high = 9;

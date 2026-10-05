@@ -1,5 +1,4 @@
 /*4:*/
-#line 17 "input-poly.w"
 
 #include <stdio.h> 
 #include <sys/types.h> 

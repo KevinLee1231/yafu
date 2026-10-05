@@ -286,7 +286,7 @@ root_finder(u32_t *root_buf,mpz_t *A,u32_t adeg,u32_t p)
     /* CAVE falls adeg==0? */
     if(polr_alloc>0) free(polr);
     polr_alloc=300*adeg*adeg;
-    polr=xmalloc(polr_alloc*sizeof(*polr));
+    polr= (u32_t*)xmalloc(polr_alloc*sizeof(*polr));
   }
   if(p==2) {
     u32_t i,pv;

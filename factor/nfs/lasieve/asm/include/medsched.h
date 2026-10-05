@@ -2,6 +2,7 @@
 #ifdef __cplusplus
 extern "C" {  /* yafu-cpp-linkage */
 #endif
+
 /* SMJS Old style prototypes replaced
 u32_t *medsched(u32_t*,u32_t*,u32_t*,u32_t**,u32_t,u32_t);
 u32_t *medsched_1(u32_t*,u32_t*,u32_t*,u32_t,unsigned char *,
@@ -13,6 +14,7 @@ medsched(u32_t *ri, u32_t *ij_ptr, u32_t *ij_ptr_ub,
 u32_t *
 medsched_1(u32_t *ri, u32_t *ij_ptr, u32_t *ij_ptr_ub, u32_t ot, u32_t FBsize,
            unsigned char *si, unsigned char lo);
+
 
 
 #ifdef __cplusplus

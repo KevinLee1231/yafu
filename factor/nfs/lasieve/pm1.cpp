@@ -31,6 +31,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "montgomery_mul.h"
 #include "pm1.h"
 #include "lasieve_ctx.h"
+#include "siever-asm.h"
 
 
 #define BUF_INC    256
@@ -41,8 +42,6 @@ extern ulong montgomery_modulo_R2[NMAX_ULONGS];
 extern size_t montgomery_ulongs;
 
 
-extern void gcd(ulong *,ulong *,ulong *);
-extern int asm_invert(ulong *,ulong *);
 
 
 
@@ -311,7 +310,7 @@ static u32_t find_triples(uchar **rop, uchar **pr, u32_t dim1, u32_t dim2)
   }
   if (dim1>254) tmp[ind++]=255;
   tmp[ind++]=255;
-  tmp=xrealloc(tmp,ind*sizeof(uchar));
+  tmp= (unsigned char*)xrealloc(tmp,ind*sizeof(uchar));
   *rop=tmp;
   for (i=0; i<dim1; i++) res+=cnt[i]; /* remaining tests */
   free(cnt);
@@ -371,8 +370,8 @@ static u32_t create_B2_scheme(lasieve_scheme2_t *s, u32_t B1, u32_t B2, u32_t d,
     free(tabnr);
     for (i=0; i<dim1; i++) free(pr[i]);
     free(pr);
-    s->rpc=xmalloc(1);
-    s->tests=xmalloc(1);
+    s->rpc= (unsigned char*)xmalloc(1);
+    s->tests= (unsigned char*)xmalloc(1);
     return 0;
   }
 
@@ -510,17 +509,8 @@ static void pm1_init_pointers()
 
 /* ------------------ step 1 --------------------- */
 
-ulong mm_b[NMAX_ULONGS];
-ulong mm_one[NMAX_ULONGS];
-ulong mm_a[NMAX_ULONGS];
 
-ulong mm_u[NMAX_ULONGS];
-ulong mm_w[NMAX_ULONGS];
-ulong mm_prod[NMAX_ULONGS];
 
-ulong mm_A[NMAX_ULONGS];
-ulong mm_B[NMAX_ULONGS];
-ulong mm_C[NMAX_ULONGS];
 
 static int pm1_step1()
 {

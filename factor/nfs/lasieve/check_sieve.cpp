@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "siever-asm.h"
 
 int lasieve_run(int I, int argc, char **argv);
 

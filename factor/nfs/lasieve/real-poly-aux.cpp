@@ -26,7 +26,7 @@ tpol(double *rop,double *op,i32_t deg,i32_t x0,i32_t x1,i32_t y0,i32_t y1)
   if(aux_alloc<deg+1) {
     if(aux_alloc>0) free(aux);
     aux_alloc=deg+1;
-    aux=xmalloc(aux_alloc*sizeof(*aux));
+    aux= (double*)xmalloc(aux_alloc*sizeof(*aux));
   }
   rop[0]=op[0]*y1;
   rop[1]=op[0]*y0;
@@ -64,7 +64,7 @@ tpol64(double *rop,double *op,i32_t deg,i64_t x0,i64_t x1,i64_t y0,i64_t y1)
   if(aux_alloc<deg+1) {
     if(aux_alloc>0) free(aux);
     aux_alloc=deg+1;
-    aux=xmalloc(aux_alloc*sizeof(*aux));
+    aux= (double*)xmalloc(aux_alloc*sizeof(*aux));
   }
   rop[0]=op[0]*y1;
   rop[1]=op[0]*y0;
@@ -153,8 +153,8 @@ rpol_prepare_lb(double *p,i32_t d,i32_t *nr,i32_t *no,double *r,double *o)
     return;
   }
   o[0]=parg_lb;
-  deriv=alloca(d*sizeof(*deriv));
-  o1=alloca(d*sizeof(*o1));
+  deriv= (double*)alloca(d*sizeof(*deriv));
+  o1= (double*)alloca(d*sizeof(*o1));
   for(i=0;i<d;i++) deriv[i]=(i+1)*p[i+1];
   rpol_prepare_lb(deriv,d-1,&ndr,&ndo,o+1,o1);
   *no=ndr+2;
@@ -218,10 +218,7 @@ rpol_prepare_lb(double *p,i32_t d,i32_t *nr,i32_t *no,double *r,double *o)
 }
 
 void
-get_sieve_report_bounds(sr_bounds,poly,d,a,b,steps,smult,lps)
-     double *poly,smult,lps;
-     i32_t d,a,b,steps;
-     unsigned char **sr_bounds;
+get_sieve_report_bounds(unsigned char ** sr_bounds, double * poly, i32_t d, i32_t a, i32_t b, i32_t steps, double smult, double lps)
 {
   double *r1,*o1; /* Roots and local optima with |x|<=|y|. */
   double *o2; /* Local optima with |y|<=|x|. */
@@ -230,9 +227,9 @@ get_sieve_report_bounds(sr_bounds,poly,d,a,b,steps,smult,lps)
   if(d<=0) complain("Trying to get sieve report bounds for a poldeg %d\n",d);
   if(a%2!=0)
     complain("Odd number %d of steps in i-direction for poly min\n",a);
-  r1=alloca(d*sizeof(*r1));
-  o1=alloca((d+1)*sizeof(*o1));
-  o2=alloca((d+1)*sizeof(*o2));
+  r1= (double*)alloca(d*sizeof(*r1));
+  o1= (double*)alloca((d+1)*sizeof(*o1));
+  o2= (double*)alloca((d+1)*sizeof(*o2));
   /* Calculate o2, using o1 as a polynomial buffer. */
   for(i=0;i<=d;i++) o1[d-i]=poly[i];
   parg_lb=0;
