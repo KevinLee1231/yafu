@@ -21,6 +21,10 @@ typedef unsigned long ulong;
 typedef unsigned long long ullong;
 #include <gmp.h>
 
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
 #define mpz_add_si(r,o,s) \
   ({ int _s; _s= (s); \
      _s>=0 ? mpz_add_ui(r,o,(mp_limb_t)(_s)) : mpz_sub_ui(r,o,(mp_limb_t)(0u-(unsigned int)_s)); })
@@ -56,4 +60,8 @@ void mpz_tdiv_q_ull(mpz_t rop, mpz_t op1, ullong op2);
 #define mpz_tdiv_q_ull mpz_tdiv_q_ui
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* _MPZ_ULL_H_ */

@@ -36,6 +36,10 @@ SOFTWARE.
 #endif
 
 #include "gmp.h"
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 #include "ytools.h"
 
 #define USE_SOE_THREADPOOL
@@ -249,6 +253,7 @@ typedef struct
 // interface functions
 extern soe_staticdata_t* soe_init(int vflag, int threads, int blocksize);
 extern void soe_finalize(soe_staticdata_t* sdata);
+extern uint32_t tiny_soe(uint32_t limit, uint32_t *primes);
 extern uint64_t* soe_wrapper(soe_staticdata_t* sdata, uint64_t lowlimit, uint64_t highlimit,
     int count, uint64_t* num_p, int PRIMES_TO_FILE, int PRIMES_TO_SCREEN);
 extern uint64_t* sieve_to_depth(soe_staticdata_t* sdata,
@@ -257,4 +262,8 @@ extern uint64_t* sieve_to_depth(soe_staticdata_t* sdata,
     int PRIMES_TO_FILE, int PRIMES_TO_SCREEN);
 
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif // #ifndef SOE_H

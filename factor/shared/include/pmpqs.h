@@ -24,8 +24,16 @@ code to the public domain.
 #include <stdint.h>
 #include "gmp.h"
 
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
 extern mpz_t* pmpqs(mpz_t n, int *num_factors);
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* _PMPQS_H_ */
 
 

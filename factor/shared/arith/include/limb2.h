@@ -17,6 +17,10 @@
    =========================================================================== */
 
 #ifndef LIMB2_H
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 #define LIMB2_H
 
 #include "limb1.h"
@@ -820,4 +824,8 @@ static UNUSED_FUNC void bin_gcd128(uint64_t *u, uint64_t *v, uint64_t *w)
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* LIMB2_H */

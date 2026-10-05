@@ -1,3 +1,7 @@
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 #include <immintrin.h>
 #include "common.h"
 
@@ -406,4 +410,9 @@
                 h.stop = j - 32; \
 			} while(0);
 
+#endif
+
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
 #endif

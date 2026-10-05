@@ -6,6 +6,10 @@
 
 // SMJS For ulong type
 #include "siever-config.h"
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 /*
 #ifdef _WIN64
 typedef  unsigned long long ulong;
@@ -73,4 +77,8 @@ void asm_diff192(ulong *,ulong *,ulong *);
 void asm_add192_ui(ulong *,ulong);
 int asm_inv192(ulong *,ulong *);
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif

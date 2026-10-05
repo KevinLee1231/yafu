@@ -3,6 +3,10 @@
 
 
 #ifndef _SAVEFILE_H_
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 #define _SAVEFILE_H_
 
 
@@ -86,4 +90,8 @@ void savefile_flush(savefile_t* s);
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* _SAVEFILE_H_ */

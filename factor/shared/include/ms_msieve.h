@@ -13,6 +13,10 @@ $Id: msieve.h 1008 2016-11-11 17:48:13Z jasonp_sf $
 --------------------------------------------------------------------*/
 
 #ifndef _MSIEVE_H_
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 #define _MSIEVE_H_
 
 #ifdef __cplusplus
@@ -180,4 +184,8 @@ void msieve_run(msieve_obj *obj);
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* _MSIEVE_H_ */

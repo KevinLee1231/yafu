@@ -1,3 +1,7 @@
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 /*
   Copyright (C) 2004 Jens Franke, Torsten Kleinjung
   This file is part of mpqs4linux, distributed under the terms of the 
@@ -98,3 +102,8 @@ static inline u32_t modsub32(u32_t subtrahend,u32_t minuend)
 }
 
 #undef MODULO32_ASM
+
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif

@@ -23,6 +23,10 @@ $Id: poly.h 1025 2018-08-19 02:20:28Z jasonp_sf $
 #include "gnfs.h"
 
 #ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -119,4 +123,8 @@ void save_poly(poly_config_t *config, poly_select_t *poly);
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* _GNFS_POLY_POLY_H_ */

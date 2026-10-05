@@ -20,6 +20,10 @@ $Id$
 #include "ms_lanczos.h"
 
 #ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -102,4 +106,8 @@ void mul_NxB_BxB_acc_gpu(packed_matrix_t *matrix,
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* !_COMMON_LANCZOS_GPU_LANCZOS_GPU_H_ */

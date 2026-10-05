@@ -1,5 +1,9 @@
 #include "common.h"
 #ifndef __aarch64__
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 #include <immintrin.h>
 #endif
 
@@ -843,5 +847,9 @@ typedef struct
 
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif
 

@@ -75,6 +75,10 @@
 #define MONTY_H
 
 #include "arith.h"
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 #include "common.h"
 #include "ytools.h"
 
@@ -1721,4 +1725,8 @@ static UNUSED_FUNC void bin_gcd128(uint64_t *u, uint64_t *v, uint64_t *w)
 
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif

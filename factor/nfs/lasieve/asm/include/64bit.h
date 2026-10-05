@@ -1,3 +1,7 @@
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 /*
   Copyright (C) 2000,2006 Jens Franke, Thorsten Kleinjung
   This file is part of gnfs4linux, distributed under the terms of the 
@@ -27,4 +31,9 @@ static inline u64_t modadd64(u64_t x,u64_t y)
   if (res>=modulo64) res-=modulo64;
   return res;
 }
+#endif
+
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
 #endif

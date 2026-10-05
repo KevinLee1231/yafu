@@ -23,6 +23,10 @@ $Id: filter.h 1020 2018-05-18 13:33:21Z jasonp_sf $
 #include <ms_common.h>
 
 #ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -155,4 +159,8 @@ void filter_dump_relsets(msieve_obj *obj, merge_t *merge);
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* _COMMON_FILTER_FILTER_H_ */

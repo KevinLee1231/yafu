@@ -19,6 +19,10 @@ $Id: poly_skew.h 1025 2018-08-19 02:20:28Z jasonp_sf $
 #include "poly_stats.h"
 
 #ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -154,4 +158,8 @@ void poly_stage1_run(msieve_obj* obj, poly_stage1_t* data);
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* _GNFS_POLY_POLY_SKEW_H_ */

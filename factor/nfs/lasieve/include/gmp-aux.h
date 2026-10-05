@@ -1,3 +1,7 @@
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 /*1:*/
 #line 12 "gmp-aux.w"
 
@@ -45,3 +49,8 @@ void mpz_tdiv_q_ull(mpz_t rop, mpz_t op1, ullong op2);
 #endif
 #line 49 "gmp-aux.w"
 /*:1*/
+
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif

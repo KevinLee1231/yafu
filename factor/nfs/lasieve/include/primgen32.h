@@ -1,3 +1,7 @@
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 /*2:*/
 #line 52 "primgen32.w"
 
@@ -18,3 +22,8 @@ void clearprime32(pr32_struct*ps);
 u32_t pr32_seek(pr32_struct*ps,u32_t lb);
 
 /*:2*/
+
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif

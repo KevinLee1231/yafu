@@ -18,6 +18,10 @@
 #include "siever-config.h"
 #include "montgomery_mul.h"
 
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
 /* 各 .c 原本各自 #define uchar；在头里给一个受保护的统一版本 */
 #ifndef LASIEVE_UCHAR_DEFINED
 #define LASIEVE_UCHAR_DEFINED
@@ -123,4 +127,8 @@ lasieve_ctx *lasieve_ctx_current(void);
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* _LASIEVE_LASIEVE_CTX_H_ */

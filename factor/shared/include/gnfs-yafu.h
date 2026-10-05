@@ -25,6 +25,10 @@ $Id$
 #include "gmp.h"
 
 #ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -406,4 +410,8 @@ void nfs_free_relation_list(relation_t *rlist, uint32_t num_relations);
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* _YAFU_GNFS_H_ */

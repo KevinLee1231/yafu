@@ -26,6 +26,10 @@ code to the public domain.
 #include <stdio.h>
 #include <gmp_u64_xface.h>
 
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
 
 /* produced using ecm -v -v -v for the various B1 bounds (default B2).
 /	Thanks A. Schindel !
@@ -143,4 +147,8 @@ extern void print_std_ecm_work_done(ecm_obj_t* ecm_obj, int disp_levels, FILE* l
 extern void record_curves_completed(ecm_obj_t* ecm_obj, int curves, uint64_t b1, int b1_method, int b2_method);
 int print_B1B2(fact_obj_t* fobj, FILE* fid);
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif // #ifndef _YECM_H_

@@ -19,6 +19,10 @@ $Id: common.h 1025 2018-08-19 02:20:28Z jasonp_sf $
 #include <ms_gmp_xface.h>
 
 #ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -402,4 +406,8 @@ double dickman(dickman_t *aux, double arg);
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* _MS_MS_COMMON_H_ */

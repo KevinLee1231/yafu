@@ -18,6 +18,10 @@ $Id: lanczos.h 1025 2018-08-19 02:20:28Z jasonp_sf $
 #include <ms_common.h>
 
 #ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -271,4 +275,8 @@ void vv_mul_BxN_NxB(packed_matrix_t *A, void *x, void *y,
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* !_MS_LANCZOS_H_ */

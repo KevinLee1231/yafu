@@ -19,6 +19,10 @@ $Id: ddcomplex.h 32 2009-07-28 13:03:52Z jasonp_sf $
 #include <dd.h>
 
 #ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -90,4 +94,8 @@ static INLINE dd_complex_t cplx_div(dd_complex_t a, dd_complex_t b) {
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* !_DDCOMPLEX_H_ */

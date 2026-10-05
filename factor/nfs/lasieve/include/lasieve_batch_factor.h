@@ -22,6 +22,10 @@ $Id: batch_factor.h 638 2011-09-11 15:31:19Z jasonp_sf $
 #include "gmp.h"
 
 #ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -186,4 +190,8 @@ uint32_t relation_batch_run(relation_batch_t *rb, uint64_t *lcg_state);
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* _LASIEVE_BATCH_FACTOR_H_ */

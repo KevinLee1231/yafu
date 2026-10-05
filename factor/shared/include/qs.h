@@ -22,6 +22,10 @@ code to the public domain.
 #define _SIQS_H_
 
 #include "factor.h"
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 #include <stdint.h>
 #include "ytools.h"
 
@@ -29,6 +33,10 @@ code to the public domain.
 extern void SIQS(fact_obj_t* qsobj);
 extern void siqsbench(fact_obj_t* qsobj, info_t *comp_info, uint32_t digit_limit);
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* _SIQS_H_ */
 
 

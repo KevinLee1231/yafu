@@ -27,6 +27,10 @@ either or both sides.
 #include "cofactorize.h"
 
 #ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -195,4 +199,8 @@ extern "C" {
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* _YAFU_BATCH_FACTOR_H_ */

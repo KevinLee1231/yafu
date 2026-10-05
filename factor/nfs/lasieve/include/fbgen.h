@@ -1,3 +1,7 @@
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 /*
   Copyright (C) 2001 Jens Franke.
   This file is part of gnfs4linux, distributed under the terms of the 
@@ -14,3 +18,8 @@ u32_t polvalmod32(u32_t * P, u32_t dP, u32_t a);
 u32_t polmod32(u32_t * T, mpz_t *A, u32_t dA);
 extern u32_t * polr,polr_alloc;
 
+
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif

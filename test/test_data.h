@@ -18,6 +18,10 @@
  Public domain.
 ----------------------------------------------------------------------*/
 #ifndef YAFU_TEST_DATA_H
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 #define YAFU_TEST_DATA_H
 
 #include <stdint.h>
@@ -57,5 +61,9 @@ extern const tk_module tk_module_selfcheck;
 
 #ifdef __cplusplus
 }
+#endif
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
 #endif
 #endif /* YAFU_TEST_DATA_H */

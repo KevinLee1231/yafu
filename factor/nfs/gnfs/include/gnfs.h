@@ -23,6 +23,10 @@ $Id: gnfs.h 967 2014-06-26 02:48:22Z jasonp_sf $
 #include <ms_common.h>
 
 #ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -392,4 +396,8 @@ void nfs_convert_cado_cycles(msieve_obj *obj);
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* _GNFS_H_ */

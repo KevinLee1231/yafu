@@ -871,7 +871,7 @@ COMMON_SRCS = \
     factor/shared/ysieve/roots.c \
     factor/shared/ysieve/linesieve.c \
     factor/shared/ysieve/soe.c \
-    factor/shared/ysieve/tiny.c \
+    factor/shared/ysieve/tiny.cpp \
     factor/shared/ysieve/worker.c \
     factor/shared/ysieve/soe_util.c \
     factor/shared/ysieve/wrapper.c \
@@ -893,7 +893,7 @@ ECM_SRCS = \
     factor/ecm/pm1.c \
     factor/ecm/avxecm.c \
     factor/ecm/avx_ecm_main.c \
-    factor/ecm/vec_common.c \
+    factor/ecm/vec_common.cpp \
     factor/ecm/vecarith.c \
     factor/ecm/vecarith52.c \
     factor/ecm/vecarith52_special.c \
@@ -941,7 +941,7 @@ endif
 YAFU_SIQS_SRCS += \
     factor/siqs/update_poly_roots_32k.c \
     factor/siqs/tdiv_med_32k.c \
-    factor/siqs/tdiv_resieve_32k.c
+    factor/siqs/tdiv_resieve_32k.cpp
 
 
 # -----------------------------------------------------------------------------
@@ -1013,7 +1013,7 @@ endif
 # -----------------------------------------------------------------------------
 MSIEVE_COMMON_SRCS = \
     factor/shared/common/filter/clique.c \
-    factor/shared/common/filter/filter.c \
+    factor/shared/common/filter/filter.cpp \
     factor/shared/common/filter/merge.c \
     factor/shared/common/filter/merge_post.c \
     factor/shared/common/filter/merge_pre.c \
@@ -1021,7 +1021,7 @@ MSIEVE_COMMON_SRCS = \
     factor/shared/common/filter/singleton.c \
     factor/shared/common/lanczos/lanczos.c \
     factor/shared/common/lanczos/lanczos_io.c \
-    factor/shared/common/lanczos/lanczos_matmul.c \
+    factor/shared/common/lanczos/lanczos_matmul.cpp \
     factor/shared/common/lanczos/lanczos_pre.c \
     factor/shared/common/lanczos/matmul_util.c \
     factor/shared/common/smallfact/gmp_ecm.c \
@@ -1029,19 +1029,19 @@ MSIEVE_COMMON_SRCS = \
     factor/shared/common/smallfact/squfof.c \
     factor/shared/common/smallfact/tinyqs.c \
     factor/shared/common/cuda_xface.c \
-    factor/shared/common/cuda_xface_la.c \
-    factor/shared/common/dickman.c \
+    factor/shared/common/cuda_xface_la.cpp \
+    factor/shared/common/dickman.cpp \
     factor/shared/common/driver.c \
     factor/shared/common/expr_eval.c \
-    factor/shared/common/hashtable.c \
+    factor/shared/common/hashtable.cpp \
     factor/shared/common/integrate.c \
     factor/shared/common/minimize.c \
-    factor/shared/common/minimize_global.c \
+    factor/shared/common/minimize_global.cpp \
     factor/shared/common/mp.c \
     factor/shared/common/ms_batch_factor.c \
     factor/shared/common/polyroot.c \
     factor/shared/common/prime_delta.c \
-    factor/shared/common/prime_sieve.c \
+    factor/shared/common/prime_sieve.cpp \
     factor/shared/common/savefile.c \
     factor/shared/common/strtoll.c \
     factor/shared/common/thread.c \

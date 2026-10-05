@@ -18,6 +18,10 @@ verbatim.
 ----------------------------------------------------------------------*/
 
 #ifndef LIMB1_H
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 #define LIMB1_H
 
 #include "mp_platform.h"
@@ -986,4 +990,8 @@ uint64_t spBinGCD_odd(uint64_t u, uint64_t v);
 void     dblGCD(double x, double y, double *w);
 
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* LIMB1_H */

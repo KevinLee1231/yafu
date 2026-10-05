@@ -20,6 +20,10 @@ $Id: filter.h 23 2009-07-20 02:59:07Z jasonp_sf $
 #include "gnfs.h"
 
 #ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -47,4 +51,8 @@ void nfs_write_lp_file(msieve_obj *obj, factor_base_t *fb,
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* _GNFS_FILTER_FILTER_H_ */

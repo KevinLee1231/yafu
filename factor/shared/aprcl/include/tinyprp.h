@@ -1,3 +1,7 @@
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 #pragma once
 /*
 Copyright (c) 2014, Ben Buhrow
@@ -91,3 +95,8 @@ int test_tinyprp(void);
 
 
 
+
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif

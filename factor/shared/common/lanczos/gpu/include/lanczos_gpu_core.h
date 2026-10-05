@@ -13,6 +13,10 @@ $Id$
 --------------------------------------------------------------------*/
 
 #ifndef _COMMON_LANCZOS_GPU_LANCZOS_GPU_CORE_H_
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 #define _COMMON_LANCZOS_GPU_LANCZOS_GPU_CORE_H_
 
 #if defined(__CUDACC__) /*------------- device code -------------*/
@@ -206,4 +210,8 @@ typedef union {
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* !_COMMON_LANCZOS_GPU_LANCZOS_GPU_CORE_H_ */

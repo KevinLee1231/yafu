@@ -19,6 +19,10 @@ $Id: lanczos_cpu.h 1012 2017-06-11 17:42:14Z jasonp_sf $
 #include "ms_lanczos.h"
 
 #ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -121,4 +125,8 @@ void mul_BxN_NxB(v_t *x, v_t *y, v_t *xy, uint32 n);
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* !_COMMON_LANCZOS_CPU_LANCZOS_CPU_H_ */

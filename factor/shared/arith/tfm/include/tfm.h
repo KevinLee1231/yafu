@@ -17,6 +17,10 @@
 
 #include "yafu.h"
 #include "arith.h"
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 #include "common.h"
 
 /* externally define this symbol to ignore the default settings, useful for changing the build from the make process */
@@ -329,6 +333,10 @@ int fp_montgomery_setup(z *a, fp_digit *rho);
 void fp_montgomery_reduce(z *a, z *m, fp_digit mp);
 void s_fp_sub(z *a, z *b, z *c);
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif
 
 

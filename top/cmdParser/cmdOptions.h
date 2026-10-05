@@ -29,6 +29,10 @@ SOFTWARE.
 // ============================================================================
 
 #ifndef CMD_PARSE_H
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 #define CMD_PARSE_H
 
 #ifdef __cplusplus
@@ -239,5 +243,9 @@ extern int readINI(const char* filename, options_t* options);
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* #ifndef CMD_PARSE_H */
 

@@ -23,6 +23,10 @@ SOFTWARE.
 ----------------------------------------------------------------------*/
 
 #ifndef _THREADPOOL_H
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 #define _THREADPOOL_H
 
 #include <stdlib.h>
@@ -127,4 +131,8 @@ tpool_t * tpool_setup(int num_threads, void *start_fcn, void *stop_fcn,
 #endif
 
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif // #ifndef _THREADPOOL_H

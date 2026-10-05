@@ -1,4 +1,8 @@
 
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
 
 
 #define FILL_ONE_PRIME_P(i)					\
@@ -178,3 +182,8 @@
 
 #endif
 
+
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif

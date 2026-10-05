@@ -10,8 +10,16 @@
  * reach the same definition.
  */
 #ifndef LASIEVE_BAIL_H
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 #define LASIEVE_BAIL_H
 
 void lasieve_bail(int status);
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif

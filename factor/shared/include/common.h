@@ -20,6 +20,10 @@ Purpose:	Port into Yafu-1.14.  Much of the functionality in here
 --------------------------------------------------------------------*/
 
 #ifndef _COMMON_H_
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 #define _COMMON_H_
 
 #ifdef __cplusplus
@@ -137,5 +141,9 @@ extern "C" {
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* _COMMON_H_ */
 

@@ -1,4 +1,8 @@
 
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
 
 #if defined(GCC_ASM32X) || defined(GCC_ASM64X) || defined(__MINGW32__)
 
@@ -632,3 +636,8 @@
 		DIVIDE_RESIEVED_PRIME(7);	  \
 	}
 
+
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif

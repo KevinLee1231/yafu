@@ -1,4 +1,8 @@
 
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
 #if defined(GCC_ASM64X) || defined(__MINGW64__)
 
 
@@ -31,3 +35,8 @@
 #endif
 
 
+
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif

@@ -27,6 +27,10 @@ code to the public domain.
 #include "gmp.h"
 #include "core_types.h"
 
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
 #ifdef __MINGW32__
 #include <Windows.h>
 #endif
@@ -593,4 +597,8 @@ int resume_check_input_match(mpz_t file_n, mpz_t input_n, mpz_t common_fact, int
 // find a crossover between QS and NFS
 void factor_tune(fact_obj_t* inobj);
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif //_FACTOR_H

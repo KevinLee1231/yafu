@@ -1,3 +1,7 @@
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 #include <stdarg.h>
 #include <stdio.h>
 
@@ -14,3 +18,8 @@ int cofactorisation(strat_t *st, mpz_t **large_primes, mpz_t *large_factors,
                       u16_t *max_primebits, u32_t *nlp, mpz_t *FBb_sq,
                       mpz_t *FBb_cu);
 void print_strategy_stat();
+
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif

@@ -13,6 +13,10 @@ $Id: stage1_core.h 817 2012-11-11 14:58:29Z jasonp_sf $
 --------------------------------------------------------------------*/
 
 #ifndef _STAGE1_CORE_GPU_3PROG_H_
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 #define _STAGE1_CORE_GPU_3PROG_H_
 
 #ifdef __CUDACC__
@@ -46,4 +50,8 @@ typedef struct {
 
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* !_STAGE1_CORE_GPU_3PROG_H_ */

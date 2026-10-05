@@ -1,4 +1,8 @@
 
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
 #if defined(GCC_ASM64X) || defined(__MINGW64__)
 
 #define _FINALIZE_SORT_UPDATE_SSE41 \
@@ -56,3 +60,8 @@
 #endif
 
 
+
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif

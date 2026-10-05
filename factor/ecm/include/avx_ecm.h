@@ -28,6 +28,10 @@ either expressed or implied, of the FreeBSD Project.
 */
 
 #include "gmp.h"
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 #include "ytools.h"
 #include <stdint.h>
 #ifndef __aarch64__
@@ -1241,3 +1245,8 @@ void vec_ecm_work_free(ecm_work *work);
 
 
 
+
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif

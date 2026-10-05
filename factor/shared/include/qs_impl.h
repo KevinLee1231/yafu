@@ -21,6 +21,10 @@
 #include "gmp.h"
 #include "factor.h"
 #include "core_types.h"
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 #include "savefile.h"
 
 #ifdef HAVE_CUDA_BATCH_FACTOR
@@ -1033,4 +1037,8 @@ extern uint64_t siqs_maxp;
 
 
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif

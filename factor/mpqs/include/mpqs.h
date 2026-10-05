@@ -22,6 +22,10 @@ $Id: mpqs.h 23 2009-07-20 02:59:07Z jasonp_sf $
 #include <ms_common.h>
 
 #ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -401,4 +405,8 @@ uint32 find_factors(msieve_obj *obj, mp_t *n, fb_t *factor_base,
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* _MPQS_MPQS_H_ */

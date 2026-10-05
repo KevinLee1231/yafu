@@ -21,6 +21,10 @@ $Id: gmp_xface.h 23 2009-07-20 02:59:07Z jasonp_sf $
 #include <gmp.h>
 
 #ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -55,4 +59,8 @@ static INLINE void gmp2mp_t(mpz_t src, mp_t *dest) {
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif //  _YAFU_GMP_XFACE_H_ 

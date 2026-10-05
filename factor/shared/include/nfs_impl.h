@@ -31,6 +31,10 @@ code to the public domain.
 #include <stdint.h>
 #include "batch_factor.h"
 
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
 #ifdef HAVE_CUDA_BATCH_FACTOR
 #include "gpu_cofactorization.h"
 #endif
@@ -324,6 +328,10 @@ extern int snfs_table_rows;
 extern double ggnfs_table_Gimarel[GGNFS_TABLE_ROWS_NEW][GGNFS_TABLE_COLS_NEW];
 
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif
 
 

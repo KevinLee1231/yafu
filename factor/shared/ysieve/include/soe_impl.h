@@ -42,6 +42,10 @@ extern "C" {
 #include "ytools.h"
 #include "soe.h"
 
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
 #define BITSINBYTE 8
 #define MAXSIEVEPRIMECOUNT 100000000	//# primes less than ~2e9: limit of 2e9^2 = 4e18
 
@@ -340,5 +344,9 @@ extern void(*sieve_line_ptr)(thread_soedata_t*);
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* #ifndef SOE_IMPL_H */
 

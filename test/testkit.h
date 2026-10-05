@@ -19,6 +19,10 @@
  Public domain, following the rest of YAFU.
 ----------------------------------------------------------------------*/
 #ifndef YAFU_TESTKIT_H
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 #define YAFU_TESTKIT_H
 
 #include <stdint.h>
@@ -150,5 +154,9 @@ int tk_run(const tk_module *const *modules, int nmodules, int argc, char **argv)
 
 #ifdef __cplusplus
 }
+#endif
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
 #endif
 #endif /* YAFU_TESTKIT_H */

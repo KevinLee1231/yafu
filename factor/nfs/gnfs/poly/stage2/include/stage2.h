@@ -18,6 +18,10 @@ $Id: stage2.h 732 2012-08-04 02:32:46Z jasonp_sf $
 #include <poly_skew.h>
 
 #ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -295,4 +299,8 @@ typedef struct {
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* !_STAGE2_H_ */

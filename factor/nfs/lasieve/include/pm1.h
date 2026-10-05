@@ -1,3 +1,7 @@
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 /*
 Copyright (C) 2001 Jens Franke, T. Kleinjung.
 This file is part of gnfs4linux, distributed under the terms of the
@@ -11,3 +15,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 
 int pm1_factor(mpz_t N, u32_t B1, u32_t B2, mpz_t **fptr);
 
+
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif

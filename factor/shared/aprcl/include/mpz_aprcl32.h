@@ -18,6 +18,10 @@
 #define _MPZ_APRCL32_H_
 
 #include <gmp.h>
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 #include "jacobi_sum32.h"
 
 /*
@@ -190,4 +194,8 @@ int mpz_strongbpsw_prp(mpz_t n);
 int mpz_aprcl(mpz_t N); /* Just return the status of the input, no progress is printed out */
 int mpz_aprtcle(mpz_t N, int verbose);
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif

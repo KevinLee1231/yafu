@@ -18,6 +18,10 @@ gates which compiled engine is *selected* at run time. A CPU-only build
 #include <stage1.h>   /* task_data_t, stage1_sieve_data_t, msieve_obj, uint* */
 
 #ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -85,4 +89,8 @@ int stage1_engine_cell_fits(const stage1_engine_vtable_t *v,
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* !_STAGE1_ENGINE_H_ */

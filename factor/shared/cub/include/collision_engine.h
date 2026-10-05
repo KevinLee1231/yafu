@@ -1,6 +1,10 @@
 /* DSO interface for Gerbicz-style GPU collision search in NFS stage 1. */
 
 #ifndef _COLLISION_ENGINE_H_
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 #define _COLLISION_ENGINE_H_
 
 #include <stdlib.h>
@@ -70,4 +74,8 @@ typedef void (*collision_engine_run_func)(void * engine,
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* !_COLLISION_ENGINE_H_ */

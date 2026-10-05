@@ -1,3 +1,7 @@
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 /*1:*/
 #line 18 "if.w"
 
@@ -107,3 +111,8 @@ typedef unsigned long long ullong;
 #line 109 "if.w"
 
 /*:1*/
+
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif

@@ -3,6 +3,10 @@
 #include "factor.h"
 #include "gmp.h"
 
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
 extern void test_dlp_composites(void);
 extern void factor(fact_obj_t* fobj);
 
@@ -12,3 +16,8 @@ extern int factor_tiny(mpz_t in, mpz_t* out,
 extern int factor64(uint64_t in, uint64_t* out,
 	uint64_t* primes, uint64_t nump, uint64_t* prng);
 
+
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif

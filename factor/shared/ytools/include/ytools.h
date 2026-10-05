@@ -23,6 +23,10 @@ SOFTWARE.
 --------------------------------------------------------------------*/
 
 #ifndef _YTOOLS_UTIL_H_
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 #define _YTOOLS_UTIL_H_
 
 
@@ -390,4 +394,8 @@ double ytools_difftime(struct timeval* start, struct timeval* end);
 
 
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* _YTOOLS_UTIL_H_ */

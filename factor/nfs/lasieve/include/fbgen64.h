@@ -1,3 +1,7 @@
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 /*
   Copyright (C) 2001 Jens Franke.
   This file is part of gnfs4linux, distributed under the terms of the 
@@ -11,3 +15,8 @@
 
 u32_t root_finder64(u64_t *root_buf,mpz_t *A,u32_t adeg,u64_t p);
 
+
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif

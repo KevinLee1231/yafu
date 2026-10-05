@@ -17,6 +17,10 @@ $Id: sieve.h 638 2011-09-11 15:31:19Z jasonp_sf $
 
 #include <ms_batch_factor.h>
 #include "gnfs.h"
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 #include "savefile.h"
 
 #ifdef __cplusplus
@@ -61,4 +65,8 @@ void write_last_line(msieve_obj *obj, mpz_t n, uint32 b);
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* _GNFS_SIEVE_SIEVE_H_ */

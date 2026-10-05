@@ -24,6 +24,10 @@ GMP dependency; callers gmp_snprintf the mpz at the (infrequent) hooks.
 #define _GNFS_POLY_POLY_STATS_H_
 
 #include "poly.h"      /* uint32/uint64, msieve_gettimeofday, struct timeval */
+
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
 #include "thread.h"    /* mutex_t, mutex_init/lock/unlock/free              */
 
 #ifdef __cplusplus
@@ -104,4 +108,8 @@ void poly_stats_set_abort(poly_stage_stats_t *s, msieve_obj *obj,
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* !_GNFS_POLY_POLY_STATS_H_ */

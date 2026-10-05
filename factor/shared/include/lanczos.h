@@ -21,6 +21,10 @@ Purpose:	Port into Yafu-1.14.
 #include "qs_impl.h"
 #include "factor.h"
 
+#ifdef __cplusplus
+extern "C" {  /* yafu-cpp-linkage */
+#endif
+
 #if defined(__GNUC__)
 #include <pthread.h>
 #endif
@@ -166,5 +170,9 @@ void yafu_mul_trans_packed_core(qs_msieve_thread_data_t *t);
 }
 #endif
 
+
+#ifdef __cplusplus
+}  /* yafu-cpp-linkage */
+#endif
 #endif /* !_LANCZOS_H_ */
 
