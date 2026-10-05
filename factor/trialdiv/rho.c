@@ -251,9 +251,12 @@ int mbrent(fact_obj_t *fobj)
 				goto free;
 			}
 
-		} while (k<r && (mpz_get_ui(g) == 1));
+		/* "g == 1" has to be a full comparison.  mpz_get_ui()
+		 * returns 1 for anything that is 1 mod 2^64, so a genuine
+		 * factor of that shape reads as "no factor" here. */
+		} while (k<r && (mpz_cmp_ui(g, 1) == 0));
 		r*=2;
-	} while (mpz_get_ui(g) == 1);
+	} while (mpz_cmp_ui(g, 1) == 0);
 
 	if (mpz_cmp(g,fobj->rho_obj.gmp_n) == 0)
 	{
@@ -268,7 +271,7 @@ int mbrent(fact_obj_t *fobj)
 			if (mpz_sgn(t1) < 0)
 				mpz_add(t1, t1, fobj->rho_obj.gmp_n);
 			mpz_gcd(g, t1, fobj->rho_obj.gmp_n);
-		} while ((mpz_size(g) == 1) && (mpz_get_ui(g) == 1));
+		} while (mpz_cmp_ui(g, 1) == 0);
 
         if (mpz_cmp(g,fobj->rho_obj.gmp_n) == 0)
 		{
@@ -364,9 +367,9 @@ int montybrent(monty_t *mdata, mpz_t n, mpz_t f, uint32_t a, uint32_t imax)
                 goto free;
             }
 
-        } while (k<r && (mpz_get_ui(g) == 1));
+        } while (k<r && (mpz_cmp_ui(g, 1) == 0));
         r *= 2;
-    } while (mpz_get_ui(g) == 1);
+    } while (mpz_cmp_ui(g, 1) == 0);
 
     if (mpz_cmp(g, n) == 0)
     {
@@ -377,7 +380,7 @@ int montybrent(monty_t *mdata, mpz_t n, mpz_t f, uint32_t a, uint32_t imax)
             monty_add(mdata, ys, c, ys);
             monty_sub(mdata, ys, x, t1);
             mpz_gcd(g, t1, mdata->n);
-        } while ((mpz_size(g) == 1) && (mpz_get_ui(g) == 1));
+        } while (mpz_cmp_ui(g, 1) == 0);
 
         if (mpz_cmp(g, n) == 0)
         {
