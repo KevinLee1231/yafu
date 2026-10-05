@@ -1852,15 +1852,16 @@ int check_for_sievers(fact_obj_t *fobj, int revert_to_siqs)
 			return 1;
 		}
 
-		for (i=11; i<=16; i++)
+		// one program for every I value now, so one existence check each for
+		// the g-prefixed and the bare spelling
 		{
 			name[0] = '\0';
-			if (!append_command(name, sizeof(name), "%sggnfs-lasieve4I%de",
-				nfs_siever_dir(fobj), i))
-				continue;
+			if (!append_command(name, sizeof(name), "%sggnfs-lasieve4e",
+				nfs_siever_dir(fobj)))
+				return 1;
 #if defined(WIN32)
 			if (!append_command(name, sizeof(name), ".exe"))
-				continue;
+				return 1;
 #endif
 			// test for existence of the siever
 			test = fopen(name, "rb");
@@ -1868,25 +1869,26 @@ int check_for_sievers(fact_obj_t *fobj, int revert_to_siqs)
 			{
 				found = 1;
 				fclose(test);
-				break;
 			}
+		}
 
+		if (!found)
+		{
 			name[0] = '\0';
-			if (!append_command(name, sizeof(name), "%sgnfs-lasieve4I%de",
-				nfs_siever_dir(fobj), i))
-				continue;
+			if (!append_command(name, sizeof(name), "%sgnfs-lasieve4e",
+				nfs_siever_dir(fobj)))
+				return 1;
 #if defined(WIN32)
 			if (!append_command(name, sizeof(name), ".exe"))
-				continue;
+				return 1;
 #endif
-            // test for existence of the siever
-            test = fopen(name, "rb");
-            if (test != NULL)
-            {
-                found = 1;
-                fclose(test);
-                break;
-            }
+			// test for existence of the siever
+			test = fopen(name, "rb");
+			if (test != NULL)
+			{
+				found = 1;
+				fclose(test);
+			}
 		}
 
 		if (!found && revert_to_siqs)
@@ -1922,12 +1924,12 @@ void nfs_set_sievername(fact_obj_t* fobj, nfs_job_t* job)
 	}
 #if defined(WIN32)
 	else
-		len = snprintf(job->sievername, sizeof(job->sievername), "%sgnfs-lasieve4I%de.exe",
-			nfs_siever_dir(fobj), fobj->nfs_obj.siever);
+		len = snprintf(job->sievername, sizeof(job->sievername), "%sgnfs-lasieve4e.exe",
+			nfs_siever_dir(fobj));
 #else
 	else
-		len = snprintf(job->sievername, sizeof(job->sievername), "%sgnfs-lasieve4I%de",
-			nfs_siever_dir(fobj), fobj->nfs_obj.siever);
+		len = snprintf(job->sievername, sizeof(job->sievername), "%sgnfs-lasieve4e",
+			nfs_siever_dir(fobj));
 #endif
 
 	// snprintf() truncates silently, and a truncated path runs the wrong siever

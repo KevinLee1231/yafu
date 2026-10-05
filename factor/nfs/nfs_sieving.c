@@ -513,6 +513,20 @@ static void siever_argv_addf(siever_argv_t* a, const char* fmt, ...)
 	a->argv[a->argc++] = slot;
 }
 
+
+// gnfs-lasieve4e carries all six I values in one image and takes the one it
+// should use as its first argument (see lasieve_dispatch.c).  cuda-sieve is a
+// different program and takes no such argument, so it keeps using
+// siever_argv_init() directly.
+static void siever_argv_init_siever(siever_argv_t* a, fact_obj_t* fobj,
+	const char* prog)
+{
+	siever_argv_init(a, prog);
+	if (NFS_USE_CUDA(fobj))
+		return;
+	siever_argv_addf(a, "%d", fobj->nfs_obj.siever);
+}
+
 static void siever_argv_end(siever_argv_t* a)
 {
 	a->argv[a->argc] = NULL;
@@ -1551,53 +1565,7 @@ void nfs_sieve_dispatch(void* vptr)
 
 
 		// now change if there are any inputs that override the automated behavior.
-		if (0) //(fobj->nfs_obj.startq > 0) || (fobj->nfs_obj.rangeq > 0))
-		{
-			// if the nfs_obj.rangeq value is > 0, that means the user
-			// requested a custom sieving range.  fill in the info to our
-			// range data structure.
-			t->job.startq = fobj->nfs_obj.startq + 
-				udata->ranges_completed * udata->qrange_data->thread_qrange +
-				udata->threads_sieving * udata->qrange_data->thread_qrange;
-			t->job.qrange = udata->qrange_data->thread_qrange;
-
-			if (fobj->nfs_obj.rangeq > 0)
-			{
-				// we have a specified end to the sieving, regardless of other completion metrics.
-				if (t->job.startq >= (fobj->nfs_obj.startq + fobj->nfs_obj.rangeq))
-				{
-					// this will kill the thread
-					tdata->work_fcn_id = tdata->num_work_fcn;
-					free(qrange);
-
-					if (fobj->VFLAG > 0)
-					{
-						printf("nfs: thread %d halting, custom q-range completed\n", tid);
-					}
-					return;
-				}
-				else if ((t->job.startq + t->job.qrange) > (fobj->nfs_obj.startq + fobj->nfs_obj.rangeq))
-				{
-					t->job.qrange = (fobj->nfs_obj.startq + fobj->nfs_obj.rangeq) - t->job.startq;
-				}
-
-				if (t->job.qrange == 0)
-				{
-					// this will kill the thread
-					tdata->work_fcn_id = tdata->num_work_fcn;
-					free(qrange);
-
-					if (fobj->VFLAG > 0)
-					{
-						printf("nfs: thread %d halting, custom q-range completed\n", tid);
-					}
-					return;
-				}
-			}
-
-			//printf("range info overridden by custom sieve range: %u - %u\n", t->job.startq, t->job.startq + t->job.qrange);
-		}
-
+		
 		// regardless of how this range was selected, make it unavailable to other threads
 		// and record it in the ranges file.
 		insert_range(udata->qrange_data, udata->requested_side,
@@ -1794,7 +1762,7 @@ int test_sieve(fact_obj_t* fobj, void* args, int njobs, int are_files)
 
 		//create the afb/rfb - we don't want the time it takes to do this to
 		//pollute the sieve timings		
-		siever_argv_init(&args, jobs[i].sievername);
+		siever_argv_init_siever(&args, fobj, jobs[i].sievername);
 		siever_argv_add(&args, "-b");
 		siever_argv_add(&args, filenames[i]);
 		siever_argv_add(&args, "-k");
@@ -1813,7 +1781,7 @@ int test_sieve(fact_obj_t* fobj, void* args, int njobs, int are_files)
 		MySleep(100);
 
 		//start the test
-		siever_argv_init(&args, jobs[i].sievername);
+		siever_argv_init_siever(&args, fobj, jobs[i].sievername);
 		if (fobj->VFLAG > 0)
 			siever_argv_add(&args, "-v");
 		siever_argv_add(&args, "-f");
@@ -1934,125 +1902,7 @@ int test_sieve(fact_obj_t* fobj, void* args, int njobs, int are_files)
 			logprint(flog, "test: new best estimated total sieving time = %s (with %d threads)\n", 
 				time_from_secs(time, (unsigned long)score[i]), fobj->THREADS);
 
-			if (0)
-			{
-				// don't edit by default.  Maybe allow with a user option.
-				// edit lbpr/a depending on test results.  we target something around 2 rels/Q.
-				// could also change siever version in more extreme cases.
-
-				if (count > 4 * actual_range)
-				{
-					if (fobj->VFLAG > 0)
-						printf("test: yield greater than 4x/spq, reducing lpbr/lpba\n");
-					jobs[i].lpba--;
-					jobs[i].lpbr--;
-					jobs[i].mfba -= 2;
-					jobs[i].mfbr -= 2;
-				}
-
-				if (count > 8 * actual_range)
-				{
-					char* pos;
-					int siever;
-
-					pos = strstr(jobs[i].sievername, "gnfs-lasieve4I");
-					siever = (pos[14] - 48) * 10 + (pos[15] - 48);
-
-					if (fobj->VFLAG > 0)
-						printf("test: yield greater than 8x/spq, reducing siever version\n");
-
-					switch (siever)
-					{
-					case 11:
-						if (fobj->VFLAG > 0) printf("test: siever version cannot be decreased further\n");
-						jobs[i].snfs->siever = 11;
-						break;
-
-					case 12:
-						pos[15] = '1';
-						jobs[i].snfs->siever = 11;
-						break;
-
-					case 13:
-						pos[15] = '2';
-						jobs[i].snfs->siever = 12;
-						break;
-
-					case 14:
-						pos[15] = '3';
-						jobs[i].snfs->siever = 13;
-						break;
-
-					case 15:
-						pos[15] = '4';
-						jobs[i].snfs->siever = 14;
-						break;
-
-					case 16:
-						pos[15] = '5';
-						jobs[i].snfs->siever = 15;
-						break;
-					}
-				}
-
-				if (count < actual_range)
-				{
-					if (fobj->VFLAG > 0)
-						printf("test: yield less than 1x/spq, increasing lpbr/lpba\n");
-
-					jobs[i].lpba++;
-					jobs[i].lpbr++;
-					jobs[i].mfba += 2;
-					jobs[i].mfbr += 2;
-				}
-
-				if (count < (actual_range / 2))
-				{
-					char* pos;
-					int siever;
-
-					pos = strstr(jobs[i].sievername, "gnfs-lasieve4I");
-					siever = (pos[14] - 48) * 10 + (pos[15] - 48);
-
-					if (fobj->VFLAG > 0)
-						printf("test: yield less than 1x/2*spq, increasing siever version\n");
-
-					switch (siever)
-					{
-					case 16:
-						if (fobj->VFLAG > 0) printf("test: siever version cannot be increased further\n");
-						jobs[i].snfs->siever = 16;
-						break;
-
-					case 15:
-						pos[15] = '6';
-						jobs[i].snfs->siever = 16;
-						break;
-
-					case 14:
-						pos[15] = '5';
-						jobs[i].snfs->siever = 15;
-						break;
-
-					case 13:
-						pos[15] = '4';
-						jobs[i].snfs->siever = 14;
-						break;
-
-					case 12:
-						pos[15] = '3';
-						jobs[i].snfs->siever = 13;
-						break;
-
-					case 11:
-						pos[15] = '2';
-						jobs[i].snfs->siever = 12;
-						break;
-					}
-				}
-
-			}
-     	}
+			     	}
 		else
 		{
 			if (fobj->VFLAG > 0) printf("test: estimated total sieving time = %s (with %d threads)\n\n", 
@@ -2551,7 +2401,7 @@ static void nfs_afb_prime_cache(fact_obj_t* fobj, nfs_job_t* job)
 	// no matter where sieving starts. -F overwrites any stale file.
 	if (fobj->VFLAG > 0)
 		printf("nfs: building factor base cache %s\n", afbname);
-	siever_argv_init(&args, job->sievername);
+	siever_argv_init_siever(&args, fobj, job->sievername);
 	siever_argv_add(&args, "-b");
 	siever_argv_add(&args, fobj->nfs_obj.job_infile);
 	siever_argv_add(&args, "-k");
@@ -3242,7 +3092,7 @@ void *lasieve_launcher(void *ptr) {
 		return 0;
 	}
 
-	siever_argv_init(&args, thread_data->job.sievername);
+	siever_argv_init_siever(&args, fobj, thread_data->job.sievername);
 	if (fobj->VFLAG > 1)
 		siever_argv_add(&args, "-v");
 	siever_argv_add(&args, "-f");
@@ -3354,7 +3204,7 @@ void* lasieve_launcher_tdata(void* ptr) {
 	gettimeofday(&bstart, NULL);
 	// the win64 ASM sievers have a known problem with the -%c form
 
-	siever_argv_init(&args, thread_data->job.sievername);
+	siever_argv_init_siever(&args, fobj, thread_data->job.sievername);
 	if (fobj->VFLAG > 1)
 		siever_argv_add(&args, "-v");
 	siever_argv_add(&args, "-f");

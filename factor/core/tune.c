@@ -618,28 +618,15 @@ void make_job_file(char *sname, size_t sname_size, uint32_t *startq, uint32_t *q
 
 void check_siever(fact_obj_t *fobj, char *sname, size_t sname_size, int siever)
 {
-    const char *executable;
+    // The six I values are one program now.  gnfs-lasieve4e carries all six and
+    // picks one from its first argument (see lasieve_dispatch.c), so the only
+    // thing left to decide here is whether the value is in range.
+    const char *executable = "gnfs-lasieve4e";
     FILE *test;
     int written;
 
-    switch (siever)
+    if ((siever < 11) || (siever > 16))
     {
-    case 11:
-        executable = "gnfs-lasieve4I11e";
-        break;
-    case 12:
-        executable = "gnfs-lasieve4I12e";
-        break;
-    case 13:
-        executable = "gnfs-lasieve4I13e";
-        break;
-    case 14:
-        executable = "gnfs-lasieve4I14e";
-        break;
-    case 15:
-        executable = "gnfs-lasieve4I15e";
-        break;
-    default:
         fprintf(stderr, "unsupported NFS siever: %d\n", siever);
         exit(EXIT_FAILURE);
     }

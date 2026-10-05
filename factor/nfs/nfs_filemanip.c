@@ -1465,9 +1465,10 @@ uint32_t parse_job_file(fact_obj_t *fobj, nfs_job_t *job)
 		{
 			// so get_ggnfs_params doesn't overwrite it
 			fobj->nfs_obj.siever = siever;
-			sprintf(job->sievername, "gnfs-lasieve4I%ue", siever);
 #ifdef WIN32
-			sprintf(job->sievername, "%s.exe", job->sievername);
+			snprintf(job->sievername, sizeof(job->sievername), "gnfs-lasieve4e.exe");
+#else
+			snprintf(job->sievername, sizeof(job->sievername), "gnfs-lasieve4e");
 #endif
 		}
 
