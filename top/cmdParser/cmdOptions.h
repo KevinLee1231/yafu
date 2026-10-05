@@ -125,7 +125,6 @@ typedef struct
     uint32_t inmem_cutoff;
 
     // nfs options
-    char ggnfs_dir[MAXARGLEN];
     char nfs_outfile[MAXARGLEN];
     char nfs_jobfile[MAXARGLEN];
     char poly_method[MAXARGLEN];

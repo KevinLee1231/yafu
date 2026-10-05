@@ -7,6 +7,12 @@
 #include "yafu_ecm.h"
 #include <stdint.h>
 #include <math.h>
+
+// The lattice siever, linked into this binary; see
+// factor/nfs/lasieve/lasieve_dispatch.c.  I is 11..16 and picks which of the
+// six per-I object sets runs.  tune measures one I value per test point --
+// the one make_job_file reports -- so that the points are comparable.
+int lasieve_run(int I, int argc, char **argv);
 #ifndef _MSC_VER
 #include <unistd.h>
 #endif
@@ -32,8 +38,8 @@ void update_INI(double mult, double exponent, double mult2,
     double exponent2, double xover,
 	double b1slope, double b1intercept, double size_exp, 
 	double cpu_freq, char *cpu_str);
-void make_job_file(char *sname, size_t sname_size, uint32_t *startq, uint32_t *qrange, char *inputstr, int inputnum, fact_obj_t *fobj);
-void check_siever(fact_obj_t* fobj, char* sname, size_t sname_size, int siever);
+void make_job_file(int *sieverI, uint32_t *startq, uint32_t *qrange,
+	char *inputstr, int inputnum, fact_obj_t *fobj);
 
 //----------------------- TUNE ENTRY POINT ------------------------------------//
 void factor_tune(fact_obj_t *inobj)
@@ -52,7 +58,6 @@ void factor_tune(fact_obj_t *inobj)
 	// should be repeated.
 	char siqslist[NUM_SIQS_PTS][200];
 	char nfslist[NUM_GNFS_PTS][200];
-    char sievername[1024];
 	int i, tmpT;
     mpz_t n;
 	struct timeval stop;	// stop time of this job
@@ -95,11 +100,10 @@ void factor_tune(fact_obj_t *inobj)
     inobj->THREADS = 1;
 
     if (inobj->VFLAG >= 0)
-        printf("checking for NFS sievers... ");
-
-    check_siever(inobj, sievername, sizeof(sievername), 11);
-    check_siever(inobj, sievername, sizeof(sievername), 12);
-    check_siever(inobj, sievername, sizeof(sievername), 13);
+    // Nothing to look for here.  This used to resolve one of the six siever
+    // executables and fopen() it to confirm it was there; the siever is part of
+    // this binary now and is reached through lasieve_run(), which validates the
+    // I value itself.
 
     if (inobj->VFLAG >= 0)
         printf("done.\n");
@@ -208,10 +212,10 @@ void factor_tune(fact_obj_t *inobj)
 	// for each of the gnfs inputs
 	for (i=0; i < NUM_GNFS_PTS; i++)
 	{
-		char syscmd[sizeof(sievername) + 64];
 		FILE *in;
 		uint32_t startq, qrange;		
 		double t_time2, d;
+		int sieverI;          // which of the six I values this test point uses
 
 		// remove previous tests
 #ifndef _MSC_VER
@@ -247,19 +251,21 @@ void factor_tune(fact_obj_t *inobj)
 		MySleep(100);
 
 		// make a job file for each input
-		make_job_file(sievername, sizeof(sievername), &startq, &qrange, nfslist[i], i, inobj);
+		make_job_file(&sieverI, &startq, &qrange, nfslist[i], i, inobj);
 
 		// measure how long it takes to generate the afb... for fun.		
 		gettimeofday(&start, NULL);
 
 		// create the afb - we don't want the time it takes to do this to
 		// pollute the sieve timings
-		snprintf(syscmd, sizeof(syscmd),
-			"%s -b tune.job -k -c 0 -F", sievername);
+		{
+			// the tokens the shell used to be handed: -b tune.job -k -c 0 -F
+			char *afb_argv[] = { (char *)"tune", (char *)"-b", (char *)"tune.job",
+				(char *)"-k", (char *)"-c", (char *)"0", (char *)"-F" };
 
-		printf("nfs: commencing construction of afb\n");
-
-		system(syscmd);
+			printf("nfs: commencing construction of afb\n");
+			lasieve_run(sieverI, 7, afb_argv);
+		}
 		gettimeofday(&stop, NULL);
         t_time2 = ytools_difftime(&start, &stop);
 		
@@ -271,12 +277,29 @@ void factor_tune(fact_obj_t *inobj)
 		gettimeofday(&start, NULL);
 
 		// start the test
-		snprintf(syscmd, sizeof(syscmd),
-			"%s -f %u -c %u -o tunerels.out -a tune.job",
-			sievername, startq, qrange);
-		printf("nfs: commencing lattice sieving over range: %u - %u\n",
-			startq, startq + qrange);
-		system(syscmd);
+		{
+			// the same tokens the shell used to be handed:
+			// -f <startq> -c <qrange> -o tunerels.out -a tune.job
+			char qbuf[32], cbuf[32];
+			char *sieve_argv[10];
+
+			snprintf(qbuf, sizeof(qbuf), "%u", startq);
+			snprintf(cbuf, sizeof(cbuf), "%u", qrange);
+			sieve_argv[0] = (char *)"tune";
+			sieve_argv[1] = (char *)"-f";
+			sieve_argv[2] = qbuf;
+			sieve_argv[3] = (char *)"-c";
+			sieve_argv[4] = cbuf;
+			sieve_argv[5] = (char *)"-o";
+			sieve_argv[6] = (char *)"tunerels.out";
+			sieve_argv[7] = (char *)"-a";
+			sieve_argv[8] = (char *)"tune.job";
+			sieve_argv[9] = NULL;
+
+			printf("nfs: commencing lattice sieving over range: %u - %u\n",
+				startq, startq + qrange);
+			lasieve_run(sieverI, 9, sieve_argv);
+		}
 		gettimeofday(&stop, NULL);
         t_time = ytools_difftime(&start, &stop);
 
@@ -445,10 +468,9 @@ done:
 }
 
 
-void make_job_file(char *sname, size_t sname_size, uint32_t *startq, uint32_t *qrange, char *inputstr, int inputnum, fact_obj_t *fobj)
+void make_job_file(int *sieverI, uint32_t *startq, uint32_t *qrange, char *inputstr, int inputnum, fact_obj_t *fobj)
 {
 	FILE *out;
-	int siever;
 
 	out = fopen("tune.job","w");
 	if (out == NULL)
@@ -482,7 +504,7 @@ void make_job_file(char *sname, size_t sname_size, uint32_t *startq, uint32_t *q
 		fprintf(out, "mfba: 48\n");
 		fprintf(out, "rlambda: 2.5\n");
 		fprintf(out, "alambda: 2.5\n");
-		siever = 11;
+		*sieverI = 11;
 		*startq = 450000;
 		*qrange = 2000;
 		break;
@@ -505,7 +527,7 @@ void make_job_file(char *sname, size_t sname_size, uint32_t *startq, uint32_t *q
 		fprintf(out, "mfba: 50\n");
 		fprintf(out, "rlambda: 2.5\n");
 		fprintf(out, "alambda: 2.5\n");
-		siever = 11;
+		*sieverI = 11;
 		*startq = 600000;
 		*qrange = 2000;
 		break;
@@ -528,7 +550,7 @@ void make_job_file(char *sname, size_t sname_size, uint32_t *startq, uint32_t *q
 		fprintf(out, "mfba: 50\n");
 		fprintf(out, "rlambda: 2.5\n");
 		fprintf(out, "alambda: 2.5\n");
-		siever = 12;
+		*sieverI = 12;
 		*startq = 750000;
 		*qrange = 2000;
 		break;
@@ -551,7 +573,7 @@ void make_job_file(char *sname, size_t sname_size, uint32_t *startq, uint32_t *q
 		fprintf(out, "mfba: 52\n");
 		fprintf(out, "rlambda: 2.5\n");
 		fprintf(out, "alambda: 2.5\n");
-		siever = 12;
+		*sieverI = 12;
 		*startq = 900000;
 		*qrange = 5000;
 		break;
@@ -575,7 +597,7 @@ void make_job_file(char *sname, size_t sname_size, uint32_t *startq, uint32_t *q
 		fprintf(out, "mfba: 52\n");
 		fprintf(out, "rlambda: 2.5\n");
 		fprintf(out, "alambda: 2.5\n");
-		siever = 12;
+		*sieverI = 12;
 		*startq = 1250000;
 		*qrange = 5000;
 		break;
@@ -599,7 +621,7 @@ void make_job_file(char *sname, size_t sname_size, uint32_t *startq, uint32_t *q
 		fprintf(out, "mfba: 52\n");
 		fprintf(out, "rlambda: 2.5\n");
 		fprintf(out, "alambda: 2.5\n");
-		siever = 13;
+		*sieverI = 13;
 		*startq = 1600000;
 		*qrange = 5000;
 		break;
@@ -609,54 +631,12 @@ void make_job_file(char *sname, size_t sname_size, uint32_t *startq, uint32_t *q
 
 	}
 
-    check_siever(fobj, sname, sname_size, siever);
 	
 	fclose(out);
 
 	return;
 }
 
-void check_siever(fact_obj_t *fobj, char *sname, size_t sname_size, int siever)
-{
-    // The six I values are one program now.  gnfs-lasieve4e carries all six and
-    // picks one from its first argument (see lasieve_dispatch.c), so the only
-    // thing left to decide here is whether the value is in range.
-    const char *executable = "gnfs-lasieve4e";
-    FILE *test;
-    int written;
-
-    if ((siever < 11) || (siever > 16))
-    {
-        fprintf(stderr, "unsupported NFS siever: %d\n", siever);
-        exit(EXIT_FAILURE);
-    }
-
-#if defined(WIN32)
-    written = snprintf(sname, sname_size, "%s%s.exe",
-        nfs_siever_dir(fobj), executable);
-#else
-    written = snprintf(sname, sname_size, "%s%s",
-        nfs_siever_dir(fobj), executable);
-#endif
-    if (written < 0 || (size_t)written >= sname_size)
-    {
-        fprintf(stderr, "NFS siever path is too long for a %zu-byte buffer\n",
-            sname_size);
-        exit(EXIT_FAILURE);
-    }
-
-    // test for existence of the siever
-    test = fopen(sname, "rb");
-    if (test == NULL)
-    {
-        printf("fopen error: %s\n", strerror(errno));
-        printf("could not find %s, bailing\n", sname);
-        exit(EXIT_FAILURE);
-    }
-    fclose(test);
-
-    return;
-}
 
 void update_INI(double mult, double exponent, double mult2, 
     double exponent2, double xover, 

@@ -338,7 +338,6 @@ typedef struct
 	int alt_degree;
 
     char params_file[GSTR_MAXSIZE];
-	char ggnfs_dir[GSTR_MAXSIZE];
 	uint32_t siever;
 	int sq_side;
 	uint32_t startq;

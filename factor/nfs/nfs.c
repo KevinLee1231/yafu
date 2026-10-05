@@ -1755,91 +1755,25 @@ void nfs(fact_obj_t *fobj)
 }
 
 
-// Where the siever executables live.
-//
-// Empty ggnfs_dir means "next to the yafu executable", which is where
-// `make all` puts them.  Resolving that once from the running image beats
-// asking the user to configure a path back into the source tree, and it
-// keeps working when yafu is invoked from some other directory.  A
-// non-empty ggnfs_dir is an explicit override and is used verbatim.
-//
-// The result is cached; the buffer is read-only after the first call, so
-// returning a pointer into it is safe.
-const char *nfs_siever_dir(fact_obj_t *fobj)
-{
-	static char dir[GSTR_MAXSIZE];
-	static int resolved = 0;
-
-	if (fobj->nfs_obj.ggnfs_dir[0] != '\0')
-		return fobj->nfs_obj.ggnfs_dir;
-
-	if (!resolved)
-	{
-		char path[GSTR_MAXSIZE];
-		char *slash = NULL;
-		ssize_t n = -1;
-
-#if defined(_WIN32)
-		DWORD got = GetModuleFileNameA(NULL, path, (DWORD)sizeof(path));
-		if ((got > 0) && (got < sizeof(path)))
-			n = (ssize_t)got;
-#else
-		n = readlink("/proc/self/exe", path, sizeof(path) - 1);
-#endif
-		if (n > 0)
-		{
-			path[n] = '\0';
-			slash = strrchr(path, '/');
-#if defined(_WIN32)
-			{
-				char *bslash = strrchr(path, '\\');
-				if (bslash > slash)
-					slash = bslash;
-			}
-#endif
-			if (slash != NULL)
-			{
-				size_t dirlen = (size_t)(slash - path) + 1;
-				if (dirlen < sizeof(dir))
-				{
-					memcpy(dir, path, dirlen);
-					dir[dirlen] = '\0';
-					resolved = 1;
-				}
-			}
-		}
-
-		if (!resolved)
-		{
-			// /proc not available (some containers, some kernels): the
-			// caller's working directory is the next best guess, which is
-			// what this always used to be.
-			dir[0] = '.';
-			dir[1] = '/';
-			dir[2] = '\0';
-			resolved = 1;
-		}
-	}
-
-	return dir;
-}
 
 int check_for_sievers(fact_obj_t *fobj, int revert_to_siqs)
 {
-	// if we are going to be doing sieving, check for the sievers
+	// Only the external cuda siever is a file that can be missing.  The lasieve
+	// set is part of this binary -- six I values, six sets of private objects,
+	// reached through lasieve_run() -- so there is nothing to look for and no
+	// way for it to be absent.  Hence no fallback to siqs either: that path
+	// existed because the sievers might not have been built.
+	(void)revert_to_siqs;
+
 	if ((fobj->nfs_obj.nfs_phases == NFS_DEFAULT_PHASES) ||
 		(fobj->nfs_obj.nfs_phases & NFS_PHASE_SIEVE))
 	{
-		FILE *test;
-		char name[GSTR_MAXSIZE + 32];
-		int found = 0, i;
-
 		if (NFS_USE_CUDA(fobj))
 		{
-			// the user asked for the external cuda siever: look for that one binary
-			// instead of the lasieve set.  Don't fall back to siqs: the request
-			// was explicit.
-			test = fopen(fobj->nfs_obj.cuda_sieve, "rb");
+			// the user asked for the external cuda siever: look for that one
+			// binary.  Don't fall back to siqs: the request was explicit.
+			FILE *test = fopen(fobj->nfs_obj.cuda_sieve, "rb");
+
 			if (test != NULL)
 			{
 				fclose(test);
@@ -1851,68 +1785,18 @@ int check_for_sievers(fact_obj_t *fobj, int revert_to_siqs)
 				fobj->nfs_obj.cuda_sieve);
 			return 1;
 		}
-
-		// one program for every I value now, so one existence check each for
-		// the g-prefixed and the bare spelling
-		{
-			name[0] = '\0';
-			if (!append_command(name, sizeof(name), "%sggnfs-lasieve4e",
-				nfs_siever_dir(fobj)))
-				return 1;
-#if defined(WIN32)
-			if (!append_command(name, sizeof(name), ".exe"))
-				return 1;
-#endif
-			// test for existence of the siever
-			test = fopen(name, "rb");
-			if (test != NULL)
-			{
-				found = 1;
-				fclose(test);
-			}
-		}
-
-		if (!found)
-		{
-			name[0] = '\0';
-			if (!append_command(name, sizeof(name), "%sgnfs-lasieve4e",
-				nfs_siever_dir(fobj)))
-				return 1;
-#if defined(WIN32)
-			if (!append_command(name, sizeof(name), ".exe"))
-				return 1;
-#endif
-			// test for existence of the siever
-			test = fopen(name, "rb");
-			if (test != NULL)
-			{
-				found = 1;
-				fclose(test);
-			}
-		}
-
-		if (!found && revert_to_siqs)
-		{
-			printf("WARNING: could not find ggnfs sievers, reverting to siqs!\n");
-			logprint_oc(fobj->flogname, "a", "WARNING: could not find ggnfs sievers, "
-				"reverting to siqs!\n");
-
-			mpz_set(fobj->qs_obj.gmp_n, fobj->nfs_obj.gmp_n);
-			SIQS(fobj);
-			mpz_set(fobj->nfs_obj.gmp_n, fobj->qs_obj.gmp_n);
-			return 1;
-		}
-		else if (!found)
-			return 1;
-		else
-			return 0;
 	}
 
 	return 0;
 }
 
-// set the name of the siever executable for this job.
-// the lasieve name is unchanged from what get_ggnfs_params always produced.
+// Set the program this job's siever argv starts with.
+//
+// Only the external cuda siever has a name worth keeping: it is given by full
+// path and exec'd.  For lasieve the field is argv[0] and nothing else -- the
+// I value is an argument to lasieve_run(), not part of the command line, and
+// lasieve_run() replaces argv[0] with "yafu lasieve" so that usage and error
+// messages name what actually ran.
 void nfs_set_sievername(fact_obj_t* fobj, nfs_job_t* job)
 {
 	int len;
@@ -1921,22 +1805,17 @@ void nfs_set_sievername(fact_obj_t* fobj, nfs_job_t* job)
 	{
 		// the external cuda siever is given by full path and used as is.
 		len = snprintf(job->sievername, sizeof(job->sievername), "%s", fobj->nfs_obj.cuda_sieve);
-	}
-#if defined(WIN32)
-	else
-		len = snprintf(job->sievername, sizeof(job->sievername), "%sgnfs-lasieve4e.exe",
-			nfs_siever_dir(fobj));
-#else
-	else
-		len = snprintf(job->sievername, sizeof(job->sievername), "%sgnfs-lasieve4e",
-			nfs_siever_dir(fobj));
-#endif
 
-	// snprintf() truncates silently, and a truncated path runs the wrong siever
-	if ((len < 0) || ((size_t)len >= sizeof(job->sievername)))
+		// snprintf() truncates silently, and a truncated path runs the wrong siever
+		if ((len < 0) || ((size_t)len >= sizeof(job->sievername)))
+		{
+			fprintf(stderr, "nfs: siever path is too long\n");
+			exit(-1);
+		}
+	}
+	else
 	{
-		fprintf(stderr, "nfs: siever path is too long\n");
-		exit(-1);
+		job->sievername[0] = '\0';
 	}
 }
 

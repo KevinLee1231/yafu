@@ -1465,11 +1465,9 @@ uint32_t parse_job_file(fact_obj_t *fobj, nfs_job_t *job)
 		{
 			// so get_ggnfs_params doesn't overwrite it
 			fobj->nfs_obj.siever = siever;
-#ifdef WIN32
-			snprintf(job->sievername, sizeof(job->sievername), "gnfs-lasieve4e.exe");
-#else
-			snprintf(job->sievername, sizeof(job->sievername), "gnfs-lasieve4e");
-#endif
+			// no name to fill in: the siever is in this binary, and the I value
+			// travels to lasieve_run() as an argument rather than in argv
+			job->sievername[0] = '\0';
 		}
 
 	}

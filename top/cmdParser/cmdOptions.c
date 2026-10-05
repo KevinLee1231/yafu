@@ -66,7 +66,7 @@ char OptionArray[NUMOPTIONS][MAXOPTIONLEN] = {
     "siqsR", "siqsT", "siqsNB", "siqsM", "logfile",
     "batchfile", "seed", "sigma", "session", "threads",
     "v", "silent", "pfile", "pscreen", "forceDLP",
-    "fmtmax", "noopt", "vproc", "noecm", "ggnfs_dir",
+    "fmtmax", "noopt", "vproc", "noecm",
     "tune_info", "pretest_ratio", "xover", "one", "op",
     "of", "ou", "plan", "pretest", "no_expr",
     "o", "a", "r", "ggnfsT", "job",
@@ -585,19 +585,6 @@ void applyOpt(char* opt, char* arg, options_t* options)
     }
     else if (strcmp(opt, OptionArray[29]) == 0)
     {
-        //argument is a string
-        if (strlen(arg) < MAXARGLEN)
-        {
-            strcpy(options->ggnfs_dir, arg);
-        }
-        else
-        {
-            printf("*** argument to ggnfs_dir too long, ignoring ***\n");
-        }
-            
-    }
-    else if (strcmp(opt, OptionArray[30]) == 0)
-    {
         if (strlen(arg) < MAXARGLEN)
         {
             options->num_tune_info++;
@@ -610,22 +597,22 @@ void applyOpt(char* opt, char* arg, options_t* options)
             printf("*** argument to tune_info too long, ignoring ***\n");
         }
     }
-    else if (strcmp(opt, OptionArray[31]) == 0)
+    else if (strcmp(opt, OptionArray[30]) == 0)
     {
         //argument "pretest_ratio"
         options->pretest_ratio = parse_double(arg, opt);
     }
-    else if (strcmp(opt, OptionArray[32]) == 0)
+    else if (strcmp(opt, OptionArray[31]) == 0)
     {
         //argument "xover"
         options->xover = parse_double(arg, opt);
     }
-    else if (strcmp(opt, OptionArray[33]) == 0)
+    else if (strcmp(opt, OptionArray[32]) == 0)
     {
         //argument "one"
         options->one_factor = 1;
     }
-    else if (strcmp(opt, OptionArray[34]) == 0)
+    else if (strcmp(opt, OptionArray[33]) == 0)
     {
         //argument "op".  argument is a string
         if (strlen(arg) < MAXARGLEN)
@@ -637,7 +624,7 @@ void applyOpt(char* opt, char* arg, options_t* options)
             printf("*** argument to -op too long, ignoring ***\n");
         }
     }
-    else if (strcmp(opt, OptionArray[35]) == 0)
+    else if (strcmp(opt, OptionArray[34]) == 0)
     {
         //argument "of".  argument is a string
         if (strlen(arg) < MAXARGLEN)
@@ -649,7 +636,7 @@ void applyOpt(char* opt, char* arg, options_t* options)
             printf("*** argument to -of too long, ignoring ***\n");
         }
     }
-    else if (strcmp(opt, OptionArray[36]) == 0)
+    else if (strcmp(opt, OptionArray[35]) == 0)
     {
         //argument "ou".  argument is a string
         if (strlen(arg) < MAXARGLEN)
@@ -661,7 +648,7 @@ void applyOpt(char* opt, char* arg, options_t* options)
             printf("*** argument to -ou too long, ignoring ***\n");
         }
     }
-    else if (strcmp(opt, OptionArray[37]) == 0)
+    else if (strcmp(opt, OptionArray[36]) == 0)
     {
         //argument "plan".  argument is a string
         if (strlen(arg) < MAXARGLEN)
@@ -690,7 +677,7 @@ void applyOpt(char* opt, char* arg, options_t* options)
             printf("*** argument to -plan too long, ignoring ***\n");
         }
     }
-    else if (strcmp(opt, OptionArray[38]) == 0)
+    else if (strcmp(opt, OptionArray[37]) == 0)
     {
         //argument "pretest"
         if (arg == NULL)
@@ -706,12 +693,12 @@ void applyOpt(char* opt, char* arg, options_t* options)
             options->pretest = parse_uint(arg, opt, UINT32_MAX);
         }
     }
-    else if (strcmp(opt, OptionArray[39]) == 0)
+    else if (strcmp(opt, OptionArray[38]) == 0)
     {
         //argument "no_expr"
         options->want_output_expr = 0;
     }
-    else if (strcmp(opt, OptionArray[40]) == 0)
+    else if (strcmp(opt, OptionArray[39]) == 0)
     {
         //argument "o".  Indicates output filename ggnfs sieving.
         if (strlen(arg) < MAXARGLEN)
@@ -723,22 +710,22 @@ void applyOpt(char* opt, char* arg, options_t* options)
             printf("*** argument to -o too long, ignoring ***\n");
         }
     }
-    else if (strcmp(opt, OptionArray[41]) == 0)
+    else if (strcmp(opt, OptionArray[40]) == 0)
     {
         //argument "a".  Indicates algebraic side special Q.
         options->alg_side = 1;
     }
-    else if (strcmp(opt, OptionArray[42]) == 0)
+    else if (strcmp(opt, OptionArray[41]) == 0)
     {
         //argument "r".  Indicates rational side special Q.
        options->rat_side = 1;
     }
-    else if (strcmp(opt, OptionArray[43]) == 0)
+    else if (strcmp(opt, OptionArray[42]) == 0)
     {
         //argument "ggnfsT".  Indicates timeout (in seconds) for NFS job.
         options->nfs_timeout = parse_uint(arg, opt, UINT32_MAX);
     }
-    else if (strcmp(opt, OptionArray[44]) == 0)
+    else if (strcmp(opt, OptionArray[43]) == 0)
     {
         //argument "job".  Indicates input .job file automated NFS.
         if (strlen(arg) < MAXARGLEN)
@@ -750,7 +737,7 @@ void applyOpt(char* opt, char* arg, options_t* options)
             printf("*** argument to -job too long, ignoring ***\n");
         }
     }
-    else if (strcmp(opt, OptionArray[45]) == 0)
+    else if (strcmp(opt, OptionArray[44]) == 0)
     {
         // argument "ns".  do nfs sieving
         if (arg != NULL)
@@ -766,7 +753,7 @@ void applyOpt(char* opt, char* arg, options_t* options)
         }
 
     }
-    else if (strcmp(opt, OptionArray[46]) == 0)
+    else if (strcmp(opt, OptionArray[45]) == 0)
     {
         //argument "np".  do poly finding.
 
@@ -782,12 +769,12 @@ void applyOpt(char* opt, char* arg, options_t* options)
             options->polystop = 1;
         }
     }
-    else if (strcmp(opt, OptionArray[47]) == 0)
+    else if (strcmp(opt, OptionArray[46]) == 0)
     {
         //argument "nc".  Do post processing, starting with filtering
         options->nc = 1;
     }
-    else if (strcmp(opt, OptionArray[48]) == 0)
+    else if (strcmp(opt, OptionArray[47]) == 0)
     {
         //argument "psearch".  modify poly search methodology
         if (strlen(arg) < MAXARGLEN)
@@ -819,12 +806,12 @@ void applyOpt(char* opt, char* arg, options_t* options)
         }
 
     }
-    else if (strcmp(opt, OptionArray[49]) == 0)
+    else if (strcmp(opt, OptionArray[48]) == 0)
     {
         //argument "R".  nfs restart flag
         options->nfs_resume = 1;
     }
-    else if (strcmp(opt, OptionArray[50]) == 0)
+    else if (strcmp(opt, OptionArray[49]) == 0)
     {
         //argument "pbatch".  Indicates size of blocks of leading coefficients to
         //distribute to each thread in threaded NFS poly selection.
@@ -832,7 +819,7 @@ void applyOpt(char* opt, char* arg, options_t* options)
         if (options->poly_batch == 0)
             options->poly_batch = 5000;
     }
-    else if (strcmp(opt, OptionArray[51]) == 0)
+    else if (strcmp(opt, OptionArray[50]) == 0)
     {
         // argument "ecm_path"
         //argument is a string
@@ -841,59 +828,59 @@ void applyOpt(char* opt, char* arg, options_t* options)
         else
             printf("*** argument to ecm_path too long, ignoring ***\n");
     }
-    else if (strcmp(opt, OptionArray[52]) == 0)
+    else if (strcmp(opt, OptionArray[51]) == 0)
     {
         // argument "siever"
         options->ggnfs_siever = parse_uint(arg, opt, UINT32_MAX);
     }
-    else if (strcmp(opt, OptionArray[53]) == 0)
+    else if (strcmp(opt, OptionArray[52]) == 0)
     {
         //argument "ncr".  linear algebra restart flag
         options->ncr = 1;
     }
-    else if (strcmp(opt, OptionArray[54]) == 0)
+    else if (strcmp(opt, OptionArray[53]) == 0)
     {
         // argument "lathreads"
         options->lathreads = parse_uint(arg, opt, UINT32_MAX);
         if (options->lathreads == 0 || options->lathreads > INT_MAX)
             invalid_argument(opt);
     }
-    else if (strcmp(opt, OptionArray[55]) == 0)
+    else if (strcmp(opt, OptionArray[54]) == 0)
     {
         //argument "nc2".  do linear algebra.
         options->nc2 = 1;
     }
-    else if (strcmp(opt, OptionArray[56]) == 0)
+    else if (strcmp(opt, OptionArray[55]) == 0)
     {
         //argument "nc3".  do nfs sqrt
         options->nc3 = 1;
     }
-    else if (strcmp(opt, OptionArray[57]) == 0)
+    else if (strcmp(opt, OptionArray[56]) == 0)
     {
         //argument "p".  set to idle priority.
         options->yafu_idle = 1;
     }
-    else if (strcmp(opt, OptionArray[58]) == 0)
+    else if (strcmp(opt, OptionArray[57]) == 0)
     {
         //argument "work"
         options->work = parse_double(arg, opt);
     }
-    else if (strcmp(opt, OptionArray[59]) == 0)
+    else if (strcmp(opt, OptionArray[58]) == 0)
     {
         //argument "nprp"
         options->num_prp_witnesses = parse_uint(arg, opt, UINT32_MAX);
     }
-    else if (strcmp(opt, OptionArray[60]) == 0)
+    else if (strcmp(opt, OptionArray[59]) == 0)
     {
         // argument "ext_ecm"
         options->ext_ecm_xover = parse_uint(arg, opt, UINT64_MAX);
     }
-    else if (strcmp(opt, OptionArray[61]) == 0)
+    else if (strcmp(opt, OptionArray[60]) == 0)
     {
         //argument "testsieve"
         options->snfs_testsieve_threshold = parse_uint(arg, opt, UINT32_MAX);
     }
-    else if (strcmp(opt, OptionArray[62]) == 0)
+    else if (strcmp(opt, OptionArray[61]) == 0)
     {
         // argument "nt"
         if (arg == NULL)
@@ -910,7 +897,7 @@ void applyOpt(char* opt, char* arg, options_t* options)
             printf("*** argument to nt too long, ignoring ***\n");
         }
     }
-    else if (strcmp(opt, OptionArray[63]) == 0)
+    else if (strcmp(opt, OptionArray[62]) == 0)
     {
         // argument "aprcl_p", setting the threshold below which numbers
         // are proved prime using APR-CL
@@ -922,100 +909,100 @@ void applyOpt(char* opt, char* arg, options_t* options)
             options->aprcl_p = 6021;
         }
     }
-    else if (strcmp(opt, OptionArray[64]) == 0)
+    else if (strcmp(opt, OptionArray[63]) == 0)
     {
         // argument "aprcl_d", setting the threshold above which numbers
         // that are proved prime using APR-CL have additional verbosity enabled
         options->aprcl_d = parse_uint(arg, opt, UINT32_MAX);
     }
-    else if (strcmp(opt, OptionArray[65]) == 0)
+    else if (strcmp(opt, OptionArray[64]) == 0)
     {
         //argument "filt_bump"
         options->filt_bump = parse_double(arg, opt);
     }
-    else if (strcmp(opt, OptionArray[66]) == 0)
+    else if (strcmp(opt, OptionArray[65]) == 0)
     {
         //argument "nc1".  do msieve filtering.
         options->nc1 = 1;
     }
-    else if (strcmp(opt, OptionArray[67]) == 0)
+    else if (strcmp(opt, OptionArray[66]) == 0)
     {
         //argument "gnfs"
         options->force_gnfs = 1;
     }
-    else if (strcmp(opt, OptionArray[68]) == 0)
+    else if (strcmp(opt, OptionArray[67]) == 0)
     {
         applyArg(arg, 0, options);
     }
-    else if (strcmp(opt, OptionArray[69]) == 0)
+    else if (strcmp(opt, OptionArray[68]) == 0)
     {
         //argument "repeat"
         options->repeat = parse_uint(arg, opt, UINT32_MAX);
     }
-    else if (strcmp(opt, OptionArray[70]) == 0)
+    else if (strcmp(opt, OptionArray[69]) == 0)
     {
         //argument "ecmtime"
 
     }
-    else if (strcmp(opt, OptionArray[71]) == 0)
+    else if (strcmp(opt, OptionArray[70]) == 0)
     {
         //argument "no_clk_test"
         options->no_clk_test = 1;
     }
-    else if (strcmp(opt, OptionArray[72]) == 0)
+    else if (strcmp(opt, OptionArray[71]) == 0)
     {
         //argument "siqsTFSm"
         options->siqsTFSm = (uint32_t)parse_uint(arg, opt, UINT32_MAX);
     }
-    else if (strcmp(opt, OptionArray[73]) == 0)
+    else if (strcmp(opt, OptionArray[72]) == 0)
     {
         //argument "script"
         if (strlen(arg) >= sizeof(options->scriptfile))
             invalid_argument(opt);
         strcpy(options->scriptfile, arg);
     }
-    else if (strcmp(opt, OptionArray[74]) == 0)
+    else if (strcmp(opt, OptionArray[73]) == 0)
     {
         //argument "degree"
 
     }
-    else if (strcmp(opt, OptionArray[75]) == 0)
+    else if (strcmp(opt, OptionArray[74]) == 0)
     {
         //argument "snfs_xover"
         options->qs_snfs_xover = parse_double(arg, opt);
         //fobj->autofact_obj.prefer_xover = 1;
     }
-    else if (strcmp(opt, OptionArray[76]) == 0)
+    else if (strcmp(opt, OptionArray[75]) == 0)
     {
         //argument "soe_block"
         options->soe_blocksize = parse_uint(arg, opt, UINT32_MAX);
     }
-    else if (strcmp(opt, OptionArray[77]) == 0)
+    else if (strcmp(opt, OptionArray[76]) == 0)
     {
         //argument "forceTLP"
         options->siqsForceTLP = 1;
     }
-    else if (strcmp(opt, OptionArray[78]) == 0)
+    else if (strcmp(opt, OptionArray[77]) == 0)
     {
         //argument "siqsLPB"
         // the maximum allowed large prime, in bits, in SIQS
         options->siqsLPB = (uint32_t)parse_uint(arg, opt, UINT32_MAX);
     }
-    else if (strcmp(opt, OptionArray[79]) == 0)
+    else if (strcmp(opt, OptionArray[78]) == 0)
     {
         //argument "siqsMFBD"
         // the exponent of the large prime bound such that residues larger than
         // lpb^siqsMFBD are subjected to double large prime factorization attempts
         options->siqsMFBD = parse_double(arg, opt);
     }
-    else if (strcmp(opt, OptionArray[80]) == 0)
+    else if (strcmp(opt, OptionArray[79]) == 0)
     {
         //argument "siqsMFBT"
         // the exponent of the large prime bound such that residues larger than
         // lpb^siqsMFBT are subjected to triple large prime factorization attempts
         options->siqsMFBT = parse_double(arg, opt);
     }
-    else if (strcmp(opt, OptionArray[81]) == 0)
+    else if (strcmp(opt, OptionArray[80]) == 0)
     {
         //argument "siqsBDiv"
         // The divider of large_prime_max as the upper bound for
@@ -1023,7 +1010,7 @@ void applyOpt(char* opt, char* arg, options_t* options)
         //fobj->qs_obj.gbl_override_bdiv_flag = 1;
         options->siqsBDiv = parse_double(arg, opt);
     }
-    else if (strcmp(opt, OptionArray[82]) == 0)
+    else if (strcmp(opt, OptionArray[81]) == 0)
     {
         //argument "siqsBT" ("Batch Target")
         // How many relations to batch up before they are processed
@@ -1031,35 +1018,35 @@ void applyOpt(char* opt, char* arg, options_t* options)
         if (options->siqsBT == 0)
             invalid_argument(opt);
     }
-    else if (strcmp(opt, OptionArray[83]) == 0)
+    else if (strcmp(opt, OptionArray[82]) == 0)
     {
         // argument "prefer_gmpecm"
         options->prefer_gmpecm = 1;
     }
-    else if (strcmp(opt, OptionArray[84]) == 0)
+    else if (strcmp(opt, OptionArray[83]) == 0)
     {
         //argument "save_b1"
         options->saveB1 = 1;
     }
-    else if (strcmp(opt, OptionArray[85]) == 0)
+    else if (strcmp(opt, OptionArray[84]) == 0)
     {
         //argument "siqsNobat"
         // Whether or not to use batch factoring in 3LP
         options->siqsNobat = 1;
     }
-    else if (strcmp(opt, OptionArray[86]) == 0)
+    else if (strcmp(opt, OptionArray[85]) == 0)
     {
         // argument "inmem"
         // cutoff for processing in-memory
         options->inmem_cutoff = (uint32_t)parse_uint(arg, opt, UINT32_MAX);
     }
-    else if (strcmp(opt, OptionArray[87]) == 0)
+    else if (strcmp(opt, OptionArray[86]) == 0)
     {
         // argument "prefer_gmpecm_stg2"
         options->prefer_gmpecm_stg2 = 1;
         options->prefer_avxecm_stg2 = 0;
     }
-    else if (strcmp(opt, OptionArray[88]) == 0)
+    else if (strcmp(opt, OptionArray[87]) == 0)
     {
         // argument "vpp1_work_file"
         if (strlen(arg) < MAXARGLEN)
@@ -1067,7 +1054,7 @@ void applyOpt(char* opt, char* arg, options_t* options)
         else
             printf("*** argument to vpp1_work_file too long, ignoring ***\n");
     }
-    else if (strcmp(opt, OptionArray[89]) == 0)
+    else if (strcmp(opt, OptionArray[88]) == 0)
     {
         // argument "vpm1_work_file"
         if (strlen(arg) < MAXARGLEN)
@@ -1075,23 +1062,23 @@ void applyOpt(char* opt, char* arg, options_t* options)
         else
             printf("*** argument to vpm1_work_file too long, ignoring ***\n");
     }
-    else if (strcmp(opt, OptionArray[90]) == 0)
+    else if (strcmp(opt, OptionArray[89]) == 0)
     {
         if (strlen(arg) < MAXARGLEN)
             strcpy(options->resume_file, arg);
         else
             printf("*** argument to resume too long, ignoring ***\n");
     }
-    else if (strcmp(opt, OptionArray[91]) == 0)
+    else if (strcmp(opt, OptionArray[90]) == 0)
     {
         options->json_pretty = 1;
     }
-    else if (strcmp(opt, OptionArray[92]) == 0)
+    else if (strcmp(opt, OptionArray[91]) == 0)
     {
         // argument "cadoMsieve"
         options->cadoMsieve = 1;
     }
-    else if (strcmp(opt, OptionArray[93]) == 0)
+    else if (strcmp(opt, OptionArray[92]) == 0)
     {
         // argument "cado_dir"
         if (strlen(arg) < MAXARGLEN)
@@ -1099,7 +1086,7 @@ void applyOpt(char* opt, char* arg, options_t* options)
         else
             printf("*** argument to cado_dir too long, ignoring ***\n");
     }
-    else if (strcmp(opt, OptionArray[94]) == 0)
+    else if (strcmp(opt, OptionArray[93]) == 0)
     {
         // argument "convert_poly_path"
         if (strlen(arg) < MAXARGLEN)
@@ -1107,90 +1094,90 @@ void applyOpt(char* opt, char* arg, options_t* options)
         else
             printf("*** argument to convert_poly_path too long, ignoring ***\n");
     }
-    else if (strcmp(opt, OptionArray[95]) == 0)
+    else if (strcmp(opt, OptionArray[94]) == 0)
     {
         // argument "gpucurves"
         options->gpucurves = parse_int(arg, opt);
     }
-    else if (strcmp(opt, OptionArray[96]) == 0)
+    else if (strcmp(opt, OptionArray[95]) == 0)
     {
         // argument "use_cgbn"
         options->use_cgbn = 1;
     }
-    else if (strcmp(opt, OptionArray[97]) == 0)
+    else if (strcmp(opt, OptionArray[96]) == 0)
     {
         // argument "use_gpuecm"
         options->use_gpuecm = 1;
     }
-    else if (strcmp(opt, OptionArray[98]) == 0)
+    else if (strcmp(opt, OptionArray[97]) == 0)
     {
         // argument "use_gpudev"
         options->use_gpudev = parse_int(arg, opt);
     }
-    else if (strcmp(opt, OptionArray[99]) == 0)
+    else if (strcmp(opt, OptionArray[98]) == 0)
     {
         // argument "prefer_avxecm_stg2"
         options->prefer_avxecm_stg2 = 1;
         options->prefer_gmpecm_stg2 = 0;
     }
-    else if (strcmp(opt, OptionArray[100]) == 0)
+    else if (strcmp(opt, OptionArray[99]) == 0)
     {
         // argument "stoplt"
         options->stoplt = parse_int(arg, opt);
         options->check_stop_conditions = 1;
     }
-    else if (strcmp(opt, OptionArray[101]) == 0)
+    else if (strcmp(opt, OptionArray[100]) == 0)
     {
         // argument "stople"
         options->stople = parse_int(arg, opt);
         options->check_stop_conditions = 1;
     }
-    else if (strcmp(opt, OptionArray[102]) == 0)
+    else if (strcmp(opt, OptionArray[101]) == 0)
     {
         // argument "stopeq"
         options->stopeq = parse_int(arg, opt);
         options->check_stop_conditions = 1;
     }
-    else if (strcmp(opt, OptionArray[103]) == 0)
+    else if (strcmp(opt, OptionArray[102]) == 0)
     {
         // argument "stopgt"
         options->stopgt = parse_int(arg, opt);
         options->check_stop_conditions = 1;
     }
-    else if (strcmp(opt, OptionArray[104]) == 0)
+    else if (strcmp(opt, OptionArray[103]) == 0)
     {
         // argument "stopge"
         options->stopge = parse_int(arg, opt);
         options->check_stop_conditions = 1;
     }
-    else if (strcmp(opt, OptionArray[105]) == 0)
+    else if (strcmp(opt, OptionArray[104]) == 0)
     {
         // argument "stopbase"
         options->stopbase = parse_int(arg, opt);
         if (options->stopbase < 2 || options->stopbase > 62)
             invalid_argument(opt);
     }
-    else if (strcmp(opt, OptionArray[106]) == 0)
+    else if (strcmp(opt, OptionArray[105]) == 0)
     {
         // argument "stopprime"
         options->stopprime = 1;
     }
-    else if (strcmp(opt, OptionArray[107]) == 0)
+    else if (strcmp(opt, OptionArray[106]) == 0)
     {
         // argument "siqsSSidx"
         options->siqsSSidx = (uint32_t)parse_uint(arg, opt, UINT32_MAX);
     }
-    else if (strcmp(opt, OptionArray[108]) == 0)
+    else if (strcmp(opt, OptionArray[107]) == 0)
     {
         // argument "siqsSSalloc"
         options->siqsSSalloc = (uint32_t)parse_uint(arg, opt, 15);
     }
-    else if (strcmp(opt, OptionArray[109]) == 0)
+    else if (strcmp(opt, OptionArray[108]) == 0)
     {
         // argument "skipSNFScheck"
         options->skip_snfscheck = 1;
     }
-    else if (strcmp(opt, OptionArray[110]) == 0)
+    else if (strcmp(opt, OptionArray[109]) == 0)
     {
         // argument "OBASE"
         int b = parse_int(arg, opt);
@@ -1204,54 +1191,54 @@ void applyOpt(char* opt, char* arg, options_t* options)
             options->obase = 10;
         }
     }
-    else if (strcmp(opt, OptionArray[111]) == 0)
+    else if (strcmp(opt, OptionArray[110]) == 0)
     {
         // argument "minrels"
         options->minrels = parse_uint(arg, opt, UINT32_MAX);
     }
-    else if (strcmp(opt, OptionArray[112]) == 0)
+    else if (strcmp(opt, OptionArray[111]) == 0)
     {
         // argument "stopk".  also sets strict, which includes
         // trial division and rho factors in this number (why shouldn't it?)
         options->stopk = parse_int(arg, opt);
         options->strict = 1;
     }
-    else if (strcmp(opt, OptionArray[113]) == 0)
+    else if (strcmp(opt, OptionArray[112]) == 0)
     {
         // argument "stop_strict"
         options->strict = 1;
     }
-    else if (strcmp(opt, OptionArray[114]) == 0)
+    else if (strcmp(opt, OptionArray[113]) == 0)
     {
         // terse
         options->terse_output = 1;
     }
-    else if (strcmp(opt, OptionArray[115]) == 0)
+    else if (strcmp(opt, OptionArray[114]) == 0)
     {
         // max_siqs
         options->max_siqs = parse_int(arg, opt);
     }
-    else if (strcmp(opt, OptionArray[116]) == 0)
+    else if (strcmp(opt, OptionArray[115]) == 0)
     {
         // max_nfs
         options->max_nfs = parse_int(arg, opt);
     }
-    else if (strcmp(opt, OptionArray[117]) == 0)
+    else if (strcmp(opt, OptionArray[116]) == 0)
     {
         // np1
         options->np1 = 1;
     }
-    else if (strcmp(opt, OptionArray[118]) == 0)
+    else if (strcmp(opt, OptionArray[117]) == 0)
     {
         // nps
         options->nps = 1;
     }
-    else if (strcmp(opt, OptionArray[119]) == 0)
+    else if (strcmp(opt, OptionArray[118]) == 0)
     {
         // npr
         options->npr = 1;
     }
-    else if (strcmp(opt, OptionArray[120]) == 0)
+    else if (strcmp(opt, OptionArray[119]) == 0)
     {
         // params_file
         if (strlen(arg) < MAXARGLEN)
@@ -1259,22 +1246,22 @@ void applyOpt(char* opt, char* arg, options_t* options)
         else
             printf("*** argument to params_file too long, ignoring ***\n");
     }
-    else if (strcmp(opt, OptionArray[121]) == 0)
+    else if (strcmp(opt, OptionArray[120]) == 0)
     {
         // poly_testsieve
         options->poly_testsieve = parse_int(arg, opt);
     }
-    else if (strcmp(opt, OptionArray[122]) == 0)
+    else if (strcmp(opt, OptionArray[121]) == 0)
     {
         // poly_percent_max
         options->poly_percent_max = parse_int(arg, opt);
     }
-     else if (strcmp(opt, OptionArray[123]) == 0)
+     else if (strcmp(opt, OptionArray[122]) == 0)
     {
         // argument "td"
         options->td = parse_int(arg, opt);
     }
-    else if (strcmp(opt, OptionArray[124]) == 0)
+    else if (strcmp(opt, OptionArray[123]) == 0)
     {
         // jsonlog
         if (strlen(arg) < MAXARGLEN)
@@ -1282,29 +1269,29 @@ void applyOpt(char* opt, char* arg, options_t* options)
         else
             printf("*** argument to jsonlog too long, ignoring ***\n");
     }
-    else if (strcmp(opt, OptionArray[125]) == 0)
+    else if (strcmp(opt, OptionArray[124]) == 0)
     {
         //argument "forceQLP"
         options->siqsForceQLP = 1;
     }
-    else if (strcmp(opt, OptionArray[126]) == 0)
+    else if (strcmp(opt, OptionArray[125]) == 0)
     {
         //argument "siqsMFBQ"
         // the exponent of the large prime bound such that residues larger than
         // lpb^siqsMFBQ are subjected to quad large prime factorization attempts
         options->siqsMFBQ = parse_double(arg, opt);
     }
-    else if (strcmp(opt, OptionArray[127]) == 0)
+    else if (strcmp(opt, OptionArray[126]) == 0)
     {
         //argument "forceQLP"
         options->nfs_batch_3lp = 1;
     }
-    else if (strcmp(opt, OptionArray[128]) == 0)
+    else if (strcmp(opt, OptionArray[127]) == 0)
     {
         //argument "forceQLP"
         options->soe_analysis  = parse_int(arg, opt);
     }
-    else if (strcmp(opt, OptionArray[129]) == 0)
+    else if (strcmp(opt, OptionArray[128]) == 0)
     {
         //argument "keep_afb": bare flag enables; an explicit value
         //(e.g. keep_afb=0 in an ini file) is respected
@@ -1313,12 +1300,12 @@ void applyOpt(char* opt, char* arg, options_t* options)
         else
             options->keep_afb = (parse_int(arg, opt) != 0);
     }
-    else if (strcmp(opt, OptionArray[130]) == 0)
+    else if (strcmp(opt, OptionArray[129]) == 0)
     {
         //argument "nfs_stage1_args"
         strcpy(options->nfs_stage1_args, arg);
     }
-    else if (strcmp(opt, OptionArray[131]) == 0)
+    else if (strcmp(opt, OptionArray[130]) == 0)
     {
         //argument "cuda_sieve": path to the cuda-sieve executable (bench).
         // giving one selects the cuda siever for NFS sieving.
@@ -1331,7 +1318,7 @@ void applyOpt(char* opt, char* arg, options_t* options)
             printf("*** argument to cuda_sieve too long, ignoring ***\n");
         }
         }
-    else if (strcmp(opt, OptionArray[132]) == 0)
+    else if (strcmp(opt, OptionArray[131]) == 0)
     {
         //argument "cuda_dev": comma separated CUDA device indices, e.g. 0,1
         // only digits and single commas between numbers are accepted.
@@ -1483,13 +1470,17 @@ options_t* initOpt(void)
     options->poly_batch = 5000;
     options->ggnfs_siever = 0;
 #if defined(_WIN64)
-    options->ggnfs_dir[0] = '\0';
 #elif defined(WIN32)
-    options->ggnfs_dir[0] = '\0';
 #else
-    options->ggnfs_dir[0] = '\0';
 #endif
-    strcpy(options->cado_dir, options->ggnfs_dir);
+    // cado_dir used to default to whatever ggnfs_dir was set to.  ggnfs_dir
+    // is gone with the siever executables, so it gets its own default: the
+    // current directory, same as factor_common.c uses for cado_dir on non-Windows.
+#if defined(WIN32)
+    strcpy(options->cado_dir, ".\\");
+#else
+    strcpy(options->cado_dir, "./");
+#endif
     options->skip_snfscheck = 0;
     options->minrels = 0;
     options->td = 0;

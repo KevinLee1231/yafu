@@ -259,13 +259,10 @@ void init_factobj(fact_obj_t* fobj)
 
     fobj->nfs_obj.polybatch = 250;						//default	
 #if defined(_WIN64)
-    fobj->nfs_obj.ggnfs_dir[0] = '\0';
     strcpy(fobj->nfs_obj.cado_dir, ".\\");
 #elif defined(WIN32)
-    fobj->nfs_obj.ggnfs_dir[0] = '\0';
     strcpy(fobj->nfs_obj.cado_dir, ".\\");
 #else
-    fobj->nfs_obj.ggnfs_dir[0] = '\0';
     strcpy(fobj->nfs_obj.cado_dir, "./");
 #endif
 
@@ -671,7 +668,6 @@ void copy_factobj(fact_obj_t* dest, fact_obj_t* src, int parameters_only)
     dest->nfs_obj.keep_afb = src->nfs_obj.keep_afb;
 
     dest->nfs_obj.polybatch = src->nfs_obj.polybatch;
-    strcpy(dest->nfs_obj.ggnfs_dir, src->nfs_obj.ggnfs_dir);
 
     dest->nfs_obj.cadoMsieve = src->nfs_obj.cadoMsieve;
     strcpy(dest->nfs_obj.cado_dir, src->nfs_obj.cado_dir);
