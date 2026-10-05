@@ -20,14 +20,43 @@ NFS 到筛选阶段不自己筛，而是调用一批独立进程。这个目录�
 I 值（11..16）是**编译期**常量：`recurrence6I%d.o` 用 `-DI_bits=%*` 编译，
 `asm/liblasieveI%d.a` 里的筛内核也由 m4 按 I 生成不同的立即数。
 
-这六个库定义的是**同名符号**——`lasched`、`lasched0`、`slinie`、`medsched`、
-`tdslinie` 等等，I11 和 I16 的符号表逐个对得上，代码内容不同而已。所以
-它们无法同时链进一个二进制，而 yafu 正是要同时用 6 个不同 I 值并行筛
-（`nfs_sieving.c` 的线程池，每个线程一个 I）。
+这六个库定义的是**同名符号**：各 30 个，I11 与 I16 的符号表逐个对得上，代码
+内容不同（`laschedI11.o` 与 `laschedI16.o` 的 md5 就不同）。一起链接时
+`ld` 直接报 `multiple definition of 'lasched_1'`。
 
-要让它们进同一个进程，得给全部手写汇编做按 I 的符号改名，那是另一件
-量级的事。所以这里保持独立进程：yafu 的线程池负责并行，每个线程 exec 一个
-对应 I 值的 siever。
+合并成一个二进制是可行的——机制就是按 I 给符号加后缀，用
+`-Dlasched=laschedI11`（C 侧预处理按 token 替换，`lasched` 不会波及
+`lasched0`；m4 侧 `-D` 就是定义宏），汇编与 C 在同一编译单元内一起改名。
+yafu 需要 6 个不同 I 并行筛，所以合并之后 yafu 在**一个进程**里跑 6 个
+siever 才是最终目标。
+
+### 合并的确切范围
+
+下面是从 `nm` 符号表实测出来的，不是估计。**106 个符号**要加 I 后缀：
+
+| 来源 | 个数 | 谁定义 |
+| --- | --- | --- |
+| `liblasieveI%d.a` 的筛内核 | 30 | `asm/lasched.c`、`medsched.c`、`search0.c`、`slinie*.asm`、`tdslinie*.asm` |
+| `gnfs-lasieve4e.c` 的文件级全局（含 `main`） | 15 | 同名 C 源 |
+| `recurrence6.c` 的文件级全局 | 2 | 同名 C 源 |
+| **汇编按名读取的 C 全局** | **59** | `mpqs.c` 18 个、`mpqs3.c` 21 个、`mpqs_gauss_*` 9 个、`modulo32`/`modulo64`、`montgomery_*` 6 个 |
+
+后三类里，`main` 改名为 `mainI<N>` 之后由一个 `lasieve_run(I, argc, argv)`
+分派；`lasieve-prepn.c` 与 `strategy.c` 是仅有的两个调用了改名符号的共享
+对象，必须也按 I 各编一份。
+
+最后一类是最容易被低估的：`asm/liblasieve.a`（39 个对象）**定义**
+`montgomery_*`、并按名**读取**那 59 个，所以它自己也要按 I 编六份
+（`libcoreI%d.a`）。只改 `liblasieveI%d.a` 是不够的——那样两个实例会共用
+同一份 montgomery 状态和同一份 factor base。
+
+改完之后每个 I 值拥有全套私有状态（FB、montgomery、ECM/P−1 缓存、
+strategy 统计量），这正是进程内并行需要的。
+
+### 验收
+
+`sieve_oracle.sh` 对六个 I 值各跑一遍，关系集合必须与现在这六个独立可执行
+文件逐字节一致。基准已经支持传入 siever 路径，改造后逐个 I 值比对即可。
 
 
 每个 siever 实例的状态
