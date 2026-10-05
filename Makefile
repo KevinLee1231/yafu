@@ -1144,12 +1144,12 @@ endif
 # -----------------------------------------------------------------------------
 # 22. PHONY TARGETS
 # -----------------------------------------------------------------------------
-.PHONY: all yafu lasieve lasieve-clean clean info help _dep_status
+.PHONY: all yafu lasieve lasieve-force lasieve-clean clean info help _dep_status
 
 # -----------------------------------------------------------------------------
 # 23. DEFAULT GOAL
 # -----------------------------------------------------------------------------
-all: yafu lasieve
+all: yafu
 
 # -----------------------------------------------------------------------------
 # 24. DEPENDENCY STATUS  (printed at the start of every real build)
@@ -1176,9 +1176,45 @@ ARCHIVES    := $(BUILD_DIR)/libysiqs.a $(BUILD_DIR)/libyecm.a \
 # 25. LINK TARGETS
 # -----------------------------------------------------------------------------
 
-yafu: _dep_status $(YAFU_OBJS) $(ARCHIVES) $(GPU_OBJS)
-	$(CC) $(CFLAGS) $(YAFU_OBJS) -o yafu$(EXE_EXT) \
-	    $(ARCHIVES) $(LIBS)
+# The sieve is one of these, so -no-pie is not optional: the hand-written
+# assembly has 32-bit absolute relocations and is not position independent.
+#
+# LASIEVE_FILES is the list of everything the sub-make produces.  It comes from
+# the sub-make rather than being spelled out here so that it is defined in one
+# place, and every entry is a prerequisite of yafu, so a change to sieve source
+# relinks yafu instead of leaving a stale siever inside it.
+LASIEVE_DIR     ?= factor/nfs/lasieve
+LASIEVE_BINDIR  ?= ../../..
+LASIEVE_FILES   := $(strip $(foreach f,$(shell $(MAKE) -s -C $(LASIEVE_DIR) bobs),$(LASIEVE_DIR)/$(f)))
+
+# What the sub-make has to be told.  One list, used by every entry point into
+# it, so the flags cannot drift apart between them.
+LASIEVE_VARS := \
+    CC=$(CC) \
+    BINDIR=$(LASIEVE_BINDIR) \
+    GMP_INCDIR=$(GMP_INCDIR) \
+    GMP_LIBDIR=$(GMP_LIBDIR) \
+    DETECTED_OS=$(DETECTED_OS) \
+    $(if $(filter 1,$(DEBUG)),DEBUG=1) \
+    $(if $(filter 1,$(USE_AVX512)),AVX512_ALL=1)
+
+# Phony on purpose.  A rule of the form "$(LASIEVE_FILES): <recipe>" never runs
+# its recipe once the files exist, because make considers them up to date -- and
+# then a change of *flags* rather than of timestamps leaves stale objects behind.
+# USE_AVX512=0 would go on linking AVX-512 objects, and the reverse would fail
+# with an undefined reference to get_recurrence_info_16.  The sub-make does the
+# real up-to-date checking; this only has to run.
+.PHONY: lasieve-force
+lasieve-force:
+	$(MAKE) -C $(LASIEVE_DIR) objects $(LASIEVE_VARS)
+
+# Order-only: the objects must exist before the link, but they are not what
+# decides whether yafu relinks.  LASIEVE_FILES is a := list rather than a set of
+# prerequisites, so a change to sieve source reaches the link through the
+# sub-make rebuilding those object files.
+yafu: _dep_status $(YAFU_OBJS) $(ARCHIVES) $(GPU_OBJS) | lasieve-force
+	$(CC) $(CFLAGS) -no-pie $(YAFU_OBJS) -o yafu$(EXE_EXT) \
+	    $(ARCHIVES) $(LASIEVE_FILES) $(LIBS)
 
 
 # -----------------------------------------------------------------------------
@@ -1331,15 +1367,18 @@ test-calc-sanitize: _dep_status $(ARCHIVES) $(TEST_FRONTEND_OBJS)
 
 
 # -----------------------------------------------------------------------------
-# lasieve — NFS sieve binaries (factor/nfs/lasieve)
+# lasieve — the NFS sieve (factor/nfs/lasieve)
 #
-# `all` depends on this: yafu drives the sievers by name, so they have
-# to exist for NFS to work.  They stay separate programs (see
-# factor/nfs/README.md for why) but building them is no longer a
-# second manual step.
+# The siever is part of yafu, not a program beside it.  Its six I values are
+# six sets of private objects -- private sieve kernels, factor base, montgomery
+# state, ECM/P-1 cache -- linked into yafu, and nfs_sieving.c reaches them
+# through lasieve_run() in the same process.  Each concurrent siever gets a
+# different I value, which is what keeps two of them from sharing state; there
+# are six, so at most six sievers run at once.
 #
-# Built separately from the main yafu targets since the sieve programs are
-# standalone binaries invoked at runtime, not linked into yafu.
+# Nothing is built here any more.  What this target still does is re-enter the
+# sub-make, which is the way to rebuild just the sieve objects; the link
+# dependency itself is set up in the link-target section above.
 #
 # USE_AVX512=1 in config.mk or on the command line enables AVX-512 sieve
 # paths automatically (maps to AVX512_ALL=1 in the sub-make).
@@ -1347,22 +1386,8 @@ test-calc-sanitize: _dep_status $(ARCHIVES) $(TEST_FRONTEND_OBJS)
 # 可执行文件与 yafu 写在同一目录（仓库根），yafu 按自身位置找到它们。
 # asm/ 中只生成供链接使用的库。
 # -----------------------------------------------------------------------------
-LASIEVE_DIR  := factor/nfs/lasieve
-# 筛法器和 yafu 一起落在仓库根：yafu 按自身可执行文件所在目录找它们，
-# 不需要用户再配一个路径指回源码树。子 make 在 factor/nfs/lasieve/ 里执行，
-# 到仓库根要上三级。
-LASIEVE_BINDIR ?= ../../..
-LASIEVE_VARS := \
-    CC=$(CC) \
-    BINDIR=$(LASIEVE_BINDIR) \
-    GMP_INCDIR=$(GMP_INCDIR) \
-    GMP_LIBDIR=$(GMP_LIBDIR) \
-    DETECTED_OS=$(DETECTED_OS) \
-    $(if $(filter 1,$(DEBUG)),DEBUG=1) \
-    $(if $(filter 1,$(USE_AVX512)),AVX512_ALL=1)
-
-lasieve: _dep_status
-	$(MAKE) -C $(LASIEVE_DIR) alle $(LASIEVE_VARS)
+lasieve: _dep_status lasieve-force
+	@:
 
 lasieve-clean:
 	$(MAKE) -C $(LASIEVE_DIR) clean BINDIR=$(LASIEVE_BINDIR)

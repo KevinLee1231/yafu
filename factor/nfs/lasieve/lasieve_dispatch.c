@@ -1,19 +1,35 @@
 /*
-lasieve_dispatch.c -- picks the I value for a siever run.
+ * lasieve_dispatch.c -- the entry point yafu uses to run the siever.
+ *
+ * There is no separate siever program any more.  The six I values are six sets
+ * of private objects in the yafu image -- private sieve kernels, factor base,
+ * montgomery state, ECM/P-1 cache -- and lasieve_run() picks one from the I
+ * value the caller passes:
+ *
+ *     lasieve_run(13, argc, argv)
+ *
+ * yafu builds that argv exactly as it used to build the command line for the
+ * child process, so the siever's own option handling is untouched.  Each
+ * concurrent siever must be given a different I value: the per-I copies are
+ * what keep two sievers from sharing state, and there are six of them.
+ *
+ * Two things the siever could do as a program that it must not do here:
+ *
+ *   exit()      would take the whole factoring run down with it.  The siever
+ *               reaches exit() on internal errors and at the end of main, so
+ *               lasieve_bail() longjmps back to the setjmp() below and the
+ *               status comes back as an ordinary return value.  With no bail
+ *               frame -- a standalone test driver, say -- it falls back to
+ *               exit() and behaves as before.
+ *
+ *   signal()    SIGTERM/SIGINT handlers would displace yafu's own.  The siever
+ *               installs them only when asked to with -n, and lasieve_run()
+ *               sets the per-I lasieve_in_process flag that suppresses that, so
+ *               -n keeps its other meaning (the thread number in the output
+ *               name) without taking over the process.
+ */
 
-The six I values used to be six executables because their assembly
-libraries define the same symbols and cannot be linked together.  They are
-now six sets of private objects in one image, so the entry point has to say
-which one it wants.
-
-Usage:
-    gnfs-lasieve4e <I> [siever options ...]
-
-I is one of 11..16.  Everything after it is the siever's own command line,
-unparsed and untouched -- the per-I copies of gnfs-lasieve4e.c each keep
-their getopt loop, they just answer to a different name.
-*/
-
+#include <setjmp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,56 +44,58 @@ int mainI14(int argc, char **argv);
 int mainI15(int argc, char **argv);
 int mainI16(int argc, char **argv);
 
+/* the per-I copies of the flag, renamed by the build.  One declaration each:
+ * there is no way to write one name that reaches all six. */
+extern int lasieve_in_processI11;
+extern int lasieve_in_processI12;
+extern int lasieve_in_processI13;
+extern int lasieve_in_processI14;
+extern int lasieve_in_processI15;
+extern int lasieve_in_processI16;
+
+/* The frame lasieve_bail() unwinds to.  Defined in lasieve_bail.c because the
+ * standalone sieve regressions link that instead of this file; setjmp has to run
+ * here, in the frame we return to. */
+extern __thread jmp_buf lasieve_bail_frame;
+extern __thread int lasieve_bail_armed;
+
 int lasieve_run(int I, int argc, char **argv)
 {
-  switch (I)
-  {
-    case 11: return mainI11(argc, argv);
-    case 12: return mainI12(argc, argv);
-    case 13: return mainI13(argc, argv);
-    case 14: return mainI14(argc, argv);
-    case 15: return mainI15(argc, argv);
-    case 16: return mainI16(argc, argv);
-    default: return -1;
-  }
-}
+	int rc;
 
-static void usage(const char *me)
-{
+	/* the siever prints its own name from argv[0] in usage and errors; left
+	 * alone it would say "yafu", so say what actually ran */
+	if ((argc > 0) && (argv != NULL) && (argv[0] != NULL))
+		argv[0] = (char *)"yafu lasieve";
 
-  fprintf(stderr, "usage: %s <I> [options ...]\n", me);
-  fprintf(stderr, "  <I> picks the sieve parameter, 11 to 16\n");
-  fprintf(stderr, "  the options after it are the siever's own\n");
-}
+	switch (I)
+	{
+	case 11: lasieve_in_processI11 = 1; break;
+	case 12: lasieve_in_processI12 = 1; break;
+	case 13: lasieve_in_processI13 = 1; break;
+	case 14: lasieve_in_processI14 = 1; break;
+	case 15: lasieve_in_processI15 = 1; break;
+	case 16: lasieve_in_processI16 = 1; break;
+	default:
+		fprintf(stderr, "lasieve: sieve parameter must be 11 to 16, got %d\n", I);
+		return 1;
+	}
 
-int main(int argc, char **argv)
-{
-  int I;
-  char* end;
-
-  if (argc < 2)
-  {
-    usage(argv[0]);
-    return 1;
-  }
-
-  if ((strcmp(argv[1], "-h") == 0) || (strcmp(argv[1], "--help") == 0))
-  {
-    usage(argv[0]);
-    return 0;
-  }
-
-  I = (int)strtol(argv[1], &end, 10);
-  if ((end == argv[1]) || (*end != '\0') || (I < 11) || (I > 16))
-  {
-    fprintf(stderr, "%s: sieve parameter must be 11 to 16, got '%s'\n",
-            argv[0], argv[1]);
-    usage(argv[0]);
-    return 1;
-  }
-
-  /* drop the I value and hand the rest to the siever unchanged; argv[0] is
-   * replaced so that usage messages still name this program */
-  argv[1] = argv[0];
-  return lasieve_run(I, argc - 1, argv + 1);
+	lasieve_bail_armed = 1;
+	rc = setjmp(lasieve_bail_frame);
+	if (rc == 0)
+	{
+		lasieve_bail_armed = 0;
+		switch (I)
+		{
+		case 11: rc = mainI11(argc, argv); break;
+		case 12: rc = mainI12(argc, argv); break;
+		case 13: rc = mainI13(argc, argv); break;
+		case 14: rc = mainI14(argc, argv); break;
+		case 15: rc = mainI15(argc, argv); break;
+		case 16: rc = mainI16(argc, argv); break;
+		}
+	}
+	lasieve_bail_armed = 0;
+	return rc;
 }

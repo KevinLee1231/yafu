@@ -50,6 +50,7 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at https://mozilla.org/MPL/2.0/.
 */
 #include "lasieve_microecm.h"
+#include "lasieve_bail.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -1538,7 +1539,7 @@ static uint64_t upm1_stage2(uint64_t P, uint64_t rho, uint64_t n, uint32_t b1, u
     }
     printf("};\n %d entries */ \n", j);
 
-    exit(1);
+    lasieve_bail(1);
 #endif
 
     pw = upm1_mulredc(d[upm1_map[59]], P, n, rho);      // assumes w=60
@@ -1738,7 +1739,7 @@ static uint64_t upm1_stage2_pair(uint64_t P, uint64_t rho, uint64_t n, uint32_t 
     }
 
 
-    exit(1);
+    lasieve_bail(1);
 #endif
 
     pgiant = pw;

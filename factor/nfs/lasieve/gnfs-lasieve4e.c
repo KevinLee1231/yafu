@@ -90,6 +90,7 @@
 /*:3*//*4:*/
 #line 111 "gnfs-lasieve4e.w"
 #include "if.h"
+#include "lasieve_bail.h"
 #include "primgen32.h"
 #include "32bit.h"
 #include "64bit.h"
@@ -421,6 +422,16 @@ u32_t J_bits,i_shift,n_I,n_J;
 u32_t root_no;
 float sigma;
 #include "strategy.h"
+
+/* Set by lasieve_run() before main() starts.  The siever installs SIGTERM and
+ * SIGINT handlers when -n is given, which is right for a program and wrong
+ * inside yafu: it would displace yafu's own handlers.  -n keeps its other job
+ * -- the thread number in the output file name.  File scope because
+ * lasieve_run() sets it before main() is entered; int because that is what the
+ * extern declaration in lasieve_dispatch.c says, and a mismatch would have one
+ * side writing four bytes into a two-byte object. */
+int lasieve_in_process = 0;
+
 strat_t strat;
 
 /*:14*//*15:*/
@@ -984,6 +995,18 @@ int main(int argc, char** argv)
 
         append_output = 0;
 
+        // Start option parsing from the beginning.  getopt keeps its position
+        // in the global optind and does not reset it between calls, so a second
+        // entry into this function -- which is what happens when yafu runs a
+        // second I value in the same process -- would resume near the end of
+        // the previous argv and skip -a, -f and everything else at the front.
+        // That left special_q_side at NO_SIDE and the run died on a bad index
+        // rather than saying what was wrong.
+        optind = 1;
+#ifdef optreset
+        optreset = 1;         // BSD and macOS
+#endif
+
         while ((option = getopt(argc, argv, "C:FJ:L:M:N:P:RS:Z:ab:c:f:hi:kn:o:q:rt:dvz")) != -1) {
             switch (option) {
             case'C':
@@ -1063,7 +1086,7 @@ int main(int argc, char** argv)
                 keep_factorbase = 1;
                 break;
             case'n':
-                catch_signals = 1;
+                catch_signals = (u16_t)(lasieve_in_process ? 0 : 1);
 
             case'N':
                 NumRead(process_no);
@@ -2090,7 +2113,10 @@ int main(int argc, char** argv)
 /*:32*/
 #line 546 "gnfs-lasieve4e.w"
 
-    if(sieve_count==0)exit(0);
+    /* nothing to sieve: a normal finish, and returning keeps a caller inside
+     * yafu from being taken down with us */
+    if (sieve_count == 0)
+        return 0;
 /*36:*/
 #line 1591 "gnfs-lasieve4e.w"
 
@@ -5110,9 +5136,13 @@ nss+= n_strips;
 /*:22*/
 #line 561 "gnfs-lasieve4e.w"
 
-    if(special_q>=last_spq&&all_spq_done!=0)exit(0);
-    if(exitval==0)exitval= 1;
-    exit(exitval);
+    /* end of main: return rather than exit, so that calling the siever from
+     * inside yafu does not take the factoring run down with it */
+    if (special_q >= last_spq && all_spq_done != 0)
+        return 0;
+    if (exitval == 0)
+        exitval = 1;
+    return exitval;
 }
 // end main function
 

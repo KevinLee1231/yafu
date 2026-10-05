@@ -302,23 +302,53 @@ ALL_ASM  := $(foreach i,$(I_VALUES),asm/libcoreI$(i).a asm/liblasieveI$(i).a)
 lasieve_dispatch.o: lasieve_dispatch.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
+# Also linked by the standalone sieve regressions, which compile if.c and
+# redu2.c directly and so need lasieve_bail() without the whole dispatch.
+lasieve_bail.o: lasieve_bail.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
 lasieve_ctx.o: lasieve_ctx.c include/lasieve_ctx.h | include/lasieve_ctx.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 libgmp-aux.a: gmp-aux.o mpz-ull.o
 	$(AR) rcs $@ $^
 
+# Everything the parent Makefile has to link in, in one place.
+#
 # The hand-written assembly is full of 32-bit absolute relocations (pt64.o
 # alone has one against the factor-base inverse table), which a PIE link
-# rejects: it wants a copy relocation.  The assembly is not PIC, so say so.
-$(BINPREFIX)gnfs-lasieve4e: lasieve_dispatch.o lasieve_ctx.o libgmp-aux.a \
-		$(ALL_OBJS) $(ALL_ASM)
-	@mkdir -p $(dir $@)
+# rejects: it wants a copy relocation.  The assembly is not PIC, so the parent
+# links yafu with -no-pie for this reason.
+LASIEVE_OBJS := lasieve_dispatch.o lasieve_bail.o lasieve_ctx.o $(ALL_OBJS)
+LASIEVE_LIBS := libgmp-aux.a $(ALL_ASM)
+
+objects: $(LASIEVE_OBJS) $(LASIEVE_LIBS)
+
+# The parent Makefile pulls the list in with $(shell $(MAKE) -s -C ... bobs) and
+# turns each entry into a dependency, so that building yafu builds the siever.
+bobs:
+	@for f in $(LASIEVE_OBJS) $(LASIEVE_LIBS); do echo $$f; done
+
+# A standalone driver for the sieve tests, built on demand and never part of
+# `make all`: the shipped artefact is yafu, with the siever inside it.  The
+# test needs to run the siever by itself to compare relation output.
+$(BINPREFIX)check_sieve: $(LASIEVE_OBJS) $(LASIEVE_LIBS) check_sieve.o
 	$(CC) $(CFLAGS) -no-pie -o $@ $^ $(GMP_LIB) -lm
 
-alle: $(BINPREFIX)gnfs-lasieve4e
+check_sieve.o: check_sieve.c lasieve_dispatch.c include/lasieve_bail.h
+	$(CC) $(CFLAGS) -c -o $@ $<
 
-# the f and g variants need primgen64 / td.c, neither of which is in this tree
+# The six I values at once, one thread each.  sieve_oracle.sh runs them one after
+# another and so cannot see cross-talk between two sievers sharing a process,
+# which is exactly what the per-I objects exist to prevent.
+$(BINPREFIX)check_sieve_mt: $(LASIEVE_OBJS) $(LASIEVE_LIBS) check_sieve_mt.o
+	$(CC) $(CFLAGS) -no-pie -o $@ $^ $(GMP_LIB) -lm -lpthread
+
+check_sieve_mt.o: check_sieve_mt.c lasieve_dispatch.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+alle: objects
+
 allf allg:
 	@echo "only the 'e' variant builds in this tree"
 	@false
@@ -328,16 +358,16 @@ allf allg:
 mpqsz.o: mpqs.c asm/include/mpqs-config.h
 	$(CC) $(CFLAGS) -O2 -DMPQS_STAT -DMPQS_ZEIT -c -o $@ $<
 
-mpqstest: mpqstest.o mpqsz.o if.o mpz-ull.o asm/liblasieve.a
+mpqstest: mpqstest.o mpqsz.o lasieve_bail.o if.o mpz-ull.o asm/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
 mpqs3z.o: mpqs3.c asm/include/mpqs-config.h
 	$(CC) $(CFLAGS) -O2 -DMPQS3_STAT -DMPQS3_ZEIT -c -o $@ $<
 
-mpqs3test: mpqs3test.o mpqs3z.o if.o lasieve_ctx.o libgmp-aux.a asm/liblasieve.a
+mpqs3test: mpqs3test.o mpqs3z.o lasieve_bail.o if.o lasieve_ctx.o libgmp-aux.a asm/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
-mpqsstat: mpqsstat.o mpqs.o mpqs3.o if.o lasieve_ctx.o mpz-ull.o libgmp-aux.a asm/liblasieve.a
+mpqsstat: mpqsstat.o mpqs.o mpqs3.o lasieve_bail.o if.o lasieve_ctx.o mpz-ull.o libgmp-aux.a asm/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
 # 多实例验证：两个实例的 ECM/PM1 状态必须互不干扰
@@ -345,7 +375,7 @@ ctx_test.o: ctx_test.c include/lasieve_ctx.h include/ecm.h include/pm1.h \
 	include/if.h asm/include/siever-config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(BINPREFIX)ctx_test: ctx_test.o lasieve_ctx.o if.o
+$(BINPREFIX)ctx_test: ctx_test.o lasieve_ctx.o lasieve_bail.o if.o
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
@@ -354,7 +384,7 @@ ecm_pm1_test.o: ecm_pm1_test.c include/lasieve_ctx.h include/ecm.h include/pm1.h
 	include/if.h asm/include/siever-config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(BINPREFIX)ecm_pm1_test: ecm_pm1_test.o ecm.o pm1.o lasieve_ctx.o if.o asm/liblasieve.a
+$(BINPREFIX)ecm_pm1_test: ecm_pm1_test.o ecm.o pm1.o lasieve_ctx.o lasieve_bail.o if.o asm/liblasieve.a
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
@@ -362,19 +392,19 @@ $(BINPREFIX)ecm_pm1_test: ecm_pm1_test.o ecm.o pm1.o lasieve_ctx.o if.o asm/libl
 ecmz.o: ecm.c asm/include/siever-config.h
 	$(CC) $(CFLAGS) -DECM_STAT -DECM_ZEIT -c -o $@ $<
 
-ecmtest: ecmtest.o ecmz.o if.o lasieve_ctx.o asm/liblasieve.a
+ecmtest: ecmtest.o ecmz.o lasieve_bail.o if.o lasieve_ctx.o asm/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
-ecmstat: ecmstat.o ecmz.o if.o lasieve_ctx.o asm/liblasieve.a
+ecmstat: ecmstat.o ecmz.o lasieve_bail.o if.o lasieve_ctx.o asm/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
 pm1z.o: pm1.c asm/include/siever-config.h
 	$(CC) $(CFLAGS) -DPM1_STAT -DPM1_ZEIT -c -o $@ $<
 
-pm1test: pm1test.o pm1z.o if.o lasieve_ctx.o asm/liblasieve.a
+pm1test: pm1test.o pm1z.o lasieve_bail.o if.o lasieve_ctx.o asm/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
-pm1stat: pm1stat.o pm1z.o if.o lasieve_ctx.o asm/liblasieve.a
+pm1stat: pm1stat.o pm1z.o lasieve_bail.o if.o lasieve_ctx.o asm/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
 
@@ -386,4 +416,5 @@ clean:
 	-rm -f asm/libcoreI11.a asm/libcoreI12.a asm/libcoreI13.a \
 		asm/libcoreI14.a asm/libcoreI15.a asm/libcoreI16.a
 	-rm -f *.o *.a asm/*.o asm/*.a asm/*.s asm/*.S \
-		$(BINPREFIX)ctx_test $(BINPREFIX)ecm_pm1_test $(BINPREFIX)gnfs-lasieve4e
+		$(BINPREFIX)ctx_test $(BINPREFIX)ecm_pm1_test $(BINPREFIX)check_sieve \
+		$(BINPREFIX)check_sieve_mt
