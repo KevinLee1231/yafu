@@ -855,29 +855,29 @@ COMMON_SRCS = \
     factor/trialdiv/rho.c \
     factor/trialdiv/squfof.c \
     factor/trialdiv/trialdiv.c \
-    factor/shared/arith/arith.c \
-    factor/shared/arith/monty.c \
-    factor/shared/arith/fftmul.c \
-    factor/shared/aprcl/tinyprp.c \
+    factor/shared/arith/arith.cpp \
+    factor/shared/arith/monty.cpp \
+    factor/shared/arith/fftmul.cpp \
+    factor/shared/aprcl/tinyprp.cpp \
     factor/ecm/tinyecm.c \
     factor/ecm/micropm1.c \
     factor/ecm/microecm.c \
-    factor/shared/ytools/threadpool.c \
-    factor/shared/ytools/ytools.c \
-    factor/shared/ysieve/presieve.c \
-    factor/shared/ysieve/count.c \
-    factor/shared/ysieve/offsets.c \
-    factor/shared/ysieve/primes.c \
-    factor/shared/ysieve/roots.c \
-    factor/shared/ysieve/linesieve.c \
-    factor/shared/ysieve/soe.c \
+    factor/shared/ytools/threadpool.cpp \
+    factor/shared/ytools/ytools.cpp \
+    factor/shared/ysieve/presieve.cpp \
+    factor/shared/ysieve/count.cpp \
+    factor/shared/ysieve/offsets.cpp \
+    factor/shared/ysieve/primes.cpp \
+    factor/shared/ysieve/roots.cpp \
+    factor/shared/ysieve/linesieve.cpp \
+    factor/shared/ysieve/soe.cpp \
     factor/shared/ysieve/tiny.cpp \
-    factor/shared/ysieve/worker.c \
-    factor/shared/ysieve/soe_util.c \
-    factor/shared/ysieve/wrapper.c \
-    factor/shared/aprcl/mpz_aprcl.c \
+    factor/shared/ysieve/worker.cpp \
+    factor/shared/ysieve/soe_util.cpp \
+    factor/shared/ysieve/wrapper.cpp \
+    factor/shared/aprcl/mpz_aprcl.cpp \
     factor/core/gpu_cofactorization.c \
-	factor/shared/common/vec_bitonic_sort.c
+	factor/shared/common/vec_bitonic_sort.cpp
 
 COMMON_BATCH_GPU_SRCS = \
     factor/core/cuda_tinyecm.cu \
@@ -957,7 +957,7 @@ YAFU_NFS_SRCS = \
     factor/nfs/nfs.c
 
 ifdef BATCH_CUDA
-    YAFU_NFS_SRCS += factor/shared/common/cuda_xface.c
+    YAFU_NFS_SRCS += factor/shared/common/cuda_xface.cpp
 endif
 
 NFS_SRCS = \
@@ -1012,55 +1012,55 @@ endif
 # 19. Msieve common sources
 # -----------------------------------------------------------------------------
 MSIEVE_COMMON_SRCS = \
-    factor/shared/common/filter/clique.c \
+    factor/shared/common/filter/clique.cpp \
     factor/shared/common/filter/filter.cpp \
-    factor/shared/common/filter/merge.c \
-    factor/shared/common/filter/merge_post.c \
-    factor/shared/common/filter/merge_pre.c \
-    factor/shared/common/filter/merge_util.c \
-    factor/shared/common/filter/singleton.c \
-    factor/shared/common/lanczos/lanczos.c \
-    factor/shared/common/lanczos/lanczos_io.c \
+    factor/shared/common/filter/merge.cpp \
+    factor/shared/common/filter/merge_post.cpp \
+    factor/shared/common/filter/merge_pre.cpp \
+    factor/shared/common/filter/merge_util.cpp \
+    factor/shared/common/filter/singleton.cpp \
+    factor/shared/common/lanczos/lanczos.cpp \
+    factor/shared/common/lanczos/lanczos_io.cpp \
     factor/shared/common/lanczos/lanczos_matmul.cpp \
-    factor/shared/common/lanczos/lanczos_pre.c \
-    factor/shared/common/lanczos/matmul_util.c \
-    factor/shared/common/smallfact/gmp_ecm.c \
-    factor/shared/common/smallfact/smallfact.c \
-    factor/shared/common/smallfact/squfof.c \
-    factor/shared/common/smallfact/tinyqs.c \
-    factor/shared/common/cuda_xface.c \
+    factor/shared/common/lanczos/lanczos_pre.cpp \
+    factor/shared/common/lanczos/matmul_util.cpp \
+    factor/shared/common/smallfact/gmp_ecm.cpp \
+    factor/shared/common/smallfact/smallfact.cpp \
+    factor/shared/common/smallfact/squfof.cpp \
+    factor/shared/common/smallfact/tinyqs.cpp \
+    factor/shared/common/cuda_xface.cpp \
     factor/shared/common/cuda_xface_la.cpp \
     factor/shared/common/dickman.cpp \
-    factor/shared/common/driver.c \
-    factor/shared/common/expr_eval.c \
+    factor/shared/common/driver.cpp \
+    factor/shared/common/expr_eval.cpp \
     factor/shared/common/hashtable.cpp \
-    factor/shared/common/integrate.c \
-    factor/shared/common/minimize.c \
+    factor/shared/common/integrate.cpp \
+    factor/shared/common/minimize.cpp \
     factor/shared/common/minimize_global.cpp \
-    factor/shared/common/mp.c \
-    factor/shared/common/ms_batch_factor.c \
-    factor/shared/common/polyroot.c \
-    factor/shared/common/prime_delta.c \
+    factor/shared/common/mp.cpp \
+    factor/shared/common/ms_batch_factor.cpp \
+    factor/shared/common/polyroot.cpp \
+    factor/shared/common/prime_delta.cpp \
     factor/shared/common/prime_sieve.cpp \
-    factor/shared/common/savefile.c \
-    factor/shared/common/strtoll.c \
-    factor/shared/common/thread.c \
-    factor/shared/common/util.c \
-    factor/shared/aprcl/mpz_aprcl32.c
+    factor/shared/common/savefile.cpp \
+    factor/shared/common/strtoll.cpp \
+    factor/shared/common/thread.cpp \
+    factor/shared/common/util.cpp \
+    factor/shared/aprcl/mpz_aprcl32.cpp
 	
 ifeq ($(OS),Windows_NT)
 	MSIEVE_COMMON_SRCS += factor/shared/common/mpz-ull.c
 endif
 
 COMMON_GPU_SRCS = \
-    factor/shared/common/lanczos/gpu/lanczos_matmul_gpu.c \
-    factor/shared/common/lanczos/gpu/lanczos_vv.c
+    factor/shared/common/lanczos/gpu/lanczos_matmul_gpu.cpp \
+    factor/shared/common/lanczos/gpu/lanczos_vv.cpp
 
 COMMON_NOGPU_SRCS = \
-    factor/shared/common/lanczos/cpu/lanczos_matmul0.c \
-    factor/shared/common/lanczos/cpu/lanczos_matmul1.c \
-    factor/shared/common/lanczos/cpu/lanczos_matmul2.c \
-    factor/shared/common/lanczos/cpu/lanczos_vv.c
+    factor/shared/common/lanczos/cpu/lanczos_matmul0.cpp \
+    factor/shared/common/lanczos/cpu/lanczos_matmul1.cpp \
+    factor/shared/common/lanczos/cpu/lanczos_matmul2.cpp \
+    factor/shared/common/lanczos/cpu/lanczos_vv.cpp
 
 ifdef CUDA_LA
     MSIEVE_COMMON_SRCS += $(COMMON_GPU_SRCS)
@@ -1308,7 +1308,7 @@ test-clean:
 TEST_L3_SRCS  := $(TEST_DIR)/layer3/test_siqs.c $(TEST_DIR)/layer3/test_calc.c \
     $(TEST_DIR)/layer3/test_options.c \
     $(TEST_DIR)/layer3/test_ecm_review.c $(TEST_DIR)/layer3/test_qs_review.c \
-    factor/shared/common/vec_bitonic_sort.c
+    factor/shared/common/vec_bitonic_sort.cpp
 TEST_FRONTEND_OBJS := $(filter-out top/driver$(OBJ_EXT),$(YAFU_OBJS))
 TEST_FULL_BIN := yafu_test_full$(EXE_EXT)
 TEST_SAN_BIN := yafu_test_sanitize$(EXE_EXT)

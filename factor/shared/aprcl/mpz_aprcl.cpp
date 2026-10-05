@@ -1,4 +1,4 @@
-/* Copyright 2011,2012,2013 David Cleaver
+/* Copyright 2011-2015 David Cleaver
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -25,6 +25,10 @@
  *      - Speed improvement 2: Removed/consolidated calls to mpz_mod in APRCL
  *        (these improvements make the APRCL code about 1.5-2.2x faster)
  *      - Bug fix: Final test in APRCL routine is now correct
+ *
+ * v1.2 Posted to SourceForge on 2015/03/07
+ *   - Minor change to code to remove "warning: array subscript is above array bounds"
+ *     encountered while compiling with the options ( -O3 -Wall )
  */
 
 /*
@@ -35,7 +39,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <gmp.h>
-#include "mpz_aprcl32.h"
+#include "mpz_aprcl.h"
+#include "jacobi_sum.h"
 
 static void set_lucas_discriminant(mpz_t d, long int p, long int q)
 {
@@ -48,6 +53,112 @@ static void set_lucas_discriminant(mpz_t d, long int p, long int q)
   mpz_clear(zq);
 }
 
+#ifndef HAVE_U64_T
+#define HAVE_U64_T
+typedef long long s64_t;
+typedef unsigned long long u64_t;
+#endif
+
+typedef struct
+{
+    mpz_t rhat;
+    mpz_t nhat;
+    mpz_t n;
+    mpz_t r;
+    mpz_t tmp;
+    int rbits;
+} montgomery_t;
+
+montgomery_t* monty_setup(mpz_t n)
+{
+    int nfullwords = mpz_sizeinbase(n, 2) / GMP_LIMB_BITS +
+        ((mpz_sizeinbase(n, 2) % GMP_LIMB_BITS) > 0);
+
+    montgomery_t* m;
+
+    m = (montgomery_t*)malloc(sizeof(montgomery_t));
+    if (m == NULL) abort();
+
+    mpz_init(m->n);
+    mpz_init(m->r);
+    mpz_init(m->rhat);
+    mpz_init(m->nhat);
+    mpz_init(m->tmp);
+
+    m->rbits = nfullwords * GMP_LIMB_BITS;
+    mpz_set(m->n, n);
+    mpz_set_ui(m->r, 1);
+    mpz_mul_2exp(m->r, m->r, m->rbits);
+    mpz_invert(m->nhat, m->n, m->r);
+    mpz_sub(m->nhat, m->r, m->nhat);
+    mpz_mul_2exp(m->rhat, m->r, m->rbits);
+    mpz_mod(m->rhat, m->rhat, n);
+
+    return m;
+}
+
+void to_montgomery(montgomery_t* mdata, mpz_t x)
+{
+    mpz_mul_2exp(x, x, mdata->rbits);
+    mpz_mod(x, x, mdata->n);
+    return;
+}
+
+void montgomery_add(montgomery_t* mdata, mpz_t u, mpz_t v, mpz_t w)
+{
+    mpz_add(w, u, v);
+    if (mpz_cmp(w, mdata->n) >= 0)
+        mpz_sub(w, w, mdata->n);
+
+    return;
+}
+
+void montgomery_sub(montgomery_t* mdata, mpz_t u, mpz_t v, mpz_t w)
+{
+    if (mpz_cmp(u, v) >= 0)
+    {
+        mpz_sub(w, u, v);
+    }
+    else
+    {
+        mpz_sub(w, u, v);
+        mpz_add(w, w, mdata->n);
+    }
+
+    return;
+}
+
+void montgomery_free(montgomery_t* mdata)
+{
+    mpz_clear(mdata->n);
+    mpz_clear(mdata->nhat);
+    mpz_clear(mdata->rhat);
+    mpz_clear(mdata->r);
+    mpz_clear(mdata->tmp);
+    free(mdata);
+    return;
+}
+
+void montgomery_redc(montgomery_t* mdata, mpz_t x)
+{
+    // q'=x*(-n^-1) mod r
+    mpz_tdiv_r_2exp(mdata->tmp, x, mdata->rbits);
+    mpz_mul(mdata->tmp, mdata->tmp, mdata->nhat);
+    mpz_tdiv_r_2exp(mdata->tmp, mdata->tmp, mdata->rbits);
+    // q'n
+    mpz_mul(mdata->tmp, mdata->tmp, mdata->n);     
+    // q'n + x
+    mpz_add(x, mdata->tmp, x);      
+    mpz_tdiv_q_2exp(x, x, mdata->rbits);
+    if (mpz_cmp(x, mdata->n) >= 0)
+        mpz_sub(x, x, mdata->n);
+}
+
+void montgomery_mul(mpz_t w, mpz_t u, mpz_t v, montgomery_t* mdata)
+{
+    mpz_mul(w, u, v);
+    montgomery_redc(mdata, w);
+}
 
 /* ******************************************************************
  * mpz_prp: (also called a Fermat pseudoprime)
@@ -237,7 +348,6 @@ int mpz_sprp(mpz_t n, mpz_t a)
 
 }/* method mpz_sprp */
 
-
 /* *************************************************************************
  * mpz_fibonacci_prp:
  * A "Fibonacci pseudoprime" with parameters (P,Q), P > 0, Q=+/-1, is a
@@ -246,18 +356,12 @@ int mpz_sprp(mpz_t n, mpz_t a)
  * *************************************************************************/
 int mpz_fibonacci_prp(mpz_t n, long int p, long int q)
 {
-  mpz_t pmodn, zP, zD;
+  mpz_t pmodn, zP;
   mpz_t vl, vh, ql, qh, tmp; /* used for calculating the Lucas V sequence */
   int s = 0, j = 0;
 
-  mpz_init(zD);
-  set_lucas_discriminant(zD, p, q);
-  if (mpz_sgn(zD) == 0)
-  {
-    mpz_clear(zD);
+  if (p == 2 && q == 1)
     return PRP_ERROR;
-  }
-  mpz_clear(zD);
 
   if (((q != 1) && (q != -1)) || (p <= 0))
     return PRP_ERROR;
@@ -390,6 +494,7 @@ int mpz_lucas_prp(mpz_t n, long int p, long int q)
   mpz_t uh, vl, vh, ql, qh, tmp; /* used for calculating the Lucas U sequence */
   int s = 0, j = 0;
   int ret = 0;
+
   if (mpz_cmp_ui(n, 2) < 0)
     return PRP_COMPOSITE;
 
@@ -403,12 +508,7 @@ int mpz_lucas_prp(mpz_t n, long int p, long int q)
 
   mpz_init(zD);
   set_lucas_discriminant(zD, p, q);
-  if (mpz_sgn(zD) == 0) /* Does not produce a proper Lucas sequence */
-  {
-    mpz_clear(zD);
-    return PRP_ERROR;
-  }
-
+  if (mpz_sgn(zD) == 0) { mpz_clear(zD); return PRP_ERROR; }
   mpz_init(index);
   mpz_init(res);
 
@@ -440,6 +540,7 @@ int mpz_lucas_prp(mpz_t n, long int p, long int q)
   mpz_init_set_si(tmp,0);
 
   s = mpz_scan1(index, 0);
+
   for (j = mpz_sizeinbase(index,2)-1; j >= s+1; j--)
   {
     /* ql = ql*qh (mod n) */
@@ -548,6 +649,240 @@ int mpz_lucas_prp(mpz_t n, long int p, long int q)
 
 }/* method mpz_lucas_prp */
 
+int mpz_lucas_prp_monty(mpz_t n, long int p, long int q)
+{
+    mpz_t zD;
+    mpz_t res;
+    mpz_t index;
+    mpz_t uh, vl, vh, ql, qh, tmp; /* used for calculating the Lucas U sequence */
+    int s = 0, j = 0;
+    int ret = 0;
+
+    if (mpz_cmp_ui(n, 2) < 0)
+        return PRP_COMPOSITE;
+
+    if (mpz_divisible_ui_p(n, 2))
+    {
+        if (mpz_cmp_ui(n, 2) == 0)
+            return PRP_PRIME;
+        else
+            return PRP_COMPOSITE;
+    }
+
+    mpz_init(zD);
+    set_lucas_discriminant(zD, p, q);
+    if (mpz_sgn(zD) == 0) { mpz_clear(zD); return PRP_ERROR; }
+    mpz_init(index);
+    mpz_init(res);
+
+    mpz_mul_si(res, zD, q);
+    mpz_mul_ui(res, res, 2);
+    mpz_gcd(res, res, n);
+    if ((mpz_cmp(res, n) != 0) && (mpz_cmp_ui(res, 1) > 0))
+    {
+        mpz_clear(zD);
+        mpz_clear(res);
+        mpz_clear(index);
+        return PRP_COMPOSITE;
+    }
+
+    /* index = n-(D/n), where (D/n) is the Jacobi symbol */
+    mpz_set(index, n);
+    ret = mpz_jacobi(zD, n);
+    if (ret == -1)
+        mpz_add_ui(index, index, 1);
+    else if (ret == 1)
+        mpz_sub_ui(index, index, 1);
+
+    // do all lucas math mod N
+    montgomery_t* m = monty_setup(n);
+
+    /* mpz_lucasumod(res, p, q, index, n); */
+    mpz_init_set_si(uh, 1);
+    mpz_init_set_si(vl, 2);
+    mpz_init_set_si(vh, p);
+    mpz_init_set_si(ql, 1);
+    mpz_init_set_si(qh, 1);
+    mpz_init_set_si(tmp, 0);
+
+    to_montgomery(m, uh);
+    to_montgomery(m, vl);
+    to_montgomery(m, vh);
+    to_montgomery(m, ql);
+    to_montgomery(m, qh);
+
+    mpz_t mp, mq;
+    mpz_init(mp);
+    mpz_init(mq);
+
+    mpz_set(mp, vh);
+    mpz_set_si(mq, q);
+
+    to_montgomery(m, mq);
+
+    s = mpz_scan1(index, 0);
+
+    //gmp_printf("n = %Zx, q = %d (%Zx), "
+    //    "1 = %Zx, p = %d, d = %d, s = %d, sz = %d (mpz)\n",
+    //    n, q, mq, uh, p, d, s, mpz_sizeinbase(index, 2));
+
+    for (j = mpz_sizeinbase(index, 2) - 1; j >= s + 1; j--)
+    {
+        /* ql = ql*qh (mod n) */
+        montgomery_mul(ql, ql, qh, m);
+        //mpz_mul(ql, ql, qh);
+        //mpz_mod(ql, ql, n);
+
+        if (mpz_tstbit(index, j) == 1)
+        {
+            /* qh = ql*q */
+            //mpz_mul_si(qh, ql, q);
+            montgomery_mul(qh, ql, mq, m);
+
+            /* uh = uh*vh (mod n) */
+            //mpz_mul(uh, uh, vh);
+            //mpz_mod(uh, uh, n);
+            montgomery_mul(uh, uh, vh, m);
+
+            /* vl = vh*vl - p*ql (mod n) */
+            //mpz_mul(vl, vh, vl);
+            //mpz_mul_si(tmp, ql, p);
+            //mpz_sub(vl, vl, tmp);
+            //mpz_mod(vl, vl, n);
+            montgomery_mul(vl, vl, vh, m);
+            montgomery_mul(tmp, ql, mp, m);
+            montgomery_sub(m, vl, tmp, vl);
+
+            /* vh = vh*vh - 2*qh (mod n) */
+            //mpz_mul(vh, vh, vh);
+            //mpz_mul_si(tmp, qh, 2);
+            //mpz_sub(vh, vh, tmp);
+            //mpz_mod(vh, vh, n);
+            montgomery_mul(vh, vh, vh, m);
+            montgomery_add(m, qh, qh, tmp);
+            montgomery_sub(m, vh, tmp, vh);
+        }
+        else
+        {
+            /* qh = ql */
+            mpz_set(qh, ql);
+
+            /* uh = uh*vl - ql (mod n) */
+            //mpz_mul(uh, uh, vl);
+            //mpz_sub(uh, uh, ql);
+            //mpz_mod(uh, uh, n);
+            montgomery_mul(uh, uh, vl, m);
+            montgomery_sub(m, uh, ql, uh);
+
+            /* vh = vh*vl - p*ql (mod n) */
+            //mpz_mul(vh, vh, vl);
+            //mpz_mul_si(tmp, ql, p);
+            //mpz_sub(vh, vh, tmp);
+            //mpz_mod(vh, vh, n);
+            montgomery_mul(vh, vl, vh, m);
+            montgomery_mul(tmp, ql, mp, m);
+            montgomery_sub(m, vh, tmp, vh);
+
+            /* vl = vl*vl - 2*ql (mod n) */
+            //mpz_mul(vl, vl, vl);
+            //mpz_mul_si(tmp, ql, 2);
+            //mpz_sub(vl, vl, tmp);
+            //mpz_mod(vl, vl, n);
+            montgomery_mul(vl, vl, vl, m);
+            montgomery_add(m, ql, ql, tmp);
+            montgomery_sub(m, vl, tmp, vl);
+        }
+    }
+
+    //printf("after loop1:\n");
+    //gmp_printf("ql = %Zx, qh = %Zx, "
+    //    "vl = %Zx, vh = %Zx, "
+    //    "uh = %Zx (mpz)\n",
+    //    ql, qh, vl, vh, uh);
+
+    /* ql = ql*qh */
+    //mpz_mul(ql, ql, qh);
+    montgomery_mul(ql, ql, qh, m);
+
+    /* qh = ql*q */
+    //mpz_mul_si(qh, ql, q);
+    montgomery_mul(qh, ql, mq, m);
+
+    /* uh = uh*vl - ql */
+    //mpz_mul(uh, uh, vl);
+    //mpz_sub(uh, uh, ql);
+    montgomery_mul(uh, uh, vl, m);
+    montgomery_sub(m, uh, ql, uh);
+
+    /* vl = vh*vl - p*ql */
+    //mpz_mul(vl, vh, vl);
+    //mpz_mul_si(tmp, ql, p);
+    //mpz_sub(vl, vl, tmp);
+    montgomery_mul(vl, vh, vl, m);
+    montgomery_mul(tmp, ql, mp, m);
+    montgomery_sub(m, vl, tmp, vl);
+
+    /* ql = ql*qh */
+    //mpz_mul(ql, ql, qh);
+    montgomery_mul(ql, ql, qh, m);
+
+    for (j = 1; j <= s; j++)
+    {
+        /* uh = uh*vl (mod n) */
+        //mpz_mul(uh, uh, vl);
+        //mpz_mod(uh, uh, n);
+        montgomery_mul(uh, uh, vl, m);
+
+        /* vl = vl*vl - 2*ql (mod n) */
+        //mpz_mul(vl, vl, vl);
+        //mpz_mul_si(tmp, ql, 2);
+        //mpz_sub(vl, vl, tmp);
+        //mpz_mod(vl, vl, n);
+        montgomery_mul(vl, vl, vl, m);
+        montgomery_add(m, ql, ql, tmp);
+        montgomery_sub(m, vl, tmp, vl);
+
+        /* ql = ql*ql (mod n) */
+        //mpz_mul(ql, ql, ql);
+        //mpz_mod(ql, ql, n);
+        montgomery_mul(ql, ql, ql, m);
+    }
+
+    //printf("after loop2:\n");
+    //gmp_printf("ql = %Zx, qh = %Zx, "
+    //    "vl = %Zx, vh = %Zx, "
+    //    "uh = %Zx (mpz)\n",
+    //    ql, qh, vl, vh, uh);
+
+    montgomery_redc(m, uh);
+    mpz_mod(res, uh, n); /* uh contains our return value */
+
+    montgomery_free(m);
+    mpz_clear(mp);
+    mpz_clear(mq);
+    mpz_clear(zD);
+    mpz_clear(index);
+    mpz_clear(uh);
+    mpz_clear(vl);
+    mpz_clear(vh);
+    mpz_clear(ql);
+    mpz_clear(qh);
+    mpz_clear(tmp);
+
+    if (mpz_cmp_ui(res, 0) == 0)
+    {
+        mpz_clear(res);
+        //gmp_printf("%Zd prp, q = %d\n", n, q);
+        return PRP_PRP;
+    }
+    else
+    {
+        mpz_clear(res);
+        //gmp_printf("%Zd composite, q = %d\n", n, q);
+        return PRP_COMPOSITE;
+    }
+
+}/* method mpz_lucas_prp */
 
 /* *********************************************************************************************
  * mpz_stronglucas_prp:
@@ -566,6 +901,7 @@ int mpz_stronglucas_prp(mpz_t n, long int p, long int q)
   int ret = 0;
   unsigned long int j = 0;
 
+
   if (mpz_cmp_ui(n, 2) < 0)
     return PRP_COMPOSITE;
 
@@ -579,12 +915,7 @@ int mpz_stronglucas_prp(mpz_t n, long int p, long int q)
 
   mpz_init(zD);
   set_lucas_discriminant(zD, p, q);
-  if (mpz_sgn(zD) == 0) /* Does not produce a proper Lucas sequence */
-  {
-    mpz_clear(zD);
-    return PRP_ERROR;
-  }
-
+  if (mpz_sgn(zD) == 0) { mpz_clear(zD); return PRP_ERROR; }
   mpz_init(res);
 
   mpz_mul_si(res, zD, q);
@@ -767,6 +1098,7 @@ int mpz_extrastronglucas_prp(mpz_t n, long int p)
   int ret = 0;
   unsigned long int j = 0;
 
+
   if (mpz_cmp_ui(n, 2) < 0)
     return PRP_COMPOSITE;
 
@@ -780,12 +1112,7 @@ int mpz_extrastronglucas_prp(mpz_t n, long int p)
 
   mpz_init(zD);
   set_lucas_discriminant(zD, p, q);
-  if (mpz_sgn(zD) == 0) /* Does not produce a proper Lucas sequence */
-  {
-    mpz_clear(zD);
-    return PRP_ERROR;
-  }
-
+  if (mpz_sgn(zD) == 0) { mpz_clear(zD); return PRP_ERROR; }
   mpz_init(res);
 
   mpz_mul_ui(res, zD, 2);
@@ -1044,7 +1371,7 @@ int mpz_selfridge_prp(mpz_t n)
  * mpz_strongselfridge_prp:
  * A "strong Lucas-Selfridge pseudoprime" n is a "strong Lucas pseudoprime" using Selfridge parameters of:
  * Find the first element D in the sequence {5, -7, 9, -11, 13, ...} such that Jacobi(D,n) = -1
- * Then use P=1 and Q=(1-D)/4 in the strong Lucase pseudoprime test.
+ * Then use P=1 and Q=(1-D)/4 in the strong Lucas pseudoprime test.
  * Make sure n is not a perfect square, otherwise the search for D will only stop when D=n.
  * **********************************************************************************************************/
 int mpz_strongselfridge_prp(mpz_t n)
@@ -1127,6 +1454,93 @@ int mpz_strongselfridge_prp(mpz_t n)
 
 }/* method mpz_strongselfridge_prp */
 
+/* *********************************************************************************************************
+* mpz_strongselfridge_prp:
+* A "strong Lucas-Selfridge pseudoprime" n is a "strong Lucas pseudoprime" using Selfridge parameters of:
+* Find the first element D in the sequence {5, -7, 9, -11, 13, ...} such that Jacobi(D,n) = -1
+* Then use P=1 and Q=(1-D)/4 in the extra strong Lucas pseudoprime test.
+* Make sure n is not a perfect square, otherwise the search for D will only stop when D=n.
+* **********************************************************************************************************/
+int mpz_extrastrongselfridge_prp(mpz_t n)
+{
+    long int d = 5, p = 1, q = 0;
+    int max_d = 1000000;
+    int jacobi = 0;
+    mpz_t zD;
+
+    if (mpz_cmp_ui(n, 2) < 0)
+        return PRP_COMPOSITE;
+
+    if (mpz_divisible_ui_p(n, 2))
+    {
+        if (mpz_cmp_ui(n, 2) == 0)
+            return PRP_PRIME;
+        else
+            return PRP_COMPOSITE;
+    }
+
+    mpz_init_set_ui(zD, d);
+
+    while (1)
+    {
+        jacobi = mpz_jacobi(zD, n);
+
+        /* if jacobi == 0, d is a factor of n, therefore n is composite... */
+        /* if d == n, then either n is either prime or 9... */
+        if (jacobi == 0)
+        {
+            if ((mpz_cmpabs(zD, n) == 0) && (mpz_cmp_ui(zD, 9) != 0))
+            {
+                mpz_clear(zD);
+                return PRP_PRIME;
+            }
+            else
+            {
+                mpz_clear(zD);
+                return PRP_COMPOSITE;
+            }
+        }
+        if (jacobi == -1)
+            break;
+
+        /* if we get to the 5th d, make sure we aren't dealing with a square... */
+        if (d == 13)
+        {
+            if (mpz_perfect_square_p(n))
+            {
+                mpz_clear(zD);
+                return PRP_COMPOSITE;
+            }
+        }
+
+        if (d < 0)
+        {
+            d *= -1;
+            d += 2;
+        }
+        else
+        {
+            d += 2;
+            d *= -1;
+        }
+
+        /* make sure we don't search forever */
+        if (d >= max_d)
+        {
+            mpz_clear(zD);
+            return PRP_ERROR;
+        }
+
+        mpz_set_si(zD, d);
+    }
+    mpz_clear(zD);
+
+    q = (1 - d) / 4;
+
+    return mpz_extrastronglucas_prp(n, p);
+
+}/* method mpz_strongselfridge_prp */
+
 
 /* **********************************************************************************
  * mpz_bpsw_prp:
@@ -1176,6 +1590,31 @@ int mpz_strongbpsw_prp(mpz_t n)
     return ret;
 
   return mpz_strongselfridge_prp(n);
+
+}/* method mpz_strongbpsw_prp */
+
+/* ****************************************************************************************
+* mpz_strongbpsw_prp:
+* A "strong Baillie-Pomerance-Selfridge-Wagstaff pseudoprime" is a composite n such that
+* n is a strong pseudoprime to the base 2 and
+* n is a strong Lucas pseudoprime using the Selfridge parameters.
+* ****************************************************************************************/
+int mpz_extrastrongbpsw_prp(mpz_t n)
+{
+    int ret = 0;
+    mpz_t two;
+
+    mpz_init_set_ui(two, 2);
+
+    ret = mpz_sprp(n, two);
+    mpz_clear(two);
+
+    /* with a base of 2,  mpz_sprp won't return PRP_ERROR */
+    /* so, only check for PRP_COMPOSITE or PRP_PRIME here */
+    if ((ret == PRP_COMPOSITE) || (ret == PRP_PRIME))
+        return ret;
+
+    return mpz_extrastrongselfridge_prp(n);
 
 }/* method mpz_strongbpsw_prp */
 
@@ -1255,12 +1694,11 @@ int mpz_strongbpsw_prp(mpz_t n)
 #define PWmax 32
 
 /* Qmax[]: list of largest q-prime for each t value */
-/* this determines how much memory the program will need at run-time */
-/* memory requirements will be around Qmax*4 bytes */
-int Qmax[] = {61,2521,55441,180181,4324321,10501921,367567201,232792561};
+int Qmax[] = {61,2521,55441,180181,4324321,10501921,367567201,232792561,
+1745944201};
 
 /* number of values in Qmax[], aiNP[], aiNQ[] */
-int LEVELmax = 8;
+int LEVELmax = 9;
 
 /* list of primes that divide our t values */
 int aiP[] = {2,3,5,7,11,13,17,19};
@@ -1308,8 +1746,17 @@ int aiQ[] = {2,3,5,7,11,13,31,61,17,19,29,37,41,43,71,73,113,127,181,211,241,
 3837241,3912481,3979361,4157011,4232593,4476781,5135131,5372137,5868721,
 6046561,6348889,6651217,6715171,6846841,7162849,7674481,9767521,11737441,
 12471031,12697777,17907121,24942061,27387361,31744441,35814241,41081041,
-46558513,53721361,107442721,174594421,232792561};
-/* number of q primes in the above array: 530 */
+46558513,53721361,107442721,174594421,232792561,1901,2851,5701,39901,41801,
+53201,62701,64601,74101,79801,98801,113051,119701,135851,148201,205201,219451,
+290701,292601,319201,333451,339151,359101,410401,452201,478801,501601,532951,
+564301,658351,666901,778051,839801,957601,1037401,1065901,1128601,1222651,
+1259701,1504801,1808801,1889551,2074801,2173601,2445301,2667601,3052351,
+3511201,3730651,3779101,3950101,4069801,4149601,4408951,5038801,6104701,
+6224401,8558551,9781201,11191951,11411401,14922601,16279201,17117101,17635801,
+19186201,19562401,22383901,22822801,23514401,25581601,25675651,31600801,
+35271601,37346401,38372401,45349201,59690401,67151701,83140201,129329201,
+134303401,193993801,249420601,436486051,634888801,1163962801,1745944201};
+/* number of q primes in the above array: 618 */
 
 /* a primitive root for each q-prime in the above array */
 int aiG[] = {1,2,2,3,2,2,3,2,3,2,2,2,6,3,7,5,3,3,2,2,7,3,10,2,3,11,17,5,2,3,3,
@@ -1328,17 +1775,21 @@ int aiG[] = {1,2,2,3,2,2,3,2,3,2,2,2,6,3,7,5,3,3,2,2,7,3,10,2,3,11,17,5,2,3,3,
 23,5,3,11,3,3,10,5,17,6,6,7,5,31,10,10,6,17,6,10,13,7,7,3,29,3,7,6,29,5,18,17,
 13,29,6,3,3,22,14,14,6,10,17,13,6,7,34,2,5,2,10,31,43,6,13,13,21,29,2,5,7,17,3,
 22,7,7,7,29,14,5,13,21,6,10,15,6,2,5,14,14,11,5,7,23,13,7,37,29,11,5,13,22,37,
-58,26,29,5,43,23,2,71};
+58,26,29,5,43,23,2,71,2,2,2,2,3,3,2,3,2,23,3,6,2,2,17,14,2,2,3,23,26,3,2,11,11,
+29,31,15,2,7,10,3,3,22,11,6,14,3,6,31,6,3,47,3,10,7,6,13,10,6,6,13,17,3,7,2,11,
+6,42,3,23,13,37,26,11,21,7,6,37,6,7,2,13,29,59,26,22,59,10,31,3,23,53,42,19,11,
+46,23};
+
 
 /* number of primes from aiP, not necessarily in order, that divides each t */
-int aiNP[] = {3,4,5,6,6,7,7,8};
+int aiNP[] = {3,4,5,6,6,7,7,8,8};
 
 /* number of q-primes for each t */
-int aiNQ[] = {8,27,45,81,134,245,351,424};
+int aiNQ[] = {8,27,45,81,134,245,351,424,618};
 
 /*         t     |       e(t)   | #Qp |      Qmax  |   divisors of t         */
 /* --------------|--------------|-----|------------|------------------------ */
-int aiT[] =  {
+s64_t aiT[] =  {
           60, /* | 6.8144 E   9 |   8 |         61 | p={2,3,5}               */
         5040, /* | 1.5321 E  52 |  27 |       2521 | p={2,3,5,7}             */
        55440, /* | 4.9209 E 106 |  45 |      55441 | p={2,3,5,7,11}          */
@@ -1346,33 +1797,38 @@ int aiT[] =  {
      4324320, /* | 7.9285 E 455 | 134 |    4324321 | p={2,3,5,7,11,13}       */
     73513440, /* | 7.0821 E 966 | 245 |   10501921 | p={2,3,5,7,11,13,17}    */
    367567200, /* | 6.2087 E1501 | 351 |  367567201 | p={2,3,5,7,11,13,17}    */
-  1396755360};/* | 4.0165 E1913 | 424 |  232792561 | p={2,3,5,7,11,13,17,19} */
+  1396755360, /* | 4.0165 E1913 | 424 |  232792561 | p={2,3,5,7,11,13,17,19} */
+  6983776800};/* | 7.4712 E3010 | 618 | 1745944201 | p={2,3,5,7,11,13,17,19} */
 
 
 /* 每个线程独占证明过程中的可写状态。 */
 #ifdef _MSC_VER
 #define APRCL_THREAD_LOCAL __declspec(thread)
 #else
+#if defined(__cplusplus)
+#define APRCL_THREAD_LOCAL thread_local
+#else
 #define APRCL_THREAD_LOCAL _Thread_local
 #endif
+#endif
 static APRCL_THREAD_LOCAL int aiInv[PWmax];
-static APRCL_THREAD_LOCAL mpz_t biTmp, biExp, biN, biR, biS, biT, biU, TestNbr;
+static APRCL_THREAD_LOCAL mpz_t biTmp, biExp, biN, biR, biS, biT, TestNbr;
 static APRCL_THREAD_LOCAL mpz_t *aiJS, *aiJW, *aiJX, *aiJ0, *aiJ1, *aiJ2, *aiJ00, *aiJ01;
-static APRCL_THREAD_LOCAL int NumberLength; /* Length of multiple precision nbrs */
+static APRCL_THREAD_LOCAL int NumberLength;
 
 /* ============================================================================================== */
 
 void allocate_vars(void)
 {
   int i = 0;
-  aiJS = malloc(PWmax * sizeof(mpz_t));
-  aiJW = malloc(PWmax * sizeof(mpz_t));
-  aiJX = malloc(PWmax * sizeof(mpz_t));
-  aiJ0 = malloc(PWmax * sizeof(mpz_t));
-  aiJ1 = malloc(PWmax * sizeof(mpz_t));
-  aiJ2 = malloc(PWmax * sizeof(mpz_t));
-  aiJ00 = malloc(PWmax * sizeof(mpz_t));
-  aiJ01 = malloc(PWmax * sizeof(mpz_t));
+  aiJS = (__mpz_struct (*)[1])malloc(PWmax * sizeof(mpz_t));
+  aiJW = (__mpz_struct (*)[1])malloc(PWmax * sizeof(mpz_t));
+  aiJX = (__mpz_struct (*)[1])malloc(PWmax * sizeof(mpz_t));
+  aiJ0 = (__mpz_struct (*)[1])malloc(PWmax * sizeof(mpz_t));
+  aiJ1 = (__mpz_struct (*)[1])malloc(PWmax * sizeof(mpz_t));
+  aiJ2 = (__mpz_struct (*)[1])malloc(PWmax * sizeof(mpz_t));
+  aiJ00 = (__mpz_struct (*)[1])malloc(PWmax * sizeof(mpz_t));
+  aiJ01 = (__mpz_struct (*)[1])malloc(PWmax * sizeof(mpz_t));
   if (!aiJS || !aiJW || !aiJX || !aiJ0 || !aiJ1 || !aiJ2 || !aiJ00 || !aiJ01)
     abort();
   for (i = 0 ; i < PWmax; i++)
@@ -1392,7 +1848,6 @@ void allocate_vars(void)
   mpz_init(biR);
   mpz_init(biS);
   mpz_init(biT);
-  mpz_init(biU);
   mpz_init(biExp);
   mpz_init(biTmp);
 }
@@ -1427,7 +1882,6 @@ void free_vars(void)
   mpz_clear(biR);
   mpz_clear(biS);
   mpz_clear(biT);
-  mpz_clear(biU);
   mpz_clear(biExp);
   mpz_clear(biTmp);
 }
@@ -1649,7 +2103,7 @@ int mpz_aprcl(mpz_t N)
 /*               2 = N is prime.                */
 int mpz_aprtcle(mpz_t N, int verbose)
 {
-  int T, U;
+  s64_t T, U;
   int i, j, H, I, J, K, P, Q, W, X;
   int IV, InvX, LEVELnow, NP, PK, PL, PM, SW, VK, TestedQs, TestingQs;
   int QQ, T1, T3, U1, U3, V1, V3;
@@ -1677,11 +2131,10 @@ int mpz_aprtcle(mpz_t N, int verbose)
   if (mpz_cmp_ui(N, 11) == 0)
     return APRTCLE_PRIME;
 
-
-  /* If the input number is larger than 4000 decimal digits
+  /* If the input number is larger than 7000 decimal digits
      we will just return whether it is a BPSW (probable) prime */
   NumberLength = mpz_sizeinbase(N, 10);
-  if (NumberLength > 4000)
+  if (NumberLength > 7000)
   {
     if (verbose >= APRTCLE_VERBOSE2)
       printf(" Info: Number too large, returning BPSW(N)\n");
@@ -1710,25 +2163,12 @@ int mpz_aprtcle(mpz_t N, int verbose)
     {
       Q = aiQ[j];
       if (aiT[i]%(Q-1) != 0) continue;
-/*
-      U = aiT[i] * Q;
-      do
+      mpz_mul_ui(biS, biS, Q);
+      for (U = aiT[i]; U % Q == 0; U /= Q)
       {
-        U /= Q;
-        // MultBigNbrByLong(biS, Q, biS, NumberLength);
+        /* MultBigNbrByLong(biS, Q, biS, NumberLength); */
         mpz_mul_ui(biS, biS, Q);
       }
-      while (U % Q == 0);
-*/
-      mpz_set_ui(biU, aiT[i]);
-      mpz_mul_ui(biU, biU, Q);
-      do
-      {
-        mpz_divexact_ui(biU, biU, Q);
-        // MultBigNbrByLong(biS, Q, biS, NumberLength);
-        mpz_mul_ui(biS, biS, Q);
-      }
-      while (mpz_divisible_ui_p(biU, Q));
 
       // Exit loop if S^2 > N.
       if (CompareSquare(biS, TestNbr) > 0)
@@ -1774,6 +2214,7 @@ MainStart:
         for (j = TestedQs; j <= TestingQs; j++)
         {
           Q = aiQ[j] - 1;
+          /* G = aiG[j]; */
           K = 0;
           while (Q % P == 0)
           {
@@ -2271,25 +2712,12 @@ MainStart:
           {
             TestingQs++;
             Q = aiQ[TestingQs];
-/*
-            U = T * Q;
-            do
+            mpz_mul_ui(biS, biS, Q);
+            for (U = T; U % Q == 0; U /= Q)
             {
-              // MultBigNbrByLong(biS, Q, biS, NumberLength);
+              /* MultBigNbrByLong(biS, Q, biS, NumberLength); */
               mpz_mul_ui(biS, biS, Q);
-              U /= Q;
             }
-            while (U % Q == 0);
-*/
-            mpz_set_ui(biU, T);
-            mpz_mul_ui(biU, biU, Q);
-            do
-            {
-              // MultBigNbrByLong(biS, Q, biS, NumberLength);
-              mpz_mul_ui(biS, biS, Q);
-              mpz_divexact_ui(biU, biU, Q);
-            }
-            while (mpz_divisible_ui_p(biU, Q));
 
             continue; /* Retry */
           }
@@ -2309,26 +2737,12 @@ MainStart:
           {
             Q = aiQ[J];
             if (T%(Q-1) != 0) continue;
-/*
-            U = T * Q;
-            do
+            mpz_mul_ui(biS, biS, Q);
+            for (U = T; U % Q == 0; U /= Q)
             {
-              // MultBigNbrByLong(biS, Q, biS, NumberLength);
+              /* MultBigNbrByLong(biS, Q, biS, NumberLength); */
               mpz_mul_ui(biS, biS, Q);
-              U /= Q;
             }
-            while (U % Q == 0);
-*/
-            mpz_set_ui(biU, T);
-            mpz_mul_ui(biU, biU, Q);
-            do
-            {
-              // MultBigNbrByLong(biS, Q, biS, NumberLength);
-              mpz_mul_ui(biS, biS, Q);
-              mpz_divexact_ui(biU, biU, Q);
-            }
-            while (mpz_divisible_ui_p(biU, Q));
-
             if (CompareSquare(biS, TestNbr) > 0)
             {
               TestingQs = J;
