@@ -58,11 +58,11 @@ compile -ffunction-sections -fdata-sections -I. \
     -Wl,--gc-sections -lgmp -o "$build_dir/process_batch_helpers_regression"
 "$build_dir/process_batch_helpers_regression"
 
-# 筛法正确性基准：固定多项式 + 固定 spq 区间，关系集合必须逐字节一致
-if [ -x "$repo_root/gnfs-lasieve4I13e" ]; then
+# 筛法正确性基准：固定多项式 + 固定 spq 区间，六个 I 值的关系集合必须与基准一致
+if [ -x "$repo_root/gnfs-lasieve4e" ]; then
     sh "$repo_root/test/standalone/lasieve/sieve_oracle.sh"
 else
-    echo 'sieve oracle: skipped (sievers not built, run make lasieve)'
+    echo 'sieve oracle: skipped (siever not built, run make lasieve)'
 fi
 
 # 多实例验证：ECM/PM1 的缓存搬进 lasieve_ctx 之后，两个实例交替推进必须

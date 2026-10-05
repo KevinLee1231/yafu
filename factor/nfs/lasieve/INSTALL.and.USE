@@ -1,3 +1,24 @@
+NOTE (this tree, not upstream)
+=============================
+
+The six I values used to be six executables, gnfs-lasieve4I11e through
+gnfs-lasieve4I16e, and you picked one by name.  They are now a single
+program, gnfs-lasieve4e: all six sets of sieve kernels live in one image,
+each with its own factor base and ECM/P-1 cache, and the first argument
+selects which one:
+
+    gnfs-lasieve4e 13 -a -c 1000 -f 16000000 -S 11739.41 -a foo
+
+So 'make gnfs-lasieve4I12e' and its siblings are gone; 'make alle' (or
+'make gnfs-lasieve4e') builds the one program.  Everything else in this
+file -- the option letters, the relation format, the -b/-f/-c/-S/-a/-r
+conventions -- still describes the same siever.  yafu itself starts it
+with the I value prepended, so you rarely need to type it by hand.
+
+The text below is the original upstream file, kept for the option
+reference, with the build commands updated where they named one of the
+six executables.
+
 I) Installation
 ===============
 
@@ -17,7 +38,7 @@ replacements for asprintf and getline are compiled.
 4) One of the parameters of the lattice siever has to be selected at compile
 time. For a lattice sieving region of 4096x2048, (suitable for projects
 with SNFS complexity 150, or GNFS for numbers with 110 digits), 
-type 'make gnfs-lasieve4I12e'. For 8192x4096 (suitable for SNFS complexity
+type 'make gnfs-lasieve4e'. For 8192x4096 (suitable for SNFS complexity
 around 180, or GNFS for numbers in the 130-140 digits range), type
 'make gnfs-lasieve4I13e'. For 16394x8192 (for very large projects, like
 GNFS on a number in the upper c150 or c160 digits ranke),

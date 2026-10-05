@@ -124,9 +124,9 @@ make yafu DEBUG=1             # 调试构建
 
 ## GGNFS 筛选器（NFS 必需）
 
-NFS 分解需要外部的 GGNFS 格点筛程序（`ggnfs-lasieve4I*`）。仓库内带了预编译的 Linux 版本，在 `factor/nfs/lasieve/bin/` 下。用 `yafu.ini` 里的 `ggnfs_dir=` 或命令行 `-ggnfs_dir <路径>` 指向它们；没有它们 NFS 无法运行。
+NFS 分解需要外部的 GGNFS 格点筛程序。筛选器现在是**一个**程序 `gnfs-lasieve4e`：六个 I 值（11 到 16）都编在同一份映像里，由第一个参数挑选，命令行形式是 `gnfs-lasieve4e <I> [选项...]`。用 `yafu.ini` 里的 `ggnfs_dir=` 或命令行 `-ggnfs_dir <路径>` 指向它；没有它 NFS 无法运行。仓库不再附带预编译版本。
 
-自己编译用 `make -j4 lasieve`，输出在 yafu 可执行文件同目录（仓库根）。yafu 按自身位置找到它们，不需要配路径；这些本地产物不进 Git。要换用别处构建的筛选器，或切到外部 cuda-sieve，用 `-ggnfs_dir` 显式指定。
+自己编译用 `make -j4 lasieve`，输出在 yafu 可执行文件同目录（仓库根）。yafu 按自身位置找到它，不需要配路径；这个本地产物不进 Git。要换用别处构建的筛选器，或切到外部 cuda-sieve，用 `-ggnfs_dir` 显式指定。
 
 如果 CPU 支持 AVX-512，YAFU 会默认使用内置的 **AVX-ECM** 作为 ECM 后端。独立版本在 <https://github.com/bbuhrow/avx-ecm>。
 
