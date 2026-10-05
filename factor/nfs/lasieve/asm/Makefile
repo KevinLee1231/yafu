@@ -132,6 +132,12 @@ ls-defs-os.asm: ls-defs.asm
 # refers to the .asm source; ls-defs-os.asm is listed first so m4 sees the
 # macro definitions before the source that uses them.
 #
+# No rename here, and that is deliberate.  This rule feeds asm/liblasieve.a, the
+# single shared copy that mpqstest / mpqs3test / mpqsstat / ctx_test /
+# ecm_pm1_test link against; there is only one of it, so it has nothing to
+# collide with.  The per-I assemblies go through the explicit lasched1I%.s rules
+# and the coreI$(1) rules, where $* is the I value -- here $* is the file stem,
+# and handing ISEDFLAGS to sed produced names like lasched1Iri-aux.
 %.S: %.asm ls-defs-os.asm
 	m4 -g $(M4_OS_DEF) -Dn_i_bits=0 ls-defs-os.asm $< > $@
 
@@ -182,71 +188,71 @@ liblasieve.a: \
 # "ls-defs-os.asm <source>.asm" which is the correct order for m4.
 #
 lasched0I%.s: ls-defs-os.asm lasched0.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $^ > $@
+	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
 lasched1I%.s: ls-defs-os.asm lasched1.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` -Dot=1 $^ > $@
+	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` -Dot=1 $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
 lasched2I%.s: ls-defs-os.asm lasched1.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` -Dot=2 $^ > $@
+	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` -Dot=2 $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
 lasched3I%.s: ls-defs-os.asm lasched1.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` -Dot=3 $^ > $@
+	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` -Dot=3 $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
 lasched0ntI%.s: ls-defs-os.asm lasched0.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` -Dnt_sched=1 $^ > $@
+	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` -Dnt_sched=1 $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
 lasched1ntI%.s: ls-defs-os.asm lasched1.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` -Dot=1 -Dnt_sched=1 $^ > $@
+	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` -Dot=1 -Dnt_sched=1 $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
 lasched2ntI%.s: ls-defs-os.asm lasched1.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` -Dot=2 -Dnt_sched=1 $^ > $@
+	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` -Dot=2 -Dnt_sched=1 $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
 lasched3ntI%.s: ls-defs-os.asm lasched1.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` -Dot=3 -Dnt_sched=1 $^ > $@
+	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` -Dot=3 -Dnt_sched=1 $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
 medsched0I%.s: ls-defs-os.asm medsched0.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $^ > $@
+	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
 
 # --- I-parameterised .o compilation rules ------------------------------------
 # ../include/if.h resolves to factor/lasieve5_64/if.h
 laschedI%.o: lasched.c include/lasched.h \
 		include/siever-config.h ../include/if.h
-	$(CC) $(CFLAGS) -DI_bits=$* -c -o $@ $<
+	$(CC) $(CFLAGS) -DI_bits=$* $(foreach s,$(IRENAME_C_SYMS),-D$(s)=$(s)I$*) -c -o $@ $<
 
 medschedI%.o: medsched.c include/medsched.h \
 		include/siever-config.h ../include/if.h
-	$(CC) $(CFLAGS) -DI_bits=$* -c -o $@ $<
+	$(CC) $(CFLAGS) -DI_bits=$* $(foreach s,$(IRENAME_C_SYMS),-D$(s)=$(s)I$*) -c -o $@ $<
 
 
 # --- I-parameterised sieve line .s generation rules -------------------------
 slinieI%.s: ls-defs-os.asm slinieG.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $^ > $@
+	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
 slinie3I%.s: ls-defs-os.asm slinie3A.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $^ > $@
+	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
 slinie2I%.s: ls-defs-os.asm slinie2A.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $^ > $@
+	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
 slinie1I%.s: ls-defs-os.asm slinie1A.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $^ > $@
+	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
 tdslinieI%.s: ls-defs-os.asm tdslinie.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $^ > $@
+	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
 tdslinie1I%.s: ls-defs-os.asm tdslinie1.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $^ > $@
+	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
 tdslinie2I%.s: ls-defs-os.asm tdslinie2.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $^ > $@
+	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
 tdslinie3I%.s: ls-defs-os.asm tdslinie3.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $^ > $@
+	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
 search0I%.s: ls-defs-os.asm search0.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $^ > $@
+	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
 
 # --- liblasieveI%.a (I-parameterised sieve library) -------------------------
@@ -265,3 +271,96 @@ bup:
 
 clean:
 	-rm -f *.o *.a *.s *.S ls-defs-os.asm
+
+# --- Per-I build -------------------------------------------------------------
+#
+# libcoreI%d.a is liblasieve.a built once per I value with the colliding names
+# suffixed.  It is needed because liblasieve.a *defines* montgomery_* and reads
+# the mpqs_*/mpqs3_* factor bases by name: renaming only liblasieveI%d.a would
+# leave six instances sharing one montgomery state and one factor base, so they
+# could not run in one process.
+#
+# The two symbol lists are read from ../I_SYMBOLS rather than passed on the
+# command line: 508 -D flags make an unwieldy command line, and passing them
+# through the sub-make is what stalled an earlier attempt.
+#
+# The 39 core objects are a mix of .c and .asm, and the two need different
+# treatment, which is why there are two lists:
+#
+#   IRENAME_C_SYMS   all 508, for the C sources in this directory.  lasched and
+#                    medsched have to be in it: their callers live in
+#                    gnfs-lasieve4e.c, which the parent Makefile compiles with
+#                    every symbol suffixed, so an unsuffixed definition here
+#                    fails to link against laschedI11.
+#   IRENAME_SYMS     the same list minus those two, for m4.  See below.
+#
+# ASIEVE_I_VALUES is the single source of the I range for this Makefile.
+ASIEVE_I_VALUES ?= 11 12 13 14 15 16
+IRENAME_SYMS := $(shell grep -v '^[[:space:]]*#' ../I_SYMBOLS)
+IRENAME_C_SYMS := $(IRENAME_SYMS)
+
+# lasched and medsched are the one case where -D does damage.  The kernels
+# build their own names by concatenation -- lasched1.asm says `lasched`'ot`
+# and m4 splices in the variant number -- so the text handed to m4 is
+# `lasched`, not `lasched1`.  Renaming it here yields laschedI111.
+IRENAME_SYMS := $(filter-out lasched medsched,$(IRENAME_SYMS))
+
+# The other half of the problem: lasched1, lasched2, lasched1_1, medsched_1 and
+# the rest only come into being when m4 expands the concatenation, so a -D on
+# the command line cannot reach them.  Those are renamed on m4's output
+# instead, which is why every m4 rule below ends in a pipe rather than a
+# redirect.  \b on both ends keeps this from touching a name that m4 has
+# already suffixed, so the two mechanisms cannot collide.
+ISED_SYMS := $(shell grep -v '^[[:space:]]*#' ../I_SYMBOLS_ASM)
+ISEDFLAGS = $(foreach s,$(ISED_SYMS),-e 's/\b$(s)\b/$(s)I$*/g')
+SED ?= sed
+
+CORE_MEMBERS := \
+	gcd32.o psp.o pt64.o \
+	modinv1000.o ri-aux.o mpz-trialdiv.o \
+	asm_64bit.o modinv1000b.o schedsieve.o \
+	mpz-td.o MMX-TD.o MMX-TD1.o \
+	MMX-TD2.o tdsieve-from-sched.o lasieve-asmprepn.o \
+	zeit.o asm-zeit.o lasieve-asmprepn64.o \
+	lasieve-asmprepn2_64.o translate.o rescale.o \
+	mpqs_td.o invtab.o mpqs_sieve.o \
+	mpqs_eval.o mpqs_sieveinit.o mpqs_nextpol.o \
+	mpqs_gauss.o lasieve-asmprepn2.o noasm64.o \
+	basemath.o montgomery_mul.o asm_arith64.o \
+	asm_arith128.o asm_arith192.o mpqs3_sieve.o \
+	mpqs3_nextpol.o mpqs3_td.o mpqs3_gauss.o
+
+# The per-I core objects.  $(1) is substituted at $(call) time, so the
+# rename is baked into each rule rather than shared through a variable.
+define CORE_IRULES
+coreI$(1)/%.o: %.c
+	@mkdir -p coreI$(1)
+	$$(CC) $$(CFLAGS) $$(foreach s,$$(IRENAME_SYMS),-D$$(s)=$$(s)I$(1)) \
+		-DMODULO32_ASM_NAME='"modulo32I$(1)"' -c -o $$@ $$<
+
+coreI$(1)/%.o: %.asm ls-defs-os.asm
+	@mkdir -p coreI$(1)
+	m4 -g $$(M4_OS_DEF) -Dn_i_bits=0 $$(foreach s,$$(IRENAME_SYMS),-D$$(s)=$$(s)I$(1)) ls-defs-os.asm $$< | $$(SED) $$(foreach s,$$(ISED_SYMS),-e 's/\b$$(s)\b/$$(s)I$(1)/g') > coreI$(1)/$$*.S
+	$$(CC) $$(CFLAGS) -c -o $$@ coreI$(1)/$$*.S
+endef
+$(foreach i,$(ASIEVE_I_VALUES),$(eval $(call CORE_IRULES,$(i))))
+
+# six libraries, spelled out: there are only six, and writing them out avoids
+# fighting over when $$ is expanded inside $(call)
+libcoreI11.a: $(patsubst %.o,coreI11/%.o,$(CORE_MEMBERS))
+	cd coreI11 && $(AR) rcs ../$@ $(notdir $(CORE_MEMBERS))
+
+libcoreI12.a: $(patsubst %.o,coreI12/%.o,$(CORE_MEMBERS))
+	cd coreI12 && $(AR) rcs ../$@ $(notdir $(CORE_MEMBERS))
+
+libcoreI13.a: $(patsubst %.o,coreI13/%.o,$(CORE_MEMBERS))
+	cd coreI13 && $(AR) rcs ../$@ $(notdir $(CORE_MEMBERS))
+
+libcoreI14.a: $(patsubst %.o,coreI14/%.o,$(CORE_MEMBERS))
+	cd coreI14 && $(AR) rcs ../$@ $(notdir $(CORE_MEMBERS))
+
+libcoreI15.a: $(patsubst %.o,coreI15/%.o,$(CORE_MEMBERS))
+	cd coreI15 && $(AR) rcs ../$@ $(notdir $(CORE_MEMBERS))
+
+libcoreI16.a: $(patsubst %.o,coreI16/%.o,$(CORE_MEMBERS))
+	cd coreI16 && $(AR) rcs ../$@ $(notdir $(CORE_MEMBERS))

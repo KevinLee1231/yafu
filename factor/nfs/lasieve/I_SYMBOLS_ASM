@@ -1,0 +1,183 @@
+lasched1# Names that m4 -D cannot reach, so they are renamed on m4's output instead.
+#
+# The siever kernels build their own names by concatenation: lasched1.asm
+# writes `lasched`'ot` and m4 splices in the variant number, so the literal
+# text handed to m4 is `lasched`, not `lasched1`.  Renaming `lasched` on the
+# m4 command line renames the fragment and yields laschedI111; renaming
+# `lasched1` there does nothing at all, because that token only exists after
+# expansion.  So the first two lines of the rule below are wrong either way
+# and the real work happens in the sed that follows the pipe.
+#
+# sed anchors both ends with \b, so a name m4 -D already suffixed (no longer a
+# whole word) is left alone and the two mechanisms cannot collide.
+
+lasched1_1# Names that m4 -D cannot reach, so they are renamed on m4's output instead.
+#
+# The siever kernels build their own names by concatenation: lasched1.asm
+# writes `lasched`'ot` and m4 splices in the variant number, so the literal
+# text handed to m4 is `lasched`, not `lasched1`.  Renaming `lasched` on the
+# m4 command line renames the fragment and yields laschedI111; renaming
+# `lasched1` there does nothing at all, because that token only exists after
+# expansion.  So the first two lines of the rule below are wrong either way
+# and the real work happens in the sed that follows the pipe.
+#
+# sed anchors both ends with \b, so a name m4 -D already suffixed (no longer a
+# whole word) is left alone and the two mechanisms cannot collide.
+
+lasched1_1nt# Names that m4 -D cannot reach, so they are renamed on m4's output instead.
+#
+# The siever kernels build their own names by concatenation: lasched1.asm
+# writes `lasched`'ot` and m4 splices in the variant number, so the literal
+# text handed to m4 is `lasched`, not `lasched1`.  Renaming `lasched` on the
+# m4 command line renames the fragment and yields laschedI111; renaming
+# `lasched1` there does nothing at all, because that token only exists after
+# expansion.  So the first two lines of the rule below are wrong either way
+# and the real work happens in the sed that follows the pipe.
+#
+# sed anchors both ends with \b, so a name m4 -D already suffixed (no longer a
+# whole word) is left alone and the two mechanisms cannot collide.
+
+lasched1nt# Names that m4 -D cannot reach, so they are renamed on m4's output instead.
+#
+# The siever kernels build their own names by concatenation: lasched1.asm
+# writes `lasched`'ot` and m4 splices in the variant number, so the literal
+# text handed to m4 is `lasched`, not `lasched1`.  Renaming `lasched` on the
+# m4 command line renames the fragment and yields laschedI111; renaming
+# `lasched1` there does nothing at all, because that token only exists after
+# expansion.  So the first two lines of the rule below are wrong either way
+# and the real work happens in the sed that follows the pipe.
+#
+# sed anchors both ends with \b, so a name m4 -D already suffixed (no longer a
+# whole word) is left alone and the two mechanisms cannot collide.
+
+lasched2# Names that m4 -D cannot reach, so they are renamed on m4's output instead.
+#
+# The siever kernels build their own names by concatenation: lasched1.asm
+# writes `lasched`'ot` and m4 splices in the variant number, so the literal
+# text handed to m4 is `lasched`, not `lasched1`.  Renaming `lasched` on the
+# m4 command line renames the fragment and yields laschedI111; renaming
+# `lasched1` there does nothing at all, because that token only exists after
+# expansion.  So the first two lines of the rule below are wrong either way
+# and the real work happens in the sed that follows the pipe.
+#
+# sed anchors both ends with \b, so a name m4 -D already suffixed (no longer a
+# whole word) is left alone and the two mechanisms cannot collide.
+
+lasched2_1# Names that m4 -D cannot reach, so they are renamed on m4's output instead.
+#
+# The siever kernels build their own names by concatenation: lasched1.asm
+# writes `lasched`'ot` and m4 splices in the variant number, so the literal
+# text handed to m4 is `lasched`, not `lasched1`.  Renaming `lasched` on the
+# m4 command line renames the fragment and yields laschedI111; renaming
+# `lasched1` there does nothing at all, because that token only exists after
+# expansion.  So the first two lines of the rule below are wrong either way
+# and the real work happens in the sed that follows the pipe.
+#
+# sed anchors both ends with \b, so a name m4 -D already suffixed (no longer a
+# whole word) is left alone and the two mechanisms cannot collide.
+
+lasched2_1nt# Names that m4 -D cannot reach, so they are renamed on m4's output instead.
+#
+# The siever kernels build their own names by concatenation: lasched1.asm
+# writes `lasched`'ot` and m4 splices in the variant number, so the literal
+# text handed to m4 is `lasched`, not `lasched1`.  Renaming `lasched` on the
+# m4 command line renames the fragment and yields laschedI111; renaming
+# `lasched1` there does nothing at all, because that token only exists after
+# expansion.  So the first two lines of the rule below are wrong either way
+# and the real work happens in the sed that follows the pipe.
+#
+# sed anchors both ends with \b, so a name m4 -D already suffixed (no longer a
+# whole word) is left alone and the two mechanisms cannot collide.
+
+lasched2nt# Names that m4 -D cannot reach, so they are renamed on m4's output instead.
+#
+# The siever kernels build their own names by concatenation: lasched1.asm
+# writes `lasched`'ot` and m4 splices in the variant number, so the literal
+# text handed to m4 is `lasched`, not `lasched1`.  Renaming `lasched` on the
+# m4 command line renames the fragment and yields laschedI111; renaming
+# `lasched1` there does nothing at all, because that token only exists after
+# expansion.  So the first two lines of the rule below are wrong either way
+# and the real work happens in the sed that follows the pipe.
+#
+# sed anchors both ends with \b, so a name m4 -D already suffixed (no longer a
+# whole word) is left alone and the two mechanisms cannot collide.
+
+lasched3# Names that m4 -D cannot reach, so they are renamed on m4's output instead.
+#
+# The siever kernels build their own names by concatenation: lasched1.asm
+# writes `lasched`'ot` and m4 splices in the variant number, so the literal
+# text handed to m4 is `lasched`, not `lasched1`.  Renaming `lasched` on the
+# m4 command line renames the fragment and yields laschedI111; renaming
+# `lasched1` there does nothing at all, because that token only exists after
+# expansion.  So the first two lines of the rule below are wrong either way
+# and the real work happens in the sed that follows the pipe.
+#
+# sed anchors both ends with \b, so a name m4 -D already suffixed (no longer a
+# whole word) is left alone and the two mechanisms cannot collide.
+
+lasched3_1# Names that m4 -D cannot reach, so they are renamed on m4's output instead.
+#
+# The siever kernels build their own names by concatenation: lasched1.asm
+# writes `lasched`'ot` and m4 splices in the variant number, so the literal
+# text handed to m4 is `lasched`, not `lasched1`.  Renaming `lasched` on the
+# m4 command line renames the fragment and yields laschedI111; renaming
+# `lasched1` there does nothing at all, because that token only exists after
+# expansion.  So the first two lines of the rule below are wrong either way
+# and the real work happens in the sed that follows the pipe.
+#
+# sed anchors both ends with \b, so a name m4 -D already suffixed (no longer a
+# whole word) is left alone and the two mechanisms cannot collide.
+
+lasched3_1nt# Names that m4 -D cannot reach, so they are renamed on m4's output instead.
+#
+# The siever kernels build their own names by concatenation: lasched1.asm
+# writes `lasched`'ot` and m4 splices in the variant number, so the literal
+# text handed to m4 is `lasched`, not `lasched1`.  Renaming `lasched` on the
+# m4 command line renames the fragment and yields laschedI111; renaming
+# `lasched1` there does nothing at all, because that token only exists after
+# expansion.  So the first two lines of the rule below are wrong either way
+# and the real work happens in the sed that follows the pipe.
+#
+# sed anchors both ends with \b, so a name m4 -D already suffixed (no longer a
+# whole word) is left alone and the two mechanisms cannot collide.
+
+lasched3nt# Names that m4 -D cannot reach, so they are renamed on m4's output instead.
+#
+# The siever kernels build their own names by concatenation: lasched1.asm
+# writes `lasched`'ot` and m4 splices in the variant number, so the literal
+# text handed to m4 is `lasched`, not `lasched1`.  Renaming `lasched` on the
+# m4 command line renames the fragment and yields laschedI111; renaming
+# `lasched1` there does nothing at all, because that token only exists after
+# expansion.  So the first two lines of the rule below are wrong either way
+# and the real work happens in the sed that follows the pipe.
+#
+# sed anchors both ends with \b, so a name m4 -D already suffixed (no longer a
+# whole word) is left alone and the two mechanisms cannot collide.
+
+lasched_1# Names that m4 -D cannot reach, so they are renamed on m4's output instead.
+#
+# The siever kernels build their own names by concatenation: lasched1.asm
+# writes `lasched`'ot` and m4 splices in the variant number, so the literal
+# text handed to m4 is `lasched`, not `lasched1`.  Renaming `lasched` on the
+# m4 command line renames the fragment and yields laschedI111; renaming
+# `lasched1` there does nothing at all, because that token only exists after
+# expansion.  So the first two lines of the rule below are wrong either way
+# and the real work happens in the sed that follows the pipe.
+#
+# sed anchors both ends with \b, so a name m4 -D already suffixed (no longer a
+# whole word) is left alone and the two mechanisms cannot collide.
+
+medsched# Names that m4 -D cannot reach, so they are renamed on m4's output instead.
+#
+# The siever kernels build their own names by concatenation: lasched1.asm
+# writes `lasched`'ot` and m4 splices in the variant number, so the literal
+# text handed to m4 is `lasched`, not `lasched1`.  Renaming `lasched` on the
+# m4 command line renames the fragment and yields laschedI111; renaming
+# `lasched1` there does nothing at all, because that token only exists after
+# expansion.  So the first two lines of the rule below are wrong either way
+# and the real work happens in the sed that follows the pipe.
+#
+# sed anchors both ends with \b, so a name m4 -D already suffixed (no longer a
+# whole word) is left alone and the two mechanisms cannot collide.
+
+medsched_1

@@ -1113,7 +1113,10 @@ int main(int argc, char** argv)
         p += sprintf(p, "lasetup,");
 #endif
 #ifdef AVX512_LASCHED
-        p += sprintf(p, "lasched,");
+        // spelled with the macro that gates it, not as a bare "lasched":
+        // per-I builds rename the function, and -D would rewrite the word
+        // inside this string too
+        p += sprintf(p, "AVX512_LASCHED,");
 #endif
 #ifdef AVX512_SIEVE1
         p += sprintf(p, "sieve1,");
@@ -1137,7 +1140,7 @@ int main(int argc, char** argv)
             p[-1] = '\0';              /* trim the trailing comma */
 
         if (verbose) { /* first rudimentary test of automatic $Rev reporting */
-            fprintf(stderr, "gnfs-lasieve4I%de (%s): L1_BITS=%d\n",
+            fprintf(stderr, "gnfs-lasieve4e (I=%d, %s): L1_BITS=%d\n",
                 I_bits, features, L1_BITS);
         }
 
