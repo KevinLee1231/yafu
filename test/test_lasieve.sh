@@ -5,8 +5,7 @@ set -eu
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cc=${CC:-gcc}
 cflags=${CFLAGS:--std=gnu17 -O0 -g -Wall -Wextra}
-# 筛法器自身已经是 C++，它的源按 C++ 编；测试驱动仍是 C。两者靠头里的
-# extern "C" 护栏对齐链接名。
+# 筛法器和测试驱动现在都是 C++。
 cxx=${CXX:-g++}
 cxxflags=${CXXFLAGS:--std=c++26 -O0 -g}
 build_dir=$(mktemp -d /tmp/yafu-lasieve-test.XXXXXX)
@@ -27,10 +26,10 @@ INC="-I. -Ifactor/nfs/lasieve -Ifactor/nfs/lasieve/asm \
 -Ifactor/shared/include -Ifactor/ecm/include -Ifactor/shared/ytools/include \
 -Ifactor/shared/aprcl/include"
 
-# 编译 C 写的测试驱动
+# 编译测试驱动（驱动与被测源同为 C++）
 compile()
 {
-    "$cc" $cflags -D_GNU_SOURCE -UNDEBUG "$@"
+    "$cxx" $cxxflags -D_GNU_SOURCE -UNDEBUG "$@"
 }
 
 # 编译一个筛法器源，输出对象路径到 stdout。
@@ -53,13 +52,13 @@ REDU2_OBJ=$(compile_cxx obj factor/nfs/lasieve/redu2.cpp)
 INPUT_POLY_OBJ=$(compile_cxx obj factor/nfs/lasieve/input-poly.cpp)
 
 compile $INC \
-    test/standalone/lasieve/core_regression.c \
+    test/standalone/lasieve/core_regression.cpp \
     "$BAIL_OBJ" "$IF_OBJ" "$GMP_AUX_OBJ" "$REDU2_OBJ" \
     -lgmp -lm -o "$build_dir/core_regression"
 "$build_dir/core_regression"
 
 compile -DNEED_ASPRINTF $INC \
-    test/standalone/lasieve/asprintf_regression.c \
+    test/standalone/lasieve/asprintf_regression.cpp \
     "$BAIL_OBJ" "$IF_OBJ" \
     -lgmp -o "$build_dir/asprintf_regression"
 "$build_dir/asprintf_regression"
@@ -71,20 +70,20 @@ ASAN_OPTS="-fsanitize=address -ffunction-sections -fdata-sections"
 ASAN_BAIL=$(compile_cxx asan factor/nfs/lasieve/lasieve_bail.cpp $ASAN_OPTS)
 ASAN_IF=$(compile_cxx asan factor/nfs/lasieve/if.cpp $ASAN_OPTS)
 "$cxx" $cxxflags -D_GNU_SOURCE -UNDEBUG $INC $ASAN_OPTS \
-    -x c++ test/standalone/lasieve/batch_tree_regression.c -x none \
+    test/standalone/lasieve/batch_tree_regression.cpp \
     "$ASAN_BAIL" "$ASAN_IF" -Wl,--gc-sections -lgmp -lm \
     -o "$build_dir/batch_tree_regression"
 ASAN_OPTIONS=detect_leaks=1 "$build_dir/batch_tree_regression"
 
 compile -Wformat=2 $INC \
-    test/standalone/lasieve/input_poly_regression.c \
+    test/standalone/lasieve/input_poly_regression.cpp \
     "$BAIL_OBJ" "$IF_OBJ" "$INPUT_POLY_OBJ" \
     -lgmp -o "$build_dir/input_poly_regression"
 "$build_dir/input_poly_regression"
 
 "$cxx" $cxxflags -D_GNU_SOURCE -UNDEBUG $INC \
     -ffunction-sections -fdata-sections \
-    -x c++ test/standalone/lasieve/process_batch_helpers_regression.c -x none \
+    test/standalone/lasieve/process_batch_helpers_regression.cpp \
     -Wl,--gc-sections -lgmp -o "$build_dir/process_batch_helpers_regression"
 "$build_dir/process_batch_helpers_regression"
 

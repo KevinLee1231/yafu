@@ -10,7 +10,7 @@ cc=${CC:-cc}
 cflags=${CFLAGS:--O2}
 cppflags=${CPPFLAGS:-}
 # yafu 自身已经是 C++，这四个生产文件按 C++ 编；
-# 测试驱动仍是 C，靠头里的 extern "C" 护栏对齐链接名。
+# 驱动与生产文件同为 C++，两边都靠头里的声明对齐链接名。
 cxx=${CXX:-g++}
 cxxflags=${CXXFLAGS:--O2}
 
@@ -31,15 +31,15 @@ $cxx $cppflags $cxxflags $cxx_common_flags $includes -c "$repo_dir/factor/nfs/nf
 $cxx $cppflags $cxxflags $cxx_common_flags $includes -c "$repo_dir/factor/nfs/snfs.cpp" -o "$task_dir/snfs.o"
 # shellcheck disable=SC2086
 $cc $cppflags $cflags $common_flags $includes \
-    "$repo_dir/test/standalone/nfs/nfs_review.c" \
+    "$repo_dir/test/standalone/nfs/nfs_review.cpp" \
     "$task_dir/nfs_poly.o" "$task_dir/nfs_sieving.o" \
     "$task_dir/nfs_filemanip.o" "$task_dir/snfs.o" \
     -Wl,--gc-sections -lgmp -lm -lpthread -o "$task_dir/nfs_review"
 "$task_dir/nfs_review" "$task_dir/data"
 
 # shellcheck disable=SC2086
-$cc $cppflags $cflags -UNDEBUG -std=c11 -D_POSIX_C_SOURCE=200112L \
+$cxx $cppflags $cxxflags -UNDEBUG -std=c++26 -D_POSIX_C_SOURCE=200112L \
     -I"$repo_dir/factor/shared/include" \
-    "$repo_dir/test/standalone/nfs/ms_gmp_review.c" -lgmp \
+    "$repo_dir/test/standalone/nfs/ms_gmp_review.cpp" -lgmp \
     -o "$task_dir/ms_gmp_review"
 "$task_dir/ms_gmp_review"

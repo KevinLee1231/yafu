@@ -1249,19 +1249,19 @@ yafu: _dep_status $(YAFU_OBJS) $(ARCHIVES) $(GPU_OBJS) | lasieve-force
 
 TEST_DIR  := test
 TEST_SRCS := \
-    $(TEST_DIR)/testkit.c \
-    $(TEST_DIR)/test_data.c \
-    $(TEST_DIR)/test_main.c \
-    $(TEST_DIR)/layer0/test_mp_arith.c \
-    $(TEST_DIR)/layer0/test_mp_bitscan.c \
-    $(TEST_DIR)/layer1/test_sp_arith.c \
-    $(TEST_DIR)/layer1/test_modular.c \
-    $(TEST_DIR)/layer1/test_monty_review.c \
-    $(TEST_DIR)/layer1/test_primality.c \
-    $(TEST_DIR)/layer1/test_aprcl_review.c \
-    $(TEST_DIR)/layer1/test_tinyprp_review.c \
-    $(TEST_DIR)/layer1/test_sieve.c \
-    $(TEST_DIR)/layer2/test_ecm.c
+    $(TEST_DIR)/testkit.cpp \
+    $(TEST_DIR)/test_data.cpp \
+    $(TEST_DIR)/test_main.cpp \
+    $(TEST_DIR)/layer0/test_mp_arith.cpp \
+    $(TEST_DIR)/layer0/test_mp_bitscan.cpp \
+    $(TEST_DIR)/layer1/test_sp_arith.cpp \
+    $(TEST_DIR)/layer1/test_modular.cpp \
+    $(TEST_DIR)/layer1/test_monty_review.cpp \
+    $(TEST_DIR)/layer1/test_primality.cpp \
+    $(TEST_DIR)/layer1/test_aprcl_review.cpp \
+    $(TEST_DIR)/layer1/test_tinyprp_review.cpp \
+    $(TEST_DIR)/layer1/test_sieve.cpp \
+    $(TEST_DIR)/layer2/test_ecm.cpp
 TEST_OBJS := $(call cxx_objs,$(TEST_SRCS))
 TEST_BIN  := yafu_test$(EXE_EXT)
 
@@ -1269,11 +1269,11 @@ TEST_BIN  := yafu_test$(EXE_EXT)
 TEST_KERNEL_OBJS ?= $(YAFU_COMMON_OBJS)
 
 # 测试对象同样跟踪所包含的头文件，修改算术实现后自动重编译。
-$(TEST_DIR)/%.o: $(TEST_DIR)/%.c $(TEST_DIR)/testkit.h $(TEST_DIR)/test_data.h
+$(TEST_DIR)/%.o: $(TEST_DIR)/%.cpp $(TEST_DIR)/testkit.h $(TEST_DIR)/test_data.h
 	$(MKDIR) $(DEPS_DIR)/$(dir $<)
-	$(CC) $(CFLAGS) -I$(TEST_DIR) -MMD -MP -MF $(DEPS_DIR)/$(patsubst %.c,%.d,$<) -c -o $@ $<
+	$(CXX) $(CXXFLAGS) -I$(TEST_DIR) -MMD -MP -MF $(DEPS_DIR)/$(patsubst %.cpp,%.d,$<) -c -o $@ $<
 
--include $(patsubst %.c,$(DEPS_DIR)/%.d,$(TEST_SRCS))
+-include $(patsubst %.cpp,$(DEPS_DIR)/%.d,$(TEST_SRCS))
 
 $(BUILD_DIR)/libyafu_common.a: $(TEST_KERNEL_OBJS)
 	@mkdir -p $(@D)
@@ -1282,7 +1282,7 @@ $(BUILD_DIR)/libyafu_common.a: $(TEST_KERNEL_OBJS)
 	ranlib $@
 
 test: _dep_status $(TEST_OBJS) $(BUILD_DIR)/libyafu_common.a
-	$(CC) $(CFLAGS) $(TEST_OBJS) -o $(TEST_BIN) $(BUILD_DIR)/libyafu_common.a $(LIBS)
+	$(CXX) $(CXXFLAGS) $(TEST_OBJS) -o $(TEST_BIN) $(BUILD_DIR)/libyafu_common.a $(LIBS)
 	@echo "built $(TEST_BIN) — run it:  ./$(TEST_BIN)   (try --list, --bench, --help)"
 
 test-run: test
@@ -1305,9 +1305,9 @@ test-clean:
 # -----------------------------------------------------------------------------
 .PHONY: test-full test-full-run
 
-TEST_L3_SRCS  := $(TEST_DIR)/layer3/test_siqs.c $(TEST_DIR)/layer3/test_calc.c \
-    $(TEST_DIR)/layer3/test_options.c \
-    $(TEST_DIR)/layer3/test_ecm_review.c $(TEST_DIR)/layer3/test_qs_review.c \
+TEST_L3_SRCS  := $(TEST_DIR)/layer3/test_siqs.cpp $(TEST_DIR)/layer3/test_calc.cpp \
+    $(TEST_DIR)/layer3/test_options.cpp \
+    $(TEST_DIR)/layer3/test_ecm_review.cpp $(TEST_DIR)/layer3/test_qs_review.cpp \
     factor/shared/common/vec_bitonic_sort.cpp
 TEST_FRONTEND_OBJS := $(filter-out top/driver$(OBJ_EXT),$(YAFU_OBJS))
 TEST_FULL_BIN := yafu_test_full$(EXE_EXT)

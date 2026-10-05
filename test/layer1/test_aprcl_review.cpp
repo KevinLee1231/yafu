@@ -53,7 +53,7 @@ static void t_lucas_variants(tk_ctx *tk)
 typedef struct { unsigned int index; unsigned int failures; } aprcl_work;
 static void* check_primes(void* opaque)
 {
-    aprcl_work* work = opaque;
+    aprcl_work* work = (aprcl_work *)opaque;
     unsigned long i;
     mpz_t n;
     mpz_init(n);
