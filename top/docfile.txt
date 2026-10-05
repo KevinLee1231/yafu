@@ -71,7 +71,6 @@ flags to change program behavior.  Supported flags are:
 				          and instead proceed directly to QS/NFS after small factor 
 				          detection.
 -one				      Tells factor() to stop factoring after finding one factor.
--ggnfs_dir <path>	path to ggnfs binaries
 -op <name>			  Tells factor() to output primes and prps to file <name>.
 -of <name>			  Tells factor() to output an input number and all found factors 
 				          to file <name>.
@@ -168,7 +167,7 @@ NFS BEHAVIOR OPTIONS - general
 -R				Must specify in order to restart when a previous savefile exists
 -siever <num>		Specify the ggnfs siever version to use, where <num> is 
 				the integer in the default ggnfs siever name.  I.e, 
-				ggnfs-lasieve4I<num>e.exe
+				ggnfs-lasieve4e.exe
 -nt <file1>,<file2>...	Perform automated trial sieving of the listed job files (then exit)
 				(yafu will fill any missing ggnfs parameters as necessary)
 -testsieve <num>	Number of digits beyond which yafu will test sieve the top
@@ -332,9 +331,8 @@ Automated factorization using the number field sieve.  Multi-threaded polynomial
 handled via msieve library function calls. Sieving then proceeds in a multi-thread aware fashion
 using external ggnfs lattice sieve executables.  Post processing (filtering, linear algebra, and 
 sqrt functions) again make use of msieve library calls. The path to the ggnfs lasive binaries must
-be specified either on the command line using the -ggnfs_dir switch, or in the yafu.ini file as a 
-"ggnfs_dir=<path>" line. It is assumed that the ggnfs binaries follow the usual naming convention
-(i.e. gnfs-lasieve4IXXe). nfs is automatically resumed if a job is killed prior to completion and
+was specified on the command line. The siever is part of yafu now, so there is no path to
+configure: nfs_sieving.c calls lasieve_run() in the same process. nfs is automatically resumed if a job is killed prior to completion and
 nfs is called again with the same input.  Starting a different job will overwrite a previously 
 incomplete factorization's data files, which is potentially unrecoverable.  To skip polynomially
 selection and instead use an externally produced polynomial and lattice siever parameterization, 
@@ -386,7 +384,6 @@ command line flags affecting nfs:
 -job <name>		Name of input file in nfs - use a file other than ggnfs.job as the input job file.
 -o <name>		Name of output file in nfs() - use a file other than msieve.dat as the output data file
 -ggnfsT <num>	Timeout to apply to nfs() command, in seconds (default = infinity)
--ggnfs_dir <path>	path to ggnfs binaries
 -psearch <name>	Specify method of parallel polynomial selection with N threads:
 					'fast' - divides the search time by N (default)
 					'wide' - normal time deadline, search N times the leading coefficient range
@@ -396,7 +393,7 @@ command line flags affecting nfs:
 				Default is 250.
 -R				Must specify in order to restart when a previous savefile exists
 -siever <num>	Specify the ggnfs siever version to use, where <num> is the integer in the default
-					ggnfs siever name.  I.e, ggnfs-lasieve4I<num>e.exe
+					ggnfs siever name.  I.e, ggnfs-lasieve4e.exe
 -nt <file1>,<file2>...	Perform automated trial sieving of the listed job files (then exit)
 				(yafu will fill any missing ggnfs parameters as necessary)
 -filt_bump <num>	Raise the min_rels bound by the specified percentage on unsuccessful filtering

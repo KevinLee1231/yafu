@@ -8,9 +8,12 @@
 # 合成一个二进制时的按 I 改名——只要动了运算顺序或精度，这里就会炸。
 #
 # 四个容易踩的调用约定：
-#   * 六个 I 值现在是**一个**程序，I 值是它的第一个参数：
-#       gnfs-lasieve4e <I> [选项...]
-#     早期版本是六个可执行文件 gnfs-lasieve4I11e .. gnfs-lasieve4I16e
+#   * 六个 I 值是**一个**程序的六个入口，I 值是它的第一个参数：
+#       <程序> <I> [选项...]
+#     早期版本是六个可执行文件 gnfs-lasieve4I11e .. gnfs-lasieve4I16e；再早一步
+#     是 yafu 自己带一个 gnfs-lasieve4e 子进程。筛法器现在是 yafu 的一部分，
+#     由 lasieve_run() 在进程内调用，make all 只产出 yafu 一个可执行文件；
+#     测试要单独跑筛法器，所以用 lasieve/Makefile 的 check_sieve 目标现编一个。
 #   * 输入文件名是**位置参数**，不是 -i（-i 是首筛侧）
 #   * 必须给 -a 或 -r 指定特殊 q 在哪一侧，否则只打印 usage
 #   * -f 的起点必须落在一个真实大素数附近；-f 0 会让 side 1 的调度分配
@@ -45,8 +48,15 @@ trap 'exit 130' INT
 trap 'exit 143' TERM
 
 POLY="$repo_root/factor/nfs/lasieve/R942_poly.txt"
-# 筛法器与 yafu 写在同一目录（仓库根）
-SIEVER=${1:-$repo_root/gnfs-lasieve4e}
+# 筛法器驱动由调用者给出（test_lasieve.sh 用 make -C factor/nfs/lasieve 现编的
+# check_sieve）。没有它就直接跑 yafu 是没意义的：yafu 是分解器，不是筛法器。
+SIEVER=${1:-}
+if [ -z "$SIEVER" ] || [ ! -x "$SIEVER" ]; then
+    echo "no siever driver given or not executable: $SIEVER" >&2
+    echo "用法: sh sieve_oracle.sh <check_sieve 的路径>" >&2
+    echo "test_lasieve.sh 会自己编一个" >&2
+    exit 1
+fi
 
 # 基准值：0.34257 之外这里用的是 R942 的 skew
 Skew=0.63913
@@ -60,12 +70,6 @@ EXPECTED_13='15 d33154ebddae8006c1c788c4298e9cab'
 EXPECTED_14='28 f9f1cb1724a991c06e2012f331f7247d'
 EXPECTED_15='51 d5e527993fd9fe389b66288577d637ad'
 EXPECTED_16='89 c634dc3f781fe8fc58fa081b4fb84fc6'
-
-if [ ! -x "$SIEVER" ]; then
-    echo "siever 不存在或不可执行: $SIEVER" >&2
-    echo "先跑 make lasieve（产物在 yafu 可执行文件同目录）" >&2
-    exit 1
-fi
 
 # 每行所有数字排序，再把所有行排序，最后 md5
 fingerprint()

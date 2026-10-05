@@ -1,19 +1,22 @@
 NOTE (this tree, not upstream)
 =============================
 
-The six I values used to be six executables, gnfs-lasieve4I11e through
-gnfs-lasieve4I16e, and you picked one by name.  They are now a single
-program, gnfs-lasieve4e: all six sets of sieve kernels live in one image,
-each with its own factor base and ECM/P-1 cache, and the first argument
-selects which one:
+The six I values used to be six executables, yafu (I=11) through
+gnfs-lasieve4I16e, and you picked one by name.  They were then merged into
+one program, gnfs-lasieve4e, with the I value as its first argument.  Both of
+those are gone now: the siever is part of yafu.  `make` produces a single
+executable, and the six I values are six sets of private objects inside it --
+private sieve kernels, factor base, montgomery state, ECM/P-1 cache.  yafu
+reaches them through lasieve_run() in factor/nfs/lasieve/lasieve_dispatch.c,
+in its own process, one I value per concurrent siever and six at most.
 
-    gnfs-lasieve4e 13 -a -c 1000 -f 16000000 -S 11739.41 -a foo
-
-So 'make gnfs-lasieve4I12e' and its siblings are gone; 'make alle' (or
-'make gnfs-lasieve4e') builds the one program.  Everything else in this
-file -- the option letters, the relation format, the -b/-f/-c/-S/-a/-r
-conventions -- still describes the same siever.  yafu itself starts it
-with the I value prepended, so you rarely need to type it by hand.
+So there is no siever command to type.  Everything else in this file -- the
+option letters, the relation format, the -b/-f/-c/-S/-a/-r conventions --
+still describes the same siever, and those options are still what yafu builds
+a command line out of.  Where this file says to run `yafu (I=13) ...`,
+read it as "yafu, with I=13, given these options".  `make lasieve` rebuilds
+just the siever's objects; `make check_sieve` (a test target, not part of
+`make all`) links them into a standalone driver for the sieve tests.
 
 The text below is the original upstream file, kept for the option
 reference, with the build commands updated where they named one of the
@@ -38,14 +41,14 @@ replacements for asprintf and getline are compiled.
 4) One of the parameters of the lattice siever has to be selected at compile
 time. For a lattice sieving region of 4096x2048, (suitable for projects
 with SNFS complexity 150, or GNFS for numbers with 110 digits), 
-type 'make gnfs-lasieve4e'. For 8192x4096 (suitable for SNFS complexity
+note the I value is chosen by yafu, not by name. For 8192x4096 (suitable for SNFS complexity
 around 180, or GNFS for numbers in the 130-140 digits range), type
-'make gnfs-lasieve4I13e'. For 16394x8192 (for very large projects, like
+(I=13; yafu picks it). For 16394x8192 (for very large projects, like
 GNFS on a number in the upper c150 or c160 digits ranke),
-make gnfs-lasieve4I14e.
+(I=14; yafu picks it).
 
 Note that the second dimension for the lattice siever is not fixed at compile
-time. For instance, gnfs-lasieve4I13e can also be used with smaller sieving
+time. For instance, I=13 can also be used with smaller sieving
 areas like 8192x2048. However, it is best to use one of the parameters
 indicated above.
 
@@ -140,19 +143,19 @@ degree >1, which is the case for HNFS or biquadratic gnfs, then two factor base
 files will be created.) If the lattice siever does
 not find this file, it will spend some time generating the algebraic factor
 base each time it is invoked. To generate 'foo.afb.?', type
-'gnfs-lasieve4I13e -b foo -k -c 0'. To force the recalculation of an existing
+'yafu (I=13) -b foo -k -c 0'. To force the recalculation of an existing
 factor base file, it is necessary to also use the '-F' option or to remove this
 file.
 
 To start lattice sieving for all special q between 16000000 and 16001000, type
 
-	gnfs-lasieve4I13e -b foo -f 16000000 -c 1000 -v -z -S 11739.41 -a
+	yafu (I=13) -b foo -f 16000000 -c 1000 -v -z -S 11739.41 -a
 
 or
-	gnfs-lasieve4I13e -f 16000000 -c 1000 -v -z -S 11739.41 -a foo
+	yafu (I=13) -f 16000000 -c 1000 -v -z -S 11739.41 -a foo
 
 from the UNIX command line. Note that this has the same effect as
-	gnfs-lasieve4I13e -b foo -f 16000000 -c 1000 -v -z -S 11739.41 -J 12 -a
+	yafu (I=13) -b foo -f 16000000 -c 1000 -v -z -S 11739.41 -J 12 -a
 
 and that -J may be used to lower the default value of 12 for the number of bits
 in the second dimension of the sieving region. Note that it is probably not
@@ -173,7 +176,7 @@ out before starting your SNFS project.
 
 For the 709-th Fibonacci number, I used 
 
-	gnfs-lasieve4I12e -f first_special_q -c 1000 -v -z -S 5 -J 11 -r F709
+	yafu (I=12) -f first_special_q -c 1000 -v -z -S 5 -J 11 -r F709
 
 for all special q between 1500000 and 6122500 (which turned out to be much more
 than needed).

@@ -80,7 +80,7 @@ make yafu DEBUG=1             # 调试构建
 | --- | --- |
 | `yafu` | 主程序 |
 | `all` | 同上（`all` 目前只构建 yafu） |
-| `lasieve` | 外部格点筛（编译到 yafu 可执行文件同目录） |
+| `lasieve` | 格点筛（已并入 yafu，此目标只重建它的对象） |
 | `info` | 打印最终配置 |
 | `help` | 功能开关速查 |
 | `clean` | 清理构建产物 |
@@ -100,7 +100,7 @@ make yafu DEBUG=1             # 调试构建
 | `factor/ecm/` | 椭圆曲线分解，标量与 AVX-512 两套实现 |
 | `factor/nfs/` | NFS 作业编排 |
 | `factor/nfs/gnfs/` | 数域筛本体：多项式选择、筛选、关系、线性代数、开方 |
-| `factor/nfs/lasieve/` | 外部格点筛（NFS 必需） |
+| `factor/nfs/lasieve/` | 格点筛（NFS 必需，已链入 yafu） |
 | `factor/siqs/` | 自初始化二次筛（SIQS，Contini 1997）。同一份代码里也带一份只面向小输入的精简版 `tinySIQS.c` |
 | `factor/mpqs/` | 多项式二次筛（MPQS，Silverman, *Math. Comp.* 48 (1987) 329–339） |
 | `factor/pmpqs/` | 首项系数取单个素数平方的多项式二次筛，与 MPQS 只差首项系数的取法；文献里没有名字 |
@@ -124,9 +124,11 @@ make yafu DEBUG=1             # 调试构建
 
 ## GGNFS 筛选器（NFS 必需）
 
-NFS 分解需要外部的 GGNFS 格点筛程序。筛选器现在是**一个**程序 `gnfs-lasieve4e`：六个 I 值（11 到 16）都编在同一份映像里，由第一个参数挑选，命令行形式是 `gnfs-lasieve4e <I> [选项...]`。用 `yafu.ini` 里的 `ggnfs_dir=` 或命令行 `-ggnfs_dir <路径>` 指向它；没有它 NFS 无法运行。仓库不再附带预编译版本。
+NFS 分解需要 GGNFS 格点筛程序。**它已经并入 yafu**：`make all` 只产出 `yafu` 一个可执行文件，筛法器是它内部的一步，由 `nfs_sieving.c` 在同一进程里调用。六个 I 值（11 到 16）是同一份映像里六套互不相干的对象——各自的筛内核、factor base、蒙哥马利状态、ECM/P-1 缓存——所以同时最多跑六个筛法器，每个占一个 I 值。
 
-自己编译用 `make -j4 lasieve`，输出在 yafu 可执行文件同目录（仓库根）。yafu 按自身位置找到它，不需要配路径；这个本地产物不进 Git。要换用别处构建的筛选器，或切到外部 cuda-sieve，用 `-ggnfs_dir` 显式指定。
+想换成外部的 cuda-sieve，用 `-cuda_sieve <路径>`；那是另一个程序，仍然按路径调用。
+
+编译用 `make -j4`（或 `make all`）即可，筛法器跟着 yafu 一起编。`make lasieve` 保留为只重建筛法器对象的便捷目标。`make lasieve-clean` 清筛法器的中间产物。
 
 如果 CPU 支持 AVX-512，YAFU 会默认使用内置的 **AVX-ECM** 作为 ECM 后端。独立版本在 <https://github.com/bbuhrow/avx-ecm>。
 

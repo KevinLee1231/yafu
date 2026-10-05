@@ -87,7 +87,9 @@ $2 \times 2$ 个平方根给出四个候选 $(\pm X, \pm Y)$，取使 $\gcd(x - 
 - AVX-512 辅助（`avx512_aux.h`）；
 - 整批（batch）模式：把多个多项式一起筛，用不完的筛选预算重投到后面的多项式。
 
-构建完全独立：`make lasieve` 会转到 `factor/nfs/lasieve/Makefile`，产出单个 `gnfs-lasieve4e`，与 yafu 可执行文件同目录。六个 I 值（11 到 16）都编在这一个程序里，各自有私有的筛内核、factor base 和 ECM/P-1 缓存，由第一个参数挑选。头文件在 `lasieve/include/` 与 `lasieve/asm/include/`，由子 Makefile 的 `-Iinclude -Iasm/include -I../include` 解析，头文件依赖在该 Makefile 里显式列出。`make test-standalone` 跑 `test/test_lasieve.sh` 的五个独立回归。
+编进 yafu：`make` 会转到 `factor/nfs/lasieve/Makefile` 把筛法器按六个 I 值各编一份对象，连同两个汇编库一起链进 yafu，`make all` 只产出 `yafu`。六个 I 值是同一份映像里六套互不相干的对象——私有的筛内核、factor base、蒙哥马利状态、ECM/P-1 缓存——`nfs_sieving.c` 通过 `lasieve_run(I, argc, argv)` 在进程内调用，每个并发筛法器一个 I 值，因此同时最多六个。
+
+调用侧的相应约束：筛法器不再 fork 子进程，所以它不能 `exit()`（那会把整个分解任务带走），错误路径走 `lasieve_bail()` 跳回 `lasieve_run()`；它也不装 SIGTERM/SIGINT 处理器，那会顶掉 yafu 自己的。头文件在 `lasieve/include/` 与 `lasieve/asm/include/`，由子 Makefile 的 `-Iinclude -Iasm/include -I../include` 解析，头文件依赖在该 Makefile 里显式列出。`make test-standalone` 跑 `test/test_lasieve.sh` 的五个独立回归。
 
 
 六、SNFS
