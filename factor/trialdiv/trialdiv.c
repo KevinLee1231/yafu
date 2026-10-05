@@ -547,7 +547,9 @@ int sptestsqr(uint64_t n)
 	if (t == 0 || t == 1 || t == 4 ||
 		t == 9 || t == 16 || t == 17 || t == 25)
 	{
-		t = (uint64_t)sqrt((int64_t)n);
+		/* (int64_t) made n negative for any input with bit 63 set, so
+		 * sqrt returned NaN and NaN -> uint64_t is undefined. */
+		t = (uint64_t)sqrt((double)n);
 		if (n == t * t)
 			return 1;
 	}
@@ -696,7 +698,11 @@ uint64_t spfermat(uint64_t limit, uint32_t mult, uint64_t n)
     count = 0;
     if (sptestsqr(b2))
     {
-        return sqrt(b2);
+        /* b2 = a*a - multN, so b2 == b*b means (a-b)(a+b) == multN.
+         * b is not a divisor of n -- the factor is gcd(n, a + b),
+         * which the loop below computes.  Returning b would hand
+         * the caller a number that divides nothing. */
+        return 0;
     }
 
     // select locations where b^2 can be a square mod M from precomputed list

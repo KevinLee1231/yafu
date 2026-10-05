@@ -660,7 +660,11 @@ void do_work(enum factorization_state method, factor_work_t *fwork,
 	case state_trialdiv:
 
         // if larger than a small bound, do a perfect power check
-        fobj->prime_threshold = fwork->tdiv_max_limit * fwork->tdiv_max_limit;
+        /* widen before the multiply: tdiv_max_limit is uint32_t, so
+         * the product wrapped for any limit above 65535 and the
+         * perfect-power precheck below skipped a range it should
+         * have covered */
+        fobj->prime_threshold = (uint64_t)fwork->tdiv_max_limit * fwork->tdiv_max_limit;
         
         if ((mpz_cmp_ui(b, fobj->prime_threshold) > 1) && 
             mpz_perfect_power_p(b))
@@ -2511,7 +2515,8 @@ int factor_tiny(mpz_t in, mpz_t* out,
 	// first a bit of trial division.
 	int k = 0;
 	int numout = 0;
-	while ((mpz_cmp_ui(in, 1) > 0) && (primes[k] < 10000) && (k < nump))
+	/* primes[k] is a load: the bound has to be tested first */
+	while ((mpz_cmp_ui(in, 1) > 0) && (k < nump) && (primes[k] < 10000))
 	{
 		uint64_t q = primes[k];
 		uint64_t r = mpz_tdiv_ui(in, q);
@@ -2694,7 +2699,6 @@ int factor_tiny(mpz_t in, mpz_t* out,
 						}
 					}
 				}
-				printf("failed to find factor of %"PRIu64"\n", n64);
 				break;
 			}
 		}
@@ -2986,7 +2990,8 @@ int factor64(uint64_t in, uint64_t* out,
 	// first a bit of trial division.
 	int k = 0;
 	int numout = 0;
-	while ((in > 1) && (primes[k] < 10000) && (k < nump))
+	/* primes[k] is a load: the bound has to be tested first */
+	while ((in > 1) && (k < nump) && (primes[k] < 10000))
 	{
 		uint64_t q = primes[k];
 		uint64_t r = in %q;
