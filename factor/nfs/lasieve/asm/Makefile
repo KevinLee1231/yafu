@@ -29,12 +29,6 @@
 #   make all GMP_INCDIR=/path/to/gmp/include
 #   make clean
 #
-# OS detection for m4:
-#   ls-defs.asm contains three OS define lines (windows, osx, linux).
-#   At build time a patched copy (ls-defs-os.asm) is generated with all
-#   three commented out, and the correct one is injected via M4_OS_DEF
-#   on the m4 command line.  ls-defs.asm is never modified.
-#
 # Note: if.h (referenced as ../include/if.h) and the generated .h files
 # (include/siever-config.h, include/lasched.h, include/medsched.h) must
 # already exist in the repository.  They were
@@ -95,66 +89,6 @@ ifeq ($(AVX512_TD),1)
 endif
 
 
-# --- m4 OS definition --------------------------------------------------------
-#
-# ls-defs.asm contains three OS-selection lines near the top:
-#
-#   dnl define(windows,1)dnl
-#   dnl define(osx,1)dnl
-#   define(linux,1)dnl
-#
-# Rather than editing that file per platform, we generate ls-defs-os.asm at
-# build time with ALL three lines commented out (dnl prefix), then inject the
-# correct one via M4_OS_DEF on the m4 command line.  This leaves the original
-# ls-defs.asm untouched and works correctly for all three platforms.
-#
-ifeq ($(DETECTED_OS),Windows)
-    M4_OS_DEF := -Dwindows=1
-else ifeq ($(DETECTED_OS),Darwin)
-    M4_OS_DEF := -Dosx=1
-else
-    M4_OS_DEF := -Dlinux=1
-endif
-
-# Generate ls-defs-os.asm: a copy of ls-defs.asm with all three OS define()
-# calls silenced.  The sed expressions only match bare define() at line start
-# (no leading dnl), so running this against an already-patched file is safe.
-ls-defs-os.asm: ls-defs.asm
-	sed \
-	 -e 's/^define(windows,1)/dnl define(windows,1)/' \
-	 -e 's/^define(osx,1)/dnl define(osx,1)/' \
-	 -e 's/^define(linux,1)/dnl define(linux,1)/' \
-	 $< > $@
-
-
-# --- Assembly preprocessing pipeline -----------------------------------------
-#
-# .asm → .S  (m4 macro expansion)
-# .S   → .o  (compiler assembles the expanded file)
-# .s   → .o  (compiler assembles pre-generated .s files)
-#
-# All m4 invocations use ls-defs-os.asm (not ls-defs.asm directly) so the
-# OS define comes from M4_OS_DEF rather than the file.  $< in the %.S rule
-# refers to the .asm source; ls-defs-os.asm is listed first so m4 sees the
-# macro definitions before the source that uses them.
-#
-# No rename here, and that is deliberate.  This rule feeds asm/liblasieve.a, the
-# single shared copy that mpqstest / mpqs3test / mpqsstat / ctx_test /
-# ecm_pm1_test link against; there is only one of it, so it has nothing to
-# collide with.  The per-I assemblies go through the explicit lasched1I%.s rules
-# and the coreI$(1) rules, where $* is the I value -- here $* is the file stem,
-# and handing ISEDFLAGS to sed produced names like lasched1Iri-aux.
-%.S: %.asm ls-defs-os.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=0 ls-defs-os.asm $< > $@
-
-%.o: %.S
-	$(CC) $(CFLAGS) -c $^
-
-%.o: %.s
-	$(CC) $(CFLAGS) -c $^
-
-# Retain intermediate .s and .S files so incremental rebuilds don't re-run m4.
-.SECONDARY: *.s *.S
 
 
 # --- Phony targets -----------------------------------------------------------
@@ -186,13 +120,6 @@ liblasieve.a: \
 	ar rcs $@ $^
 
 
-# --- I-parameterised .s generation rules ------------------------------------
-#
-# Each rule generates a specialised assembly .s file for a given I value.
-# The stem % is the I value (e.g. 11..16); n_i_bits = I - 1.
-# All rules use ls-defs-os.asm and $(M4_OS_DEF); $^ expands to
-# "ls-defs-os.asm <source>.asm" which is the correct order for m4.
-#
 
 
 
@@ -239,17 +166,17 @@ medschedI%.o: medsched.c include/medsched.h \
 
 
 
-tdslinieI%.s: ls-defs-os.asm tdslinie.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
+tdslinieI%.o: tdslinie.cpp include/td_common.h include/siever-config.h ../include/if.h
+	$(CXX) $(CXXFLAGS) -DI_bits=$* $(foreach s,$(IRENAME_C_SYMS),-D$(s)=$(s)I$*) -c -o $@ $<
 
-tdslinie1I%.s: ls-defs-os.asm tdslinie1.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
+tdslinie1I%.o: tdslinie1.cpp include/td_common.h include/siever-config.h ../include/if.h
+	$(CXX) $(CXXFLAGS) -DI_bits=$* $(foreach s,$(IRENAME_C_SYMS),-D$(s)=$(s)I$*) -c -o $@ $<
 
-tdslinie2I%.s: ls-defs-os.asm tdslinie2.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
+tdslinie2I%.o: tdslinie2.cpp include/td_common.h include/siever-config.h ../include/if.h
+	$(CXX) $(CXXFLAGS) -DI_bits=$* $(foreach s,$(IRENAME_C_SYMS),-D$(s)=$(s)I$*) -c -o $@ $<
 
-tdslinie3I%.s: ls-defs-os.asm tdslinie3.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
+tdslinie3I%.o: tdslinie3.cpp include/td_common.h include/siever-config.h ../include/if.h
+	$(CXX) $(CXXFLAGS) -DI_bits=$* $(foreach s,$(IRENAME_C_SYMS),-D$(s)=$(s)I$*) -c -o $@ $<
 
 # search0 的 C++ 版：候选搜索内核。原来是一个 m4 模板，经 -Dn_i_bits=I-1
 # 展开成 I 值专用的 .s 再编一个 .o；现在直接用 -DI_bits=I，对应关系一样。
@@ -272,7 +199,7 @@ bup:
 	@echo $(SRCFILES)
 
 clean:
-	-rm -f *.o *.a *.s *.S ls-defs-os.asm
+	-rm -f *.o *.a
 
 # --- Per-I build -------------------------------------------------------------
 #
@@ -286,36 +213,27 @@ clean:
 # command line: 508 -D flags make an unwieldy command line, and passing them
 # through the sub-make is what stalled an earlier attempt.
 #
-# The 39 core objects are a mix of .c and .asm, and the two need different
-# treatment, which is why there are two lists:
+# There are two lists because two kinds of target consume them:
 #
-#   IRENAME_C_SYMS   all 508, for the C sources in this directory.  lasched and
-#                    medsched have to be in it: their callers live in
+#   IRENAME_C_SYMS   all 509, for the rules that build liblasieveI<N>.a.  lasched
+#                    and medsched have to be in it: their callers live in
 #                    gnfs-lasieve4e.c, which the parent Makefile compiles with
 #                    every symbol suffixed, so an unsuffixed definition here
 #                    fails to link against laschedI11.
-#   IRENAME_SYMS     the same list minus those two, for m4.  See below.
+#   IRENAME_SYMS     the same list minus those two, for the coreI<N> rules.  See
+#                    the filter-out below.
 #
 # ASIEVE_I_VALUES is the single source of the I range for this Makefile.
 ASIEVE_I_VALUES ?= 11 12 13 14 15 16
 IRENAME_SYMS := $(shell grep -v '^[[:space:]]*#' ../I_SYMBOLS)
 IRENAME_C_SYMS := $(IRENAME_SYMS)
 
-# lasched and medsched are the one case where -D does damage.  The kernels
-# build their own names by concatenation -- lasched1.asm says `lasched`'ot`
-# and m4 splices in the variant number -- so the text handed to m4 is
-# `lasched`, not `lasched1`.  Renaming it here yields laschedI111.
+# The coreI<N> objects and the liblasieveI<N>.a objects both end up in yafu's
+# link line, and a symbol defined in both archives with the same name is a
+# duplicate-symbol error.  lasched and medsched are defined by both (once from
+# lasched.c/medsched.c as laschedI<N>, once from liblasieveI<N>.a), so they are
+# dropped from the list the coreI rules use.
 IRENAME_SYMS := $(filter-out lasched medsched,$(IRENAME_SYMS))
-
-# The other half of the problem: lasched1, lasched2, lasched1_1, medsched_1 and
-# the rest only come into being when m4 expands the concatenation, so a -D on
-# the command line cannot reach them.  Those are renamed on m4's output
-# instead, which is why every m4 rule below ends in a pipe rather than a
-# redirect.  \b on both ends keeps this from touching a name that m4 has
-# already suffixed, so the two mechanisms cannot collide.
-ISED_SYMS := $(shell grep -v '^[[:space:]]*#' ../I_SYMBOLS_ASM)
-ISEDFLAGS = $(foreach s,$(ISED_SYMS),-e 's/\b$(s)\b/$(s)I$*/g')
-SED ?= sed
 
 CORE_MEMBERS := \
 	gcd32.o psp.o pt64.o \
@@ -346,11 +264,6 @@ coreI$(1)/%.o: %.cpp
 	@mkdir -p coreI$(1)
 	$$(CXX) $$(CXXFLAGS) $$(foreach s,$$(IRENAME_SYMS),-D$$(s)=$$(s)I$(1)) \
 	 -DMODULO32_ASM_NAME='"modulo32I$(1)"' -c -o $$@ $$<
-
-coreI$(1)/%.o: %.asm ls-defs-os.asm
-	@mkdir -p coreI$(1)
-	m4 -g $$(M4_OS_DEF) -Dn_i_bits=0 $$(foreach s,$$(IRENAME_SYMS),-D$$(s)=$$(s)I$(1)) ls-defs-os.asm $$< | $$(SED) $$(foreach s,$$(ISED_SYMS),-e 's/\b$$(s)\b/$$(s)I$(1)/g') > coreI$(1)/$$*.S
-	$$(CC) $$(CFLAGS) -c -o $$@ coreI$(1)/$$*.S
 endef
 $(foreach i,$(ASIEVE_I_VALUES),$(eval $(call CORE_IRULES,$(i))))
 
