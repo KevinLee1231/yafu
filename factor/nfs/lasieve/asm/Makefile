@@ -168,7 +168,7 @@ all: liblasieve.a \
 
 
 # --- Explicit header dependencies --------------------------------------------
-gcd32.o mpqs.o psp.o MMX-TD.o lasched.o: include/siever-config.h
+gcd32.o mpqs.o psp.o MMX-TD.o lasched.o mpqs_eval.o: include/siever-config.h
 
 
 # --- liblasieve.a (core sieve objects) ---------------------------------------
@@ -342,8 +342,10 @@ coreI$(1)/%.o: %.c
 	$$(CC) $$(CFLAGS) $$(foreach s,$$(IRENAME_SYMS),-D$$(s)=$$(s)I$(1)) \
 		-DMODULO32_ASM_NAME='"modulo32I$(1)"' -c -o $$@ $$<
 
-# 同一个 I 值下的 C++ 源。rescale 原本是 m4 模板里的
-# pavgb 指令，intrinsics 一一对应，所以改成了 C++。
+# 同一个 I 值下的 C++ 源。rescale 原本是 m4 模板里的 pavgb 指令，
+# intrinsics 一一对应，所以改成了 C++；mpqs_eval 是四个扫描筛数组的
+# 入口，movemask 全部用 intrinsics 表达得了，也改成了 C++。
+# 产物名不变（.cpp -> 同名 .o），所以上面两处清单不用动。
 coreI$(1)/%.o: %.cpp
 	@mkdir -p coreI$(1)
 	$$(CXX) $$(CXXFLAGS) $$(foreach s,$$(IRENAME_SYMS),-D$$(s)=$$(s)I$(1)) \
