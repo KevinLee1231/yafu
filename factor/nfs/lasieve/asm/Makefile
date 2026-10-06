@@ -251,8 +251,11 @@ tdslinie2I%.s: ls-defs-os.asm tdslinie2.asm
 tdslinie3I%.s: ls-defs-os.asm tdslinie3.asm
 	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
-search0I%.s: ls-defs-os.asm search0.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
+# search0 的 C++ 版：候选搜索内核。原来是一个 m4 模板，经 -Dn_i_bits=I-1
+# 展开成 I 值专用的 .s 再编一个 .o；现在直接用 -DI_bits=I，对应关系一样。
+# 产物名沿用 search0I%.o，liblasieveI%.a 的成员清单不用改。
+search0I%.o: search0.cpp include/siever-config.h ../include/if.h
+	$(CXX) $(CXXFLAGS) -DI_bits=$* $(foreach s,$(IRENAME_C_SYMS),-D$(s)=$(s)I$*) -c -o $@ $<
 
 
 # --- liblasieveI%.a (I-parameterised sieve library) -------------------------
