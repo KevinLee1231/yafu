@@ -45,6 +45,12 @@
 
 # --- Standalone fallbacks (overridden when called from parent Makefile) ------
 CC         ?= gcc
+CXX        ?= g++
+CXX_STD    := -std=c++26
+# 和主 Makefile 同一套做法：滤掉 C 的 -std，换成 C++ 的。
+# 用递归赋值（= 而不是 :=）：CFLAGS 在本文件后面还会 += 好几次，
+# 简单展开的话这里会拿到空串。
+CXXFLAGS    = $(filter-out -std=gnu11,$(CFLAGS)) $(CXX_STD)
 GMP_INCDIR ?= /usr/include
 
 ifndef DETECTED_OS
@@ -336,6 +342,13 @@ define CORE_IRULES
 coreI$(1)/%.o: %.c
 	@mkdir -p coreI$(1)
 	$$(CC) $$(CFLAGS) $$(foreach s,$$(IRENAME_SYMS),-D$$(s)=$$(s)I$(1)) \
+		-DMODULO32_ASM_NAME='"modulo32I$(1)"' -c -o $$@ $$<
+
+# 同一个 I 值下的 C++ 源。rescale 原本是 m4 模板里的
+# pavgb 指令，intrinsics 一一对应，所以改成了 C++。
+coreI$(1)/%.o: %.cpp
+	@mkdir -p coreI$(1)
+	$$(CXX) $$(CXXFLAGS) $$(foreach s,$$(IRENAME_SYMS),-D$$(s)=$$(s)I$(1)) \
 		-DMODULO32_ASM_NAME='"modulo32I$(1)"' -c -o $$@ $$<
 
 coreI$(1)/%.o: %.asm ls-defs-os.asm
