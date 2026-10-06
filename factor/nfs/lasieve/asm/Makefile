@@ -193,32 +193,14 @@ liblasieve.a: \
 # All rules use ls-defs-os.asm and $(M4_OS_DEF); $^ expands to
 # "ls-defs-os.asm <source>.asm" which is the correct order for m4.
 #
-lasched0I%.s: ls-defs-os.asm lasched0.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
-lasched1I%.s: ls-defs-os.asm lasched1.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` -Dot=1 $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
-lasched2I%.s: ls-defs-os.asm lasched1.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` -Dot=2 $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
-lasched3I%.s: ls-defs-os.asm lasched1.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` -Dot=3 $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
-lasched0ntI%.s: ls-defs-os.asm lasched0.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` -Dnt_sched=1 $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
-lasched1ntI%.s: ls-defs-os.asm lasched1.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` -Dot=1 -Dnt_sched=1 $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
-lasched2ntI%.s: ls-defs-os.asm lasched1.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` -Dot=2 -Dnt_sched=1 $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
-lasched3ntI%.s: ls-defs-os.asm lasched1.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` -Dot=3 -Dnt_sched=1 $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
-medsched0I%.s: ls-defs-os.asm medsched0.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
 
 # --- I-parameterised .o compilation rules ------------------------------------
@@ -226,6 +208,19 @@ medsched0I%.s: ls-defs-os.asm medsched0.asm
 laschedI%.o: lasched.c include/lasched.h \
 	 include/siever-config.h ../include/if.h
 	$(CC) $(CFLAGS) -DI_bits=$* $(foreach s,$(IRENAME_C_SYMS),-D$(s)=$(s)I$*) -c -o $@ $<
+
+# 汇编那批的 C++ 版：lasched.cpp 一次编出全部 15 个入口
+# （lasched0..3 / *nt / *_1 / *_1nt），原来靠 m4 的 -Dot=1/2/3 和
+# -Dnt_sched=1 展开成 8 份 .S 各编一个 .o。符号名全在 IRENAME_SYMS 里，
+# 所以 per-I 改名照旧生效。-DI_bits 对应汇编的 -Dn_i_bits=I-1。
+laschedasmI%.o: lasched.cpp include/lasched.h \
+	 include/siever-config.h ../include/if.h
+	$(CXX) $(CXXFLAGS) -DI_bits=$* $(foreach s,$(IRENAME_C_SYMS),-D$(s)=$(s)I$*) -c -o $@ $<
+
+# medsched0 / medsched0_1 同理，产物名沿用 medsched0I%.o。
+medsched0I%.o: medsched.cpp include/medsched.h \
+	 include/siever-config.h ../include/if.h
+	$(CXX) $(CXXFLAGS) -DI_bits=$* $(foreach s,$(IRENAME_C_SYMS),-D$(s)=$(s)I$*) -c -o $@ $<
 
 medschedI%.o: medsched.c include/medsched.h \
 	 include/siever-config.h ../include/if.h
@@ -263,9 +258,8 @@ search0I%.s: ls-defs-os.asm search0.asm
 
 # --- liblasieveI%.a (I-parameterised sieve library) -------------------------
 liblasieveI%.a: \
-	laschedI%.o lasched0I%.o lasched1I%.o lasched2I%.o \
-	lasched3I%.o lasched0ntI%.o lasched1ntI%.o lasched2ntI%.o \
-	lasched3ntI%.o medschedI%.o medsched0I%.o search0I%.o \
+	laschedI%.o laschedasmI%.o \
+	medschedI%.o medsched0I%.o search0I%.o \
 	slinieI%.o slinie3I%.o slinie2I%.o slinie1I%.o \
 	tdslinieI%.o tdslinie1I%.o tdslinie2I%.o tdslinie3I%.o
 	ar rcs $@ $^
