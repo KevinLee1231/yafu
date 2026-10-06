@@ -222,23 +222,22 @@ medsched0I%.o: medsched.cpp include/medsched.h \
 	 include/siever-config.h ../include/if.h
 	$(CXX) $(CXXFLAGS) -DI_bits=$* $(foreach s,$(IRENAME_C_SYMS),-D$(s)=$(s)I$*) -c -o $@ $<
 
+# slinieG/slinie1A/2A/3A 的 C++ 版：一个文件给出 slinie/slinie1/2/3 四个入口，
+# 原来靠 m4 的 j_per_strip 把 slinieG.asm 展开成四种段长。段长只影响展开方式
+# （展开后的指令和不展开的循环逐条相同），所以 C++ 直接 for 循环即可。
+# -DI_bits 对应汇编的 -Dn_i_bits=I-1。
+slinieasmI%.o: slinie.cpp include/siever-config.h ../include/if.h
+	$(CXX) $(CXXFLAGS) -DI_bits=$* $(foreach s,$(IRENAME_C_SYMS),-D$(s)=$(s)I$*) -c -o $@ $<
+
 medschedI%.o: medsched.c include/medsched.h \
 	 include/siever-config.h ../include/if.h
 	$(CC) $(CFLAGS) -DI_bits=$* $(foreach s,$(IRENAME_C_SYMS),-D$(s)=$(s)I$*) -c -o $@ $<
 
 
 # --- I-parameterised sieve line .s generation rules -------------------------
-slinieI%.s: ls-defs-os.asm slinieG.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
-slinie3I%.s: ls-defs-os.asm slinie3A.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
-slinie2I%.s: ls-defs-os.asm slinie2A.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
-slinie1I%.s: ls-defs-os.asm slinie1A.asm
-	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
 
 tdslinieI%.s: ls-defs-os.asm tdslinie.asm
 	m4 -g $(M4_OS_DEF) -Dn_i_bits=`expr $* - 1` $(foreach s,$(IRENAME_SYMS),-D$(s)=$(s)I$*) $^ | $(SED) $(ISEDFLAGS) > $@
@@ -260,7 +259,7 @@ search0I%.s: ls-defs-os.asm search0.asm
 liblasieveI%.a: \
 	laschedI%.o laschedasmI%.o \
 	medschedI%.o medsched0I%.o search0I%.o \
-	slinieI%.o slinie3I%.o slinie2I%.o slinie1I%.o \
+	slinieasmI%.o \
 	tdslinieI%.o tdslinie1I%.o tdslinie2I%.o tdslinie3I%.o
 	ar rcs $@ $^
 
