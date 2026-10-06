@@ -113,6 +113,9 @@
 #error "I_bits 必须由 Makefile 的 -DI_bits=<11..16> 传入（与汇编的 -Dn_i_bits=I-1 对应）"
 #endif
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 static_assert(L1_BITS == 15, "ls-defs.asm 的 l1_bits 固定为 15");
 static_assert(I_bits >= 2 && I_bits <= 16, "I_bits 超出 per-I 库的范围");
 
@@ -125,14 +128,12 @@ typedef unsigned char u8;
 #define SS_CS_STEPS  128
 #define SS_CS_2STEPS (2 * SS_CS_STEPS)
 
-extern "C" {
 
 u32_t lasieve_search0(unsigned char *, unsigned char *, unsigned char *,
                       unsigned char *, unsigned char *, u16_t *, unsigned char *);
 
-} /* extern "C" */
 
-extern "C" u32_t
+u32_t
 lasieve_search0(unsigned char *sieve_interval, unsigned char *hzs_ptr,
                 unsigned char *hzs_ptr_ub, unsigned char *srb_ptr_arg,
                 unsigned char *srb_ptr_ub, u16_t *cand, unsigned char *fss_sv)
@@ -345,3 +346,4 @@ lasieve_search0(unsigned char *sieve_interval, unsigned char *hzs_ptr,
 	/* `movq %r14,%rax ; subq 48(%rsp),%rax` —— 已写出的 fss_sv 字节数。 */
 	return (u32_t)(uint64_t)(csv - fss_sv);
 }
+}  /* namespace lasieve_ns */

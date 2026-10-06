@@ -97,6 +97,9 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 #endif
 
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 typedef struct
 {
     uint64_t X;
@@ -3740,3 +3743,4 @@ void getfactor_uecm_x8_list(uint64_t* q64, uint64_t* f64, uint32_t num_in, uint6
 }
 
 #endif
+}  /* namespace lasieve_ns */

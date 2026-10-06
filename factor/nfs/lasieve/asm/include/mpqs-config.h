@@ -1,7 +1,6 @@
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-asm-abi */
-#endif
+#include "lasieve_ns.h"
+
 
 
 #define uchar unsigned char
@@ -20,23 +19,39 @@ extern "C" {  /* yafu-asm-abi */
 /* on athlon64 ASM_MPQS_TD needs HAVE_XMM_MUL */
 #define ASM_MPQS_TD
 #define A64_STYLE_TD
+namespace lasieve_ns {
 u32_t ASM_ATTR asm_td(u16_t*,u16_t,u64_t);
+}  /* namespace lasieve_ns */
+
 
 #define ASM_MPQS_SIEVE
+namespace lasieve_ns {
 void ASM_ATTR asm_sieve(void);
+}  /* namespace lasieve_ns */
+
 
 #define ASM_MPQS_EVAL
+namespace lasieve_ns {
 size_t ASM_ATTR asm_evaluate(unsigned *,unsigned *,u16_t*,unsigned);
 size_t ASM_ATTR asm_evaluate_xmm(unsigned *,unsigned *,u16_t*,unsigned);
 
 size_t ASM_ATTR asm_evaluate0(unsigned *,unsigned *,u16_t*,unsigned);
 size_t ASM_ATTR asm_evaluate0_xmm(unsigned *,unsigned *,u16_t*,unsigned);
+}  /* namespace lasieve_ns */
+
 
 #define ASM_MPQS_SIEVE_INIT
+namespace lasieve_ns {
 void ASM_ATTR asm_sieve_init(unsigned char*,u32_t,ushort*,u64_t*,unsigned char*,u32_t);
+}  /* namespace lasieve_ns */
+
 #define ASM_MPQS_SIEVE_INIT16
+namespace lasieve_ns {
 void ASM_ATTR asm_sieve_init16(unsigned char*,u32_t,ushort*,u64_t*,unsigned char*,u32_t);
+}  /* namespace lasieve_ns */
+
 #define ASM_MPQS_NEXT_POL
+namespace lasieve_ns {
 void ASM_ATTR asm_next_pol3minus_xmm(u32_t,ushort *);
 void ASM_ATTR asm_next_pol3minus(u32_t,ushort *);
 void ASM_ATTR asm_next_pol3plus_xmm(u32_t,ushort *);
@@ -51,11 +66,16 @@ void ASM_ATTR asm3_next_pol3plus_xmm(u32_t,ushort *);
 void ASM_ATTR asm3_next_pol3plus(u32_t,ushort *);
 void ASM_ATTR asm3_next_pol10_xmm(u32_t,ushort *,ushort *,u32_t);
 void ASM_ATTR asm3_next_pol11_xmm(u32_t);
+}  /* namespace lasieve_ns */
+
 
 
 
 #define ASM_MPQS_GAUSS
+namespace lasieve_ns {
 void ASM_ATTR asm_gauss(void);
+}  /* namespace lasieve_ns */
+
 
 #ifdef TINY
 static ushort mpqs_param[14][7]={
@@ -103,7 +123,10 @@ static ushort mpqs_param[14][7]={
 
 #define ASM_MPQS3_NEXT_POL
 #define ASM_MPQS3_TD
+namespace lasieve_ns {
 u32_t ASM_ATTR asm3_td(u16_t*,u16_t,u32_t*);
+}  /* namespace lasieve_ns */
+
 /* to be completed
 #define ASM_MPQS3_TDSIEVE
 // SMJS Done in case
@@ -112,16 +135,25 @@ u32_t ASM_ATTR asm3_tdsieve(u16_t*,u16_t*,u16_t**,u16_t);
 */
 
 #define ASM_MPQS3_SIEVE
+namespace lasieve_ns {
 void ASM_ATTR asm3_sieve(void);
 void ASM_ATTR asm3_sievea(void);
+}  /* namespace lasieve_ns */
+
 
 #define ASM_MPQS3_SIEVE_INIT
+namespace lasieve_ns {
 void ASM_ATTR asm_sieve_init0(uchar *mpqs3_tinyarray,  u64_t *m64, u32_t mpqs3_tiny_prod);
+}  /* namespace lasieve_ns */
+
 
 #define ASM_MPQS3_EVAL
 
 #define ASM_MPQS3_GAUSS
+namespace lasieve_ns {
 void ASM_ATTR asm_re_strip(u64_t *,u32_t,i16_t *,unsigned char*);
+}  /* namespace lasieve_ns */
+
 
 
 #ifdef TINY3
@@ -167,6 +199,3 @@ static ushort mpqs3_param[15][7]={
 
 #define MOD3
 
-#ifdef __cplusplus
-}  /* yafu-asm-abi */
-#endif

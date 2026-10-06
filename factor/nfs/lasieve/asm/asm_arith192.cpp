@@ -28,12 +28,15 @@
 #include "siever-config.h"
 #include "montgomery_mul.h"
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 extern ulong montgomery_inv_n;
 extern ulong *montgomery_modulo_n;
 
 /* 见 asm_arith64.cpp 里的同名说明：x 前缀是为了跟 noasm*.c 里的
  * asm_sub_n192 并存，头文件声明的是后者。 */
-extern "C" void xasm_sub_n192(ulong *, ulong *);
+void xasm_sub_n192(ulong *, ulong *);
 
 typedef unsigned long long u64;
 
@@ -368,3 +371,4 @@ void asm_mulm192(ulong *prod, ulong *f1, ulong *f2)
 	/* 汇编最后存的是 (res3, res4, res5) = (res3, res0, res1)，
 	 * 这里 prod[0..2] 就是这三格。 */
 }
+}  /* namespace lasieve_ns */

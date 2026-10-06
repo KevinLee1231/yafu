@@ -20,22 +20,23 @@
  * size_t 来自 stddef.h。这两个必须落在 extern "C" 之外：gmp.h 尾部用
  * std::ostream 声明 operator<<，套进 extern "C" 会报
  * conflicting declaration of C function。 */
+#include "lasieve_ns.h"
 #include "siever-config.h"
 #include <stddef.h>
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-asm-abi */
-#endif
 
+namespace lasieve_ns {
 void gcd(ulong *a, ulong *b, ulong *c);
 int asm_invert(ulong *m, ulong *n);
+}  /* namespace lasieve_ns */
+
 
 /* 汇编提供：GMP 试除。gnfs-lasieve4e.cpp 里也有一份同名实现，
  * 但那段在 #ifndef ASM_MPZ_TD 里，本构建定义了它，所以不生效。 */
+namespace lasieve_ns {
 u32_t *mpz_trialdiv(mpz_t N, u32_t *pbuf, u32_t ncp, char *errmsg);
+}  /* namespace lasieve_ns */
 
-#ifdef __cplusplus
-}  /* yafu-asm-abi */
-#endif
+
 
 #endif /* YAFU_SIEVER_ASM_H */

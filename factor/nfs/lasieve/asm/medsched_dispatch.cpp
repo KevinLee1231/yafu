@@ -32,6 +32,9 @@
 #define AVX512_LASCHED
 #endif
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 u32_t*ASM_ATTR medsched0(u32_t*,u32_t*,u32_t*,u32_t**,u32_t);
 u32_t*ASM_ATTR medsched0_1(u32_t*,u32_t*,u32_t*,unsigned char*,unsigned char);
 
@@ -577,3 +580,4 @@ medsched(u32_t* ri, u32_t* ij_ptr, u32_t* ij_ptr_ub,
 }
 
 /*:2*/
+}  /* namespace lasieve_ns */

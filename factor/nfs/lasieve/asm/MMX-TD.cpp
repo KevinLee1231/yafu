@@ -7,7 +7,6 @@
 #include "if.h"
 
 #include <immintrin.h>
-extern "C" {  /* 原来是 .c：定义天然 C 链接性，改成 C++ 后要显式写回 */
     /*
      * Auxilliary information for trial division using MMX instructions,
      * stored in the form (root0,root1,root2,root3,prime0,
@@ -16,6 +15,9 @@ extern "C" {  /* 原来是 .c：定义天然 C 链接性，改成 C++ 后要显�
      * where the mi are modular Inverses to the primes.
      */
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
     static u16_t *(MMX_TdAux[2]),*(MMX_TdBound[2]);
 
     /*
@@ -518,5 +520,4 @@ extern "C" {  /* 原来是 .c：定义天然 C 链接性，改成 C++ 后要显�
 
     #endif
     }
-
-}  /* extern "C" */
+}  /* namespace lasieve_ns */

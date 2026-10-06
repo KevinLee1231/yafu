@@ -27,14 +27,17 @@
 #include "siever-config.h"
 #include "montgomery_mul.h"
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 extern ulong montgomery_inv_n;
 extern ulong *montgomery_modulo_n;
 
 /* 汇编导出的是 xasm_sub_n64，头文件里声明的却是 noasm64.c 里的 asm_sub_n64
  * —— 汇编里的 x 前缀就是为了让这个名字跟 C 版并存（两边行为并不一样，见
- * xasm_sub_n64 的注释）。所以这三个名字得在这里自己 extern "C" 声明一次，
+ * xasm_sub_n64 的注释）。所以这三个名字得在这里自己 声明一次，
  * 链接名才和汇编一致。 */
-extern "C" void xasm_sub_n64(ulong *, ulong *);
+void xasm_sub_n64(ulong *, ulong *);
 
 typedef unsigned long long u64;
 
@@ -161,3 +164,4 @@ void asm_mulm64(ulong *prod, ulong *f1, ulong *f2)
 
 	prod[0] = out;
 }
+}  /* namespace lasieve_ns */

@@ -80,6 +80,12 @@ extern u32_t stat_size[15];
 
 
 /* common with asm functions */
+#include "siever-asm.h"
+#include "lasieve_mpqs.h"
+
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 ushort mpqs3_nFBk_1;
 ushort mpqs3_td_begin, mpqs3_sievebegin, mpqs3_sievebegink;
 ushort mpqs3_FB_inv_info[4*MPQS3_MAX_NPRIMES];
@@ -222,8 +228,6 @@ u32_t mpqs3_A_table_n[10]={
 u32_t stat_mpqs_nsieves, stat_mpqs_nsurvivors, stat_mpqs_ntrials, stat_mpqs_ndiv;
 #endif
 #include "asm/mpqs3arith.c"
-#include "siever-asm.h"
-#include "lasieve_mpqs.h"
 
 void mpqs3_convert(u32_t *rop, double op_dbl, u64_t op_64)
 {
@@ -3142,4 +3146,4 @@ int mpqs3_factor(mpz_t N, size_t max_bits, mpz_t **factors)
 
   return err;
 }
-
+}  /* namespace lasieve_ns */

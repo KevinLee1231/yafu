@@ -50,9 +50,12 @@
 #include "siever-config.h"
 #include "32bit.h"
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 typedef u32_t u32;
 
-/* 32bit.h 里已经有 `u32_t ASM_ATTR asm_modinv32(u32_t x);`（在 extern "C" 块里）
+/* 32bit.h 里已经有 `u32_t ASM_ATTR asm_modinv32(u32_t x);`（在 块里）
  * 和 `volatile extern u32_t modulo32;`，上面这两行 include 就够了：
  * 前者让下面的定义拿到 C 链接、和汇编那一侧对得上，后者提供 modulo32。
  * 同一个头里还有 `#define modinv32(x) asm_modinv32(x)`，所以实现里要写全名。
@@ -133,3 +136,4 @@ have_inverse1:
 		abort();
 	return modulo32 - yc;                 /* movl modulo32(%rip),%eax ; subl yc */
 }
+}  /* namespace lasieve_ns */

@@ -15,15 +15,13 @@ $Id: batch_factor.h 638 2011-09-11 15:31:19Z jasonp_sf $
 #ifndef _LASIEVE_LASIEVE_BATCH_FACTOR_H_
 #define _LASIEVE_LASIEVE_BATCH_FACTOR_H_
 
+#include "lasieve_ns.h"
 #include <stdint.h>
 #include "ytools.h"
 #include "common.h"
 #include "cofactorize.h"
 #include "gmp.h"
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-asm-abi */
-#endif
 
 
 /* prototypes for the subsystem that batch-factors the
@@ -151,11 +149,14 @@ typedef struct {
    contain large primes, or at least prove most relations to 
    be not worth the trouble to do so manually */
 
+namespace lasieve_ns {
 void relation_batch_init(FILE *logfile, relation_batch_t *rb,
     uint32_t min_prime, uint64_t max_prime,
     uint64_t lp_cutoff_r, uint64_t lp_cutoff_a,
     print_relation_t print_relation,
     int do_prime_product);
+}  /* namespace lasieve_ns */
+
 
 void relation_batch_free(relation_batch_t *rb);
 
@@ -183,7 +184,4 @@ void check_batch_relation(relation_batch_t *rb,
 
 uint32_t relation_batch_run(relation_batch_t *rb, uint64_t *lcg_state);
 
-#ifdef __cplusplus
-}  /* yafu-asm-abi */
-#endif
 #endif /* _LASIEVE_BATCH_FACTOR_H_ */

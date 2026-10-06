@@ -34,11 +34,14 @@
 #include "siever-config.h"
 #include "mpqs-config.h"
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 typedef u16_t u16;
 typedef u32_t u32;
 
 /* mpqs.cpp 里定义的那几个数组。文件作用域的变量在 C++ 里不做名字改编，
- * 子 Makefile 按 I 值用 -Dmpqs_FB_start=mpqs_FB_startI11 统一改名，这里跟着
+ * 子 Makefile 按 I 值用 -Dlasieve_ns=lasieve_I<N> 统一放进命名空间，这里跟着
  * 走就行。 */
 extern u16 mpqs_FB_start[];      /* 2*MPQS_MAX_FBSIZE：每素数两个 u16 */
 extern u16 mpqs_FB_np_px[];      /* 2*MPQS_MAX_FBSIZE */
@@ -286,3 +289,4 @@ void asm_next_pol3minus(u32_t len, u16 *SI_add)
 		_mm_storel_epi64((__m128i *)(mpqs_FB_start + 8 * k + 4), shi);
 	}
 }
+}  /* namespace lasieve_ns */

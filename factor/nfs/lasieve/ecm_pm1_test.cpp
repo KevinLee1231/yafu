@@ -32,6 +32,10 @@ ecm_pm1_test.c -- ECM 与 P−1 的数值正确性，以及两个实例交错推
 #include "pm1.h"
 #include "lasieve_ctx.h"
 
+/* 单份对象链的是 lasieve_single 这一份（lasieve_ns.h 的默认值），
+ * 而 per-I 的名字现在都在命名空间里，所以这里要把它引进来。 */
+using namespace lasieve_ns;
+
 #define MAX_CURVES 400
 
 static int failures = 0;

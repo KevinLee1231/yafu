@@ -59,13 +59,14 @@
 
 #include "td_common.h"
 
-extern "C" {
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 u32_t *tdslinie2(u16_t *, u16_t *, unsigned char *, u32_t **);
 
-} /* extern "C" */
 
-extern "C" u32_t *
+u32_t *
 tdslinie2(u16_t *aux_ptr, u16_t *aux_ptr_ub, unsigned char *sieve_interval,
           u32_t **tds_buffer)
 {
@@ -197,3 +198,4 @@ tdslinie2(u16_t *aux_ptr, u16_t *aux_ptr_ub, unsigned char *sieve_interval,
 
 	return NULL;   /* 见第 1 条 */
 }
+}  /* namespace lasieve_ns */

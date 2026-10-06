@@ -74,6 +74,9 @@ extern u32_t stat_size[12];
 #define MPQS_MAX_TINYPROD    128
 
 /* common with asm functions */
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 ushort mpqs_nFBk_1;
 ushort mpqs_td_begin, mpqs_sievebegin, mpqs_sievebegink;
 ushort mpqs_FB_inv_info[4*MPQS_MAX_NPRIMES];
@@ -2866,3 +2869,4 @@ mpqs_total_stat()
 	 total_nfbp,total_ulqx);
 #endif
 }
+}  /* namespace lasieve_ns */

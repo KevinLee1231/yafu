@@ -24,6 +24,11 @@
 
 #include <immintrin.h>
 
+#include "lasieve_microecm.h"
+
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 extern char*input_line;
 extern size_t input_line_alloc;
 
@@ -36,7 +41,6 @@ static i64_t mpqsaux_clock;
 #define CF_STAT
 
 // for tinyecm/microecm
-#include "lasieve_microecm.h"
 static uint64_t pran;
 static mpz_t uecm_factors[3];
 static int uecm_initialized = 0;
@@ -1082,3 +1086,4 @@ logbook(0,"%u: %u (%u)\n",i,stat_aux[i],stat_mpqsaux[i]);
 }
 #endif
 }/*:14*/
+}  /* namespace lasieve_ns */

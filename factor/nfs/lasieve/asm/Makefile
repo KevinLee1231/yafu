@@ -132,33 +132,42 @@ liblasieve.a: \
 
 # --- I-parameterised .o compilation rules ------------------------------------
 # ../include/if.h resolves to factor/lasieve5_64/if.h
-laschedI%.o: lasched.c include/lasched.h \
+
+# lasched / lasched_1 这两个 ot 分发函数原来是 C 编译单元（lasched.c）。
+# C 翻译单元装不下命名空间，不转成 C++ 它们的符号会退回全局作用域、六个 I 值
+# 又撞在一起。per-ot 的内核在 lasched.cpp，这个文件保留 CTANGLE 那套宏
+# （i_bits / U16_SHIFT / RI_OFFSET*）和自己的 <immintrin.h>，两者不混。
+laschedI%.o: lasched_dispatch.cpp include/lasched.h \
 	 include/siever-config.h ../include/if.h
-	$(CC) $(CFLAGS) -DI_bits=$* $(foreach s,$(IRENAME_C_SYMS),-D$(s)=$(s)I$*) -c -o $@ $<
+	$(CXX) $(CXXFLAGS) -DI_bits=$* -Dlasieve_ns=lasieve_I$* -c -o $@ $<
+
+# medsched / medsched_1 同理，内核在 medsched.cpp。
+medschedI%.o: medsched_dispatch.cpp include/medsched.h \
+	 include/siever-config.h ../include/if.h
+	$(CXX) $(CXXFLAGS) -DI_bits=$* -Dlasieve_ns=lasieve_I$* -c -o $@ $<
+
 
 # 汇编那批的 C++ 版：lasched.cpp 一次编出全部 15 个入口
 # （lasched0..3 / *nt / *_1 / *_1nt），原来靠 m4 的 -Dot=1/2/3 和
-# -Dnt_sched=1 展开成 8 份 .S 各编一个 .o。符号名全在 IRENAME_SYMS 里，
-# 所以 per-I 改名照旧生效。-DI_bits 对应汇编的 -Dn_i_bits=I-1。
+# -Dnt_sched=1 展开成 8 份 .S 各编一个 .o。正文整体落在
+# namespace lasieve_ns 里，per-I 的隔离照旧成立；
+# -DI_bits 对应汇编的 -Dn_i_bits=I-1。
 laschedasmI%.o: lasched.cpp include/lasched.h \
 	 include/siever-config.h ../include/if.h
-	$(CXX) $(CXXFLAGS) -DI_bits=$* $(foreach s,$(IRENAME_C_SYMS),-D$(s)=$(s)I$*) -c -o $@ $<
+	$(CXX) $(CXXFLAGS) -DI_bits=$* -Dlasieve_ns=lasieve_I$* -c -o $@ $<
 
 # medsched0 / medsched0_1 同理，产物名沿用 medsched0I%.o。
 medsched0I%.o: medsched.cpp include/medsched.h \
 	 include/siever-config.h ../include/if.h
-	$(CXX) $(CXXFLAGS) -DI_bits=$* $(foreach s,$(IRENAME_C_SYMS),-D$(s)=$(s)I$*) -c -o $@ $<
+	$(CXX) $(CXXFLAGS) -DI_bits=$* -Dlasieve_ns=lasieve_I$* -c -o $@ $<
 
 # slinieG/slinie1A/2A/3A 的 C++ 版：一个文件给出 slinie/slinie1/2/3 四个入口，
 # 原来靠 m4 的 j_per_strip 把 slinieG.asm 展开成四种段长。段长只影响展开方式
 # （展开后的指令和不展开的循环逐条相同），所以 C++ 直接 for 循环即可。
 # -DI_bits 对应汇编的 -Dn_i_bits=I-1。
 slinieasmI%.o: slinie.cpp include/siever-config.h ../include/if.h
-	$(CXX) $(CXXFLAGS) -DI_bits=$* $(foreach s,$(IRENAME_C_SYMS),-D$(s)=$(s)I$*) -c -o $@ $<
+	$(CXX) $(CXXFLAGS) -DI_bits=$* -Dlasieve_ns=lasieve_I$* -c -o $@ $<
 
-medschedI%.o: medsched.c include/medsched.h \
-	 include/siever-config.h ../include/if.h
-	$(CC) $(CFLAGS) -DI_bits=$* $(foreach s,$(IRENAME_C_SYMS),-D$(s)=$(s)I$*) -c -o $@ $<
 
 
 # --- I-parameterised sieve line .s generation rules -------------------------
@@ -167,22 +176,22 @@ medschedI%.o: medsched.c include/medsched.h \
 
 
 tdslinieI%.o: tdslinie.cpp include/td_common.h include/siever-config.h ../include/if.h
-	$(CXX) $(CXXFLAGS) -DI_bits=$* $(foreach s,$(IRENAME_C_SYMS),-D$(s)=$(s)I$*) -c -o $@ $<
+	$(CXX) $(CXXFLAGS) -DI_bits=$* -Dlasieve_ns=lasieve_I$* -c -o $@ $<
 
 tdslinie1I%.o: tdslinie1.cpp include/td_common.h include/siever-config.h ../include/if.h
-	$(CXX) $(CXXFLAGS) -DI_bits=$* $(foreach s,$(IRENAME_C_SYMS),-D$(s)=$(s)I$*) -c -o $@ $<
+	$(CXX) $(CXXFLAGS) -DI_bits=$* -Dlasieve_ns=lasieve_I$* -c -o $@ $<
 
 tdslinie2I%.o: tdslinie2.cpp include/td_common.h include/siever-config.h ../include/if.h
-	$(CXX) $(CXXFLAGS) -DI_bits=$* $(foreach s,$(IRENAME_C_SYMS),-D$(s)=$(s)I$*) -c -o $@ $<
+	$(CXX) $(CXXFLAGS) -DI_bits=$* -Dlasieve_ns=lasieve_I$* -c -o $@ $<
 
 tdslinie3I%.o: tdslinie3.cpp include/td_common.h include/siever-config.h ../include/if.h
-	$(CXX) $(CXXFLAGS) -DI_bits=$* $(foreach s,$(IRENAME_C_SYMS),-D$(s)=$(s)I$*) -c -o $@ $<
+	$(CXX) $(CXXFLAGS) -DI_bits=$* -Dlasieve_ns=lasieve_I$* -c -o $@ $<
 
 # search0 的 C++ 版：候选搜索内核。原来是一个 m4 模板，经 -Dn_i_bits=I-1
 # 展开成 I 值专用的 .s 再编一个 .o；现在直接用 -DI_bits=I，对应关系一样。
 # 产物名沿用 search0I%.o，liblasieveI%.a 的成员清单不用改。
 search0I%.o: search0.cpp include/siever-config.h ../include/if.h
-	$(CXX) $(CXXFLAGS) -DI_bits=$* $(foreach s,$(IRENAME_C_SYMS),-D$(s)=$(s)I$*) -c -o $@ $<
+	$(CXX) $(CXXFLAGS) -DI_bits=$* -Dlasieve_ns=lasieve_I$* -c -o $@ $<
 
 
 # --- liblasieveI%.a (I-parameterised sieve library) -------------------------
@@ -203,36 +212,27 @@ clean:
 
 # --- Per-I build -------------------------------------------------------------
 #
-# libcoreI%d.a is liblasieve.a built once per I value with the colliding names
-# suffixed.  It is needed because liblasieve.a *defines* montgomery_* and reads
-# the mpqs_*/mpqs3_* factor bases by name: renaming only liblasieveI%d.a would
-# leave six instances sharing one montgomery state and one factor base, so they
-# could not run in one process.
+# libcoreI%d.a is liblasieve.a built once per I value.  It is needed because
+# liblasieve.a *defines* montgomery_* and reads the mpqs_*/mpqs3_* factor bases
+# by name: sharing one copy would leave the six instances with one montgomery
+# state and one factor base, so they could not run in one process.
 #
-# The two symbol lists are read from ../I_SYMBOLS rather than passed on the
-# command line: 508 -D flags make an unwieldy command line, and passing them
-# through the sub-make is what stalled an earlier attempt.
-#
-# There are two lists because two kinds of target consume them:
-#
-#   IRENAME_C_SYMS   all 509, for the rules that build liblasieveI<N>.a.  lasched
-#                    and medsched have to be in it: their callers live in
-#                    gnfs-lasieve4e.c, which the parent Makefile compiles with
-#                    every symbol suffixed, so an unsuffixed definition here
-#                    fails to link against laschedI11.
-#   IRENAME_SYMS     the same list minus those two, for the coreI<N> rules.  See
-#                    the filter-out below.
+# The separation used to come from 509 -D名字=名字I<N> flags on every rule --
+# long enough that a single compile command ran past two thousand characters,
+# and it only worked because the preprocessor rewrites whole tokens.  Each I
+# value is now a real namespace: every per-I translation unit is wrapped in
+# `namespace lasieve_ns`, the Makefile passes -Dlasieve_ns=lasieve_I<N>, and
+# lasieve_ns.h resolves it to lasieve_single for the single-copy build.  The
+# symbol lists are gone along with the flags.
 #
 # ASIEVE_I_VALUES is the single source of the I range for this Makefile.
 ASIEVE_I_VALUES ?= 11 12 13 14 15 16
-IRENAME_SYMS := $(shell grep -v '^[[:space:]]*#' ../I_SYMBOLS)
-IRENAME_C_SYMS := $(IRENAME_SYMS)
 
-# The coreI<N> objects and the liblasieveI<N>.a objects both end up in yafu's
-# link line, and a symbol defined in both archives with the same name is a
-# duplicate-symbol error.  lasched and medsched are defined by both (once from
-# lasched.c/medsched.c as laschedI<N>, once from liblasieveI<N>.a), so they are
-# dropped from the list the coreI rules use.
+# coreI<N> 和 liblasieveI<N>.a 都在 yafu 的链接行里，同名符号重复定义就是链接错误。
+# 这条 filter-out 按约定保留：lasched / medsched 现在只进 liblasieveI<N>.a，
+# 不在 CORE_MEMBERS 里，所以它当前是空转的。但真名同名会变成同一个
+# lasieve_I<N>::lasched，仍然是链接错误，留着当护栏。
+# IRENAME_SYMS 本身已经不再用于 -D。
 IRENAME_SYMS := $(filter-out lasched medsched,$(IRENAME_SYMS))
 
 CORE_MEMBERS := \
@@ -253,8 +253,7 @@ CORE_MEMBERS := \
 define CORE_IRULES
 coreI$(1)/%.o: %.c
 	@mkdir -p coreI$(1)
-	$$(CC) $$(CFLAGS) $$(foreach s,$$(IRENAME_SYMS),-D$$(s)=$$(s)I$(1)) \
-	 -DMODULO32_ASM_NAME='"modulo32I$(1)"' -c -o $$@ $$<
+	$$(CC) $$(CFLAGS) -Dlasieve_ns=lasieve_I$(1) -c -o $$@ $$<
 
 # 同一个 I 值下的 C++ 源。rescale 原本是 m4 模板里的 pavgb 指令，
 # intrinsics 一一对应，所以改成了 C++；mpqs_eval 是四个扫描筛数组的
@@ -262,8 +261,7 @@ coreI$(1)/%.o: %.c
 # 产物名不变（.cpp -> 同名 .o），所以上面两处清单不用动。
 coreI$(1)/%.o: %.cpp
 	@mkdir -p coreI$(1)
-	$$(CXX) $$(CXXFLAGS) $$(foreach s,$$(IRENAME_SYMS),-D$$(s)=$$(s)I$(1)) \
-	 -DMODULO32_ASM_NAME='"modulo32I$(1)"' -c -o $$@ $$<
+	$$(CXX) $$(CXXFLAGS) -Dlasieve_ns=lasieve_I$(1) -c -o $$@ $$<
 endef
 $(foreach i,$(ASIEVE_I_VALUES),$(eval $(call CORE_IRULES,$(i))))
 

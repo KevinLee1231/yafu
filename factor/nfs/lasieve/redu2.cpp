@@ -8,6 +8,9 @@
 #include "gmp-aux.h"
 #include "redu2.h"
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 i32_t n_iter= 0;
 int
 reduce2(i32_t*a0_ptr,i32_t*b0_ptr,i32_t*a1_ptr,i32_t*b1_ptr,
@@ -171,3 +174,4 @@ if(mpz_sizeinbase(r2_b1,2)> 63)return 1;
 }
 #endif
 /*:4*/
+}  /* namespace lasieve_ns */

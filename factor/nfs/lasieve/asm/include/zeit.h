@@ -1,9 +1,13 @@
+#include "lasieve_ns.h"
 #include "siever-config.h"
 
 
+namespace lasieve_ns {
 void zeita(size_t);
 void ASM_ATTR zeitA(size_t);
 void zeitb(size_t);
 void ASM_ATTR zeitB(size_t);
 void initzeit(size_t);
 void printzeit(size_t);
+}  /* namespace lasieve_ns */
+

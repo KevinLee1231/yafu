@@ -32,6 +32,9 @@
 #include "gmp-aux.h"
 #include "fbgen64.h"
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 static u64_t mod64;
 static u64_t modulo64hbit;
 static i64_t modulo64bit[64],modulo64ebits;
@@ -379,3 +382,4 @@ root_finder64(u64_t *root_buf,mpz_t *A,u32_t adeg,u64_t p)
   if(mpz_fdiv_ull(A[adeg],p)==0) root_buf[res++]=p;
   return res;
 }
+}  /* namespace lasieve_ns */

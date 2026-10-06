@@ -24,6 +24,10 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "montgomery_mul.h"
 #include "lasieve_ctx.h"
 
+/* 单份对象链的是 lasieve_single 这一份（lasieve_ns.h 的默认值），
+ * 而 per-I 的名字现在都在命名空间里，所以这里要把它引进来。 */
+using namespace lasieve_ns;
+
 char *input_line=NULL;
 size_t input_line_alloc=0;
 

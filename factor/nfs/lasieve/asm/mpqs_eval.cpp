@@ -31,6 +31,9 @@
 #include "siever-config.h"
 #include "mpqs-config.h"
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 typedef uint32_t u32;
 typedef uint64_t u64;
 
@@ -125,3 +128,4 @@ DEF_EVAL(asm_evaluate, movemask8, 0)
 DEF_EVAL(asm_evaluate0, movemask8, 1)
 DEF_EVAL(asm_evaluate_xmm, movemask16, 0)
 DEF_EVAL(asm_evaluate0_xmm, movemask16, 1)
+}  /* namespace lasieve_ns */

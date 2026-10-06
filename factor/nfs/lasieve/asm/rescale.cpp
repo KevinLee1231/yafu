@@ -16,6 +16,9 @@
 /* 一次收缩 length 个字节。delta1=1 对应 (x+1)/2，delta1=0 时先做一次
  * (x+1)/2 再做一次，等价于 (x+3)/4 —— 汇编里 rescale_interval2 也是
  * 连着两条 pavgb。 */
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 static void rescale_bytes(unsigned char *array, uint64_t length, int twice)
 {
 	const __m128i one = _mm_set1_epi8(1);
@@ -51,3 +54,4 @@ void rescale_interval2(unsigned char *array, u64_t length)
 {
 	rescale_bytes(array, length, 1);
 }
+}  /* namespace lasieve_ns */

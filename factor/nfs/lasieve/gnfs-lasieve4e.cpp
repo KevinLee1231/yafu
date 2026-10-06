@@ -114,7 +114,6 @@
 /*:5*//*6:*/
 
 #define GCD_SIEVE_BOUND 10
-#include "asm/siever-config.c"
 #include "lasched.h"
 #include "medsched.h"
 #include "MMX-TD.h"
@@ -127,6 +126,12 @@
 u32_t nss= 0,nzss[3]= {0,0,0};
 #endif
 
+#include "strategy.h"
+
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
+#include "asm/siever-config.c"
 static float
 FB_bound[2],sieve_report_multiplier[2], sieve_report_multiplier_FB[2];
 static u16_t sieve_min[2],max_primebits[2],max_factorbits[2];
@@ -400,7 +405,6 @@ u32_t I_bits;
 u32_t J_bits,i_shift,n_I,n_J;
 u32_t root_no;
 float sigma;
-#include "strategy.h"
 
 /* Set by lasieve_run() before main() starts.  The siever installs SIGTERM and
  * SIGINT handlers when -n is given, which is right for a program and wrong
@@ -6941,3 +6945,4 @@ boinc_checkpoint_completed();
 }
 
 #endif/*:162*/
+}  /* namespace lasieve_ns */

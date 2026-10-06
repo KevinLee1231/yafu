@@ -74,6 +74,9 @@ either expressed or implied, of the FreeBSD Project.
 
 #endif
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 typedef struct
 {
 	uint64_t base[2];
@@ -5401,3 +5404,4 @@ int getfactor_tecm(mpz_t n, mpz_t f, int target_bits, uint64_t* pran)
 }
 
 #endif
+}  /* namespace lasieve_ns */

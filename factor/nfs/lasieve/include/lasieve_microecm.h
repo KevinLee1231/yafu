@@ -55,12 +55,10 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #define _LASIEVE_MICROECM_H_
 
+#include "lasieve_ns.h"
 #include <stdint.h>
 
 
-#ifdef __cplusplus   // C compilers skip this ifdef section
-extern "C" {
-#endif
 
 
 // getfactor_uecm() returns 1 if it is unable to find a factor of q64, and
@@ -77,14 +75,14 @@ extern "C" {
 // to *pran seeds the sequence, and after seeding it you don't want to change
 // *pran, since that would restart the sequence.
 
+namespace lasieve_ns {
 int prp_uecm(uint64_t n);
 uint64_t getfactor_uecm(uint64_t q64, int is_arbitrary, uint64_t *pran);
 void getfactor_uecm_x8_list(uint64_t* q64, uint64_t* f64, uint32_t num_in, uint64_t* pran);
 uint64_t getfactor_upm1(uint64_t q64, uint32_t b1);
+}  /* namespace lasieve_ns */
 
-#ifdef __cplusplus
-}
-#endif
+
 
 
 

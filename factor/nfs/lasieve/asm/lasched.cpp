@@ -145,6 +145,9 @@
 #endif
 
 /* ls-defs.asm 里 l1_bits 固定 15，siever-config.h 的 L1_BITS 必须一致。 */
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 static_assert(L1_BITS == 15, "ls-defs.asm 的 l1_bits 固定为 15");
 static_assert(I_bits >= 2 && I_bits <= 16, "I_bits 超出 per-I 库的范围");
 
@@ -158,7 +161,6 @@ static_assert(I_bits >= 2 && I_bits <= 16, "I_bits 超出 per-I 库的范围");
 /* 汇编里 `addl $65536,%r9d`，即 fbi 的增量是 1 << 16。 */
 #define LS_FBI_INCR  (1u << 16)
 
-extern "C" {
 
 u32_t *lasched0(u32_t *, u32_t *, u32_t *, u32_t, u32_t **, u32_t);
 u32_t *lasched0nt(u32_t *, u32_t *, u32_t *, u32_t, u32_t **, u32_t);
@@ -176,7 +178,6 @@ u32_t *lasched2_1nt(u32_t *, u32_t *, u32_t *, u32_t, u32_t **, u32_t);
 u32_t *lasched3_1(u32_t *, u32_t *, u32_t *, u32_t, u32_t **, u32_t);
 u32_t *lasched3_1nt(u32_t *, u32_t *, u32_t *, u32_t, u32_t **, u32_t);
 
-} /* extern "C" */
 
 /* ot_tester1 = (ot&1) | ((ot&2) << (n_i_bits-1))，ot_tester2 = n_i ^ ot_tester1。
  * 汇编里是 `eval(...)` 在 m4 展开期算出来的，ot=1/2/3 对应 1/1024/1025 与
@@ -325,7 +326,7 @@ lasched_core(u32_t *ri, u32_t *ij_ptr, u32_t *ij_ptr_ub, u32_t n1_j,
 }
 
 #define LS_DEF(name, OT, U16)                                                  \
-	extern "C" u32_t *name(u32_t *ri, u32_t *ij_ptr, u32_t *ij_ptr_ub,         \
+	u32_t *name(u32_t *ri, u32_t *ij_ptr, u32_t *ij_ptr_ub,         \
 	                       u32_t n1_j, u32_t **sched_ptr, u32_t fbi_offs)       \
 	{                                                                          \
 		return lasched_core<OT, U16>(ri, ij_ptr, ij_ptr_ub, n1_j, sched_ptr,  \
@@ -353,3 +354,4 @@ LS_DEF(lasched2_1nt, 2, true)
 LS_DEF(lasched3_1nt, 3, true)
 
 #undef LS_DEF
+}  /* namespace lasieve_ns */

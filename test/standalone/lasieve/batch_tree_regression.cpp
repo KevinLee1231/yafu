@@ -1,5 +1,9 @@
 #include "factor/nfs/lasieve/batch_factor.cpp"
 #include <assert.h>
+
+/* 这个驱动链的是单份对象，lasieve_ns 解析成 lasieve_single；per-I 的
+ * 名字现在都在命名空间里，所以要显式引进来。 */
+using namespace lasieve_ns;
 int main(void) {
     bintree_t tree;
     tree.size = tree.alloc = 1;

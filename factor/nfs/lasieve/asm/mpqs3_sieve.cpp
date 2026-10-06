@@ -112,6 +112,9 @@
 #include "siever-config.h"
 #include "mpqs-config.h"
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 typedef unsigned char u8;
 typedef u16_t u16;
 typedef u32_t u32;
@@ -553,3 +556,4 @@ void asm3_sievea(void)
 
 	/* 汇编的 loop0begina：leaq 2(FB0),FB0 然后返回。第六段不管。 */
 }
+}  /* namespace lasieve_ns */

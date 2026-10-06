@@ -68,6 +68,9 @@
 #error "I_bits 必须由 Makefile 的 -DI_bits=<11..16> 传入（与汇编的 -Dn_i_bits=I-1 对应）"
 #endif
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 static_assert(L1_BITS == 15, "ls-defs.asm 的 l1_bits 固定为 15");
 static_assert(I_bits >= 2 && I_bits <= 16, "I_bits 超出 per-I 库的范围");
 
@@ -76,16 +79,14 @@ static_assert(I_bits >= 2 && I_bits <= 16, "I_bits 超出 per-I 库的范围");
 #define MS_NI_MASK   ((1u << MS_NI_BITS) - 1u)
 #define MS_FBI_INCR  (1u << 16)
 
-extern "C" {
 
 /* 声明照抄 asm/medsched.c 里的那两行（medsched.h 里只有 C 层的 medsched /
  * medsched_1，没有这两个）。 */
 u32_t *medsched0(u32_t *, u32_t *, u32_t *, u32_t **, u32_t);
 u32_t *medsched0_1(u32_t *, u32_t *, u32_t *, unsigned char *, unsigned char);
 
-} /* extern "C" */
 
-extern "C" u32_t *
+u32_t *
 medsched0(u32_t *ri, u32_t *ij_ptr, u32_t *ij_ptr_ub, u32_t **sched_ptr,
           u32_t fbi_offs)
 {
@@ -152,7 +153,7 @@ medsched0(u32_t *ri, u32_t *ij_ptr, u32_t *ij_ptr_ub, u32_t **sched_ptr,
 	return ri;
 }
 
-extern "C" u32_t *
+u32_t *
 medsched0_1(u32_t *ri, u32_t *ij_ptr, u32_t *ij_ptr_ub, unsigned char *si,
             unsigned char lo)
 {
@@ -203,3 +204,4 @@ medsched0_1(u32_t *ri, u32_t *ij_ptr, u32_t *ij_ptr_ub, unsigned char *si,
 
 	return ri;
 }
+}  /* namespace lasieve_ns */

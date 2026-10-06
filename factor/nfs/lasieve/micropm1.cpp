@@ -99,6 +99,9 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
     uint32_t ptadds;
 #endif
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 static const uint32_t map[60] = {
     0, 1, 2, 0, 0, 0, 0, 3, 0, 0,
     0, 4, 0, 5, 0, 0, 0, 6, 0, 7,
@@ -1941,5 +1944,4 @@ uint64_t getfactor_upm1(uint64_t q64, uint32_t b1)
         return upm1_dispatch(q64, bits, 0);
     }
 }
-
-
+}  /* namespace lasieve_ns */

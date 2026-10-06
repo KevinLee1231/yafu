@@ -1,4 +1,6 @@
 
+#include "lasieve_ns.h"
+
 /*
 Copyright (C) 2001 Jens Franke, T. Kleinjung.
 This file is part of gnfs4linux, distributed under the terms of the
@@ -16,7 +18,10 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
    is put at position 0 of the array of size 1 in *fptr. The factor
    is a divisor of N and not 1, but it might be N, and it might be
    composite. */
+namespace lasieve_ns {
 int ecm_factor(mpz_t N, u32_t B1, u32_t B2, mpz_t **fptr, u32_t ncurves);
+}  /* namespace lasieve_ns */
+
 
 /* If you do not want to process all curves at once use the following
    functions: CAVE they will change */
@@ -36,21 +41,39 @@ typedef ecm_struct ecm_t[1];
 
 
 /* construct structure for doing ECM */
+namespace lasieve_ns {
 void ecm_curve_init(ecm_t e);
+}  /* namespace lasieve_ns */
+
 
 /* set input number to N and parameters to B1, B2, reset curve number.
    Returns -1 on error, otherwise 0. */
+namespace lasieve_ns {
 int ecm_curve_set(ecm_t e, mpz_t N, u32_t B1, u32_t B2);
+}  /* namespace lasieve_ns */
+
 
 /* change parameters B1,B2 but do not reset curve number */
+namespace lasieve_ns {
 void ecm_set_params(ecm_t e, u32_t B1, u32_t B2);
+}  /* namespace lasieve_ns */
+
 
 /* replace input number by N. N must be a divisor of input number.
    B1, B2 and curve number are unchanged. Returns -1 on error, otherwise 0. */
+namespace lasieve_ns {
 int ecm_reset_n(ecm_t e, mpz_t N);
+}  /* namespace lasieve_ns */
+
 
 /* process next curve, return -1 on error, 1 on success, 0 otherwise */
+namespace lasieve_ns {
 int ecm(ecm_t e, mpz_t **fptr);
+}  /* namespace lasieve_ns */
+
 
 /* free allocated memory: */
+namespace lasieve_ns {
 void ecm_curve_clear(ecm_t e);
+}  /* namespace lasieve_ns */
+

@@ -189,6 +189,9 @@
 #endif
 
 /* ls-defs.asm 里 l1_bits 固定 15；siever-config.h 的 L1_BITS 必须一致。 */
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 static_assert(L1_BITS == 15, "ls-defs.asm 的 l1_bits 固定为 15");
 static_assert(I_bits >= 2 && I_bits <= 16, "I_bits 超出 per-I 库的范围");
 
@@ -198,7 +201,6 @@ static_assert(I_bits >= 2 && I_bits <= 16, "I_bits 超出 per-I 库的范围");
 #define LS_NI           ((u64_t)1 << LS_NI_BITS)
 #define LS_J_PER_STRIP  ((unsigned)(1u << (LS_L1_BITS - LS_NI_BITS)))
 
-extern "C" {
 
 /* 汇编里 sieve_ptr(%rcx) / sieve_ptr_ub(%rax) 都当**裸的 64 位数值**用：
  * sieve_ptr_ub 初值就是筛数组基址的数值，sieve_ptr 是「基址 + 字节偏移」。
@@ -448,5 +450,4 @@ slinie1(u16_t *aux_ptr, u16_t *aux_ptr_ub, unsigned char *sieve_interval)
 	}
 	return (u32_t *)(uintptr_t)ub;
 }
-
-} /* extern "C" */
+}  /* namespace lasieve_ns */

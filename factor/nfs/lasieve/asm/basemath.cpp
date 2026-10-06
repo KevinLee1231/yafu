@@ -8,7 +8,9 @@
 #include "siever-config.h"
 #include "montgomery_mul.h"
 #include "if.h"
-extern "C" {  /* 原来是 .c：定义天然 C 链接性，改成 C++ 后要显式写回 */
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
     extern ulong montgomery_inv_n;
     extern ulong *montgomery_modulo_n;
     extern ulong montgomery_modulo_R2[NMAX_ULONGS];
@@ -120,6 +122,4 @@ extern "C" {  /* 原来是 .c：定义天然 C 链接性，改成 C++ 后要显�
       }
       return 1;
     }
-
-
-}  /* extern "C" */
+}  /* namespace lasieve_ns */

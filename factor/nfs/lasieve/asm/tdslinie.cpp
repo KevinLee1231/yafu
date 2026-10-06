@@ -102,13 +102,14 @@
 
 #include "td_common.h"
 
-extern "C" {
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 u32_t *tdslinie(u16_t *, u16_t *, unsigned char *, u32_t **);
 
-} /* extern "C" */
 
-extern "C" u32_t *
+u32_t *
 tdslinie(u16_t *aux_ptr, u16_t *aux_ptr_ub, unsigned char *sieve_interval,
          u32_t **tds_buffer)
 {
@@ -231,3 +232,4 @@ tdslinie(u16_t *aux_ptr, u16_t *aux_ptr_ub, unsigned char *sieve_interval,
 
 	return NULL;   /* 见第 1 条：汇编的 %rax 从未被写，返回值无意义。 */
 }
+}  /* namespace lasieve_ns */

@@ -37,6 +37,9 @@
 
 #include "siever-config.h"
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 typedef u16_t u16;
 typedef unsigned char u8;
 
@@ -135,3 +138,4 @@ void schedsieve_1(u8 val, u8 *sieve, u16 *offsets, u16 *next)
 		return;
 	sieve[r10] += al;
 }
+}  /* namespace lasieve_ns */

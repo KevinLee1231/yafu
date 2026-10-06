@@ -33,6 +33,9 @@
 #include "siever-config.h"
 #include "64bit.h"
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 typedef u64_t u64;
 
 u64 asm_modadd64(u64 a, u64 b)
@@ -48,3 +51,4 @@ u64 asm_modmul64(u64 a, u64 b)
 {
 	return (u64)((__uint128_t)a * (__uint128_t)b % (__uint128_t)modulo64);
 }
+}  /* namespace lasieve_ns */

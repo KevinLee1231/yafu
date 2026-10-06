@@ -52,15 +52,17 @@
 #include "siever-config.h"
 #include "mpqs-config.h"
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 typedef u64_t u64;
 
-/* 声明在 asm/mpz-trialdiv.c 里，带的是 mpz-trialdiv 那边手写的
- * `mp_limb_t ASM_ATTR mpz_asm_td(...)`，也就是 extern "C"。mpqs-config.h
- * 里没有这一条，所以这里必须自己标 C 链接，否则真实链接时
- * mpz-trialdiv.cpp 的调用会找 C 符号、这边给的是 C++ 修饰名。
- * 符号名本身是裸的（汇编提供的），不加 extern "C" 编译器会改成
- * _Z10mpz_asm_tdmmmPm，链接期找不到。 */
-extern "C" u64 mpz_asm_td(u64 prime, u64 modular_inverse, u64 *limb_ptr,
+/* 声明在 asm/mpz-trialdiv.cpp 里。mpqs-config.h 里没有这一条，所以两边各写
+ * 一份；两份必须逐字一致 —— 以前靠 extern "C" 把参数类型从修饰名里抹掉，
+ * 写成 u64 / mp_size_t 也无所谓；现在定义和声明都在 lasieve_ns 里，签名差一个
+ * long 就是两个不同的函数，调用端会找不到定义。
+ */
+u64 mpz_asm_td(u64 prime, u64 modular_inverse, u64 *limb_ptr,
                           u64 nlimbs)
 {
 	u64 *p = limb_ptr;
@@ -102,3 +104,4 @@ last_limb:
 	hi += carry;                                        /* addq %r9,%rdx */
 	return hi;                                          /* movq %rdx,%rax */
 }
+}  /* namespace lasieve_ns */

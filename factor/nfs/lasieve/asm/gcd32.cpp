@@ -11,7 +11,9 @@
 #include <sys/types.h>
 
 #include "siever-config.h"
-extern "C" {  /* 原来是 .c：定义天然 C 链接性，改成 C++ 后要显式写回 */
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
     u32_t gcd32(u32_t x, u32_t y)
     {
       u32_t r;
@@ -45,5 +47,4 @@ extern "C" {  /* 原来是 .c：定义天然 C 链接性，改成 C++ 后要显�
                          "shll %%cl,%%eax\n" : "=a"(r) : "S"(y), "D"(x) : "rcx", "rdx");
       return r;
     }
-
-}  /* extern "C" */
+}  /* namespace lasieve_ns */

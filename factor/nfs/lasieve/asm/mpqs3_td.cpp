@@ -151,6 +151,9 @@
 #include "siever-config.h"
 #include "mpqs-config.h"
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 typedef u16_t u16;
 typedef u32_t u32;
 typedef u64_t u64;
@@ -176,10 +179,8 @@ extern u32 mpqs3_FB_A_inv[];   /* MPQS3_MAX_ADIV_ALL */
 extern u8 mpqs3_256_inv_table[128];
 
 /* asm3_tdsieve 在 mpqs-config.h 里是注释掉的，声明放在这里。
- * 放在 extern "C" 里，定义才和汇编那侧的符号对得上。 */
-extern "C" {
+ * 放在 里，定义才和汇编那侧的符号对得上。 */
 u32_t asm3_tdsieve(u16_t *, u16_t *, u16_t **, u16_t);
-}
 
 /* ===================================================================
  * asm3_tdsieve
@@ -512,3 +513,4 @@ end:
 	relptr[6] = (u16)nr;		/* movw %r9w,12(%rdi) */
 	return qxd;
 }
+}  /* namespace lasieve_ns */

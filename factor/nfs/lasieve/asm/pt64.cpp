@@ -42,12 +42,15 @@
 
 #include "siever-config.h"
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 typedef u64_t u64;
 
 /* 声明在 asm/psp.c 里：`u64_t ASM_ATTR pt64(u64_t);`。mpqs-config.h 里没有
- * 这一条，所以这里自己写 extern "C"；符号名本身是裸的（汇编提供），
- * 少了 extern "C" 链接期会找不到。 */
-extern "C" u64 pt64(u64 N);
+ * 这一条，所以这里自己写 ；符号名本身是裸的（汇编提供），
+ * 少了 链接期会找不到。 */
+u64 pt64(u64 N);
 
 /* mpqs_256_inv_table 定义在 mpqs.cpp（asm/invtab.c 里还有一份同样的，
  * liblasieve.a 链的是后者），table[i] = (2i+1) 的模 2^8 逆元，
@@ -121,7 +124,7 @@ static inline u64 dupt(u64 t, u64 N)
 	return r;
 }
 
-extern "C" u64 pt64(u64 N)
+u64 pt64(u64 N)
 {
 	u64 one, X, auxreg, expon, b, t;
 
@@ -182,3 +185,4 @@ extern "C" u64 pt64(u64 N)
 		t = modsq64(t, N, X);            /* call modsq64 */
 	}
 }
+}  /* namespace lasieve_ns */

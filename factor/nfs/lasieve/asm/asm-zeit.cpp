@@ -16,6 +16,9 @@
 
 #include "siever-config.h"
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 typedef u64_t u64;
 typedef ulong ul;
 
@@ -36,3 +39,4 @@ void zeitB(ul i)
 {
 	asmzeitcounter[i] += (u64)__rdtsc();
 }
+}  /* namespace lasieve_ns */

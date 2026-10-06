@@ -8,7 +8,7 @@
  *   asm_TdUpdate8   换直线后更新辅助缓冲区，原地写回。
  *
  * 声明在 MMX-TD.c:359 和 MMX-TD.c:420（不在任何头文件里），返回类型是
- * u32_t*，所以定义必须拿 C 链接 —— 下面自带 extern "C" 声明。
+ * u32_t*，所以定义必须拿 C 链接 —— 下面自带 声明。
  *
  * ------------------------------------------------------------------
  * 照抄、不能「顺手改好」的地方。
@@ -75,14 +75,15 @@
 #include "siever-config.h"
 
 /* MMX-TD.c:359 / MMX-TD.c:420 的声明。返回类型 u32_t* 与那边一致。 */
-extern "C" {
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 u32_t *asm_MMX_Td8(u32_t *pbuf, u32_t strip_i, u16_t *aux_ptr,
 		   u16_t *aux_ptr_ub);
 
 u32_t *asm_TdUpdate8(u16_t *auxptr, u16_t *auxptr_ub, u16_t *uptr);
 
-}
 
 /* ------------------------------------------------------------------
  * asm_MMX_Td8
@@ -244,3 +245,4 @@ u32_t *asm_TdUpdate8(u16_t *auxptr, u16_t *auxptr_ub, u16_t *uptr)
 
 	return (u32_t *)ap;
 }
+}  /* namespace lasieve_ns */

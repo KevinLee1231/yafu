@@ -282,12 +282,12 @@ mpqs3.o: asm/include/mpqs-config.h
 #
 # The per-I copies are not only about collisions.  Each I value ends up with a
 # private factor base, montgomery state, ECM/P-1 cache and strategy counters,
-# which is what lets two sievers run in one process.  I_SYMBOLS has the names
-# and the reasoning.
+# which is what lets two sievers run in one process.  one
+# -Dlasieve_ns=lasieve_I<N> per translation unit is the whole of the
+# mechanism now, and the namespaces carry the reasoning.
 # -----------------------------------------------------------------------------
 
 I_VALUES := 11 12 13 14 15 16
-IRENAME_SYMS := $(shell grep -v '^[[:space:]]*#' I_SYMBOLS)
 
 SIEVER_SRCS := \
 	gnfs-lasieve4e.cpp if.cpp input-poly.cpp \
@@ -304,14 +304,12 @@ I$(1)_OBJS := $$(foreach s,$$(SIEVER_SRCS),objI$(1)/$$(basename $$s).o)
 objI$(1)/%.o: %.c
 	@mkdir -p objI$(1)
 	$$(CC) $$(CFLAGS) -DI_bits=$(1) \
-		$$(foreach s,$$(IRENAME_SYMS),-D$$(s)=$$(s)I$(1)) \
-		-DMODULO32_ASM_NAME='"modulo32I$(1)"' -c -o $$@ $$<
+		-Dlasieve_ns=lasieve_I$(1) -c -o $$@ $$<
 
 objI$(1)/%.o: %.cpp
 	@mkdir -p objI$(1)
 	$$(CXX) $$(CFLAGS) $$(CXX_STD) -DI_bits=$(1) \
-		$$(foreach s,$$(IRENAME_SYMS),-D$$(s)=$$(s)I$(1)) \
-		-DMODULO32_ASM_NAME='"modulo32I$(1)"' -c -o $$@ $$<
+		-Dlasieve_ns=lasieve_I$(1) -c -o $$@ $$<
 endef
 
 $(foreach i,$(I_VALUES),$(eval $(call SIEVER_IRULES,$(i))))

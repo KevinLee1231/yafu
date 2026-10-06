@@ -21,6 +21,9 @@
 #define PD_COM_ALLOC PRIMEDIFFS_ALLOCSIZE 
 
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 static unsigned char*primediffs= NULL;
 static u32_t NCommonPrimes;
 
@@ -342,3 +345,4 @@ logbook(4,"Largest diff in Sieve was %u\n",dmax);
 /*:9*/
 
 }/*:10*/
+}  /* namespace lasieve_ns */

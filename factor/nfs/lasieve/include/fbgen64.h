@@ -1,4 +1,6 @@
 
+#include "lasieve_ns.h"
+
 /*
   Copyright (C) 2001 Jens Franke.
   This file is part of gnfs4linux, distributed under the terms of the 
@@ -10,4 +12,7 @@
   02111-1307, USA.
 */
 
+namespace lasieve_ns {
 u32_t root_finder64(u64_t *root_buf,mpz_t *A,u32_t adeg,u64_t p);
+}  /* namespace lasieve_ns */
+

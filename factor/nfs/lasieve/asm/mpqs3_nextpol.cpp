@@ -34,6 +34,9 @@
 #include "siever-config.h"
 #include "mpqs-config.h"
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 typedef u16_t u16;
 typedef u32_t u32;
 
@@ -286,3 +289,4 @@ void asm3_next_pol3minus(u32_t len, u16 *SI_add)
 		_mm_storel_epi64((__m128i *)(mpqs3_FB_start + 8 * k + 4), shi);
 	}
 }
+}  /* namespace lasieve_ns */

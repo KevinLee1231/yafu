@@ -9,6 +9,9 @@
 #include "if.h"
 #define MAX(_a, _b) ((_a) > (_b) ? (_a) : (_b))
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 void
 input_poly(mpz_t N,mpz_t **A,i32_t *adeg,mpz_t **B,i32_t *bdeg,mpz_t m,
 	FILE *fp)
@@ -93,3 +96,4 @@ input_poly(mpz_t N,mpz_t **A,i32_t *adeg,mpz_t **B,i32_t *bdeg,mpz_t m,
     complain("m is not a common root of the NFS polynomials\n");
   mpz_clear(tmpB); mpz_clear(tmpA);
 }
+}  /* namespace lasieve_ns */

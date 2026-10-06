@@ -1,7 +1,6 @@
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-asm-abi */
-#endif
+#include "lasieve_ns.h"
+
 
 /*
   Copyright (C) 2004 Jens Franke, Torsten Kleinjung
@@ -14,35 +13,35 @@ extern "C" {  /* yafu-asm-abi */
   02111-1307, USA.
 */
 
-volatile extern u32_t modulo32;
+/* modulo32 is addressed by name from the inline asm below, and inline asm sees
+ * assembler symbols, not C++ entities: a variable inside namespace lasieve_ns
+ * gets a compiler-mangled name whose exact spelling is ABI-specific.  So the
+ * variable carries an explicit assembler label instead.  LASIEVE_STR(lasieve_ns)
+ * spells lasieve_I<N> under -Dlasieve_ns=lasieve_I<N> and lasieve_single
+ * otherwise, so the label is per-I without the command line having to name it.
+ *
+ * This replaces the old -DMODULO32_ASM_NAME='"modulo32I<N>"'.  An explicit asm
+ * label is emitted verbatim, so the Darwin leading-underscore case the old
+ * block had to special-case no longer applies. */
+#define LASIEVE_STR2(x) #x
+#define LASIEVE_STR(x) LASIEVE_STR2(x)
+#define MODULO32_ASM LASIEVE_STR(lasieve_ns) "_modulo32"
+
+namespace lasieve_ns {
+volatile extern u32_t modulo32 __asm__(MODULO32_ASM);
 u32_t gcd32(u32_t x, u32_t y);
+}  /* namespace lasieve_ns */
+
 int jac32(u32_t x,u32_t y);
 u32_t modpow32(u32_t x,u32_t a);
 u32_t modsqrt32(u32_t x);
+namespace lasieve_ns {
 u32_t ASM_ATTR asm_modinv32(u32_t x);
+}  /* namespace lasieve_ns */
+
 
 #define modinv32(x) asm_modinv32(x)
 
-/* The C identifier modulo32 and the name the assembly sees are two different
- * things.  A per-I build gives the C symbol an I suffix (see ../../I_SYMBOLS);
- * the inline asm below would still refer to the unsuffixed one otherwise, and
- * the #undef that used to follow this macro also killed the -D, so every
- * later use stopped being renamed. */
-/* MODULO32_ASM_NAME comes first on purpose: it is what a per-I build passes, and
- * the leading-underscore form is a Darwin symbol convention, not a different
- * symbol.  Testing __APPLE__ first would hand macOS the unsuffixed name and the
- * six I values would then share one montgomery state. */
-#if defined(MODULO32_ASM_NAME)
-#if defined(__APPLE__)
-#define MODULO32_ASM "_" MODULO32_ASM_NAME
-#else
-#define MODULO32_ASM MODULO32_ASM_NAME
-#endif
-#elif defined(__APPLE__)
-#define MODULO32_ASM "_modulo32"
-#else
-#define MODULO32_ASM "modulo32"
-#endif
 
 static inline u32_t modsq32(u32_t x)
 {
@@ -104,6 +103,3 @@ static inline u32_t modsub32(u32_t subtrahend,u32_t minuend)
 
 #undef MODULO32_ASM
 
-#ifdef __cplusplus
-}  /* yafu-asm-abi */
-#endif

@@ -7,6 +7,9 @@
 #include "if.h"
 #include "real-poly-aux.h"
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 static double *aux;
 static size_t aux_alloc=0;
 
@@ -354,3 +357,4 @@ get_sieve_report_bounds(unsigned char ** sr_bounds, double * poly, i32_t d, i32_
     }
   }
 }
+}  /* namespace lasieve_ns */

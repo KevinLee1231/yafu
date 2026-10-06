@@ -14,10 +14,13 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "siever-config.h"
 #include "if.h"
 
-extern "C" u64_t ASM_ATTR pt64(u64_t);
-
 #include "montgomery_mul.h"
-extern "C" {  /* 原来是 .c：定义天然 C 链接性，改成 C++ 后要显式写回 */
+
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
+u64_t ASM_ATTR pt64(u64_t);
+
     extern ulong *montgomery_modulo_n;
     extern ulong montgomery_modulo_R2[NMAX_ULONGS];
     extern ulong montgomery_ulongs;
@@ -109,6 +112,4 @@ extern "C" {  /* 原来是 .c：定义天然 C 链接性，改成 C++ 后要显�
       if (mpz_size(n)==2) return psp2(n);
       return mpz_probab_prime_p(n,1);
     }
-
-
-}  /* extern "C" */
+}  /* namespace lasieve_ns */

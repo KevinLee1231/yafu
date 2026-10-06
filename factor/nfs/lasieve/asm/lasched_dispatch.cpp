@@ -35,6 +35,9 @@
 #endif
 
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 u32_t*ASM_ATTR lasched0(u32_t*,u32_t*,u32_t*,u32_t,u32_t**,u32_t);
 u32_t*ASM_ATTR lasched1(u32_t*,u32_t*,u32_t*,u32_t,u32_t**,u32_t);
 u32_t*ASM_ATTR lasched2(u32_t*,u32_t*,u32_t*,u32_t,u32_t**,u32_t);
@@ -49,9 +52,9 @@ u32_t*ASM_ATTR lasched1_1(u32_t*,u32_t*,u32_t*,u32_t,u32_t**,u32_t);
 u32_t*ASM_ATTR lasched2_1(u32_t*,u32_t*,u32_t*,u32_t,u32_t**,u32_t);
 u32_t*ASM_ATTR lasched3_1(u32_t*,u32_t*,u32_t*,u32_t,u32_t**,u32_t);
 
-u32_t*
-lasched_1(ri,ij_ptr,ij_ptr_ub,n1_j,sched_ptr,fbi_offs,ot)
-u32_t*ri,*ij_ptr,*ij_ptr_ub,n1_j,**sched_ptr,fbi_offs,ot;
+u32_t *lasched_1(u32_t *ri, u32_t *ij_ptr, u32_t *ij_ptr_ub,
+                   u32_t n1_j, u32_t **sched_ptr, u32_t fbi_offs,
+                   u32_t ot)
 {
 u32_t ij,ij_ub;
 u32_t ot_mask,ot_tester;
@@ -98,9 +101,9 @@ return NULL;
 
 
 
-u32_t*
-lasched(ri,ij_ptr,ij_ptr_ub,n1_j,sched_ptr,fbi_offs,ot,FBsize)
-u32_t*ri,*ij_ptr,*ij_ptr_ub,n1_j,**sched_ptr,fbi_offs,ot,FBsize;
+u32_t *lasched(u32_t *ri, u32_t *ij_ptr, u32_t *ij_ptr_ub,
+               u32_t n1_j, u32_t **sched_ptr, u32_t fbi_offs,
+               u32_t ot, u32_t FBsize)
 {
 	u32_t ij, ij_ub;
 	u32_t ot_mask, ot_tester;
@@ -461,3 +464,4 @@ u32_t*ri,*ij_ptr,*ij_ptr_ub,n1_j,**sched_ptr,fbi_offs,ot,FBsize;
 }
 
 /*:2*/
+}  /* namespace lasieve_ns */

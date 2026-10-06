@@ -5,15 +5,14 @@
 // SMJS #define ulong  unsigned long
 
 // SMJS For ulong type
+#include "lasieve_ns.h"
 #include "siever-config.h"
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-asm-abi */
-#endif
 
 /* 这几个 montgomery 暂存区在 C 时代靠 -fcommon 在 ecm 与 pm1
  * 之间合成一份；C++ 里每个定义都是强的，所以改成头里声明、
  * 只留一份定义（在 ecm.cpp）。*/
+namespace lasieve_ns {
 extern ulong mm_A[NMAX_ULONGS];
 extern ulong mm_B[NMAX_ULONGS];
 extern ulong mm_C[NMAX_ULONGS];
@@ -28,6 +27,8 @@ extern ulong mm_x[NMAX_ULONGS];
 extern ulong mm_x1[NMAX_ULONGS];
 extern ulong mm_z[NMAX_ULONGS];
 extern ulong mm_z1[NMAX_ULONGS];
+}  /* namespace lasieve_ns */
+
 
 /*
 #ifdef _WIN64
@@ -37,6 +38,7 @@ typedef  unsigned long ulong;
 #endif
 */
 
+namespace lasieve_ns {
 extern void ASM_ATTR (*asm_mulmod)(ulong *,ulong *,ulong *);
 extern void ASM_ATTR (*asm_zero)(ulong *);
 extern void ASM_ATTR (*asm_copy)(ulong *,ulong *);
@@ -52,9 +54,12 @@ extern int (*asm_inv)(ulong *,ulong *);
 
 void init_montgomery_multiplication();
 int set_montgomery_multiplication(mpz_t);
+}  /* namespace lasieve_ns */
+
 
 // SMJS Moved protos to here from c file so can be used in noasm64.c as well
 // SMJS Removed externs
+namespace lasieve_ns {
 void ASM_ATTR asm_mulm64(ulong *,ulong *,ulong *);
 void ASM_ATTR asm_zero64(ulong *);
 void ASM_ATTR asm_sub64_3(ulong *,ulong *,ulong *);
@@ -95,8 +100,7 @@ void asm_sqm192(ulong *,ulong *);
 void asm_diff192(ulong *,ulong *,ulong *);
 void asm_add192_ui(ulong *,ulong);
 int asm_inv192(ulong *,ulong *);
+}  /* namespace lasieve_ns */
 
-#ifdef __cplusplus
-}  /* yafu-asm-abi */
-#endif
+
 #endif

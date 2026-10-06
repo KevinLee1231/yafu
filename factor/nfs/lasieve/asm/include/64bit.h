@@ -1,7 +1,6 @@
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-asm-abi */
-#endif
+#include "lasieve_ns.h"
+
 
 /*
   Copyright (C) 2000,2006 Jens Franke, Thorsten Kleinjung
@@ -14,7 +13,10 @@ extern "C" {  /* yafu-asm-abi */
   02111-1307, USA.
 */
 
+namespace lasieve_ns {
 volatile extern u64_t modulo64;
+}  /* namespace lasieve_ns */
+
 
 u64_t modmul64(u64_t x,u64_t y);
 
@@ -34,6 +36,3 @@ static inline u64_t modadd64(u64_t x,u64_t y)
 }
 #endif
 
-#ifdef __cplusplus
-}  /* yafu-asm-abi */
-#endif

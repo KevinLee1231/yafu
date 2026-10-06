@@ -1,7 +1,4 @@
 
-#ifdef __cplusplus
-extern "C" {  /* yafu-asm-abi */
-#endif
 
 /*1:*/
 
@@ -11,6 +8,7 @@ extern "C" {  /* yafu-asm-abi */
 #define NEED_GETLINE
 #endif
 
+#include "lasieve_ns.h"
 #include <stdarg.h> 
 #include <stdio.h> 
 #include <unistd.h> 
@@ -33,11 +31,15 @@ extern "C" {  /* yafu-asm-abi */
  * 需要的裸名字，所以在这里先把宏定下来让 yafu 那边让位。 */
 #ifndef YA_ALLOC_DECLARED
 #define YA_ALLOC_DECLARED
+namespace lasieve_ns {
 void*xmalloc(size_t size);
 void*xvalloc(size_t size);
 void*xcalloc(size_t n,size_t s);
 void*xrealloc(void*x,size_t size);
+}  /* namespace lasieve_ns */
+
 #endif /* YA_ALLOC_DECLARED */
+namespace lasieve_ns {
 void complain(char*fmt,...);
 void Schlendrian(char*fmt,...);
 void logbook(int l,char*fmt,...);
@@ -45,6 +47,8 @@ int errprintf(char*fmt,...);
 void adjust_bufsize(void**,size_t*,size_t,size_t,size_t);
 extern int verbose;
 extern FILE*logfile;
+}  /* namespace lasieve_ns */
+
 #ifdef BIGENDIAN
 int write_i64(FILE*,i64_t*,size_t);
 int write_u64(FILE*,u64_t*,size_t);
@@ -64,12 +68,15 @@ int read_u32(FILE*,u32_t*,size_t);
 #define read_u32(ofile,buffer,count) fread((void*)buffer,sizeof(u32_t),count,ofile)
 #define read_i32(ofile,buffer,count) fread((void*)buffer,sizeof(i32_t),count,ofile)
 #endif 
+namespace lasieve_ns {
 int yn_query(char*fmt,...);
 ssize_t skip_blanks_comments(char**,size_t*,FILE*);
 int u32_cmp012(const void*,const void*);
 int u32_cmp210(const void*,const void*);
 int u64_cmp012(const void*,const void*);
 int u64_cmp210(const void*,const void*);
+}  /* namespace lasieve_ns */
+
 
 #ifdef __INTEL_LLVM_COMPILER
 #define NEED_ASPRINTF
@@ -109,6 +116,3 @@ typedef unsigned long long ullong;
 
 /*:1*/
 
-#ifdef __cplusplus
-}  /* yafu-asm-abi */
-#endif

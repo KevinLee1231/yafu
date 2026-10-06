@@ -9,8 +9,12 @@
 
 #include "siever-config.h"
 #include "if.h"
-extern "C" {  /* 原来是 .c：定义天然 C 链接性，改成 C++ 后要显式写回 */
-    mp_limb_t ASM_ATTR mpz_asm_td(mp_limb_t,mp_limb_t,mp_limb_t*,mp_size_t);
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
+    /* 必须和 mpz-td.cpp 的定义逐字一致：C 链接下参数类型不参与修饰名，
+     * 换成命名空间后就是两个不同的函数了。 */
+    u64_t ASM_ATTR mpz_asm_td(u64_t,u64_t,u64_t*,u64_t);
 
     static mp_limb_t *lbuf,*mibuf;
     static size_t lbuf_alloc=0,mibuf_alloc=0;
@@ -93,5 +97,4 @@ extern "C" {  /* 原来是 .c：定义天然 C 链接性，改成 C++ 后要显�
         pbuf[np++]=2;
       return pbuf+np;
     }
-
-}  /* extern "C" */
+}  /* namespace lasieve_ns */

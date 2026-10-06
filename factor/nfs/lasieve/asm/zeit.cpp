@@ -21,7 +21,9 @@
 #include "siever-config.h"
 #include "if.h"
 #include "zeit.h"
-extern "C" {  /* 原来是 .c：定义天然 C 链接性，改成 C++ 后要显式写回 */
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
     clock_t *zeitcounter;
     u64_t *asmzeitcounter;
     double *zeitsum;
@@ -96,5 +98,4 @@ extern "C" {  /* 原来是 .c：定义天然 C 链接性，改成 C++ 后要显�
     }
 
     #endif
-
-}  /* extern "C" */
+}  /* namespace lasieve_ns */

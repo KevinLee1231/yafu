@@ -32,6 +32,9 @@
 
 
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 static u32_t A, A_bits, ub;
 
 void rec_info_init(u32_t A1, u32_t ub1)
@@ -1299,3 +1302,4 @@ done:
 
 
 #endif
+}  /* namespace lasieve_ns */

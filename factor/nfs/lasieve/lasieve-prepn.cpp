@@ -42,6 +42,9 @@
 #define AVX512_LASIEVE_SETUP
 #endif
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 #ifdef AVX512_LASIEVE_SETUP
 
 #if defined(INTEL_COMPILER) || defined(INTEL_LLVM_COMPILER)
@@ -1567,3 +1570,4 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 }
 
 /*:4*/
+}  /* namespace lasieve_ns */

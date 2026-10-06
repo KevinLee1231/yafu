@@ -1,3 +1,6 @@
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 unsigned char mpqs_256_inv_table[128]={
 1, 171, 205, 183, 57, 163, 197, 239, 
 241, 27, 61, 167, 41, 19, 53, 223, 
@@ -15,3 +18,4 @@ unsigned char mpqs_256_inv_table[128]={
 49, 91, 125, 231, 105, 83, 117, 31, 
 33, 203, 237, 215, 89, 195, 229, 15, 
 17, 59, 93, 199, 73, 51, 85, 255 };
+}  /* namespace lasieve_ns */

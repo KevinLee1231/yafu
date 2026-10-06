@@ -24,6 +24,9 @@
 #include "siever-config.h"
 #include "mpqs-config.h"   /* mpqs3 复用这个头，asm_re_strip 的声明在里面 */
 
+#include "lasieve_ns.h"
+
+namespace lasieve_ns {
 typedef u64_t u64;
 
 /* cnt 的声明类型是 u32_t（mpqs-config.h:124），调用方 mpqs3.cpp:2779 传的
@@ -76,3 +79,4 @@ void asm_re_strip(u64_t *rowptr, u32_t cnt_in, i16_t *dptr, unsigned char *ucmpt
 		rowptr += 2;
 	}
 }
+}  /* namespace lasieve_ns */
