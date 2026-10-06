@@ -60,3 +60,10 @@ factor/nfs/lasieve/asm/search0I*.s
 factor/nfs/lasieve/asm/*I1[1-6].o
 factor/nfs/lasieve/asm/libcoreI*.a
 factor/nfs/lasieve/asm/liblasieveI*.a
+
+# 筛法器的 stat/test 目标：make 生成的开发用可执行文件
+factor/nfs/lasieve/ctx_test
+factor/nfs/lasieve/ecm_pm1_test
+factor/nfs/lasieve/pm1test
+factor/nfs/lasieve/pm1stat
+factor/nfs/lasieve/ecmstat
