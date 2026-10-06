@@ -29,6 +29,7 @@
  *               name) without taking over the process.
  */
 
+#include <pthread.h>
 #include <setjmp.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,6 +37,21 @@
 
 #include "siever-config.h"
 #include "siever-asm.h"
+
+/* Option parsing is the one thing the per-I copies cannot make private.
+ *
+ * Every other global in gnfs-lasieve4e.cpp is in I_SYMBOLS, so the build renames
+ * it per I value (las_basename -> las_basenameI11) and two sievers never touch
+ * the same one.  glibc's getopt keeps its position in optind and hands back
+ * optarg, both process-wide, and I_SYMBOLS can only rename symbols this tree
+ * defines.  yafu runs up to six sievers at once, so two of them inside getopt at
+ * the same time hand each other's state back and forth.
+ *
+ * This lives here because lasieve_dispatch.o is compiled exactly once.  The six
+ * per-I gnfs-lasieve4e.o each reference it by extern under a name that is not in
+ * I_SYMBOLS, so all six bind to this one object.
+ */
+pthread_mutex_t lasieve_opt_lock = PTHREAD_MUTEX_INITIALIZER;
 
 /* each of these is the renamed main() of objI<N>/gnfs-lasieve4e.o */
 int mainI11(int argc, char **argv);

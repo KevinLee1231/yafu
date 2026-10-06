@@ -32,6 +32,7 @@
 
 // BRB: support for avx512 intrinsics
 #include <immintrin.h>
+#include <pthread.h>
 #include <stdint.h>
 
 #ifdef _WIN64
@@ -805,6 +806,54 @@ int parse_q_from_line(char* buf) {
     return 1;
 }
 
+/* getopt's process-wide state, reached one call at a time.
+ *
+ * yafu starts one siever per I value and they run at the same time, so without
+ * this two threads are inside getopt at once and read each other's optind.  The
+ * damage is not only a wrong -c: a -c whose argument another thread already
+ * consumed leaves the count at 0, which is a silent wrong answer rather than a
+ * failure, and optarg can point into a thread's argv whose argument buffer sat
+ * on that thread's stack and is gone once it returned -- that is the
+ * intermittent segfault in check_sieve_mt.  ThreadSanitizer names the race
+ * plainly: data race on optind@GLIBC_2.2.5.
+ *
+ * The lock spans one getopt() and nothing more.  Holding it across the whole
+ * parse would deadlock instead: Usage() and complain() exit, and under
+ * lasieve_run() an exit() is a longjmp straight out of a locked mutex.
+ */
+extern pthread_mutex_t lasieve_opt_lock;
+static __thread char *lasieve_optarg;
+static __thread int lasieve_optind;
+
+/* Rewind to the front of argv.  Separate from the call below because a
+ * getopt() made here would return the first option and whoever made it
+ * would throw that away -- which is how -a ended up never being seen. */
+static void lasieve_getopt_reset(void)
+{
+    pthread_mutex_lock(&lasieve_opt_lock);
+#ifdef optreset
+    optreset = 1;                     // BSD and macOS
+#endif
+    optind = 1;
+    pthread_mutex_unlock(&lasieve_opt_lock);
+}
+
+static int lasieve_getopt(int argc, char **argv, const char *optstring)
+{
+    int r;
+
+    pthread_mutex_lock(&lasieve_opt_lock);
+    r = getopt(argc, argv, optstring);
+    lasieve_optarg = optarg;
+    lasieve_optind = optind;
+    pthread_mutex_unlock(&lasieve_opt_lock);
+    return r;
+}
+
+/* optarg is getopt's global; through the parse block it has to mean this
+ * thread's copy instead.  Scoped to the parse, so nothing after it sees this. */
+#define optarg lasieve_optarg
+
 #ifdef HAVE_BOINC
 
 /* this main talks with BOINC */
@@ -885,6 +934,7 @@ int main(int argc, char** argv)
     // parse options and poly file
     {
         i32_t option;
+        i32_t trailing;
         FILE* input_data;
         u32_t i;
 
@@ -925,12 +975,9 @@ int main(int argc, char** argv)
         // the previous argv and skip -a, -f and everything else at the front.
         // That left special_q_side at NO_SIDE and the run died on a bad index
         // rather than saying what was wrong.
-        optind = 1;
-#ifdef optreset
-        optreset = 1;         // BSD and macOS
-#endif
+        lasieve_getopt_reset();
 
-        while ((option = getopt(argc, argv, "C:FJ:L:M:N:P:RS:Z:ab:c:f:hi:kn:o:q:rt:dvz")) != -1) {
+        while ((option = lasieve_getopt(argc, argv, "C:FJ:L:M:N:P:RS:Z:ab:c:f:hi:kn:o:q:rt:dvz")) != -1) {
             switch (option) {
             case'C':
                 if (sscanf(optarg, "%u", &spq_count) != 1)Usage(argv[0]);
@@ -1138,12 +1185,17 @@ int main(int argc, char** argv)
 #error Must #define I_bits
 #endif
 
-        if (optind < argc && las_basename == NULL) {
-            las_basename = argv[optind];
-            optind++;
+#undef optarg
+
+        /* optind is shared, so take this thread's copy and work from that.
+         * Nothing after here looks at optind again. */
+        trailing = lasieve_optind;
+        if (trailing < argc && las_basename == NULL) {
+            las_basename = argv[trailing];
+            trailing++;
         }
-        if (optind < argc)fprintf(stderr, "Ignoring %u trailing command line args\n",
-            argc - optind);
+        if (trailing < argc)fprintf(stderr, "Ignoring %u trailing command line args\n",
+            argc - trailing);
         if (las_basename == NULL)las_basename = "gnfs";
         if ((input_data = fopen(las_basename, "rb")) == NULL) {
             complain("Cannot open %s for input of nfs polynomials: %m\n", las_basename);
