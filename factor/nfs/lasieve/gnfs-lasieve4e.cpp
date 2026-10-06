@@ -806,53 +806,82 @@ int parse_q_from_line(char* buf) {
     return 1;
 }
 
-/* getopt's process-wide state, reached one call at a time.
+/* 命令行解析。
  *
- * yafu starts one siever per I value and they run at the same time, so without
- * this two threads are inside getopt at once and read each other's optind.  The
- * damage is not only a wrong -c: a -c whose argument another thread already
- * consumed leaves the count at 0, which is a silent wrong answer rather than a
- * failure, and optarg can point into a thread's argv whose argument buffer sat
- * on that thread's stack and is gone once it returned -- that is the
- * intermittent segfault in check_sieve_mt.  ThreadSanitizer names the race
- * plainly: data race on optind@GLIBC_2.2.5.
+ * 这里不用 getopt，因为它的状态全是进程级的：optind 和 optarg 是全局变量，
+ * glibc 内部另有 nextchar（短选项聚簇的游标）和 first_nonopt / last_nonopt
+ * （GNU 置换用）。这些都不是本树定义的符号，改不了名，也就隔离不了。yafu 每个
+ * I 值起一个筛法器同时跑，六份 mainI11..mainI16 在同一个进程里各解析一遍，
+ * 于是谁都会接着别人的扫描位置往下走。
  *
- * The lock spans one getopt() and nothing more.  Holding it across the whole
- * parse would deadlock instead: Usage() and complain() exit, and under
- * lasieve_run() an exit() is a longjmp straight out of a locked mutex.
+ * 后果不是「解析失败」这种能看见的错，而是悄悄的错值：实测并发轮次里会有
+ * 某个筛法器把 -c 20 丢成默认的 1、或者把 -f 650000 丢成 0，
+ * ThreadSanitizer 点名的是 data race on optind@GLIBC_2.2.5，修复后段错误
+ * 归零，但这个形态还在——因为它走的是 glibc 那几个够不着的内部变量。
+ * 表现是那个筛法器写出 <name>.lasieve-0.<first>-<first+1>，
+ * check_sieve_mt 按 <first>-<first+20> 去找就报 "produced no"。
+ *
+ * 所以自己扫。选项表固定、语义只有带参数和不带参数两种，状态全在下面这个
+ * 结构里，由调用方放在栈上。
  */
-extern pthread_mutex_t lasieve_opt_lock;
-static __thread char *lasieve_optarg;
-static __thread int lasieve_optind;
-
-/* Rewind to the front of argv.  Separate from the call below because a
- * getopt() made here would return the first option and whoever made it
- * would throw that away -- which is how -a ended up never being seen. */
-static void lasieve_getopt_reset(void)
+struct lasieve_opt
 {
-    pthread_mutex_lock(&lasieve_opt_lock);
-#ifdef optreset
-    optreset = 1;                     // BSD and macOS
-#endif
-    optind = 1;
-    pthread_mutex_unlock(&lasieve_opt_lock);
+    int    argc;
+    char **argv;
+    int    index;      /* argv 里下一个待看的下标 */
+    char  *cursor;     /* 当前 argv 元素里下一个待处理的字符；NULL 表示要换元素 */
+    char  *arg;        /* 本次选项的参数；该选项不带参数时为 NULL */
+};
+
+static void lasieve_opt_init(struct lasieve_opt *o, int argc, char **argv)
+{
+    o->argc = argc;
+    o->argv = argv;
+    o->index = 1;
+    o->cursor = NULL;
+    o->arg = NULL;
 }
 
-static int lasieve_getopt(int argc, char **argv, const char *optstring)
+/* 取下一个选项，返回选项字符；没有了就返回 -1。 */
+static int lasieve_opt_next(struct lasieve_opt *o, const char *optstring)
 {
-    int r;
+    o->arg = NULL;
 
-    pthread_mutex_lock(&lasieve_opt_lock);
-    r = getopt(argc, argv, optstring);
-    lasieve_optarg = optarg;
-    lasieve_optind = optind;
-    pthread_mutex_unlock(&lasieve_opt_lock);
-    return r;
+    for (;;) {
+        if (o->cursor == NULL || *o->cursor == '\0') {
+            if (o->index >= o->argc)
+                return -1;
+            char *s = o->argv[o->index];
+            if (s[0] != '-' || s[1] == '\0')
+                return -1;              /* 非选项，后面都是位置参数 */
+            if (s[1] == '-' && s[2] == '\0') {
+                o->index++;              /* "--" 之后都是位置参数 */
+                return -1;
+            }
+            o->index++;
+            o->cursor = s + 1;
+        }
+
+        char c = *o->cursor++;
+        const char *p = strchr(optstring, c);
+
+        if (p == NULL || c == ':' || c == '-')
+            return '?';                 /* 未知选项：原来的 switch 没有 case '?' */
+
+        if (p[1] != ':')
+            return c;                   /* 不带参数 */
+
+        if (*o->cursor != '\0') {       /* -fVALUE 连写 */
+            o->arg = o->cursor;
+            o->cursor = NULL;
+        } else if (o->index < o->argc) {  /* -f VALUE */
+            o->arg = o->argv[o->index++];
+        } else {
+            return '?';                 /* 缺参数 */
+        }
+        return c;
+    }
 }
-
-/* optarg is getopt's global; through the parse block it has to mean this
- * thread's copy instead.  Scoped to the parse, so nothing after it sees this. */
-#define optarg lasieve_optarg
 
 #ifdef HAVE_BOINC
 
@@ -935,6 +964,7 @@ int main(int argc, char** argv)
     {
         i32_t option;
         i32_t trailing;
+        char *optarg = NULL;         /* 本次选项的参数，见上面的解析器 */
         FILE* input_data;
         u32_t i;
 
@@ -968,16 +998,12 @@ int main(int argc, char** argv)
 
         append_output = 0;
 
-        // Start option parsing from the beginning.  getopt keeps its position
-        // in the global optind and does not reset it between calls, so a second
-        // entry into this function -- which is what happens when yafu runs a
-        // second I value in the same process -- would resume near the end of
-        // the previous argv and skip -a, -f and everything else at the front.
-        // That left special_q_side at NO_SIDE and the run died on a bad index
-        // rather than saying what was wrong.
-        lasieve_getopt_reset();
+        struct lasieve_opt lasieve_opts;
+        lasieve_opt_init(&lasieve_opts, argc, argv);
 
-        while ((option = lasieve_getopt(argc, argv, "C:FJ:L:M:N:P:RS:Z:ab:c:f:hi:kn:o:q:rt:dvz")) != -1) {
+        while ((option = lasieve_opt_next(&lasieve_opts,
+                                        "C:FJ:L:M:N:P:RS:Z:ab:c:f:hi:kn:o:q:rt:dvz")) != -1) {
+            optarg = lasieve_opts.arg;
             switch (option) {
             case'C':
                 if (sscanf(optarg, "%u", &spq_count) != 1)Usage(argv[0]);
@@ -1185,18 +1211,13 @@ int main(int argc, char** argv)
 #error Must #define I_bits
 #endif
 
-#undef optarg
-
-        /* optind is shared, so take this thread's copy and work from that.
-         * Nothing after here looks at optind again. */
-        trailing = lasieve_optind;
+        trailing = lasieve_opts.index;
         if (trailing < argc && las_basename == NULL) {
             las_basename = argv[trailing];
             trailing++;
         }
         if (trailing < argc)fprintf(stderr, "Ignoring %u trailing command line args\n",
             argc - trailing);
-        if (las_basename == NULL)las_basename = "gnfs";
         if ((input_data = fopen(las_basename, "rb")) == NULL) {
             complain("Cannot open %s for input of nfs polynomials: %m\n", las_basename);
         }
