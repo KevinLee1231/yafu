@@ -971,22 +971,8 @@ zeitB(10);
 
 /* ------------------ elliptic curve operations --------------------- */
 
-ulong mm_b[NMAX_ULONGS];
-ulong mm_one[NMAX_ULONGS];
-ulong mm_u[NMAX_ULONGS];
-ulong mm_v[NMAX_ULONGS];
-ulong mm_w[NMAX_ULONGS];
-ulong mm_prod[NMAX_ULONGS];
 
-ulong mm_a[NMAX_ULONGS];
-ulong mm_x[NMAX_ULONGS];
-ulong mm_z[NMAX_ULONGS];
-  ulong mm_x1[NMAX_ULONGS];
-  ulong mm_z1[NMAX_ULONGS];
 
-ulong mm_A[NMAX_ULONGS];
-ulong mm_B[NMAX_ULONGS];
-ulong mm_C[NMAX_ULONGS];
 
 /* computes 2P=(x2:z2) from P=(x1:z1), with 5 mul, 4 add/sub, 1 copy
      Uses the following global variables:

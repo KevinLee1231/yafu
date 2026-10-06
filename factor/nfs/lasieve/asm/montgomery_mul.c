@@ -11,6 +11,28 @@
 #include "gmp-aux.h"
 #include "montgomery_mul.h"
 
+/* ECM / P-1 的蒙哥马利暂存区。定义放在这里而不是 ecm.cpp / pm1.cpp：
+ * set_montgomery_multiplication() 就在本文件里，它写的正是这些数组；
+ * 而本文件在 CORE_MEMBERS 中，六个 I 值各有一份改名的副本，
+ * asm/liblasieve.a 里还有一份不改名的，per-I 目标和不带 I 值的
+ * 工具目标都能解析到。原来 ecm.cpp 与 pm1.cpp 各有一份暂定定义，
+ * 靠 -fcommon 合并，C++ 下两者同时链接会撞、只链其一时又缺。 */
+ulong mm_one[NMAX_ULONGS];
+ulong mm_prod[NMAX_ULONGS];
+ulong mm_u[NMAX_ULONGS];
+ulong mm_v[NMAX_ULONGS];
+ulong mm_w[NMAX_ULONGS];
+ulong mm_a[NMAX_ULONGS];
+ulong mm_b[NMAX_ULONGS];
+ulong mm_x[NMAX_ULONGS];
+ulong mm_z[NMAX_ULONGS];
+ulong mm_x1[NMAX_ULONGS];
+ulong mm_z1[NMAX_ULONGS];
+ulong mm_A[NMAX_ULONGS];
+ulong mm_B[NMAX_ULONGS];
+ulong mm_C[NMAX_ULONGS];
+
+
 #define uchar   unsigned char
 
 ulong montgomery_inv_n;

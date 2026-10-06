@@ -152,6 +152,31 @@ u64_t ASM_ATTR asm_modmul64(u64_t,u64_t);
 #define N_PRIMEBOUNDS 12
 
 #ifdef __cplusplus
+/* 计时计数器的入口。C 时代靠隐式声明，转成 C++ 之后必须显式声明，
+ * 而且必须落在上面那段 extern "C" 里 —— 定义在汇编里，是裸名字。
+ * 只声明函数；zeitcounter / zeitsum 这些是数据符号，不在这里动。 */
+
+/* 计时计数器的入口。C 时代靠隐式声明，转成 C++ 之后必须显式声明，
+ * 而且必须落在上面那段 extern "C" 里 —— 定义在汇编里，是裸名字。
+ * 只声明函数；zeitcounter / zeitsum 这些是数据符号，不在这里动。 */
+void initzeit(ulong t);
+void printzeit(ulong i);
+void zeitA(ulong i);
+void zeitB(ulong i);
+void zeita(ulong i);
+void zeitb(ulong i);
+
+/* 计时计数器的入口。C 时代靠隐式声明，转成 C++ 之后必须显式声明，
+ * 而且必须落在上面那段 extern "C" 里 —— 定义在汇编里，是裸名字。
+ * 只声明函数；zeitcounter / zeitsum 这些是数据符号，不在这里动。 */
+ulong asmgetclock(void);
+void initzeit(ulong t);
+void printzeit(ulong i);
+void zeitA(ulong i);
+void zeitB(ulong i);
+void zeita(ulong i);
+void zeitb(ulong i);
+
 }  /* yafu-asm-abi */
 #endif
 #endif
