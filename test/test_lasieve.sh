@@ -127,4 +127,32 @@ make -s -C "$repo_root/factor/nfs/lasieve" "$build_dir/ecm_pm1_test" \
     BINDIR="$build_dir" CC="$cc" CXX="$cxx"
 "$build_dir/ecm_pm1_test"
 
+# 筛法器自带的 stat/test 目标：构建即验收。
+#
+# 这些目标不在 `make all` 里，原来两套回归也没覆盖到。C++ 迁移期间 mm_* 的
+# 归属和 zeit 的声明各出过问题，把其中四个的链接搞坏了，而主构建和上面
+# 全部测试一直是绿的 —— 覆盖有盲区。对它们来说链接成功就是唯一验收点，
+# 所以每个都构建一遍。
+echo "--- 筛法器 stat/test 目标的链接检查 ---"
+devbin_failed=""
+for t in pm1test pm1stat ecmtest ecmstat mpqsstat \
+         mpqstest mpqs3test; do
+    # 这几个目标的规则没有 $(BINPREFIX)，只能在树内构建；编完把产物挪进
+    # build_dir，由脚本开头的 trap 统一清掉。
+    if make -s -C "$repo_root/factor/nfs/lasieve" "$t" \
+            CC="$cc" CXX="$cxx" >"$build_dir/$t.log" 2>&1; then
+        mv "$repo_root/factor/nfs/lasieve/$t" "$build_dir/$t"
+        echo "  $t  ok"
+    else
+        echo "  $t  失败："
+        grep -E "undefined reference|multiple definition|错误" \
+            "$build_dir/$t.log" | head -3 | sed 's/^/      /'
+        devbin_failed="$devbin_failed $t"
+    fi
+done
+if [ -n "$devbin_failed" ]; then
+    echo "以下目标链接失败：$devbin_failed" >&2
+    exit 1
+fi
+
 printf '%s\n' 'lasieve standalone tests passed'
