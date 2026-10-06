@@ -323,18 +323,16 @@ SED ?= sed
 
 CORE_MEMBERS := \
 	gcd32.o psp.o pt64.o \
-	modinv1000.o ri-aux.o mpz-trialdiv.o \
-	asm_64bit.o modinv1000b.o schedsieve.o \
-	mpz-td.o MMX-TD.o MMX-TD1.o \
-	MMX-TD2.o tdsieve-from-sched.o lasieve-asmprepn.o \
-	zeit.o asm-zeit.o lasieve-asmprepn64.o \
-	lasieve-asmprepn2_64.o translate.o rescale.o \
-	mpqs_td.o invtab.o mpqs_sieve.o \
-	mpqs_eval.o mpqs_sieveinit.o mpqs_nextpol.o \
-	mpqs_gauss.o lasieve-asmprepn2.o noasm64.o \
+	modinv1000.o mpz-trialdiv.o asm_64bit.o \
+	schedsieve.o mpz-td.o MMX-TD.o \
+	MMX-TD2.o zeit.o asm-zeit.o \
+	rescale.o mpqs_td.o invtab.o \
+	mpqs_sieve.o mpqs_eval.o mpqs_sieveinit.o \
+	mpqs_nextpol.o mpqs_gauss.o noasm64.o \
 	basemath.o montgomery_mul.o asm_arith64.o \
 	asm_arith128.o asm_arith192.o mpqs3_sieve.o \
 	mpqs3_nextpol.o mpqs3_td.o mpqs3_gauss.o
+
 
 # The per-I core objects.  $(1) is substituted at $(call) time, so the
 # rename is baked into each rule rather than shared through a variable.
