@@ -121,10 +121,10 @@ endif
 # (no leading dnl), so running this against an already-patched file is safe.
 ls-defs-os.asm: ls-defs.asm
 	sed \
-	    -e 's/^define(windows,1)/dnl define(windows,1)/' \
-	    -e 's/^define(osx,1)/dnl define(osx,1)/'         \
-	    -e 's/^define(linux,1)/dnl define(linux,1)/'     \
-	    $< > $@
+	 -e 's/^define(windows,1)/dnl define(windows,1)/' \
+	 -e 's/^define(osx,1)/dnl define(osx,1)/' \
+	 -e 's/^define(linux,1)/dnl define(linux,1)/' \
+	 $< > $@
 
 
 # --- Assembly preprocessing pipeline -----------------------------------------
@@ -173,13 +173,13 @@ gcd32.o mpqs.o psp.o MMX-TD.o lasched.o mpqs_eval.o: include/siever-config.h
 
 # --- liblasieve.a (core sieve objects) ---------------------------------------
 liblasieve.a: \
-	gcd32.o psp.o pt64.o modinv1000.o ri-aux.o mpz-trialdiv.o \
+	gcd32.o psp.o pt64.o modinv1000.o mpz-trialdiv.o \
 	asm_64bit.o \
-	modinv1000b.o schedsieve.o mpz-td.o MMX-TD.o MMX-TD1.o MMX-TD2.o \
-	tdsieve-from-sched.o lasieve-asmprepn.o zeit.o asm-zeit.o \
-	lasieve-asmprepn64.o lasieve-asmprepn2_64.o translate.o rescale.o \
+	 schedsieve.o mpz-td.o MMX-TD.o MMX-TD2.o \
+	 zeit.o asm-zeit.o \
+	 rescale.o \
 	mpqs_td.o invtab.o mpqs_sieve.o mpqs_eval.o mpqs_sieveinit.o \
-	mpqs_nextpol.o mpqs_gauss.o lasieve-asmprepn2.o \
+	mpqs_nextpol.o mpqs_gauss.o \
 	noasm64.o basemath.o montgomery_mul.o asm_arith64.o asm_arith128.o \
 	asm_arith192.o mpqs3_sieve.o mpqs3_nextpol.o mpqs3_td.o \
 	mpqs3_gauss.o
@@ -224,11 +224,11 @@ medsched0I%.s: ls-defs-os.asm medsched0.asm
 # --- I-parameterised .o compilation rules ------------------------------------
 # ../include/if.h resolves to factor/lasieve5_64/if.h
 laschedI%.o: lasched.c include/lasched.h \
-		include/siever-config.h ../include/if.h
+	 include/siever-config.h ../include/if.h
 	$(CC) $(CFLAGS) -DI_bits=$* $(foreach s,$(IRENAME_C_SYMS),-D$(s)=$(s)I$*) -c -o $@ $<
 
 medschedI%.o: medsched.c include/medsched.h \
-		include/siever-config.h ../include/if.h
+	 include/siever-config.h ../include/if.h
 	$(CC) $(CFLAGS) -DI_bits=$* $(foreach s,$(IRENAME_C_SYMS),-D$(s)=$(s)I$*) -c -o $@ $<
 
 
@@ -340,7 +340,7 @@ define CORE_IRULES
 coreI$(1)/%.o: %.c
 	@mkdir -p coreI$(1)
 	$$(CC) $$(CFLAGS) $$(foreach s,$$(IRENAME_SYMS),-D$$(s)=$$(s)I$(1)) \
-		-DMODULO32_ASM_NAME='"modulo32I$(1)"' -c -o $$@ $$<
+	 -DMODULO32_ASM_NAME='"modulo32I$(1)"' -c -o $$@ $$<
 
 # 同一个 I 值下的 C++ 源。rescale 原本是 m4 模板里的 pavgb 指令，
 # intrinsics 一一对应，所以改成了 C++；mpqs_eval 是四个扫描筛数组的
@@ -349,7 +349,7 @@ coreI$(1)/%.o: %.c
 coreI$(1)/%.o: %.cpp
 	@mkdir -p coreI$(1)
 	$$(CXX) $$(CXXFLAGS) $$(foreach s,$$(IRENAME_SYMS),-D$$(s)=$$(s)I$(1)) \
-		-DMODULO32_ASM_NAME='"modulo32I$(1)"' -c -o $$@ $$<
+	 -DMODULO32_ASM_NAME='"modulo32I$(1)"' -c -o $$@ $$<
 
 coreI$(1)/%.o: %.asm ls-defs-os.asm
 	@mkdir -p coreI$(1)
