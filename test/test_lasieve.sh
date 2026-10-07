@@ -10,11 +10,24 @@ cxx=${CXX:-g++}
 cxxflags=${CXXFLAGS:--std=c++26 -O0 -g}
 build_dir=$(mktemp -d /tmp/yafu-lasieve-test.XXXXXX)
 
+# 筛法器的对象也编到临时目录，源码树里不留任何生成文件。所有 make 调用共用
+# 同一个 OBJDIR，所以 130 多个 per-I 对象只编一次，后面的目标直接复用。
+lasieve_objdir="$build_dir/obj"
+
 cleanup()
 {
-    rm -rf "$build_dir"
+    # 退出码必须自己带出去。本机这个 dash 上，以成功命令（rm -rf）收尾的
+    # EXIT trap 会把显式的 exit 1 变成 0 —— 于是任何"检查失败就 exit 1"的
+    # 回归脚本都会报成功。这里先把原始状态存下来、清掉 trap，再原样退出。
+    rc=$?
+    trap - EXIT HUP INT TERM
+    rm -rf -- "$build_dir"
+    exit "$rc"
 }
 trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 trap 'exit 129' HUP
 trap 'exit 130' INT
 trap 'exit 143' TERM
@@ -43,6 +56,14 @@ compile_cxx()
     obj="$build_dir/$tag-$(basename "$src" .cpp).o"
     "$cxx" $cxxflags -D_GNU_SOURCE -UNDEBUG $INC "$@" -c "$src" -o "$obj"
     printf '%s' "$obj"
+}
+
+# 调筛法器子构建。目标名带 $build_dir/ 前缀，对应它的 $(BINPREFIX)；
+# 对象进 $lasieve_objdir，可执行文件进 $build_dir。
+build_sieve()
+{
+    make -s -C "$repo_root/factor/nfs/lasieve" "$@" \
+        OBJDIR="$lasieve_objdir" BINDIR="$build_dir" CC="$cc" CXX="$cxx"
 }
 
 BAIL_OBJ=$(compile_cxx obj factor/nfs/lasieve/lasieve_bail.cpp)
@@ -98,8 +119,7 @@ compile -ffunction-sections -fdata-sections $INC \
 # 筛法器是 yafu 的一部分，make all 只产出 yafu 一个可执行文件；这里用
 # lasieve/Makefile 的 check_sieve 目标现编一个临时驱动（同一批对象），
 # 测完随 build_dir 一起删掉。
-make -s -C "$repo_root/factor/nfs/lasieve" "$build_dir/check_sieve" \
-    BINDIR="$build_dir" CC="$cc" CXX="$cxx"
+build_sieve "$build_dir/check_sieve"
 sh "$repo_root/test/standalone/lasieve/sieve_oracle.sh" "$build_dir/check_sieve"
 
 # 六个 I 值同时跑，各占一个线程。sieve_oracle.sh 一次只跑一个 I 值，而且每次都是
@@ -107,8 +127,7 @@ sh "$repo_root/test/standalone/lasieve/sieve_oracle.sh" "$build_dir/check_sieve"
 #   * getopt 的 optind 是进程级全局且不自己复位，第二次进 main 会跳过 -a/-f
 #   * 两个筛法器共用 factor base 或蒙哥马利状态
 # 每线程一份多项式副本，筛法器按输入名派生自己的附属文件，互不踩。
-make -s -C "$repo_root/factor/nfs/lasieve" "$build_dir/check_sieve_mt" \
-    BINDIR="$build_dir" CC="$cc" CXX="$cxx"
+build_sieve "$build_dir/check_sieve_mt"
 sieve_dir=$(mktemp -d "${TMPDIR:-/tmp}/yafu-sieve-mt.XXXXXX")
 cp "$repo_root/factor/nfs/lasieve/R942_poly.txt" "$sieve_dir/poly"
 ( cd "$sieve_dir" && "$build_dir/check_sieve_mt" poly 650000 20 6 )
@@ -116,15 +135,13 @@ rm -rf "$sieve_dir"
 
 # 多实例验证：ECM/PM1 的缓存搬进 lasieve_ctx 之后，两个实例交替推进必须
 # 和各自单独跑出一样的结果。搬到 ctx 之前是文件级全局，这项会挂。
-make -s -C "$repo_root/factor/nfs/lasieve" "$build_dir/ctx_test" \
-    BINDIR="$build_dir" CC="$cc" CXX="$cxx"
+build_sieve "$build_dir/ctx_test"
 "$build_dir/ctx_test"
 
 # ECM/P-1 的数值正确性 + 两个实例交错推进的隔离性。
 # 这两条路径的位图访问曾按字节下标算而缓冲区按 u64 字分配，越界到缓冲区外
 # 8 倍处；仓库里没有别的测试走到它们，靠这项守住。
-make -s -C "$repo_root/factor/nfs/lasieve" "$build_dir/ecm_pm1_test" \
-    BINDIR="$build_dir" CC="$cc" CXX="$cxx"
+build_sieve "$build_dir/ecm_pm1_test"
 "$build_dir/ecm_pm1_test"
 
 # 筛法器自带的 stat/test 目标：构建即验收。
@@ -137,11 +154,9 @@ echo "--- 筛法器 stat/test 目标的链接检查 ---"
 devbin_failed=""
 for t in pm1test pm1stat ecmtest ecmstat mpqsstat \
          mpqstest mpqs3test; do
-    # 这几个目标的规则没有 $(BINPREFIX)，只能在树内构建；编完把产物挪进
-    # build_dir，由脚本开头的 trap 统一清掉。
-    if make -s -C "$repo_root/factor/nfs/lasieve" "$t" \
-            CC="$cc" CXX="$cxx" >"$build_dir/$t.log" 2>&1; then
-        mv "$repo_root/factor/nfs/lasieve/$t" "$build_dir/$t"
+    # 这几个目标的规则带 $(BINPREFIX)，build_sieve 把它们落在 $build_dir，
+    # 所以不需要再从源码树里挪走。
+    if build_sieve "$build_dir/$t" >"$build_dir/$t.log" 2>&1; then
         echo "  $t  ok"
     else
         echo "  $t  失败："

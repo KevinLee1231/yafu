@@ -46,6 +46,10 @@ CXX_STD    := -std=c++26
 # 简单展开的话这里会拿到空串。
 CXXFLAGS    = $(filter-out -std=gnu11,$(CFLAGS)) $(CXX_STD)
 GMP_INCDIR ?= /usr/include
+# Objects, the per-I core trees and the .a files all land under OBJDIR.  The
+# parent lasieve Makefile passes an absolute build/.../kernels path, so the
+# libraries turn up exactly where the yafu link line looks for them.
+OBJDIR     ?= .
 
 ifndef DETECTED_OS
     ifeq ($(OS),Windows_NT)
@@ -91,33 +95,53 @@ endif
 
 
 
+# --- Generic compile rules ---------------------------------------------------
+# liblasieve.a and libcoreI<N>.a are both built out of these, and the .asm ->
+# .cpp migration left every kernel source as C++.  Written out rather than left
+# to make's built-in rules so that OBJDIR is honoured.
+
+$(OBJDIR)/%.o: %.c
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(OBJDIR)/%.o: %.cpp
+	@mkdir -p $(@D)
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+
 # --- Phony targets -----------------------------------------------------------
 .PHONY: all bup clean
 
 
 # --- Default goal ------------------------------------------------------------
-all: liblasieve.a \
-     liblasieveI11.a liblasieveI12.a liblasieveI13.a \
-     liblasieveI14.a liblasieveI15.a liblasieveI16.a
+# objpath turns a list of bare object names into where they are actually built.
+objpath = $(addprefix $(OBJDIR)/,$(1))
+
+all: $(OBJDIR)/liblasieve.a \
+     $(OBJDIR)/liblasieveI11.a $(OBJDIR)/liblasieveI12.a $(OBJDIR)/liblasieveI13.a \
+     $(OBJDIR)/liblasieveI14.a $(OBJDIR)/liblasieveI15.a $(OBJDIR)/liblasieveI16.a
 
 
 # --- Explicit header dependencies --------------------------------------------
-gcd32.o mpqs.o psp.o MMX-TD.o lasched.o mpqs_eval.o: include/siever-config.h
+$(call objpath,gcd32.o mpqs.o psp.o MMX-TD.o lasched.o mpqs_eval.o): include/siever-config.h
 
 
 # --- liblasieve.a (core sieve objects) ---------------------------------------
-liblasieve.a: \
-	gcd32.o psp.o pt64.o modinv1000.o mpz-trialdiv.o \
-	asm_64bit.o \
-	 schedsieve.o mpz-td.o MMX-TD.o MMX-TD2.o \
-	 zeit.o asm-zeit.o \
-	 rescale.o \
-	mpqs_td.o invtab.o mpqs_sieve.o mpqs_eval.o mpqs_sieveinit.o \
-	mpqs_nextpol.o mpqs_gauss.o \
-	noasm64.o basemath.o montgomery_mul.o asm_arith64.o asm_arith128.o \
-	asm_arith192.o mpqs3_sieve.o mpqs3_nextpol.o mpqs3_td.o \
-	mpqs3_gauss.o
-	ar rcs $@ $^
+# The shared copy, used by the siever's stat/test targets.  CORE_MEMBERS further
+# down is the same set of files compiled once per I value.
+$(OBJDIR)/liblasieve.a: \
+	$(call objpath,gcd32.o psp.o pt64.o modinv1000.o mpz-trialdiv.o \
+	  asm_64bit.o \
+	  schedsieve.o mpz-td.o MMX-TD.o MMX-TD2.o \
+	  zeit.o asm-zeit.o \
+	  rescale.o \
+	  mpqs_td.o invtab.o mpqs_sieve.o mpqs_eval.o mpqs_sieveinit.o \
+	  mpqs_nextpol.o mpqs_gauss.o \
+	  noasm64.o basemath.o montgomery_mul.o asm_arith64.o asm_arith128.o \
+	  asm_arith192.o mpqs3_sieve.o mpqs3_nextpol.o mpqs3_td.o \
+	  mpqs3_gauss.o)
+	@mkdir -p $(@D)
+	$(AR) rcs $@ $^
 
 
 
@@ -132,18 +156,23 @@ liblasieve.a: \
 
 # --- I-parameterised .o compilation rules ------------------------------------
 # ../include/if.h resolves to factor/lasieve5_64/if.h
+#
+# These kernels/ sources are all C++ now (the .asm -> .cpp migration), so the
+# generic rules further down cover every file liblasieveI<N>.a is built from.
 
 # lasched / lasched_1 这两个 ot 分发函数原来是 C 编译单元（lasched.c）。
 # C 翻译单元装不下命名空间，不转成 C++ 它们的符号会退回全局作用域、六个 I 值
 # 又撞在一起。per-ot 的内核在 lasched.cpp，这个文件保留 CTANGLE 那套宏
 # （i_bits / U16_SHIFT / RI_OFFSET*）和自己的 <immintrin.h>，两者不混。
-laschedI%.o: lasched_dispatch.cpp include/lasched.h \
+$(OBJDIR)/laschedI%.o: lasched_dispatch.cpp include/lasched.h \
 	 include/siever-config.h ../include/if.h
+	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) -DI_bits=$* -Dlasieve_ns=lasieve_I$* -c -o $@ $<
 
 # medsched / medsched_1 同理，内核在 medsched.cpp。
-medschedI%.o: medsched_dispatch.cpp include/medsched.h \
+$(OBJDIR)/medschedI%.o: medsched_dispatch.cpp include/medsched.h \
 	 include/siever-config.h ../include/if.h
+	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) -DI_bits=$* -Dlasieve_ns=lasieve_I$* -c -o $@ $<
 
 
@@ -152,20 +181,23 @@ medschedI%.o: medsched_dispatch.cpp include/medsched.h \
 # -Dnt_sched=1 展开成 8 份 .S 各编一个 .o。正文整体落在
 # namespace lasieve_ns 里，per-I 的隔离照旧成立；
 # -DI_bits 对应汇编的 -Dn_i_bits=I-1。
-laschedasmI%.o: lasched.cpp include/lasched.h \
+$(OBJDIR)/laschedasmI%.o: lasched.cpp include/lasched.h \
 	 include/siever-config.h ../include/if.h
+	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) -DI_bits=$* -Dlasieve_ns=lasieve_I$* -c -o $@ $<
 
 # medsched0 / medsched0_1 同理，产物名沿用 medsched0I%.o。
-medsched0I%.o: medsched.cpp include/medsched.h \
+$(OBJDIR)/medsched0I%.o: medsched.cpp include/medsched.h \
 	 include/siever-config.h ../include/if.h
+	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) -DI_bits=$* -Dlasieve_ns=lasieve_I$* -c -o $@ $<
 
 # slinieG/slinie1A/2A/3A 的 C++ 版：一个文件给出 slinie/slinie1/2/3 四个入口，
 # 原来靠 m4 的 j_per_strip 把 slinieG.asm 展开成四种段长。段长只影响展开方式
 # （展开后的指令和不展开的循环逐条相同），所以 C++ 直接 for 循环即可。
 # -DI_bits 对应汇编的 -Dn_i_bits=I-1。
-slinieasmI%.o: slinie.cpp include/siever-config.h ../include/if.h
+$(OBJDIR)/slinieasmI%.o: slinie.cpp include/siever-config.h ../include/if.h
+	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) -DI_bits=$* -Dlasieve_ns=lasieve_I$* -c -o $@ $<
 
 
@@ -175,32 +207,38 @@ slinieasmI%.o: slinie.cpp include/siever-config.h ../include/if.h
 
 
 
-tdslinieI%.o: tdslinie.cpp include/td_common.h include/siever-config.h ../include/if.h
+$(OBJDIR)/tdslinieI%.o: tdslinie.cpp include/td_common.h include/siever-config.h ../include/if.h
+	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) -DI_bits=$* -Dlasieve_ns=lasieve_I$* -c -o $@ $<
 
-tdslinie1I%.o: tdslinie1.cpp include/td_common.h include/siever-config.h ../include/if.h
+$(OBJDIR)/tdslinie1I%.o: tdslinie1.cpp include/td_common.h include/siever-config.h ../include/if.h
+	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) -DI_bits=$* -Dlasieve_ns=lasieve_I$* -c -o $@ $<
 
-tdslinie2I%.o: tdslinie2.cpp include/td_common.h include/siever-config.h ../include/if.h
+$(OBJDIR)/tdslinie2I%.o: tdslinie2.cpp include/td_common.h include/siever-config.h ../include/if.h
+	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) -DI_bits=$* -Dlasieve_ns=lasieve_I$* -c -o $@ $<
 
-tdslinie3I%.o: tdslinie3.cpp include/td_common.h include/siever-config.h ../include/if.h
+$(OBJDIR)/tdslinie3I%.o: tdslinie3.cpp include/td_common.h include/siever-config.h ../include/if.h
+	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) -DI_bits=$* -Dlasieve_ns=lasieve_I$* -c -o $@ $<
 
 # search0 的 C++ 版：候选搜索内核。原来是一个 m4 模板，经 -Dn_i_bits=I-1
 # 展开成 I 值专用的 .s 再编一个 .o；现在直接用 -DI_bits=I，对应关系一样。
 # 产物名沿用 search0I%.o，liblasieveI%.a 的成员清单不用改。
-search0I%.o: search0.cpp include/siever-config.h ../include/if.h
+$(OBJDIR)/search0I%.o: search0.cpp include/siever-config.h ../include/if.h
+	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) -DI_bits=$* -Dlasieve_ns=lasieve_I$* -c -o $@ $<
 
 
 # --- liblasieveI%.a (I-parameterised sieve library) -------------------------
-liblasieveI%.a: \
-	laschedI%.o laschedasmI%.o \
-	medschedI%.o medsched0I%.o search0I%.o \
-	slinieasmI%.o \
-	tdslinieI%.o tdslinie1I%.o tdslinie2I%.o tdslinie3I%.o
-	ar rcs $@ $^
+$(OBJDIR)/liblasieveI%.a: \
+	$(OBJDIR)/laschedI%.o $(OBJDIR)/laschedasmI%.o \
+	$(OBJDIR)/medschedI%.o $(OBJDIR)/medsched0I%.o $(OBJDIR)/search0I%.o \
+	$(OBJDIR)/slinieasmI%.o \
+	$(OBJDIR)/tdslinieI%.o $(OBJDIR)/tdslinie1I%.o $(OBJDIR)/tdslinie2I%.o $(OBJDIR)/tdslinie3I%.o
+	@mkdir -p $(@D)
+	$(AR) rcs $@ $^
 
 
 # --- Utility -----------------------------------------------------------------
@@ -208,6 +246,7 @@ bup:
 	@echo $(SRCFILES)
 
 clean:
+	-rm -rf $(OBJDIR)
 	-rm -f *.o *.a
 
 # --- Per-I build -------------------------------------------------------------
@@ -251,36 +290,44 @@ CORE_MEMBERS := \
 # The per-I core objects.  $(1) is substituted at $(call) time, so the
 # rename is baked into each rule rather than shared through a variable.
 define CORE_IRULES
-coreI$(1)/%.o: %.c
-	@mkdir -p coreI$(1)
+$$(OBJDIR)/coreI$(1)/%.o: %.c
+	@mkdir -p $$(dir $$@)
 	$$(CC) $$(CFLAGS) -Dlasieve_ns=lasieve_I$(1) -c -o $$@ $$<
 
 # 同一个 I 值下的 C++ 源。rescale 原本是 m4 模板里的 pavgb 指令，
 # intrinsics 一一对应，所以改成了 C++；mpqs_eval 是四个扫描筛数组的
 # 入口，movemask 全部用 intrinsics 表达得了，也改成了 C++。
 # 产物名不变（.cpp -> 同名 .o），所以上面两处清单不用动。
-coreI$(1)/%.o: %.cpp
-	@mkdir -p coreI$(1)
+$$(OBJDIR)/coreI$(1)/%.o: %.cpp
+	@mkdir -p $$(dir $$@)
 	$$(CXX) $$(CXXFLAGS) -Dlasieve_ns=lasieve_I$(1) -c -o $$@ $$<
 endef
 $(foreach i,$(ASIEVE_I_VALUES),$(eval $(call CORE_IRULES,$(i))))
 
 # six libraries, spelled out: there are only six, and writing them out avoids
 # fighting over when $$ is expanded inside $(call)
-libcoreI11.a: $(patsubst %.o,coreI11/%.o,$(CORE_MEMBERS))
-	cd coreI11 && $(AR) rcs ../$@ $(notdir $(CORE_MEMBERS))
+# The archive is written next to the per-I objects it is built from, so the
+# member names stay bare the way ar expects them.
+$(OBJDIR)/libcoreI11.a: $(patsubst %.o,$(OBJDIR)/coreI11/%.o,$(CORE_MEMBERS))
+	@mkdir -p $(@D)
+	cd $(OBJDIR)/coreI11 && $(AR) rcs ../libcoreI11.a $(notdir $(CORE_MEMBERS))
 
-libcoreI12.a: $(patsubst %.o,coreI12/%.o,$(CORE_MEMBERS))
-	cd coreI12 && $(AR) rcs ../$@ $(notdir $(CORE_MEMBERS))
+$(OBJDIR)/libcoreI12.a: $(patsubst %.o,$(OBJDIR)/coreI12/%.o,$(CORE_MEMBERS))
+	@mkdir -p $(@D)
+	cd $(OBJDIR)/coreI12 && $(AR) rcs ../libcoreI12.a $(notdir $(CORE_MEMBERS))
 
-libcoreI13.a: $(patsubst %.o,coreI13/%.o,$(CORE_MEMBERS))
-	cd coreI13 && $(AR) rcs ../$@ $(notdir $(CORE_MEMBERS))
+$(OBJDIR)/libcoreI13.a: $(patsubst %.o,$(OBJDIR)/coreI13/%.o,$(CORE_MEMBERS))
+	@mkdir -p $(@D)
+	cd $(OBJDIR)/coreI13 && $(AR) rcs ../libcoreI13.a $(notdir $(CORE_MEMBERS))
 
-libcoreI14.a: $(patsubst %.o,coreI14/%.o,$(CORE_MEMBERS))
-	cd coreI14 && $(AR) rcs ../$@ $(notdir $(CORE_MEMBERS))
+$(OBJDIR)/libcoreI14.a: $(patsubst %.o,$(OBJDIR)/coreI14/%.o,$(CORE_MEMBERS))
+	@mkdir -p $(@D)
+	cd $(OBJDIR)/coreI14 && $(AR) rcs ../libcoreI14.a $(notdir $(CORE_MEMBERS))
 
-libcoreI15.a: $(patsubst %.o,coreI15/%.o,$(CORE_MEMBERS))
-	cd coreI15 && $(AR) rcs ../$@ $(notdir $(CORE_MEMBERS))
+$(OBJDIR)/libcoreI15.a: $(patsubst %.o,$(OBJDIR)/coreI15/%.o,$(CORE_MEMBERS))
+	@mkdir -p $(@D)
+	cd $(OBJDIR)/coreI15 && $(AR) rcs ../libcoreI15.a $(notdir $(CORE_MEMBERS))
 
-libcoreI16.a: $(patsubst %.o,coreI16/%.o,$(CORE_MEMBERS))
-	cd coreI16 && $(AR) rcs ../$@ $(notdir $(CORE_MEMBERS))
+$(OBJDIR)/libcoreI16.a: $(patsubst %.o,$(OBJDIR)/coreI16/%.o,$(CORE_MEMBERS))
+	@mkdir -p $(@D)
+	cd $(OBJDIR)/coreI16 && $(AR) rcs ../libcoreI16.a $(notdir $(CORE_MEMBERS))

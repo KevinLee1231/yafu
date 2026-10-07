@@ -7,12 +7,12 @@ ECM 找因子的期望代价是 $L_n[1/2, \sqrt{2}]$——与数域筛的 NFS �
 
 | 文件 | 规模 | 说明 |
 | --- | --- | --- |
-| `tinyecm.c` | 任意大数 | yafu 自有的完整实现，速度接近 GMP-ECM |
-| `avxecm.c`、`avx_ecm_main.c` | 任意大数 | AVX-512 版，Montgomery 乘法用 52 位 limb 向量化 |
-| `microecm.c` | 任意大数 | 简化版，主打低内存占用 |
-| `ecm.c` | 任意大数 | 直接调用系统装的 GMP-ECM（`libecm`） |
-| `vecarith52.c` 等 | — | AVX-512 的 52 位 limb 大数运算底座，上面几份共用 |
-| `pm1.c`、`pp1.c`、`avxppm1.c` | 任意大数 | Pollard p−1、Williams p+1、p−1 的 AVX 版 |
+| `tinyecm.cpp` | 任意大数 | yafu 自有的完整实现，速度接近 GMP-ECM |
+| `avxecm.cpp`、`avx_ecm_main.cpp` | 任意大数 | AVX-512 版，Montgomery 乘法用 52 位 limb 向量化 |
+| `microecm.cpp` | 任意大数 | 简化版，主打低内存占用 |
+| `ecm.cpp` | 任意大数 | 直接调用系统装的 GMP-ECM（`libecm`） |
+| `vecarith52.cpp` 等 | — | AVX-512 的 52 位 limb 大数运算底座，上面几份共用 |
+| `pm1.cpp`、`pp1.cpp` | 任意大数 | Pollard p−1、Williams p+1。原来还有一个 p−1 的 AVX 版 `avxppm1.c`，它不参与构建，已随遗留 C 文件一并删除 |
 
 
 原理
@@ -47,6 +47,6 @@ P−1 与 P+1
 三套实现的取舍
 --------------
 
-`ecm.c` 走系统 GMP-ECM，是最省事的一条路，也是当前默认。`avxecm.c` 是 yafu 自研的 AVX-512 实现，用 Intel 的 52 位 limb 指令（`_mm512_sbb_epi52` 一族）在 8×64 位里塞进 8 个 52 位数，Montgomery 乘法完全向量化。`tinyecm.c` 是标量的自有实现，在没有 AVX-512 的机器上比 GMP-ECM 略慢，但可控、且不依赖外部库。
+`ecm.cpp` 走系统 GMP-ECM，是最省事的一条路，也是当前默认。`avxecm.cpp` 是 yafu 自研的 AVX-512 实现，用 Intel 的 52 位 limb 指令（`_mm512_sbb_epi52` 一族）在 8×64 位里塞进 8 个 52 位数，Montgomery 乘法完全向量化。`tinyecm.cpp` 是标量的自有实现，在没有 AVX-512 的机器上比 GMP-ECM 略慢，但可控、且不依赖外部库。
 
 ECM 无条件编译进本项目：`config.mk` 里不再有开关，缺 `ecm.h` 会直接停止构建并说明该装什么。

@@ -389,17 +389,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 			b0, b1);
 	if (fbsz <= 0)return;
 
-#if !defined(AVX512_LASIEVE_SETUP) && defined( HAVE_ASM_LASIEVE_SETUP)
-
-	if (FB[fbsz - 1] < FLOAT_SETUP_BOUND1 &&
-		fabs(a0) + FB[fbsz - 1] * b0 < FLOAT_SETUP_BOUND2 &&
-		fabs(a1) + FB[fbsz - 1] * b1 < FLOAT_SETUP_BOUND2) {
-		asm_lasieve_setup(FB, proots, fbsz, a0, a1, b0, b1, ri_ptr);
-		return;
-	}/*:7*/
-
-#endif
-
 	b0_ul = (u32_t)b0;
 	b1_ul = (u32_t)b1;
 	if (a0 >= 0) {

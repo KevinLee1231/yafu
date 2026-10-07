@@ -36,7 +36,12 @@ either expressed or implied, of the FreeBSD Project.
 
 #define INV_2_POW_64 5.4210108624275221700372640043497e-20
 
-#define DO_STAGE2_INV
+// stage 2 是否走批量求逆。这是纯粹的编译期二选一：改用 constexpr 常量而不是
+// 宏，调用点就能写成 `if constexpr (stage2_inv)`，两条路径的代码留在同一份
+// 源码里并列可见，不会再被宏把其中一份悄悄切掉。
+// 注：本仓库的 g++ 16.2 尚未实现 C++23 的 `if consteval`（最小用例即报
+// "requires compound statement"），故用语义等价的 `if constexpr`。
+inline constexpr bool stage2_inv = true;
 #define DEFINED 1
 #define MAX_WINSIZE 10
 #define BLOCKWORDS 4

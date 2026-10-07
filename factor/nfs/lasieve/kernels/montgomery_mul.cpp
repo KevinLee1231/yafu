@@ -163,7 +163,6 @@ namespace lasieve_ns {
       asm_mulm192(x,y,y);
     }
 
-    #ifndef HAVE_ASM_INV
     int asm_inv64(ulong *res, ulong *b)
     {
       return asm_invert(res,b);
@@ -193,7 +192,6 @@ namespace lasieve_ns {
       return asm_invert(res,b);
     }
 
-    #endif
 
     /* ----------------------------------------- */
 

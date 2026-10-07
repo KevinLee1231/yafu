@@ -21,18 +21,28 @@ typedef unsigned long long ullong;
 
 
 #ifdef ULL_NO_UL
-static unsigned int have_init=0;
-static mpz_t auxz,auxz2;
 
-#define ULLONG_MAX 0xffffffffffffffffULL
+namespace {
+/* 这两个 mpz 是纯暂存：原来是一份 static，而 mpz-ull.o 只编译一次，
+ * 打进 libgmp-aux.a 给六个 I 值链接。montgomery_mul.cpp 属于 per-I
+ * 集合，init_montgomery_R2 里调 mpz_set_ull / mpz_get_ull，
+ * 六个 siever 线程（nfs_sieving.cpp 的 LASIEVE_I_COUNT）并发时就在
+ * 这两个 mpz 上互相踩；原来那个惰性 init 也没有原子性，两个线程能同时
+ * 看到 have_init==0。改成每线程一份，构造时建、线程退出时清。 */
+struct ull_scratch {
+  ull_scratch() { mpz_init(auxz); mpz_init(auxz2); }
+  ~ull_scratch() { mpz_clear(auxz); mpz_clear(auxz2); }
+  mpz_t auxz, auxz2;
+};
+thread_local ull_scratch scratch;
+}  // namespace
 
 void
 mpz_ull_init()
 {
-  if(have_init!=0) return;
-  mpz_init(auxz);
-  mpz_init(auxz2);
-  have_init=1;
+  /* scratch 是 thread_local，触碰它的那个线程自己构造；
+   * 这个入口留着只是为了不改调用方。 */
+  (void)scratch.auxz;
 }
 #endif
 
@@ -69,8 +79,8 @@ mpz_get_ull(mpz_t src)
 {
   ullong res;
   if(sizeof(ullong)==2*(BITS_PER_GMP_ULONG/CHAR_BIT)) { //sizeof(ulong)) {
-    mpz_fdiv_q_2exp(auxz,src, BITS_PER_GMP_ULONG);
-    res=mpz_get_ui(auxz);
+    mpz_fdiv_q_2exp(scratch.auxz,src, BITS_PER_GMP_ULONG);
+    res=mpz_get_ui(scratch.auxz);
     res<<= BITS_PER_GMP_ULONG;
     res|=mpz_get_ui(src);
   } else {
@@ -79,11 +89,11 @@ mpz_get_ull(mpz_t src)
     else {
       ulong i;
       res=mpz_get_ui(src);
-      mpz_fdiv_q_2exp(auxz,src,CHAR_BIT*sizeof(ulong));
-      res|=((ullong)mpz_get_ui(auxz))<<(sizeof(ulong)*CHAR_BIT);
+      mpz_fdiv_q_2exp(scratch.auxz,src,CHAR_BIT*sizeof(ulong));
+      res|=((ullong)mpz_get_ui(scratch.auxz))<<(sizeof(ulong)*CHAR_BIT);
       for(i=2;i*sizeof(ulong)<sizeof(ullong);i++) {
-	mpz_fdiv_q_2exp(auxz,src,CHAR_BIT*sizeof(ulong));
-	res|=((ullong)mpz_get_ui(auxz))<<(i*sizeof(ulong)*CHAR_BIT);
+	mpz_fdiv_q_2exp(scratch.auxz,src,CHAR_BIT*sizeof(ulong));
+	res|=((ullong)mpz_get_ui(scratch.auxz))<<(i*sizeof(ulong)*CHAR_BIT);
       }
     }
   }
@@ -95,8 +105,8 @@ mpz_get_ull(mpz_t src)
 int
 mpz_cmp_ull(mpz_t op1,ullong op2)
 {
-  mpz_set_ull(auxz,op2);
-  return mpz_cmp(op1,auxz);
+  mpz_set_ull(scratch.auxz,op2);
+  return mpz_cmp(op1,scratch.auxz);
 }
 #endif
 
@@ -104,8 +114,8 @@ mpz_cmp_ull(mpz_t op1,ullong op2)
 void
 mpz_add_ull(mpz_t rop, mpz_t op1, ullong op2)
 {
-    mpz_set_ull(auxz, op2);
-    mpz_add(rop, op1, auxz);
+    mpz_set_ull(scratch.auxz, op2);
+    mpz_add(rop, op1, scratch.auxz);
 }
 #endif
 
@@ -113,8 +123,8 @@ mpz_add_ull(mpz_t rop, mpz_t op1, ullong op2)
 void
 mpz_tdiv_q_ull(mpz_t rop, mpz_t op1, ullong op2)
 {
-    mpz_set_ull(auxz, op2);
-    mpz_tdiv_q(rop, op1, auxz);
+    mpz_set_ull(scratch.auxz, op2);
+    mpz_tdiv_q(rop, op1, scratch.auxz);
 }
 #endif
 
@@ -122,15 +132,15 @@ mpz_tdiv_q_ull(mpz_t rop, mpz_t op1, ullong op2)
 void
 mpz_mul_ull(mpz_t rop,mpz_t op1,ullong op2)
 {
-  mpz_set_ull(auxz,op2);
-  mpz_mul(rop,op1,auxz);
+  mpz_set_ull(scratch.auxz,op2);
+  mpz_mul(rop,op1,scratch.auxz);
 }
 
 void
 mpz_mul_sll(mpz_t rop,mpz_t op1,long long int op2)
 {
-  mpz_set_sll(auxz,op2);
-  mpz_mul(rop,op1,auxz);
+  mpz_set_sll(scratch.auxz,op2);
+  mpz_mul(rop,op1,scratch.auxz);
 }
 #endif
 
@@ -139,8 +149,8 @@ long long int
 mpz_get_sll(mpz_t x)
 {
   if(mpz_sgn(x)<0) {
-    mpz_neg(auxz2,x);
-    return -((long long int)mpz_get_ull(auxz2));
+    mpz_neg(scratch.auxz2,x);
+    return -((long long int)mpz_get_ull(scratch.auxz2));
   }
   else return mpz_get_ull(x);
 }
@@ -173,8 +183,8 @@ mpz_fits_sllong_p(mpz_t x)
 {
   if(mpz_sgn(x)>0) return mpz_get_ull(x)<ULLONG_MAX/2;
   else {
-    mpz_neg(auxz2,x);
-    return mpz_get_ull(auxz2)<=ULLONG_MAX/2;
+    mpz_neg(scratch.auxz2,x);
+    return mpz_get_ull(scratch.auxz2)<=ULLONG_MAX/2;
   }
 }
 #endif

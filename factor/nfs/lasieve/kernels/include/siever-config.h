@@ -48,8 +48,11 @@ typedef unsigned short ushort;
 typedef unsigned long ulong;
 #endif
 
+#ifndef U32_MAX
+/* 值与 <stdint.h> 的 U32_MAX 相同，但那个头文件不一定被包含进来；
+ * 用 #ifndef 挡住，免得谁先包含了 stdint.h 就变成重定义。 */
 #define U32_MAX 0xffffffff
-#define I32_MAX INT_MAX
+#endif
 
 
 namespace lasieve_ns {
@@ -62,12 +65,17 @@ void ASM_ATTR asm_getbc(u32_t,u32_t,u32_t,u32_t*,u32_t*,u32_t*,u32_t*);
 #define ASM_SCHEDSIEVE
 namespace lasieve_ns {
 void ASM_ATTR schedsieve(unsigned char,unsigned char*,u16_t*,u16_t*);
-
-void ASM_ATTR schedsieve_1(unsigned char,unsigned char*,u16_t*,u16_t*);
 }  /* namespace lasieve_ns */
 
-#define ASM_SCHEDTDSIEVE2
-u16_t**ASM_ATTR tdsieve_sched2buf(u16_t**,u16_t*,unsigned char*,u16_t**,u16_t**);
+// tdsieve_sched2buf 曾在这里声明，并由 ASM_SCHEDTDSIEVE2 开关控制：
+//   #if defined(ASM_SCHEDTDSIEVE2) && !defined(AVX512_TDSCHED)
+//       b0 = tdsieve_sched2buf(...);
+//   #else   ← AVX-512 gather 版或标量 C 版
+//   #endif
+// 这个开关原先无条件打开，但函数本身随 .asm -> .cpp 迁移一起没了，全仓库没有任何
+// 定义。于是只有定义了 AVX512_TDSCHED 的构建（yafu 本体走 AVX512_ALL=1）能链接，
+// 独立回归不传 AVX 开关时必然 undefined reference。开关与声明一并删除，
+// 剩下的两条路径都是完整实现。
 
 #define ASM_MPZ_TD
 #define PREINVERT
@@ -128,9 +136,6 @@ u32_t ASM_ATTR lasieve_search0(unsigned char*,unsigned char*,unsigned char*,
 unsigned char*,unsigned char*,u16_t*,unsigned char*);
 }  /* namespace lasieve_ns */
 
-#define HAVE_MM_LASIEVE_SETUP
-#define HAVE_MM_LASIEVE_SETUP2
-#define HAVE_MM_LASIEVE_SETUP_64
 #define  MAX_FB_PER_P 2
 #define ASM_RESCALE
 
@@ -138,27 +143,6 @@ unsigned char*,unsigned char*,u16_t*,unsigned char*);
 #if 1
 #define VERY_LARGE_Q
 #endif
-
-
-u32_t*ASM_ATTR asm_lasieve_mm_setup0(u32_t*,u32_t*,size_t,u32_t,u32_t,u32_t,u32_t,u32_t*);
-u32_t*ASM_ATTR asm_lasieve_mm_setup1(u32_t*,u32_t*,size_t,u32_t,u32_t,u32_t,u32_t,u32_t*);
-u32_t*ASM_ATTR asm_lasieve_mm_setup2(u32_t*,u32_t*,size_t,u32_t,u32_t,u32_t,u32_t,u32_t*);
-u32_t*ASM_ATTR asm_lasieve_mm_setup3(u32_t*,u32_t*,size_t,u32_t,u32_t,u32_t,u32_t,u32_t*);
-u32_t*ASM_ATTR asm_lasieve_mm_setup20(u32_t*,u32_t*,size_t,u32_t,u32_t,u32_t,u32_t,u32_t*);
-u32_t*ASM_ATTR asm_lasieve_mm_setup21(u32_t*,u32_t*,size_t,u32_t,u32_t,u32_t,u32_t,u32_t*);
-u32_t*ASM_ATTR asm_lasieve_mm_setup22(u32_t*,u32_t*,size_t,u32_t,u32_t,u32_t,u32_t,u32_t*);
-u32_t*ASM_ATTR asm_lasieve_mm_setup23(u32_t*,u32_t*,size_t,u32_t,u32_t,u32_t,u32_t,u32_t*);
-
-
-u32_t*ASM_ATTR asm_lasieve_mm_setup0_64(u32_t*,u32_t*,size_t,u64_t,u64_t,u64_t,u64_t,u32_t*);
-u32_t*ASM_ATTR asm_lasieve_mm_setup1_64(u32_t*,u32_t*,size_t,u64_t,u64_t,u64_t,u64_t,u32_t*);
-u32_t*ASM_ATTR asm_lasieve_mm_setup2_64(u32_t*,u32_t*,size_t,u64_t,u64_t,u64_t,u64_t,u32_t*);
-u32_t*ASM_ATTR asm_lasieve_mm_setup3_64(u32_t*,u32_t*,size_t,u64_t,u64_t,u64_t,u64_t,u32_t*);
-u32_t*ASM_ATTR asm_lasieve_mm_setup20_64(u32_t*,u32_t*,size_t,u64_t,u64_t,u64_t,u64_t,u32_t*);
-u32_t*ASM_ATTR asm_lasieve_mm_setup21_64(u32_t*,u32_t*,size_t,u64_t,u64_t,u64_t,u64_t,u32_t*);
-u32_t*ASM_ATTR asm_lasieve_mm_setup22_64(u32_t*,u32_t*,size_t,u64_t,u64_t,u64_t,u64_t,u32_t*);
-u32_t*ASM_ATTR asm_lasieve_mm_setup23_64(u32_t*,u32_t*,size_t,u64_t,u64_t,u64_t,u64_t,u32_t*);
-
 
 namespace lasieve_ns {
 void ASM_ATTR rescale_interval1(unsigned char*,u64_t);
@@ -180,25 +164,9 @@ u64_t ASM_ATTR asm_modmul64(u64_t,u64_t);
 
 #define N_PRIMEBOUNDS 12
 
-/* 计时计数器的入口。C 时代靠隐式声明，转成 C++ 之后必须显式声明，
- * 而且必须落在上面那段 extern "C" 里 —— 定义在汇编里，是裸名字。
- * 只声明函数；zeitcounter / zeitsum 这些是数据符号，不在这里动。 */
-
-/* 计时计数器的入口。C 时代靠隐式声明，转成 C++ 之后必须显式声明，
- * 而且必须落在上面那段 extern "C" 里 —— 定义在汇编里，是裸名字。
- * 只声明函数；zeitcounter / zeitsum 这些是数据符号，不在这里动。 */
-namespace lasieve_ns {
-void initzeit(ulong t);
-void printzeit(ulong i);
-void zeitA(ulong i);
-void zeitB(ulong i);
-void zeita(ulong i);
-void zeitb(ulong i);
-}  /* namespace lasieve_ns */
-
-
-/* 计时计数器的入口。C 时代靠隐式声明，转成 C++ 之后必须显式声明，
- * 而且必须落在上面那段 extern "C" 里 —— 定义在汇编里，是裸名字。
+/* 计时计数器的入口。这批函数原先定义在内联汇编里，是裸名字；
+ * C 时代靠隐式声明，转成 C++ 之后必须在 namespace lasieve_ns 里显式声明。
+ * 本文件没有 extern "C" 块，所以下面一律带命名空间。
  * 只声明函数；zeitcounter / zeitsum 这些是数据符号，不在这里动。 */
 namespace lasieve_ns {
 ulong asmgetclock(void);

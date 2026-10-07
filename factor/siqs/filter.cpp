@@ -958,7 +958,10 @@ int restart_siqs(static_conf_t *sconf, dynamic_conf_t *dconf)
 					//read a line
 					if (feof(data))
 						break;
-					fgets(str, 1024, data);
+					/* fgets 失败时返回 NULL 且不改动 str，不判就会把上一行
+					   再处理一遍，num_cycles / num_relations 重复计数。 */
+					if (fgets(str, 1024, data) == NULL)
+						break;
 					substr = str + 2;
 
 					if (str[0] == 'R')
@@ -966,8 +969,13 @@ int restart_siqs(static_conf_t *sconf, dynamic_conf_t *dconf)
 						//process a relation
 						//just trying to figure out how many relations we have
 						//so read in the large primes and add to cycles
-						substr = strchr(substr, 'L');
-						yafu_read_large_primes(substr, lp, lp + 1);
+						/* 末行被截断时可能没有 'L' 字段。同一文件里
+						   另一处读关系（yafu_qs_filter_relations）已经判过
+						   start != NULL，这里漏判会把 NULL 传进读函数。 */
+						char* lpfield = strchr(substr, 'L');
+						if (lpfield == NULL)
+							continue;
+						yafu_read_large_primes(lpfield, lp, lp + 1);
 						if (lp[0] != lp[1])
 						{
 							yafu_add_to_cycles(sconf, sconf->obj->flags, lp[0], lp[1]);
@@ -1012,6 +1020,32 @@ int restart_siqs(static_conf_t *sconf, dynamic_conf_t *dconf)
 #define QS_HASH_ADD ((uint32_t)(18932479UL))
 #define QS_HASH(a) (((a) * QS_HASH_MULT) >> (32 - QS_LOG2_CYCLE_HASH))
 #define PBR_HASH(a) ((((a) + QS_HASH_ADD) * QS_HASH_MULT) >> (32 - QS_LOG2_CYCLE_HASH))
+
+/* 只读调用方查表用这个。查不到就返回 NULL，绝不写 table/hashtable。
+ *
+ * get_table_entry 的 new_entry_offset==0 曾经被只读调用方当作"查不到"的
+ * 哨兵，但它照样执行了 miss 分支：把 table[0]（cycle_table_size = 1 预留的
+ * 哨兵槽）当成新顶点覆盖，并且 hashtable[first_offset] = 0 让整条桶链从查找
+ * 结构里消失。实测这些调用点在 2LP/TLP/QLP 下都查得到（rebuild_graph 已经把
+ * 全部 large prime 插进图了），所以旧写法只是埋雷；这里改成显式返回 NULL。
+ */
+static uint64_t g_orphan_lookup = 0;
+
+static qs_cycle_t *lookup_table_entry(qs_cycle_t *table, uint32_t *hashtable,
+    uint32_t prime)
+{
+    uint32_t offset = hashtable[QS_HASH(prime)];
+
+    while (offset != 0) {
+        qs_cycle_t *entry = table + offset;
+        if (entry->prime == prime)
+            return entry;
+        offset = entry->next;
+    }
+
+    g_orphan_lookup++;
+    return NULL;
+}
 
 static qs_cycle_t *get_table_entry(qs_cycle_t *table, uint32_t *hashtable,
     uint32_t prime, uint32_t new_entry_offset) {
@@ -1312,6 +1346,9 @@ qs_la_col_t * find_cycles(fact_obj_t*obj, uint32_t *hashtable, qs_cycle_t *table
 			curr_cycle < num_cycles; i++) {
 
 			qs_cycle_t *entry1, *entry2;
+			/* 只读查找的兜底表项：查不到时语义等同 "data == 0"
+			   （顶点还没进图），但只写栈上局部量，不碰 table[0]。 */
+			qs_cycle_t missing1, missing2;
 			siqs_r rtmp = relation_list[i];
 
 			if (rtmp.large_prime[0] == rtmp.large_prime[1]) {
@@ -1342,10 +1379,21 @@ qs_la_col_t * find_cycles(fact_obj_t*obj, uint32_t *hashtable, qs_cycle_t *table
 			/* retrieve the cycle_t entries associated
 			   with the large primes in relation r. */
 
-			entry1 = get_table_entry(table, hashtable,
-				rtmp.large_prime[0], 0);
-			entry2 = get_table_entry(table, hashtable,
-				rtmp.large_prime[1], 0);
+			entry1 = lookup_table_entry(table, hashtable,
+				rtmp.large_prime[0]);
+			entry2 = lookup_table_entry(table, hashtable,
+				rtmp.large_prime[1]);
+
+			if (entry1 == NULL) {
+				missing1.next = 0; missing1.prime = 0;
+				missing1.data = 0; missing1.count = 0;
+				entry1 = &missing1;
+			}
+			if (entry2 == NULL) {
+				missing2.next = 0; missing2.prime = 0;
+				missing2.data = 0; missing2.count = 0;
+				entry2 = &missing2;
+			}
 
 			/* if both vertices do not point to other
 			   vertices, then neither prime has been added
@@ -2121,7 +2169,14 @@ qs_la_col_t * find_cycles3(fact_obj_t*fobj, static_conf_t *sconf,
 	curr_cycle = 0;
 
 	printf("commencing rbp/pbr table initialization for %dlp cycle-find\n", numlp);
-	for (i = 1; i < num_relations; i++)
+	/* 从 0 起，不是 1。relation_list[0] 是一条真实关系：2LP 的 find_cycles 从
+	 * start（初值 0）开始遍历全表，这里若从 1 开始，排序后落在 0 号位的那条
+	 * 关系既进不了 pbr/rbp 表，也永远判不成 full relation，等于凭空丢掉一条，
+	 * 丢的是哪条取决于 qsort 结果。
+	 *
+	 * 注意下面两处清理循环仍然从 1 起：它们遍历的是 pbr_table / rbp_table，
+	 * 下标 0 是 cycle_table_size = 1 预留的哨兵，不是真实表项。 */
+	for (i = 0; i < num_relations; i++)
 	{
 		pbr_t *pbr_entry;
 		rtmp = &relation_list[i];
@@ -3182,6 +3237,10 @@ void yafu_qs_filter_relations(static_conf_t *sconf) {
 	if (fobj->VFLAG > 0)
 		printf("found %u cycles from %u relations in %u passes\n", 
 			num_cycles, num_relations, passes);
+	if (fobj->VFLAG > 0 && g_orphan_lookup > 0)
+		printf("note: %llu read-only graph lookups missed; those relations "
+			"were treated as singletons\n",
+			(unsigned long long)g_orphan_lookup);
 	
 	/* sort the list of cycles so that the cycles with
 	   the largest number of relations will come last. 
@@ -3421,6 +3480,11 @@ void yafu_read_large_primes(char *buf, uint32_t *prime1, uint32_t *prime2) {
 	char *next_field;
 	uint32_t p1, p2;
 
+	*prime1 = 1;
+	*prime2 = 2;
+	if (buf == NULL)
+		return;
+
 	*prime1 = p1 = 1;
 	*prime2 = p2 = 2;
 	if (*buf != 'L')
@@ -3456,6 +3520,12 @@ void yafu_read_tlp(char *buf, uint32_t *primes) {
 
 	char *next_field;
 	uint32_t p1, p2, p3;
+
+	primes[0] = 1;
+	primes[1] = 2;
+	primes[2] = 3;
+	if (buf == NULL)
+		return;
 
 	primes[0] = p1 = 1;
 	primes[1] = p2 = 2;
@@ -3514,6 +3584,9 @@ int yafu_read_Nlp(char* buf, uint32_t* primes) {
 	{
 		p[i] = primes[i] = 0;
 	}
+
+	if (buf == NULL)
+		return 0;
 
 	if (*buf != 'L')
 	{
@@ -3599,20 +3672,22 @@ uint32_t qs_purge_singletons(fact_obj_t*fobj, siqs_r *list,
 
 			for (k = 0; k < 2; k++) {
 				prime = r->large_prime[k];
-				entry = get_table_entry(table, hashtable,
-							prime, 0);
+				entry = lookup_table_entry(table, hashtable,
+							prime);
 
 				/* if the relation is due to be removed,
 				   decrement the count of its other
 				   primes in the graph. The following is
-				   specialized for two primes */
+				   specialized for two primes.
+				   查不到表项按计数 0 处理：这条关系一定被删。 */
 
-				if (entry->count < 2) {
+				if (entry == NULL || entry->count < 2) {
 					prime = r->large_prime[k ^ 1];
-					entry = get_table_entry(table, 
-								hashtable, 
-								prime, 0);
-					entry->count--;
+					entry = lookup_table_entry(table,
+								hashtable,
+								prime);
+					if (entry != NULL && entry->count > 0)
+						entry->count--;
 					break;
 				}
 			}
@@ -3667,7 +3742,11 @@ uint32_t qs_purge_singletons3(fact_obj_t*fobj, siqs_r *list,
 		num_left = num_relations;
 
 		/* for each relation */
-		printf("now at pass %d: %u relations\n", passes, num_relations);
+		/* 门控跟同文件另外几处一致：只有 VFLAG > 0 才打。
+		   2LP 版（qs_purge_singletons）这行本来就是注释掉的，
+		   3LP/NLP 版漏了门控，TLP 下每轮都刷屏。 */
+		if (fobj->VFLAG > 0)
+			printf("now at pass %d: %u relations\n", passes, num_relations);
 
 		for (i = j = 0; i < num_relations; i++) {
 			siqs_r *r = list + i;
@@ -3689,23 +3768,25 @@ uint32_t qs_purge_singletons3(fact_obj_t*fobj, siqs_r *list,
 
 			for (k = 0; k < 3; k++) {
 				prime = r->large_prime[k];
-				entry = get_table_entry(table, hashtable,
-					prime, 0);
+				entry = lookup_table_entry(table, hashtable,
+					prime);
 
 				/* if the relation is due to be removed,
 				   decrement the count of its other
-				   primes in the graph. */
+				   primes in the graph.
+				   查不到表项按计数 0 处理：这条关系一定被删。 */
 
-				if (entry->count < 2) {
+				if (entry == NULL || entry->count < 2) {
 					int m;
 					for (m = 0; m < 3; m++)
 					{
 						if (m == k) continue;
 						prime = r->large_prime[m];
-						entry = get_table_entry(table,
+						entry = lookup_table_entry(table,
 							hashtable,
-							prime, 0);
-						entry->count--;
+							prime);
+						if (entry != NULL && entry->count > 0)
+							entry->count--;
 					}
 					break;
 				}
@@ -3762,7 +3843,11 @@ uint32_t qs_purge_singletonsN(fact_obj_t* fobj, siqs_r* list,
 		num_left = num_relations;
 
 		/* for each relation */
-		printf("now at pass %d: %u relations\n", passes, num_relations);
+		/* 门控跟同文件另外几处一致：只有 VFLAG > 0 才打。
+		   2LP 版（qs_purge_singletons）这行本来就是注释掉的，
+		   3LP/NLP 版漏了门控，TLP 下每轮都刷屏。 */
+		if (fobj->VFLAG > 0)
+			printf("now at pass %d: %u relations\n", passes, num_relations);
 
 		for (i = j = 0; i < num_relations; i++) {
 			siqs_r* r = list + i;
@@ -3794,23 +3879,25 @@ uint32_t qs_purge_singletonsN(fact_obj_t* fobj, siqs_r* list,
 
 			for (k = 0; k < num_lp; k++) {
 				prime = r->large_prime[k];
-				entry = get_table_entry(table, hashtable,
-					prime, 0);
+				entry = lookup_table_entry(table, hashtable,
+					prime);
 
 				/* if the relation is due to be removed,
 				   decrement the count of its other
-				   primes in the graph. */
+				   primes in the graph.
+				   查不到表项按计数 0 处理：这条关系一定被删。 */
 
-				if (entry->count < 2) {
+				if (entry == NULL || entry->count < 2) {
 					int m;
 					for (m = 0; m < num_lp; m++)
 					{
 						if (m == k) continue;
 						prime = r->large_prime[m];
-						entry = get_table_entry(table,
+						entry = lookup_table_entry(table,
 							hashtable,
-							prime, 0);
-						entry->count--;
+							prime);
+						if (entry != NULL && entry->count > 0)
+							entry->count--;
 					}
 					break;
 				}

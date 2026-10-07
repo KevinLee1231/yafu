@@ -310,6 +310,14 @@ int montybrent(monty_t *mdata, mpz_t n, mpz_t f, uint32_t a, uint32_t imax)
     returning the first factor found in f, or else 0 for failure.
     use f(x) = x^2 + c
     see, for example, bressoud's book.
+
+    The monty_* helpers below are called with res aliasing an operand, e.g.
+    monty_mul(mdata, y, y, y) below.  That is supported: monty_add/monty_sub/
+    monty_mul are single GMP calls, which allow the output to be an input, and
+    monty_mul then reduces through monty_redc(), which keeps its scratch in
+    mdata->tmp and only reads its argument.  Verified by running each call
+    both aliased and into a separate variable and comparing.  monty.h says
+    nothing about aliasing, so do not add a call that assumes more than this.
     */
 
 	mpz_ptr x = mdata->x;

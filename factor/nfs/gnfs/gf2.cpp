@@ -441,13 +441,15 @@ static void build_matrix_core(msieve_obj *obj, la_col_t *cycle_list,
 						(size_t)num_small_ideals,
 						sizeof(ideal_t),
 						compare_ideals);
-				uint32 idx = qcb_size + 1 +
-						(loc - small_ideals);
+				/* 先判空再做指针运算：loc 为 NULL 时 (loc - small_ideals)
+				 * 是未定义行为，优化下不能指望它得到某个可预测的值。 */
 				if (loc == NULL) {
 					printf("error: unexpected dense "
 						"ideal found\n");
 					exit(-1);
 				}
+				uint32 idx = qcb_size + 1 +
+						(loc - small_ideals);
 				dense_rows[idx / 32] |= 1 << (idx % 32);
 			}
 			else {
@@ -512,10 +514,12 @@ static void build_matrix(msieve_obj *obj, mpz_t n) {
 	uint32 max_small_ideal;
 	uint32 qcb_size;
 	FILE *matrix_fp;
-	char buf[256];
+	/* savefile.name 是定长数组成员，sizeof 直接给出它的上限；加上 ".mat" 和
+	 * 结尾 NUL。原来的 char buf[256] 会被 sprintf 冲出栈帧。 */
+	char buf[sizeof(obj->savefile.name) + 8];
 	factor_base_t fb;
 
-	sprintf(buf, "%s.mat", obj->savefile.name);
+	snprintf(buf, sizeof(buf), "%s.mat", obj->savefile.name);
 	matrix_fp = fopen(buf, "w+b");
 	if (matrix_fp == NULL) {
 		logprintf(obj, "error: can't open matrix file '%s'\n", buf);

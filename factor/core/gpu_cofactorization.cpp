@@ -1639,22 +1639,22 @@ device_thread_ctx_t* gpu_ctx_init(device_ctx_t* d) {
 		/* load GPU kernels */
 		char ptxfile[80];
 	if (d->gpu_info->compute_version_major == 2) {
-		strcpy(ptxfile, "cuda_ecm20.ptx");
+		strcpy(ptxfile, "build/cuda_ecm20.ptx");
 	}
 	else if (d->gpu_info->compute_version_major == 3) {
 		if (d->gpu_info->compute_version_minor < 5)
-			strcpy(ptxfile, "cuda_ecm30.ptx");
+			strcpy(ptxfile, "build/cuda_ecm30.ptx");
 		else
-			strcpy(ptxfile, "cuda_ecm35.ptx");
+			strcpy(ptxfile, "build/cuda_ecm35.ptx");
 	}
 	else if (d->gpu_info->compute_version_major >= 9) {
-		strcpy(ptxfile, "cuda_ecm90.ptx");
+		strcpy(ptxfile, "build/cuda_ecm90.ptx");
 	}
 	else if (d->gpu_info->compute_version_major >= 8) {
-		strcpy(ptxfile, "cuda_ecm80.ptx");
+		strcpy(ptxfile, "build/cuda_ecm80.ptx");
 	}
 	else if (d->gpu_info->compute_version_major >= 5) {
-		strcpy(ptxfile, "cuda_ecm50.ptx");
+		strcpy(ptxfile, "build/cuda_ecm50.ptx");
 	}
 	else
 	{

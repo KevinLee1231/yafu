@@ -11,7 +11,7 @@ $$L_N\!\left[\tfrac{1}{3},\ \bigl(\tfrac{64}{9}\bigr)^{1/3}\right]
 
 出处：C. Pomerance, *The Quadratic Sieve Factoring Algorithm* (1985)；通用形式见 A. K. Lenstra 与 H. W. Lenstra Jr. 1975 年的双域构造；Pomerance & Smith, *A Pipeline Architecture for Factoring Large Integers with the Quadratic Sieve Method*, SIAM J. Comput. 17 (1988) 387–403。
 
-目录分工：`nfs.c` 一族是作业编排与后处理，`gnfs/` 是数域筛本体（主构建里编），`lasieve/` 是外部格点筛（**单独的子 Makefile**，不进主构建）。
+目录分工：`nfs.cpp` 一族是作业编排与后处理，`gnfs/` 是数域筛本体（主构建里编），`lasieve/` 是外部格点筛（**单独的子 Makefile**，不进主构建）。
 
 
 一、两个多项式
@@ -79,7 +79,7 @@ $2 \times 2$ 个平方根给出四个候选 $(\pm X, \pm Y)$，取使 $\gcd(x - 
 
 筛选阶段被单独拆成一个可执行文件（`factor/nfs/lasieve/`），因为它要跑很久且分布式的节点上只有这一个阶段在跑。输入是多项式与因子基，输出是关系文件。
 
-它是 msieve 里 J. Papadopoulos 写的那套 Sieve，由本项目从零重写并扩展（`lasieve.h` 顶部的版本说明与 `top/docfile.txt` 里的 `lasieve` 段有描述）。相比 msieve 原版，yafu 的实现加入了：
+它是 msieve 里 J. Papadopoulos 写的那套 Sieve，由本项目从零重写并扩展（`factor/nfs/lasieve/include/` 下的头文件与 `top/docfile.txt` 里的 `lasieve` 段有描述；原先那个集中的 `lasieve.h` 在重构时已拆成多个头）。相比 msieve 原版，yafu 的实现加入了：
 
 - 更激进的截断（truncation）与素数次幂（prime power）的处理；
 - 分块调度（`asm/lasched.h`、`asm/medsched.h`）与专用汇编乘法
@@ -87,7 +87,7 @@ $2 \times 2$ 个平方根给出四个候选 $(\pm X, \pm Y)$，取使 $\gcd(x - 
 - AVX-512 辅助（`avx512_aux.h`）；
 - 整批（batch）模式：把多个多项式一起筛，用不完的筛选预算重投到后面的多项式。
 
-编进 yafu：`make` 会转到 `factor/nfs/lasieve/Makefile` 把筛法器按六个 I 值各编一份对象，连同两个汇编库一起链进 yafu，`make all` 只产出 `yafu`。六个 I 值是同一份映像里六套互不相干的对象——私有的筛内核、factor base、蒙哥马利状态、ECM/P-1 缓存——`nfs_sieving.c` 通过 `lasieve_run(I, argc, argv)` 在进程内调用，每个并发筛法器一个 I 值，因此同时最多六个。
+编进 yafu：`make` 会转到 `factor/nfs/lasieve/Makefile` 把筛法器按六个 I 值各编一份对象，连同两个汇编库一起链进 yafu，`make all` 只产出 `yafu`。六个 I 值是同一份映像里六套互不相干的对象——私有的筛内核、factor base、蒙哥马利状态、ECM/P-1 缓存——`nfs_sieving.cpp` 通过 `lasieve_run(I, argc, argv)` 在进程内调用，每个并发筛法器一个 I 值，因此同时最多六个。
 
 调用侧的相应约束：筛法器不再 fork 子进程，所以它不能 `exit()`（那会把整个分解任务带走），错误路径走 `lasieve_bail()` 跳回 `lasieve_run()`；它也不装 SIGTERM/SIGINT 处理器，那会顶掉 yafu 自己的。头文件在 `lasieve/include/` 与 `lasieve/kernels/include/`，由子 Makefile 的 `-Iinclude -Ikernels/include -I../include` 解析，头文件依赖在该 Makefile 里显式列出。`make test-standalone` 跑 `test/test_lasieve.sh` 的五个独立回归。
 
@@ -95,4 +95,4 @@ $2 \times 2$ 个平方根给出四个候选 $(\pm X, \pm Y)$，取使 $\gcd(x - 
 六、SNFS
 -------
 
-`snfs.c`：当 $N$ 有特殊形式（$a^m \pm b^n$）时取 $m$ 或 $2n$ 次域，多项式选择几乎不用调，能比 GNFS 快好几个数量级。Cunningham 表里那些 $a^n \pm b$ 的数走这条路。
+`snfs.cpp`：当 $N$ 有特殊形式（$a^m \pm b^n$）时取 $m$ 或 $2n$ 次域，多项式选择几乎不用调，能比 GNFS 快好几个数量级。Cunningham 表里那些 $a^n \pm b$ 的数走这条路。

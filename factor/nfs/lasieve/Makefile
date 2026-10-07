@@ -16,7 +16,8 @@
 #   gnfs-lasieve4I{11..16}g   (allg)
 #
 # Assembly libraries (liblasieve.a, liblasieveI%.a) are built in the kernels/
-# subdirectory and pulled in automatically via the kernels/%: force delegation.
+# subdirectory and pulled in automatically via the $(KERNEL_DIR)/%: force
+# delegation rule.  Their output directory follows OBJDIR.
 #
 # Variables accepted from the top-level yafu Makefile (all have sensible
 # defaults so this file can also be used standalone):
@@ -26,7 +27,9 @@
 #   GMP_LIBDIR    Path to libgmp.a            (default: /usr/lib)
 #   DETECTED_OS   Windows or Linux            (auto-detected if absent)
 #   DEBUG         Set to 1 for a debug build
-#   BINDIR        可执行文件输出目录（默认：.）
+#   OBJDIR        对象、静态库的输出目录（默认：.）
+#                 顶层 Makefile 传的是 build/factor/nfs/lasieve/ 的绝对路径
+#   BINDIR        测试 / stat 可执行文件的输出目录（默认：.）
 #
 # AVX-512 feature flags (set individually or use AVX512_ALL=1 for all):
 #   AVX512_ALL        Enable all AVX-512 sieve paths
@@ -56,6 +59,12 @@ CXX        ?= g++
 CXX        ?= g++
 CXX        ?= g++
 BINDIR     ?= .
+# Objects, per-I object trees and static libraries all land under OBJDIR.
+# The top-level Makefile points this at an absolute build/... path so that the
+# bobs list it prints is directly usable in the yafu link line.
+OBJDIR     ?= .
+# kernels/ 这一层跟着走。取绝对路径：顶层的 kernels 委派规则要拿它当模式前缀。
+KERNEL_DIR := $(abspath $(OBJDIR)/kernels)
 
 # GMP locations differ between distributions: Debian/Ubuntu keep gmp.h and
 # libgmp.a under a multiarch tuple (/usr/include/<tuple> and /usr/lib/<tuple>)
@@ -83,12 +92,6 @@ endif
 # Compiler family — mirrors the top-level detection so ifeq ($(CC),icc) checks
 # work correctly even when CC is a full path or versioned name.
 CC_BASENAME := $(notdir $(CC))
-
-# C++：本子构建里的 .cpp 与主 Makefile 用同一套标准。
-CXX_STD := -std=c++26
-
-# C++：本子构建里的 .cpp 与主 Makefile 用同一套标准。
-CXX_STD := -std=c++26
 
 # C++：本子构建里的 .cpp 与主 Makefile 用同一套标准。
 CXX_STD := -std=c++26
@@ -147,9 +150,11 @@ endif
 
 
 # --- KERNEL_FLAGS: variables forwarded to the kernels/ sub-make --------------------
-# Always forward the compiler, GMP path, and OS so the asm Makefile doesn't
-# need its own hardcoded values.  AVX512 flags are appended below as needed.
+# Always forward the compiler, GMP path, OS and the output directory so the
+# kernels sub-make puts libcoreI<N>.a / liblasieveI<N>.a exactly where the link
+# line expects them.  AVX512 flags are appended below as needed.
 KERNEL_FLAGS := CC=$(CC) GMP_INCDIR=$(GMP_INCDIR) DETECTED_OS=$(DETECTED_OS) \
+             OBJDIR=$(KERNEL_DIR) \
              $(if $(DEBUG),DEBUG=$(DEBUG))
 
 
@@ -230,18 +235,25 @@ list_asm_files = \
 
 ASMFILES = $(foreach asm_dir,$(ASMDIRS),$(list_asm_files))
 
-# Delegate any kernels/* target to the asm sub-make, forwarding KERNEL_FLAGS.
-kernels/%: force
-	$(MAKE) $(KERNEL_FLAGS) -C kernels $*
+# Delegate any kernels target to the kernels sub-make, forwarding KERNEL_FLAGS.
+# The pattern has to carry the same absolute prefix the parent links against,
+# and the delegated goal has to be $@ rather than $*: the sub-make's rules are
+# written as $(OBJDIR)/<name>, and a bare <name> would be matched against
+# whatever stale file happens to sit in kernels/ instead.
+$(KERNEL_DIR)/%: force
+	$(MAKE) $(KERNEL_FLAGS) -C kernels $@
 
 # Generic compile rules
-%.o: %.c include/if.h kernels/include/siever-config.h
+$(OBJDIR)/%.o: %.c include/if.h kernels/include/siever-config.h
+	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-%.o: %.cpp include/if.h kernels/include/siever-config.h
+$(OBJDIR)/%.o: %.cpp include/if.h kernels/include/siever-config.h
+	@mkdir -p $(@D)
 	$(CXX) $(CFLAGS) $(CXX_STD) -c -o $@ $<
 
-%.o: %.s
+$(OBJDIR)/%.o: %.s
+	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $^
 
 .PHONY: force alle allf allg clean
@@ -262,13 +274,13 @@ SIEVE_G_TARGETS :=
 
 # --- Explicit header dependencies --------------------------------------------
 
-fbgen.o: include/gmp-aux.h
-fbgen.o lasieve-prepn.o: kernels/include/32bit.h
-redu2.o: include/redu2.h
-primgen32.o fbgen.o: include/primgen32.h
+$(OBJDIR)/fbgen.o: include/gmp-aux.h
+$(OBJDIR)/fbgen.o $(OBJDIR)/lasieve-prepn.o: kernels/include/32bit.h
+$(OBJDIR)/redu2.o: include/redu2.h
+$(OBJDIR)/primgen32.o $(OBJDIR)/fbgen.o: include/primgen32.h
 gnfs-lasieve4e.cpp: la-cs.cpp
-lasieve-prepn.o: include/lasieve-prepn.h include/recurrence6.h
-mpqs3.o: kernels/include/mpqs-config.h
+$(OBJDIR)/lasieve-prepn.o: include/lasieve-prepn.h include/recurrence6.h
+$(OBJDIR)/mpqs3.o: kernels/include/mpqs-config.h
 
 
 # ----------------------------------------------------------------------------- 
@@ -299,15 +311,15 @@ SIEVER_SRCS := \
 	recurrence6.cpp
 
 define SIEVER_IRULES
-I$(1)_OBJS := $$(foreach s,$$(SIEVER_SRCS),objI$(1)/$$(basename $$s).o)
+I$(1)_OBJS := $$(foreach s,$$(SIEVER_SRCS),$$(OBJDIR)/objI$(1)/$$(basename $$s).o)
 
-objI$(1)/%.o: %.c
-	@mkdir -p objI$(1)
+$$(OBJDIR)/objI$(1)/%.o: %.c
+	@mkdir -p $$(dir $$@)
 	$$(CC) $$(CFLAGS) -DI_bits=$(1) \
 		-Dlasieve_ns=lasieve_I$(1) -c -o $$@ $$<
 
-objI$(1)/%.o: %.cpp
-	@mkdir -p objI$(1)
+$$(OBJDIR)/objI$(1)/%.o: %.cpp
+	@mkdir -p $$(dir $$@)
 	$$(CXX) $$(CFLAGS) $$(CXX_STD) -DI_bits=$(1) \
 		-Dlasieve_ns=lasieve_I$(1) -c -o $$@ $$<
 endef
@@ -315,21 +327,25 @@ endef
 $(foreach i,$(I_VALUES),$(eval $(call SIEVER_IRULES,$(i))))
 
 ALL_OBJS := $(foreach i,$(I_VALUES),$(I$(i)_OBJS))
-KERNEL_LIBS  := $(foreach i,$(I_VALUES),kernels/libcoreI$(i).a kernels/liblasieveI$(i).a)
+KERNEL_LIBS  := $(foreach i,$(I_VALUES),$(KERNEL_DIR)/libcoreI$(i).a $(KERNEL_DIR)/liblasieveI$(i).a)
 
 # shared, and none of its symbols collide between I values
-lasieve_dispatch.o: lasieve_dispatch.cpp
-	$(CC) $(CFLAGS) -c -o $@ $<
+$(OBJDIR)/lasieve_dispatch.o: lasieve_dispatch.cpp
+	@mkdir -p $(@D)
+	$(CXX) $(CFLAGS) $(CXX_STD) -c -o $@ $<
 
 # Also linked by the standalone sieve regressions, which compile if.cpp and
 # redu2.cpp directly and so need lasieve_bail() without the whole dispatch.
-lasieve_bail.o: lasieve_bail.cpp
-	$(CC) $(CFLAGS) -c -o $@ $<
+$(OBJDIR)/lasieve_bail.o: lasieve_bail.cpp
+	@mkdir -p $(@D)
+	$(CXX) $(CFLAGS) $(CXX_STD) -c -o $@ $<
 
-lasieve_ctx.o: lasieve_ctx.cpp include/lasieve_ctx.h | include/lasieve_ctx.h
-	$(CC) $(CFLAGS) -c -o $@ $<
+$(OBJDIR)/lasieve_ctx.o: lasieve_ctx.cpp include/lasieve_ctx.h | include/lasieve_ctx.h
+	@mkdir -p $(@D)
+	$(CXX) $(CFLAGS) $(CXX_STD) -c -o $@ $<
 
-libgmp-aux.a: gmp-aux.o mpz-ull.o
+$(OBJDIR)/libgmp-aux.a: $(OBJDIR)/gmp-aux.o $(OBJDIR)/mpz-ull.o
+	@mkdir -p $(@D)
 	$(AR) rcs $@ $^
 
 # Everything the parent Makefile has to link in, in one place.
@@ -338,33 +354,39 @@ libgmp-aux.a: gmp-aux.o mpz-ull.o
 # alone has one against the factor-base inverse table), which a PIE link
 # rejects: it wants a copy relocation.  The assembly is not PIC, so the parent
 # links yafu with -no-pie for this reason.
-LASIEVE_OBJS := lasieve_dispatch.o lasieve_bail.o lasieve_ctx.o $(ALL_OBJS)
-LASIEVE_LIBS := libgmp-aux.a $(KERNEL_LIBS)
+LASIEVE_OBJS := $(OBJDIR)/lasieve_dispatch.o $(OBJDIR)/lasieve_bail.o $(OBJDIR)/lasieve_ctx.o $(ALL_OBJS)
+LASIEVE_LIBS := $(OBJDIR)/libgmp-aux.a $(KERNEL_LIBS)
 
 objects: $(LASIEVE_OBJS) $(LASIEVE_LIBS)
 
 # The parent Makefile pulls the list in with $(shell $(MAKE) -s -C ... bobs) and
-# turns each entry into a dependency, so that building yafu builds the siever.
+# uses each entry directly as a dependency and as a link input, so the paths
+# printed here have to be the ones lasieve-force actually builds.  Both calls
+# pass the same OBJDIR, and the top-level one passes an absolute path.
 bobs:
 	@for f in $(LASIEVE_OBJS) $(LASIEVE_LIBS); do echo $$f; done
 
 # A standalone driver for the sieve tests, built on demand and never part of
 # `make all`: the shipped artefact is yafu, with the siever inside it.  The
 # test needs to run the siever by itself to compare relation output.
-$(BINPREFIX)check_sieve: $(LASIEVE_OBJS) $(LASIEVE_LIBS) check_sieve.o
+$(BINPREFIX)check_sieve: $(LASIEVE_OBJS) $(LASIEVE_LIBS) $(OBJDIR)/check_sieve.o
+	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -no-pie -o $@ $^ $(GMP_LIB) -lm
 
-check_sieve.o: check_sieve.cpp lasieve_dispatch.cpp include/lasieve_bail.h
-	$(CC) $(CFLAGS) -c -o $@ $<
+$(OBJDIR)/check_sieve.o: check_sieve.cpp lasieve_dispatch.cpp include/lasieve_bail.h
+	@mkdir -p $(@D)
+	$(CXX) $(CFLAGS) $(CXX_STD) -c -o $@ $<
 
 # The six I values at once, one thread each.  sieve_oracle.sh runs them one after
 # another and so cannot see cross-talk between two sievers sharing a process,
 # which is exactly what the per-I objects exist to prevent.
-$(BINPREFIX)check_sieve_mt: $(LASIEVE_OBJS) $(LASIEVE_LIBS) check_sieve_mt.o
+$(BINPREFIX)check_sieve_mt: $(LASIEVE_OBJS) $(LASIEVE_LIBS) $(OBJDIR)/check_sieve_mt.o
+	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -no-pie -o $@ $^ $(GMP_LIB) -lm -lpthread
 
-check_sieve_mt.o: check_sieve_mt.cpp lasieve_dispatch.cpp
-	$(CC) $(CFLAGS) -c -o $@ $<
+$(OBJDIR)/check_sieve_mt.o: check_sieve_mt.cpp lasieve_dispatch.cpp
+	@mkdir -p $(@D)
+	$(CXX) $(CFLAGS) $(CXX_STD) -c -o $@ $<
 
 alle: objects
 
@@ -373,67 +395,98 @@ allf allg:
 	@false
 
 # --- Test / stat targets -----------------------------------------------------
+#
+# These are the siever's own dev binaries.  They are not part of `make all`,
+# and they honour BINDIR so the regressions can keep them out of the tree.
 
-mpqsz.o: mpqs.cpp kernels/include/mpqs-config.h
+$(OBJDIR)/mpqsz.o: mpqs.cpp kernels/include/mpqs-config.h
+	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -O2 -DMPQS_STAT -DMPQS_ZEIT -c -o $@ $<
 
-mpqstest: mpqstest.o mpqsz.o lasieve_bail.o if.o mpz-ull.o kernels/liblasieve.a
+$(BINPREFIX)mpqstest: $(OBJDIR)/mpqstest.o $(OBJDIR)/mpqsz.o $(OBJDIR)/lasieve_bail.o \
+	$(OBJDIR)/if.o $(OBJDIR)/mpz-ull.o $(KERNEL_DIR)/liblasieve.a
+	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
-mpqs3z.o: mpqs3.cpp kernels/include/mpqs-config.h
+$(OBJDIR)/mpqs3z.o: mpqs3.cpp kernels/include/mpqs-config.h
+	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -O2 -DMPQS3_STAT -DMPQS3_ZEIT -c -o $@ $<
 
-mpqs3test: mpqs3test.o mpqs3z.o lasieve_bail.o if.o lasieve_ctx.o libgmp-aux.a kernels/liblasieve.a
+$(BINPREFIX)mpqs3test: $(OBJDIR)/mpqs3test.o $(OBJDIR)/mpqs3z.o $(OBJDIR)/lasieve_bail.o \
+	$(OBJDIR)/if.o $(OBJDIR)/lasieve_ctx.o $(OBJDIR)/libgmp-aux.a $(KERNEL_DIR)/liblasieve.a
+	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
-mpqsstat: mpqsstat.o mpqs.o mpqs3.o lasieve_bail.o if.o lasieve_ctx.o mpz-ull.o libgmp-aux.a kernels/liblasieve.a
+$(BINPREFIX)mpqsstat: $(OBJDIR)/mpqsstat.o $(OBJDIR)/mpqs.o $(OBJDIR)/mpqs3.o \
+	$(OBJDIR)/lasieve_bail.o $(OBJDIR)/if.o $(OBJDIR)/lasieve_ctx.o \
+	$(OBJDIR)/mpz-ull.o $(OBJDIR)/libgmp-aux.a $(KERNEL_DIR)/liblasieve.a
+	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
 # 多实例验证：两个实例的 ECM/PM1 状态必须互不干扰
-ctx_test.o: ctx_test.cpp include/lasieve_ctx.h include/ecm.h include/pm1.h \
+$(OBJDIR)/ctx_test.o: ctx_test.cpp include/lasieve_ctx.h include/ecm.h include/pm1.h \
 	include/if.h kernels/include/siever-config.h
-	$(CC) $(CFLAGS) -c -o $@ $<
+	@mkdir -p $(@D)
+	$(CXX) $(CFLAGS) $(CXX_STD) -c -o $@ $<
 
-$(BINPREFIX)ctx_test: ctx_test.o lasieve_ctx.o lasieve_bail.o if.o
+$(BINPREFIX)ctx_test: $(OBJDIR)/ctx_test.o $(OBJDIR)/lasieve_ctx.o $(OBJDIR)/lasieve_bail.o $(OBJDIR)/if.o
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
 # ECM/P-1 的数值正确性，以及两个实例交错推进的隔离性
-ecm_pm1_test.o: ecm_pm1_test.cpp include/lasieve_ctx.h include/ecm.h include/pm1.h \
+$(OBJDIR)/ecm_pm1_test.o: ecm_pm1_test.cpp include/lasieve_ctx.h include/ecm.h include/pm1.h \
 	include/if.h kernels/include/siever-config.h
-	$(CC) $(CFLAGS) -c -o $@ $<
+	$(CXX) $(CFLAGS) $(CXX_STD) -c -o $@ $<
 
-$(BINPREFIX)ecm_pm1_test: ecm_pm1_test.o ecm.o pm1.o lasieve_ctx.o lasieve_bail.o if.o kernels/liblasieve.a
+$(BINPREFIX)ecm_pm1_test: $(OBJDIR)/ecm_pm1_test.o $(OBJDIR)/ecm.o $(OBJDIR)/pm1.o \
+	$(OBJDIR)/lasieve_ctx.o $(OBJDIR)/lasieve_bail.o $(OBJDIR)/if.o $(KERNEL_DIR)/liblasieve.a
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
 
-ecmz.o: ecm.cpp kernels/include/siever-config.h
+$(OBJDIR)/ecmz.o: ecm.cpp kernels/include/siever-config.h
+	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -DECM_STAT -DECM_ZEIT -c -o $@ $<
 
-ecmtest: ecmtest.o ecmz.o lasieve_bail.o if.o lasieve_ctx.o kernels/liblasieve.a
+$(BINPREFIX)ecmtest: $(OBJDIR)/ecmtest.o $(OBJDIR)/ecmz.o $(OBJDIR)/lasieve_bail.o \
+	$(OBJDIR)/if.o $(OBJDIR)/lasieve_ctx.o $(KERNEL_DIR)/liblasieve.a
+	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
-ecmstat: ecmstat.o ecmz.o lasieve_bail.o if.o lasieve_ctx.o kernels/liblasieve.a
+$(BINPREFIX)ecmstat: $(OBJDIR)/ecmstat.o $(OBJDIR)/ecmz.o $(OBJDIR)/lasieve_bail.o \
+	$(OBJDIR)/if.o $(OBJDIR)/lasieve_ctx.o $(KERNEL_DIR)/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
-pm1z.o: pm1.cpp kernels/include/siever-config.h
+$(OBJDIR)/pm1z.o: pm1.cpp kernels/include/siever-config.h
+	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -DPM1_STAT -DPM1_ZEIT -c -o $@ $<
 
-pm1test: pm1test.o pm1z.o lasieve_bail.o if.o lasieve_ctx.o kernels/liblasieve.a
+$(BINPREFIX)pm1test: $(OBJDIR)/pm1test.o $(OBJDIR)/pm1z.o $(OBJDIR)/lasieve_bail.o \
+	$(OBJDIR)/if.o $(OBJDIR)/lasieve_ctx.o $(KERNEL_DIR)/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
-pm1stat: pm1stat.o pm1z.o lasieve_bail.o if.o lasieve_ctx.o kernels/liblasieve.a
+$(BINPREFIX)pm1stat: $(OBJDIR)/pm1stat.o $(OBJDIR)/pm1z.o $(OBJDIR)/lasieve_bail.o \
+	$(OBJDIR)/if.o $(OBJDIR)/lasieve_ctx.o $(KERNEL_DIR)/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
 
 # --- Clean -------------------------------------------------------------------
+#
+# OBJDIR is removed wholesale; the kernels/ layer lives inside it.  The legacy
+# in-tree locations are swept too, so a tree built before the move is left
+# clean.  Nothing new is ever written there.
 
 clean:
+	-rm -rf $(OBJDIR)
 	-rm -rf objI11 objI12 objI13 objI14 objI15 objI16
 	-rm -rf kernels/coreI11 kernels/coreI12 kernels/coreI13 kernels/coreI14 kernels/coreI15 kernels/coreI16
 	-rm -f kernels/libcoreI11.a kernels/libcoreI12.a kernels/libcoreI13.a \
-		kernels/libcoreI14.a kernels/libcoreI15.a kernels/libcoreI16.a
+		kernels/libcoreI14.a kernels/libcoreI15.a kernels/libcoreI16.a \
+		kernels/liblasieve.a kernels/liblasieveI11.a kernels/liblasieveI12.a \
+		kernels/liblasieveI13.a kernels/liblasieveI14.a kernels/liblasieveI15.a \
+		kernels/liblasieveI16.a
 	-rm -f *.o *.a kernels/*.o kernels/*.a \
+		ctx_test ecm_pm1_test check_sieve check_sieve_mt \
+		mpqstest mpqs3test mpqsstat ecmtest ecmstat pm1test pm1stat \
 		$(BINPREFIX)ctx_test $(BINPREFIX)ecm_pm1_test $(BINPREFIX)check_sieve \
 		$(BINPREFIX)check_sieve_mt

@@ -408,11 +408,28 @@ static void file_cache_get_next(msieve_obj *obj, FILE *fp,
 		}
 #endif
 		f->read_ptr = 0;
+
+		/* 补读之后仍然连一列的头都凑不齐，说明文件到这儿断了。
+		 * 原来的写法接着往下走：fread 读到 EOF 返回 0，于是
+		 * f->num_valid 正好等于 words_left，而 f->cache[0] 里还留着
+		 * 上一列的字节，num 就取到了陈旧值。后面那道
+		 * `num + dense_row_words > MAX_COL_IDEALS` 只能拦住陈旧值偏大的
+		 * 情形；偏小的话，下面构造剩余各列的循环会拿陈旧数据把矩阵补满，
+		 * 静默进到线性代数。 */
+		if (f->num_valid < dense_row_words + 1) {
+			logprintf(obj, "error: matrix file truncated; "
+					"expected another column\n");
+			exit(-1);
+		}
 	}
 
 	num = f->cache[f->read_ptr];
-	if (num + dense_row_words > MAX_COL_IDEALS) {
-		printf("error: column too large; corrupt file?\n");
+
+	/* 这一列自称的条目数必须真的在缓存里。 */
+	if (num > MAX_COL_IDEALS ||
+	    (uint64)num + dense_row_words + 1 > f->num_valid - f->read_ptr) {
+		logprintf(obj, "error: matrix file truncated; "
+				"column claims %u entries\n", num);
 		exit(-1);
 	}
 
@@ -458,9 +475,16 @@ void read_matrix(msieve_obj *obj,
 		exit(-1);
 	}
 
-	fread(&max_nrows, sizeof(uint32), (size_t)1, matrix_fp);
-	fread(&dense_rows, sizeof(uint32), (size_t)1, matrix_fp);
-	fread(&max_ncols, sizeof(uint32), (size_t)1, matrix_fp);
+	/* 12 字节头：max_nrows / dense_rows / max_ncols。三个都检查返回值——
+	 * 文件短于 12 字节时（写一半就崩了、或被人截断），它们会保持未初始化
+	 * 的栈值，dense_row_words 随之失控，后面所有尺寸都建立在垃圾上。 */
+	if (fread(&max_nrows, sizeof(uint32), (size_t)1, matrix_fp) != 1 ||
+	    fread(&dense_rows, sizeof(uint32), (size_t)1, matrix_fp) != 1 ||
+	    fread(&max_ncols, sizeof(uint32), (size_t)1, matrix_fp) != 1) {
+		logprintf(obj, "error: matrix file is shorter than its "
+				"12-byte header\n");
+		exit(-1);
+	}
 
 	/* default bounding rectangle on matrix read in */
 

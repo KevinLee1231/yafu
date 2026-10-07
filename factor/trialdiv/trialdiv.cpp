@@ -329,19 +329,6 @@ void zFermat(uint64_t limit, uint32_t mult, fact_obj_t *fobj)
 	if (mpz_perfect_square_p(b2))
 		goto found;
 
-	for (i=0; i<8; i++)
-		nmasks[i] = ~masks[i];
-
-	// marks locations where squares can occur mod M, M1, M2
-	for (i64 = 0; i64 < M; ++i64)
-		setbit(sqr, (i64*i64)%M);
-
-	for (i64 = 0; i64 < M1; ++i64)
-		setbit(sqr1, (i64*i64)%M1);
-
-	for (i64 = 0; i64 < M2; ++i64)
-		setbit(sqr2, (i64*i64)%M2);
-
 	// for the modular sequence of b*b = a*a - n values 
 	// (where b2_2 = b2_1 * 2a + 1), mark locations where
 	// b^2 can be a square
@@ -560,6 +547,12 @@ static const uint32_t smM = 2 * 2 * 2 * 2 * 3 * 3; //72
 static const uint32_t smM1 = 7 * 11; //77
 static const uint32_t smM2 = 5 * 13; //65
 
+/* One-time tables shared by every spfermat() call.  They are built on first
+ * use and only read afterwards, so they need no locking as long as calls do
+ * not overlap: the only caller is the single-threaded calculator
+ * (top/cmdParser/calc.cpp), and no code in this tree factors from more than
+ * one thread at a time.  Two threads inside spfermat() would race on both the
+ * build loop and the buffers, so keep this precondition if that ever changes. */
 static uint8_t* smsqr, * smsqr1, * smsqr2, * smmod, * smmod1, * smmod2;
 static uint16_t* smskip;
 static int sm_fermat_initialized = 0;

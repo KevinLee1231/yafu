@@ -1146,6 +1146,15 @@ void save_relation_siqs(uint32_t offset, uint32_t *large_prime, uint32_t num_fac
                 i = i + 1;
             }
 
+            /* 先把 4 个槽全填 1，再覆盖用上的那几个。num_lp < 4 时剩下的槽位
+             * 必须有确定值：in_mem_relations 是 malloc 出来的池子，槽位里留着
+             * 上一次复用的残值，而 td_and_merge_relation 无条件把它们当作真实
+             * 大素数往下传。num_lp == 2 和 == 1 的分支本来就是这么做的。 */
+            for (i = 0; i < MAXLP; i++)
+            {
+                r->large_prime[i] = 1;
+            }
+
             for (i = 0; i < conf->num_lp; i++)
             {
                 r->large_prime[i] = large_prime[i];

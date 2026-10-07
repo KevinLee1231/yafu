@@ -903,7 +903,17 @@ void med_sieveblock_32k_avx512bw(uint8_t* sieve, sieve_fb_compressed* fb, fb_lis
     //printf("start: %d, stop: %d\n", i, med_B - 32);
     // sieve primes 32 at a time, 2^15 < p < med_B
     logp = 15;
-    for (; i < med_B - 32; i += 32) {
+    /* 上界按同文件 AVX2 版（544 行附近）的写法算：med_B 是 uint32_t，
+     * 直接写 `i < med_B - 32` 在 med_B < 32 时下溢成接近 UINT32_MAX，循环
+     * 会一直跑下去读 fb->prime 越界。这里先减出"还剩不足 32 项"再收口。 */
+    if (i >= med_B)
+        bound = i;
+    else if ((med_B - i) < 32)
+        bound = med_B;
+    else
+        bound = med_B - 32;
+
+    for (; i < bound; i += 32) {
         //printf("loading from index %d\n", i); fflush(stdout);
         vp = _mm512_load_si512((fb->prime + i));
         vr1 = _mm512_load_si512((fb->root1 + i));

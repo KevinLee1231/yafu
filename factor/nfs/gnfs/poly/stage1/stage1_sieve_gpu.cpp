@@ -1457,7 +1457,7 @@ load_sort_engine(msieve_obj *obj, device_data_t *d)
 	const char *suffix = ".so";
 	#endif
 
-	sprintf(libname, "factor/shared/cub/sort_engine%s", suffix);
+	sprintf(libname, "build/sort_engine%s", suffix);
 
 	/* override from input args */
 
@@ -1552,7 +1552,7 @@ load_collision_engine(msieve_obj *obj, device_data_t *d)
 	const char *suffix = ".so";
 	#endif
 
-	sprintf(libname, "factor/shared/cub/collision_engine%s", suffix);
+	sprintf(libname, "build/collision_engine%s", suffix);
 
 	if (obj->nfs_args != NULL) {
 		char *tmp = strstr(obj->nfs_args, "colllib=");
@@ -1629,7 +1629,7 @@ gpu_thread_data_init(void *data, int threadid)
 
 	/* load GPU kernels */
 
-	CUDA_TRY(cuModuleLoad(&t->gpu_module, "stage1_core.ptx"))
+	CUDA_TRY(cuModuleLoad(&t->gpu_module, "build/stage1_core.ptx"))
 
 	t->launch = (gpu_launch_t *)xmalloc(NUM_GPU_FUNCTIONS *
 				sizeof(gpu_launch_t));

@@ -982,8 +982,14 @@ int check_relations_siqs_16_avx512(uint32_t blocknum, uint8_t parity,
 
                 thisloc = j * 8;
 
+                /* 本文件其余内核在这里都有上界判断（见 404 行等），只有这个
+                 * AVX-512 分支漏了。一次 _mm512_cmpgt_epu8_mask 能命中最多
+                 * 64 个字节，reports[] 只有 MAX_SIEVE_REPORTS 项；写超了就是
+                 * 堆越界，而函数末尾那句截断来得太晚，那时已经写坏。 */
                 while (r_msk > 0)
                 {
+                    if (dconf->num_reports >= MAX_SIEVE_REPORTS)
+                        break;
                     idx = _trail_zcnt64(r_msk);
                     dconf->reports[dconf->num_reports++] = thisloc + idx;
                     r_msk = _blsr_u64(r_msk);
@@ -1027,6 +1033,9 @@ int check_relations_siqs_16_avx512(uint32_t blocknum, uint8_t parity,
             {
                 uint32_t a_msk;
 
+                if (dconf->num_reports >= MAX_SIEVE_REPORTS)
+                    break;
+
                 idx = _trail_zcnt(r_msk);
 
                 // each lit bit identifies 4 possible bytes meeting our criteria
@@ -1035,6 +1044,9 @@ int check_relations_siqs_16_avx512(uint32_t blocknum, uint8_t parity,
 
                 do
                 {
+                    /* 内层一次外层迭代最多写 4 项，所以两道循环都得看界 */
+                    if (dconf->num_reports >= MAX_SIEVE_REPORTS)
+                        break;
                     k = _trail_zcnt(a_msk) >> 3;
 	                dconf->reports[dconf->num_reports++] = thisloc + k + idx * 4;
                     a_msk = _blsr_u32(a_msk);

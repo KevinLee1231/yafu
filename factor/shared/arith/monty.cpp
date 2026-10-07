@@ -62,6 +62,25 @@ SOFTWARE.
 #include <stdbool.h>
 #endif
 
+/* CIOS Montgomery reduction's `assert(cc >> 64 == 0)` switch.
+ *
+ * It checks that the two-word partial sum does not overflow 128 bits -- the
+ * central invariant of CIOS.  Violating it raises nothing, it just silently
+ * yields a wrong modular product, and ECM, SIQS and APR-CL all route their
+ * modular multiplication through here.
+ *
+ * PARANOID used to be defined nowhere in the tree, so none of these assertions
+ * ever reached the compiler.  Off by default (release builds use -Ofast and
+ * would pay for nothing); to exercise the invariants, compile this translation
+ * unit with -DPARANOID=1 and run the full regression suite. */
+#ifndef PARANOID
+#define PARANOID 0
+#endif
+
+/* assert() lives here: monty.cpp never included <cassert>, so even with
+ * PARANOID=1 the assertions below would have failed to compile. */
+#include <cassert>
+
 
 #if (defined(GCC_ASM64X) || defined(__MINGW64__)) && !defined(ASM_ARITH_DEBUG)
 #if !defined(_MSC_VER)
@@ -717,10 +736,6 @@ void ciosModMul128(uint64_t* res_lo, uint64_t* res_hi, uint64_t b_lo, uint64_t b
 	//t2 = (uint64_t)cc;
 	t1 = cclo;
 	t2 = cchi;
-#if PARANOID
-	assert(cc >> 64 == 0);
-#endif
-
 	m = t0 * mmagic;	// #3
 	//cs = (uint128_t)m * mod_lo;	// #4
 	cslo = _umul128(m, mod_lo, &cshi);
@@ -750,10 +765,6 @@ void ciosModMul128(uint64_t* res_lo, uint64_t* res_hi, uint64_t b_lo, uint64_t b
 	t1 = cslo;
 	t2 = cshi;
 
-#if PARANOID
-	assert(cs >> 64 == 0);
-#endif
-
 	//cc = (uint128_t)a_hi * b_lo;	// #6
 	//cc += t0;
 	//t0 = (uint64_t)cc;
@@ -780,10 +791,6 @@ void ciosModMul128(uint64_t* res_lo, uint64_t* res_hi, uint64_t b_lo, uint64_t b
 	cchi = _addcarry_u64(0, cclo, t2, &cclo);
 	t2 = cclo;
 	t3 = cchi;
-
-#if PARANOID
-	assert(cc >> 64 == 0);
-#endif
 
 	m = t0 * mmagic;	// #8
 	//cs = (uint128_t)m * mod_lo;	// #9

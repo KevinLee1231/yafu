@@ -12,6 +12,150 @@
 | 次版本 | 新增分解算法，或既有算法新增实现路径（如 GPU 版本） |
 | 修订号 | 修 bug、性能或健壮性改进，不改变外部行为 |
 
+**版本号只有一个来源，就是本文件。** `factor/shared/include/yafu.h` 里的
+`YAFU_VERSION_STRING` 永远等于这里的版本号，改版本时两处必须一起改。它决定
+`yafu -v` 的输出和自动分解写进 `factor.json` 的 `"yafu-version"` 字段；对不上就
+以本文件为准去改 `yafu.h`。
+
+---
+
+## 2.0.0
+
+### 修掉 `-e` 段错误与 `-obase` 完全不可用
+
+`top/cmdParser/cmdOptions.cpp` 的 `needsArg` 表和 `OptionArray` 按下标一一对应，
+全靠位置对齐。两处标错：
+
+| 选项 | 下标 | 原值 | 现值 | 后果 |
+| --- | --- | --- | --- | --- |
+| `e` | 67 | 0 | 1 | `yafu -e expr(6*7)` 段错误退出（SIGSEGV），表达式被丢弃 |
+| `obase` | 109 | 0 | 1 | `yafu -obase 16 expr(255)` 报 `invalid or out-of-range argument`，该选项等于没法用 |
+
+`-e` 的段错误链条：`needsArg == 0` 使它落进"不收参数"分支，`applyOpt("e", NULL)`
+再调到 `applyArg(NULL, 0, ...)`，那里直接 `strlen(NULL)`。`processOpts` 里那句
+`if (strcmp(optbuf, "e") == 0 && numOpt++ >= options->numArguments)` 写在
+`needsArg == 1` 分支里，说明当初就是按"带参数"写的，只是表里填反了。
+
+两处都改成 1 之后，`-e` 的表达式经 `applyArg` 存进 `inputExpr`，`-obase` 也能正常
+收到它的进制数。`applyArg` 另加一道 `arg == NULL` 直接返回：参数可选的选项本来
+就会以 NULL 调到这里，之前只是碰巧没有别的选项走到这里。
+
+`needsArg` 是位置表、`NUMOPTIONS` 是 133，下列行内注释早已与实际下标错开，
+所以在表上方写明"改哪一项先按下标核对 `OptionArray`"。
+
+### 修掉筛法器在非 AVX-512 构建下链接不过
+
+`kernels/include/siever-config.h` 无条件 `#define ASM_SCHEDTDSIEVE2` 并声明
+`tdsieve_sched2buf`，`gnfs-lasieve4e.cpp` 的试除调度处按
+
+```c
+#if defined(ASM_SCHEDTDSIEVE2) && !defined(AVX512_TDSCHED)
+    b0 = tdsieve_sched2buf(...);
+#else   /* AVX-512 gather 版 / 标量 C 版，都是完整实现 */
+#endif
+```
+
+来选路径。但 `tdsieve_sched2buf` 的实现在 `.asm -> .cpp` 迁移时随汇编一起没了，
+全仓库只剩声明。结果是：定义了 `AVX512_TDSCHED` 的构建（yafu 本体经
+`AVX512_ALL=1`）走 `#else`，链接得过；不传 AVX 开关的独立回归走前一条分支，
+必然 `undefined reference`。`make test-standalone` 的 lasieve 一半因此从来没真正
+链接成功过。开关、声明和那条死分支一并删除，剩下的两条路径都是完整实现。
+
+### 测试：新的回归驱动与它自己的自检
+
+上面的链接失败之所以能长期藏着不报，是因为没人替各套脚本的退出码负责：三个
+shell 脚本各自 trap 清理临时目录，顶层 Makefile 一条一行地调用，谁没把状态传
+出来整轮就是绿的。现在由 `test/run_all.sh` 统一编排——逐套记录、逐套打印、
+最后汇总，任何一套非 0 整体就非 0，并把它逐套调用的目标接到 `make test-all`。
+
+配套的 `test/harness_selftest.sh` 验证驱动自己可信：子套件报失败时驱动必须
+非 0、失败退出码要原样传出、挑不出套件时不能静默通过。回归套件自己被测，
+这一点以前没有。
+
+三个 shell 脚本的 trap 改成先存状态、清 trap、再原样退出：
+
+```sh
+cleanup()
+{
+    rc=$?
+    trap - EXIT HUP INT TERM
+    rm -rf -- "$task_dir"
+    exit "$rc"
+}
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+```
+
+原先 `trap 'rm -rf -- "$task_dir"' EXIT HUP INT TERM` 把清理和信号处理写成
+一条：收到 Ctrl-C 时 trap 跑完，脚本从被中断处**继续往下执行**并照常打印
+"checks: N passed"。信号各有各的 trap 之后，脚本会立刻停下。
+
+需要更正一句我先前给出的判断：我说过"以 `rm -rf` 收尾的 EXIT trap 会把显式
+`exit 1` 变成 0"。在 WSL 这版 dash 上按五种写法逐一测过，退出码都原样传出，
+这条不成立——当时的实验里 `printf ... "$(basename $f)" "$?"` 的命令替换先把
+`$?` 覆盖成了 basename 的退出码。真正的缺陷是上面那一条信号处理，不是退出码
+被覆盖；现在的写法对两者都稳妥。
+
+`test/Makefile` 删除。它列的是 `.c` 源文件（早已迁成 `.cpp`），`YAFU_ROOT`
+硬编码成上游作者的 `/sppdg/scratch/buhrow/...`，全仓库没有任何地方调用它，
+真正的测试目标都在顶层 Makefile 里。留着只会让下一个人以为测试有两套入口。
+
+### 收尾 C++ 化：删掉 52 个不参与构建的 .c
+
+`git ls-files '*.c'` 列出 52 个 `.c`，但逐个核对三个 Makefile 的源文件列表后，
+**参与构建的是 0 个**——构建的 225 个源文件已经全是 `.cpp`。这些 `.c` 是历次
+合并与迁移后留下的旧版本：
+
+| 目录 | 被谁取代 |
+| --- | --- |
+| `shared/arith/{arith0..3,limb1,limb2,mod64,mod128,mul_mod_64}.c` | `arith.cpp`（顶层 Makefile 里那段"如果你的树把 128 位代码拆成了 limb1.c/limb2.c"的注释就是这个时期的） |
+| `shared/arith/tfm/*.c`（15 个） | `monty.cpp` |
+| `siqs/` 的 64k 系列、knc/knl 系列、`sieve.c`、`poly_roots*.c`、`tinySIQS.c` | 对应的 `.cpp` ISA 内核 |
+| `shared/common/{ocl_xface,lanczos/lanczos_reorder}.c`、`core/prime_sieve.c`、`nfs/winsupport.c`、`ecm/{avxppm1,vecarith52_karatsuba}.c` 等 | 各自的 `.cpp` 版本或已废弃的 OpenCL/GPU 路径 |
+
+删除前按符号逐个验证过：对每个 `.c` 抽出它定义的非 static 函数，确认这些名字
+**已由参与构建的文件提供**；其中 4 个文件另有一个构建里没有的符号，核对后
+是三类无害情况——解析器把宏片段当成函数名（`M1`、`t52`、`_8`），以及
+`tiny_process_poly`。
+
+`tiny_process_poly` 是真问题：`qs_impl.h` 注释写着"实现在 tinySIQS.c 里"，
+而那个文件不参与构建，于是这个函数（连同 `tiny_update_check`）**只有声明、
+既无定义也无调用者**——谁写个同名函数就会在链接时才发现。随文件一并删除，
+`qs_impl.h` 里两条声明也换成了说明。
+
+顶层 Makefile 同步去 C：`objmap` 不再需要"同一份代码按 `.c`/`.cpp` 落到同名
+对象"的兼容分支，三条 `%.c` 模式规则删除，头部注明这棵树只有 C++、全部按
+C++26 编译。至此 `git ls-files '*.c'` 返回空。
+
+删除走的是 `git rm`，1134 个提交的历史里随时可取回。
+
+### 构建产物统一落在 build/
+
+改动之前只有四个静态库待在 `build/` 里，其余生成文件都写在源码目录旁边：`top/*.o`、`factor/*/*.o`、`factor/mpqs/*.qo`、`factor/nfs/gnfs/*.no`、`factor/nfs/lasieve/objI11..16/`、`factor/nfs/lasieve/kernels/coreI11..16/`、依赖文件 `.deps/`，可执行文件 `yafu`、`yafu_test*` 也在仓库根。加上 `top/driver.o` 这种"改一行源码就得重编"的文件混在源码里，改名和查历史都很别扭。
+
+现在所有生成文件都落在仓库根的 `build/` 下，目录结构镜像源码树：
+
+| 产物 | 位置 |
+| --- | --- |
+| 对象 | `build/factor/ecm/ecm.o`、`build/top/driver.o`、`build/factor/mpqs/sieve.qo`、`build/factor/nfs/gnfs/gnfs.no` |
+| lasieve 的 per-I 对象 | `build/factor/nfs/lasieve/objI<N>/*.o`、`build/factor/nfs/lasieve/kernels/coreI<N>/*.o` |
+| 静态库 | `build/libysiqs.a`、`build/libyecm.a`、`build/libynfs.a`、`build/libmsieve.a`、`build/libyafu_common.a` |
+| 依赖文件 | `build/.deps/factor/ecm/ecm.d` |
+| 可执行文件 | `build/yafu`、`build/yafu_test`、`build/yafu_test_full`、`build/yafu_test_sanitize` |
+| GPU 产物 | `build/*.ptx`、`build/sort_engine.so`、`build/collision_engine.so` |
+
+做法上是三条：
+
+- 主 Makefile 的 `objmap` 系列映射函数统一加 `build/` 前缀，编译规则从 `%.o` 改成 `build/%.o`，每个 recipe 自己 `mkdir -p` 输出目录与依赖文件目录。原来靠 `$(DEPS_SUBDIRS)` 这个 order-only 目录列表来建目录，但它在 `TEST_OBJS` 定义之前就展开了一次，`build/test/` 那层拿不到规则，所以不再维护目录清单。
+- lasieve 子构建新增 `OBJDIR`（对象与库的输出目录，默认 `.`），顶层传绝对路径；`bobs` 打印的路径因此可以直接用作链接输入。`kernels/` 那层的委派规则从 `kernels/%` 改成 `$(KERNEL_DIR)/%`，委派时把 `OBJDIR` 一起传下去，且必须传完整目标 `$@` 而非 stem `$*`——后者会被源码目录里残留的同名旧文件满足掉，子构建静默跳过。
+- lasieve 的 stat/test 目标（`mpqstest`、`ecmstat` 等）原本没有 `$(BINPREFIX)`，只能在源码树里构建再由 `test/test_lasieve.sh` 手工搬走。现在补上 `$(BINPREFIX)`，脚本改成统一传 `OBJDIR` 与 `BINDIR`，跑完源码树不再留任何生成文件。
+
+顺带修掉两处：kernels 子构建原本靠 make 内置规则编 `%.o`，没有显式规则，`OBJDIR` 之下就没有规则可用，现已写出显式的 `.c`/`.cpp` 规则；`sort_engine.so`、`collision_engine.so` 和三个 `.ptx` 原来写在源码树里，源码按相对路径打开它们，所以 `stage1_sieve_gpu.cpp` 与 `gpu_cofactorization.cpp` 里的路径字面量也跟着加上了 `build/` 前缀（这几个路径是相对**运行目录**解析的，yafu 仍然要在仓库根运行）。
+
+`make clean` 现在一次删掉整个 `build/`，并顺带扫掉旧落点里的残留文件。
+
 ---
 
 ## 1.1.0
