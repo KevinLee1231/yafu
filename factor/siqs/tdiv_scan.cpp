@@ -52,7 +52,7 @@ this file contains code implementing 1)
 
 */
 
-#if defined(GCC_ASM64X) || defined(__MINGW64__)
+#if defined(GCC_ASM64X)
 	#define SCAN_CLEAN __asm__ volatile("emms");	
 
 #if defined(USE_AVX2)

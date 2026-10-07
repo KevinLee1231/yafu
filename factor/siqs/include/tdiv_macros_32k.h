@@ -1,6 +1,6 @@
 
 
-#if defined(GCC_ASM32X) || defined(GCC_ASM64X) || defined(__MINGW32__)
+#if defined(GCC_ASM32X) || defined(GCC_ASM64X)
 
 		// the original roots are the current roots + BLOCKSIZE
 		// to test if this block_loc is on the root progression, we first

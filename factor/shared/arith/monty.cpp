@@ -82,7 +82,7 @@ SOFTWARE.
 #include <cassert>
 
 
-#if (defined(GCC_ASM64X) || defined(__MINGW64__)) && !defined(ASM_ARITH_DEBUG)
+#if (defined(GCC_ASM64X)) && !defined(ASM_ARITH_DEBUG)
 #if !defined(_MSC_VER)
 __inline uint64_t _umul128(uint64_t x, uint64_t y, uint64_t* hi)
 {
@@ -710,124 +710,6 @@ void ciosModMul128(uint64_t* res_lo, uint64_t* res_hi, uint64_t b_lo, uint64_t b
 	uint64_t mmagic)
 {
 
-#ifdef _MSC_VER
-	uint64_t a_lo = *res_lo, a_hi = *res_hi;
-	uint64_t cshi, cslo, cchi, cclo;
-	uint64_t t0, t1, t2, t3, m;
-
-	//cc = (uint128_t)a_lo * b_lo;	// #1
-	//t0 = (uint64_t)cc;
-	//cc = cc >> 64;
-	cclo = _umul128(a_lo, b_lo, &cchi);
-	t0 = cclo;
-	cclo = cchi;
-
-	//cc += (uint128_t)a_lo * b_hi;	// #2
-	cslo = _umul128(a_lo, b_hi, &cshi);
-	cchi = _addcarry_u64(0, cclo, cslo, &cclo);
-	cchi += cshi;
-	
-	//t1 = (uint64_t)cc;
-	//cc = cc >> 64;
-	//t2 = (uint64_t)cc;
-	t1 = cclo;
-	t2 = cchi;
-	m = t0 * mmagic;	// #3
-	//cs = (uint128_t)m * mod_lo;	// #4
-	cslo = _umul128(m, mod_lo, &cshi);
-
-	//cs += t0;
-	//cs = cs >> 64;
-	cshi += _addcarry_u64(0, t0, cslo, &cslo);
-	cslo = cshi;
-
-	//cs += (uint128_t)m * mod_hi;	// #5
-	//cs += t1;
-	cclo = _umul128(m, mod_hi, &cchi);
-	cchi += _addcarry_u64(0, cclo, cslo, &cclo);
-	cchi += _addcarry_u64(0, t1, cclo, &cclo);
-
-	//t0 = (uint64_t)cs;
-	//cs = cs >> 64;
-	t0 = cclo;
-	cslo = cchi;
-	
-	//cs += t2;
-	cshi = _addcarry_u64(0, t2, cslo, &cslo);
-
-	//t1 = (uint64_t)cs;
-	//cs = cs >> 64;
-	//t2 = (uint64_t)cs;
-	t1 = cslo;
-	t2 = cshi;
-
-	//cc = (uint128_t)a_hi * b_lo;	// #6
-	//cc += t0;
-	//t0 = (uint64_t)cc;
-	//cc = cc >> 64;
-	cclo = _umul128(a_hi, b_lo, &cchi);
-	cchi += _addcarry_u64(0, cclo, t0, &cclo);
-	t0 = cclo;
-	cclo = cchi;
-	
-	//cc += (uint128_t)a_hi * b_hi;	// #7
-	//cc += t1;
-	//t1 = (uint64_t)cc;
-	//cc = cc >> 64;
-	cslo = _umul128(a_hi, b_hi, &cshi);
-	cshi += _addcarry_u64(0, cclo, cslo, &cslo);
-	cshi += _addcarry_u64(0, cslo, t1, &cslo);
-	t1 = cslo;
-	cclo = cshi;
-
-	//cc += t2;
-	//t2 = (uint64_t)cc;
-	//cc = cc >> 64;
-	//t3 = (uint64_t)cc;
-	cchi = _addcarry_u64(0, cclo, t2, &cclo);
-	t2 = cclo;
-	t3 = cchi;
-
-	m = t0 * mmagic;	// #8
-	//cs = (uint128_t)m * mod_lo;	// #9
-	//cs += t0;
-	//cs = cs >> 64;
-	cslo = _umul128(m, mod_lo, &cshi);
-	cshi += _addcarry_u64(0, t0, cslo, &cslo);
-	cslo = cshi;
-
-	//cs += (uint128_t)m * mod_hi;	// #10
-	//cs += t1;
-	cclo = _umul128(m, mod_hi, &cchi);
-	cchi += _addcarry_u64(0, cclo, cslo, &cclo);
-	cchi += _addcarry_u64(0, t1, cclo, &cclo);
-
-	//t0 = (uint64_t)cs;
-	//cs = cs >> 64;
-	t0 = cclo;
-	cslo = cchi;
-
-	//cs += t2;
-	cshi = _addcarry_u64(0, t2, cslo, &cslo);
-
-	//t1 = (uint64_t)cs;
-	//cs = cs >> 64;
-	t1 = cslo;
-	cslo = cshi;
-
-	//cs += t3;
-	//t2 = (uint64_t)cs;
-	cshi = _addcarry_u64(0, t3, cslo, &cslo);
-	t2 = cslo;
-
-	if (t2) {
-		unsigned char carry = _subborrow_u64(0, t0, mod_lo, &t0);
-		_subborrow_u64(carry, t1, mod_hi, &t1);
-		//ciosSubtract128(&t0, &t1, t2, mod_lo, mod_hi);
-	}
-
-
-#else
 	uint64_t a_lo = *res_lo, a_hi = *res_hi;
 	uint128_t cs, cc;
 	uint64_t t0, t1, t2, t3, m;
@@ -896,7 +778,6 @@ void ciosModMul128(uint64_t* res_lo, uint64_t* res_hi, uint64_t b_lo, uint64_t b
 	//	ciosSubtract128(&t0, &t1, t2, mod_lo, mod_hi);
 	//}
 
-#endif
 	*res_lo = t0;
 	*res_hi = t1;
 }
@@ -986,7 +867,7 @@ void ciosModSqr128(uint64_t* res_lo, uint64_t* res_hi, uint64_t b_lo, uint64_t b
 #endif
 
 // already defined within mingw64/msys2
-#if 0 //defined( GCC_ASM64X ) && !defined(__MINGW32__)
+#if 0 //defined( GCC_ASM64X )
 
 __inline uint8_t _addcarry_u64(uint64_t x, uint8_t w, uint64_t y, uint64_t *sum)
 {

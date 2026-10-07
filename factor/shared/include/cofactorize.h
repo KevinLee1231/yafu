@@ -11,18 +11,10 @@ typedef unsigned short u16;
 typedef signed int s32;
 typedef unsigned int u32;
 
-#ifdef _MSC_VER
-typedef signed __int64 s64;
-typedef unsigned __int64 u64;
-#ifndef INLINE
-#define INLINE __inline
-#endif
-#else
 typedef long long s64;
 typedef unsigned long long u64;
 #ifndef INLINE
 #define INLINE __inline
-#endif
 #endif
 
 /* maximum size pool of primes from which

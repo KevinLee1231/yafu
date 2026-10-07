@@ -2,11 +2,7 @@
 
 #if defined(GCC_ASM64X)
 
-#if defined( _WIN32)
-#define ASM_ ASM_M
-#else
 #define ASM_ ASM_G
-#endif
 
 	#define COMPUTE_8X_SMALL_PROOTS_SSE41	\
 		ASM_ (	\

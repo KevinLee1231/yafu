@@ -34,13 +34,9 @@
 		mpz_tdiv_q_ui(dconf->Qvals[report_num], dconf->Qvals[report_num], prime);		\
     }
 
-#if defined(GCC_ASM32X) || defined(GCC_ASM64X) || defined(__MINGW32__)
+#if defined(GCC_ASM32X) || defined(GCC_ASM64X)
 
-#ifdef _WIN32
-#define ASM_ ASM_M
-#else
 #define ASM_ ASM_G
-#endif
 
 	#define TDIV_MED_CLEAN ASM_ volatile("emms");
 #elif defined(MSC_ASM32A)

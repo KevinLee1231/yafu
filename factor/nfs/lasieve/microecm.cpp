@@ -652,19 +652,12 @@ MICRO_ECM_FORCE_INLINE uint64_t uecm_addmod52(uint64_t x, uint64_t y, uint64_t n
 }
 MICRO_ECM_FORCE_INLINE static uint64_t uecm_mulredc52(uint64_t x, uint64_t y, uint64_t N, uint64_t invN)
 {
-#if defined(_MSC_VER)
-    uint64_t T_hi;
-    uint64_t T_lo = _umul128(x, y, &T_hi);
-    uint64_t m = T_lo * invN;
-    uint64_t mN_hi = __umulh(m, N);
-#else
     __uint128_t prod = (__uint128_t)x * y;
     uint64_t T_hi = (uint64_t)(prod >> 52);
     uint64_t T_lo = (uint64_t)(prod & 0x000fffffffffffffull);
     uint64_t m = (T_lo * invN) & 0x000fffffffffffffull;
     __uint128_t mN = (__uint128_t)m * N;
     uint64_t mN_hi = (uint64_t)(mN >> 52);
-#endif
     uint64_t tmp = T_hi + N;
 #if defined(MICRO_ECM_ALT_MULREDC_USE_INLINE_ASM_X86)
     __asm__(

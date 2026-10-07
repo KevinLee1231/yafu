@@ -80,9 +80,6 @@
 
 // Suppress MSVC warning 4505 (unreferenced local function removed) for
 // static utility functions in this header that are not called in every TU.
-#ifdef _MSC_VER
-#pragma warning(disable: 4505)
-#endif
 
 /********************* arbitrary-precision Montgomery arith **********************/
 // generic Montgomery arithmetic using gmp
@@ -171,19 +168,12 @@ uint64_t my_ctz128(uint64_t nlo, uint64_t nhi);
 // for this algorithm, see https://jeffhurchalla.com/2022/04/28/montgomery-redc-using-the-positive-inverse-mod-r/
 __inline static uint64_t mulredc_pos_alt(uint64_t x, uint64_t y, uint64_t N, uint64_t invN)
 {
-#if defined(_MSC_VER)
-	uint64_t T_hi;
-	uint64_t T_lo = _umul128(x, y, &T_hi);
-	uint64_t m = T_lo * invN;
-	uint64_t mN_hi = __umulh(m, N);
-#else
 	__uint128_t prod = (__uint128_t)x * y;
 	uint64_t T_hi = (uint64_t)(prod >> 64);
 	uint64_t T_lo = (uint64_t)(prod);
 	uint64_t m = T_lo * invN;
 	__uint128_t mN = (__uint128_t)m * N;
 	uint64_t mN_hi = (uint64_t)(mN >> 64);
-#endif
 	uint64_t tmp = T_hi + N;
 #if defined(ALT_MULREDC_USE_INLINE_ASM_X86)
 	__asm__(
@@ -294,22 +284,13 @@ __inline static uint64_t sqrredc_pos(uint64_t x, uint64_t n, uint64_t inv)
 }
 __inline static uint64_t mfma64(uint64_t x, uint64_t y, uint64_t c, uint64_t N, uint64_t invN)
 {
-#if defined(_MSC_VER)
-	uint64_t T_hi;
-	uint64_t T_lo = _umul128(x, y, &T_hi);
-#else
 	__uint128_t z = (__uint128_t)x * y;
 	uint64_t T_hi = (uint64_t)(z >> 64);
 	uint64_t T_lo = (uint64_t)z;
-#endif
 	T_hi = (T_hi < N - c) ? T_hi + c : T_hi + c - N;
 	uint64_t m = T_lo * invN;
-#if defined(_MSC_VER)
-	uint64_t mN_hi = __umulh(m, N);
-#else
 	__uint128_t mN = (__uint128_t)m * N;
 	uint64_t mN_hi = (uint64_t)(mN >> 64);
-#endif
 	uint64_t tmp = T_hi + N;
 	tmp = tmp - mN_hi;
 	uint64_t result = T_hi - mN_hi;
@@ -322,7 +303,7 @@ __inline static uint64_t mfma64(uint64_t x, uint64_t y, uint64_t c, uint64_t N, 
 
 /********************* 64-bit modular arith **********************/
 
-#if (defined(GCC_ASM64X) || defined(__MINGW64__)) && !defined(ASM_ARITH_DEBUG)
+#if (defined(GCC_ASM64X)) && !defined(ASM_ARITH_DEBUG)
 
 __inline uint64_t submod(uint64_t a, uint64_t b, uint64_t n)
 {
@@ -627,9 +608,6 @@ __inline uint64_t sqrredc63(uint64_t x, uint64_t n, uint64_t nhat)
 #endif
 
 // TODO: these defines should be shared with other files that use _addcarry_u64/_subborrow_u64
-#if defined(_MSC_VER)
-#define rettype unsigned char
-#else
 // unsigned char _addcarry_u64 (unsigned char c_in, unsigned __int64 a, unsigned __int64 b, unsigned __int64 *out)
 // unsigned char _subborrow_u64 (unsigned char c_in, unsigned __int64 a, unsigned __int64 b, unsigned __int64 *out)
 // unsigned char _subborrow_u32(unsigned char c_in, unsigned int src1, unsigned int src2, unsigned int *diff_out)
@@ -649,7 +627,6 @@ static __inline uint64_t _umul128(uint64_t x, uint64_t y, uint64_t* hi)
     *hi = (uint64_t)(prod >> 64);
     return (uint64_t)prod;
 }
-#endif
 
 __inline uint64_t mulredc(uint64_t x, uint64_t y, uint64_t n, uint64_t nhat)
 {

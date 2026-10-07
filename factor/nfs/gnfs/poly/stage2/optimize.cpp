@@ -997,7 +997,7 @@ optimize_initial(curr_poly_t* c, uint32 deg, double* pol_norm, uint32 skew_only)
 	dpoly_t rpoly, apoly;
 	objective_func objective;
 
-#if defined(NEW_CALLBACK_STRUCTURE) && !defined(__MINGW32__)
+#if defined(NEW_CALLBACK_STRUCTURE)
 	switch (deg)
 	{
 	case 4: objective = poly_rotate_callback_deg4_radial; break;

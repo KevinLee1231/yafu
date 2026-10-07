@@ -203,11 +203,7 @@ void tdiv_medprimes_32k(uint8_t parity, uint32_t poly_id, uint32_t bnum,
             uint32_t tmp3 = 0;
             int r;
 
-#ifdef _MSC_VER
-            MOD_CMP_8X(8);
-#else
             MOD_CMP_8X("8");
-#endif
 
 
             if (tmp3 == 0)
@@ -280,11 +276,7 @@ void tdiv_medprimes_32k(uint8_t parity, uint32_t poly_id, uint32_t bnum,
             uint32_t tmp3 = 0;
             int r;
 
-#ifdef _MSC_VER
-            MOD_CMP_8X(10);
-#else
             MOD_CMP_8X("10");
-#endif
 
 
             if (tmp3 == 0)
@@ -356,11 +348,7 @@ void tdiv_medprimes_32k(uint8_t parity, uint32_t poly_id, uint32_t bnum,
             uint32_t tmp3 = 0;
             int r;
 
-#ifdef _MSC_VER
-            MOD_CMP_8X(12);
-#else
             MOD_CMP_8X("12");
-#endif
 
 
             if (tmp3 == 0)

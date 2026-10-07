@@ -64,19 +64,6 @@ Purpose:	Port into Yafu-1.14.  Much of the functionality in here
 	#endif
 
 	/* for inline assembler on Windows */
-	#if defined(_WIN32)
-		#define ASM_G __asm
-		#define _ICL_WIN_
-		#if defined(_M_X64)
-			#define MSC_ASM64A
-			#define MSC_ASM64X
-			#define GCC_ASM64X
-		#elif defined(_M_IX86)
-			#define MSC_ASM32A
-			#define MSC_ASM32X
-			#define GCC_ASM32X
-		#endif
-	#endif
 
 #elif defined(__MINGW32__)
 

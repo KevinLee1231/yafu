@@ -179,141 +179,7 @@ typedef struct
 	}
 
 
-#if defined(_MSC_VER) && !defined(__INTEL_COMPILER)
-
-	#define COMPUTE_4_PROOTS(j)								\
-		do {	\
-				__m128i primes;	\
-				__m128i root1s;	\
-				__m128i root2s;	\
-				__m128i ptrs;	\
-				__m128i tmp1;	\
-				__m128i tmp2;	\
-				ptrs = _mm_load_si128((__m128i *)(&rootupdates[(v-1) * bound + j])); \
-				root1s = _mm_load_si128((__m128i *)(update_data.firstroots1 + j)); \
-				root1s = _mm_sub_epi32(root1s, ptrs); 	 					/* root1 -= ptr */ \
-				root2s = _mm_load_si128((__m128i *)(update_data.firstroots2 + j)); \
-				root2s = _mm_sub_epi32(root2s, ptrs); 	 					/* root2 -= ptr */ \
-				tmp1 = _mm_xor_si128(tmp1, tmp1); 							/* zero xmm4 */ \
-				tmp2 = _mm_xor_si128(tmp2, tmp2);							/* zero xmm5 */ \
-				primes = _mm_load_si128((__m128i *)(update_data.prime + j)); \
-				tmp1 = _mm_cmpgt_epi32(tmp1,root1s); 						/* signed comparison: 0 > root1? if so, set xmm4 dword to 1's */ \
-				tmp2 = _mm_cmpgt_epi32(tmp2,root2s); 						/* signed comparison: 0 > root2? if so, set xmm5 dword to 1's */ \
-				tmp1 = _mm_and_si128(tmp1, primes); 						/* copy prime to overflow locations (are set to 1) */ \
-				tmp2 = _mm_and_si128(tmp2, primes); 						/* copy prime to overflow locations (are set to 1) */ \
-				root1s = _mm_add_epi32(root1s, tmp1); 						/* selectively add back prime (modular subtract) */ \
-				_mm_store_si128((__m128i *)(update_data.firstroots1 + j),root1s);		/* save new root1 values */ \
-				root2s = _mm_add_epi32(root2s, tmp2); 						/* selectively add back prime (modular subtract) */ \
-				_mm_store_si128((__m128i *)(update_data.firstroots2 + j),root2s); 		/* save new root2 values */ \
-			} while (0);
-
-	#define COMPUTE_4_NROOTS(j)								\
-		do {	\
-				__m128i primes;	\
-				__m128i root1s;	\
-				__m128i root2s;	\
-				__m128i ptrs;	\
-				__m128i tmp1;	\
-				__m128i tmp2;	\
-				ptrs = _mm_load_si128((__m128i *)(&rootupdates[(v-1) * bound + j])); \
-				root1s = _mm_load_si128((__m128i *)(update_data.firstroots1 + j)); \
-				root1s = _mm_add_epi32(root1s, ptrs); 	 					/* root1 += ptr */ \
-				root2s = _mm_load_si128((__m128i *)(update_data.firstroots2 + j)); \
-				root2s = _mm_add_epi32(root2s, ptrs); 	 					/* root2 += ptr */ \
-				tmp1 = _mm_shuffle_epi32(root1s, 0xe4); 					/* copy root1 to xmm4 */ \
-				tmp2 = _mm_shuffle_epi32(root2s, 0xe4);						/* copy root2 to xmm5 */ \
-				primes = _mm_load_si128((__m128i *)(update_data.prime + j)); \
-				tmp1 = _mm_cmpgt_epi32(tmp1,primes); 						/* signed comparison: root1 > p? if so, set xmm4 dword to 1's */ \
-				tmp2 = _mm_cmpgt_epi32(tmp2,primes); 						/* signed comparison: root2 > p? if so, set xmm5 dword to 1's */ \
-				tmp1 = _mm_and_si128(tmp1, primes); 						/* copy prime to overflow locations (are set to 1) */ \
-				tmp2 = _mm_and_si128(tmp2, primes); 						/* copy prime to overflow locations (are set to 1) */ \
-				root1s = _mm_sub_epi32(root1s, tmp1); 						/* selectively sub back prime (modular addition) */ \
-				_mm_store_si128((__m128i *)(update_data.firstroots1 + j),root1s);		/* save new root1 values */ \
-				root2s = _mm_sub_epi32(root2s, tmp2); 						/* selectively sub back prime (modular addition) */ \
-				_mm_store_si128((__m128i *)(update_data.firstroots2 + j),root2s); 		/* save new root2 values */ \
-			} while (0);
-
-	#define COMPUTE_8X_SMALL_PROOTS	\
-		do {	\
-				__m128i primes;	\
-				__m128i root1s;	\
-				__m128i root2s;	\
-				__m128i ptrs;	\
-				__m128i tmp1;	\
-				__m128i tmp2;	\
-				for (j = h.start; j < h.stop; j += 8) \
-				{	\
-					ptrs = _mm_load_si128((__m128i *)(h.updates + j)); \
-					root1s = _mm_load_si128((__m128i *)(h.first_r1 + j)); \
-					root2s = _mm_load_si128((__m128i *)(h.first_r2 + j)); \
-					primes = _mm_load_si128((__m128i *)(h.primes + j)); \
-					root1s = _mm_sub_epi16(root1s, ptrs); \
-					root2s = _mm_sub_epi16(root2s, ptrs); \
-					tmp1 = _mm_xor_si128(tmp1, tmp1); \
-					tmp2 = _mm_xor_si128(tmp2, tmp2); \
-					tmp1 = _mm_cmpgt_epi16(tmp1,root1s);	\
-					tmp2 = _mm_cmpgt_epi16(tmp2,root2s);	\
-					tmp1 = _mm_and_si128(tmp1, primes);	\
-					tmp2 = _mm_and_si128(tmp2, primes);	\
-					root1s = _mm_add_epi16(root1s, tmp1);	\
-					root2s = _mm_add_epi16(root2s, tmp2);	\
-					tmp1 = root2s;	\
-					tmp1 = _mm_max_epi16(tmp1, root1s); \
-					root2s = _mm_min_epi16(root2s, root1s); \
-					tmp2 = primes; \
-					_mm_store_si128((__m128i *)(h.fbp1 + j), root2s);	\
-					primes = _mm_sub_epi16(primes, root2s); \
-					_mm_store_si128((__m128i *)(h.first_r1 + j), root2s);	\
-					_mm_store_si128((__m128i *)(h.fbp2 + j), tmp1);	\
-					tmp2 = _mm_sub_epi16(tmp2, tmp1); \
-					_mm_store_si128((__m128i *)(h.first_r2 + j), tmp1);	\
-					_mm_store_si128((__m128i *)(h.fbn1 + j), tmp2);	\
-					_mm_store_si128((__m128i *)(h.fbn2 + j), primes);	\
-				}	\
-			} while(0);
-
-	#define COMPUTE_8X_SMALL_NROOTS	\
-		do {	\
-				__m128i primes;	\
-				__m128i root1s;	\
-				__m128i root2s;	\
-				__m128i ptrs;	\
-				__m128i tmp1;	\
-				__m128i tmp2;	\
-				for (j = h.start; j < h.stop; j += 8) \
-				{	\
-					ptrs = _mm_load_si128((__m128i *)(h.updates + j)); \
-					root1s = _mm_load_si128((__m128i *)(h.first_r1 + j)); \
-					root2s = _mm_load_si128((__m128i *)(h.first_r2 + j)); \
-					primes = _mm_load_si128((__m128i *)(h.primes + j)); \
-					root1s = _mm_add_epi16(root1s, ptrs); \
-					root2s = _mm_add_epi16(root2s, ptrs); \
-					tmp1 = _mm_xor_si128(tmp1, tmp1); \
-					tmp2 = _mm_xor_si128(tmp2, tmp2); \
-					root1s = _mm_sub_epi16(root1s, primes); \
-					root2s = _mm_sub_epi16(root2s, primes); \
-					tmp1 = _mm_cmpgt_epi16(tmp1,root1s);	\
-					tmp2 = _mm_cmpgt_epi16(tmp2,root2s);	\
-					tmp1 = _mm_and_si128(tmp1, primes);	\
-					tmp2 = _mm_and_si128(tmp2, primes);	\
-					root1s = _mm_add_epi16(root1s, tmp1);	\
-					root2s = _mm_add_epi16(root2s, tmp2);	\
-					tmp1 = root2s;	\
-					tmp1 = _mm_max_epi16(tmp1, root1s); \
-					root2s = _mm_min_epi16(root2s, root1s); \
-					tmp2 = primes; \
-					_mm_store_si128((__m128i *)(h.fbp1 + j), root2s);	\
-					primes = _mm_sub_epi16(primes, root2s); \
-					_mm_store_si128((__m128i *)(h.first_r1 + j), root2s);	\
-					_mm_store_si128((__m128i *)(h.fbp2 + j), tmp1);	\
-					tmp2 = _mm_sub_epi16(tmp2, tmp1); \
-					_mm_store_si128((__m128i *)(h.first_r2 + j), tmp1);	\
-					_mm_store_si128((__m128i *)(h.fbn1 + j), tmp2);	\
-					_mm_store_si128((__m128i *)(h.fbn2 + j), primes);	\
-				}	\
-			} while(0);
-
-#elif defined(GCC_ASM64X) && !defined(FORCE_GENERIC)
+#if defined(GCC_ASM64X) && !defined(FORCE_GENERIC)
 
 // assume SSE2 is available unless FORCE_GENERIC is defined
 
@@ -699,11 +565,7 @@ typedef struct
 
 #elif defined(GCC_ASM64X) && !defined(FORCE_GENERIC)
 
-#if defined( _WIN32) && !defined(__MINGW32__)
-#define ASM_ ASM_M
-#else
 #define ASM_ ASM_G
-#endif
 
 	#define COMPUTE_NEXT_ROOTS_P						\
 		ASM_ (											\

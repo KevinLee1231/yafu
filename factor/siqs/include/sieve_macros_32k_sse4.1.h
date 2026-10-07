@@ -1,5 +1,5 @@
 
-#if defined(GCC_ASM64X) || defined(__MINGW64__)
+#if defined(GCC_ASM64X)
 
 #define _FINALIZE_SORT_UPDATE_SSE41 \
 	"paddw	%%xmm4, %%xmm1 \n\t"			/* r1 = r1 + (p - b) */ \

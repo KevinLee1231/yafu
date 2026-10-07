@@ -2,7 +2,7 @@
 #define BLOCK_INIT \
 	memset(sieve,s_init,32768);
 
-#if defined(GCC_ASM64X) || defined(__MINGW64__)
+#if defined(GCC_ASM64X)
 
 #define SIEVE_GT_BLOCKSIZE_ASM \
 	__asm__ ( \

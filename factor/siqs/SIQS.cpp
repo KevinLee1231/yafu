@@ -3867,26 +3867,6 @@ int siqs_static_init(static_conf_t* sconf, int is_tiny)
         tdiv_LP_ptr = &tdiv_LP_avx2;
         med_sieve_ptr = &med_sieveblock_32k_avx2;
 
-#if defined(_MSC_VER)
-        // the avx2 code path for nextroots involves lots of inline 
-        // ASM, so visual studio builds can't use it.
-        if (obj->HAS_BMI2)
-        {
-            nextRoots_ptr = &nextRoots_32k_avx2_intrin;
-            if (sconf->obj->VFLAG > 1)
-            {
-                printf("assigning nextRoots_32k_avx2_intrin ptr\n");
-            }
-        }
-        else
-        {
-            nextRoots_ptr = &nextRoots_32k_sse41;
-            if (sconf->obj->VFLAG > 1)
-            {
-                printf("assigning nextRoots_32k_sse41 ptr\n");
-            }
-        }
-#else
 
         if (obj->HAS_BMI2)
         {
@@ -3905,7 +3885,6 @@ int siqs_static_init(static_conf_t* sconf, int is_tiny)
             nextRoots_ptr = &nextRoots_32k_avx2;
         }
 
-#endif
     }
     else if (obj->HAS_SSE41)
     {
@@ -3934,27 +3913,6 @@ int siqs_static_init(static_conf_t* sconf, int is_tiny)
         tdiv_LP_ptr = &tdiv_LP_avx2;
         med_sieve_ptr = &med_sieveblock_32k_avx2;
 
-#if defined(_MSC_VER)
-        // the avx2 code path for nextroots involves lots of inline 
-        // ASM, so visual studio builds can't use it.
-
-        if (obj->HAS_BMI2)
-        {
-            nextRoots_ptr = &nextRoots_32k_avx2_intrin;
-            if (sconf->obj->VFLAG > 1)
-            {
-                printf("assigning nextRoots_32k_avx2_intrin ptr\n");
-            }
-        }
-        else
-        {
-            nextRoots_ptr = &nextRoots_32k_sse41;
-            if (sconf->obj->VFLAG > 1)
-            {
-                printf("assigning nextRoots_32k_sse41 ptr\n");
-            }
-        }
-#else
         
         if (obj->HAS_BMI2)
         {
@@ -3978,7 +3936,6 @@ int siqs_static_init(static_conf_t* sconf, int is_tiny)
         //    printf("assigning nextRoots_32k_sse41 ptr\n");
         //}
         //nextRoots_ptr = &nextRoots_32k_sse41;
-#endif
     }
     else if (obj->HAS_SSE41)
     {

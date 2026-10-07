@@ -82,17 +82,6 @@
 // this parameterization.
 //#define GATHER_RESIDUE_STATS
 
-#ifdef _MSC_VER
-// optionally define this or not depending on whether your hardware supports it.
-// if defined, compile the sse41 functions into the fat binary.  the global
-// flag HAS_SSE41 is set at runtime on compatible hardware to enable the functions
-// to be used.  For gcc and mingw64 builds, USE_SSE41 is enabled in the makefile.
-#ifdef USE_BATCHPOLY
-#define FORCE_GENERIC 1
-#else
-#define USE_SSE41 1
-#endif
-#endif
 
 // assume we have SSE2 available on x86 architectures
 #if defined(__x86_64__) && !defined(FORCE_GENERIC)
@@ -106,11 +95,7 @@
 #endif
 
 #if defined(USE_AVX2)
-#ifdef _MSC_VER
-#define CLEAN_AVX2 _mm256_zeroupper();
-#else
 #define CLEAN_AVX2 __asm__ volatile ("vzeroupper   \n\t");
-#endif
 #endif
 
 #define USE_BATCH_FACTOR
@@ -166,12 +151,12 @@
 #define USE_ASM_SMALL_PRIME_SIEVING
 #endif
 
-#if !defined (FORCE_GENERIC) && (defined(GCC_ASM64X) || defined(__MINGW64__) || (defined(_MSC_VER) && defined(USE_AVX2)))
+#if !defined (FORCE_GENERIC) && (defined(GCC_ASM64X) || (defined(_MSC_VER) && defined(USE_AVX2)))
     //assume we have sse2, set defines to use the sse2 code available
 #define SIMD_SIEVE_SCAN 1
 #define SIMD_SIEVE_SCAN_VEC 1
 
-#elif !defined (FORCE_GENERIC) && (defined(GCC_ASM32X) || defined(__MINGW32__))
+#elif !defined (FORCE_GENERIC) && (defined(GCC_ASM32X))
 #define SIMD_SIEVE_SCAN 1
 
 #elif !defined (FORCE_GENERIC) && defined(MSC_ASM32A)

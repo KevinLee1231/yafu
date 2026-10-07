@@ -63,13 +63,9 @@ const uint32_t bitmask[16] = { 0x1, 0x2, 0x4, 0x8,
 0x100, 0x200, 0x400, 0x800,
 0x1000, 0x2000, 0x4000, 0x8000 };
 
-#if (defined(GCC_ASM32X) || defined(GCC_ASM64X) || defined(__MINGW32__))
+#if (defined(GCC_ASM32X) || defined(GCC_ASM64X))
 	
-#ifdef _WIN32
-#define ASM_ ASM_M
-#else
 #define ASM_ ASM_G
-#endif
 
 
 
@@ -450,144 +446,6 @@ void tdiv_LP_avx2(uint32_t report_num,  uint8_t parity, uint32_t bnum,
 #endif
 		uint32_t result = 0;
 
-#if defined (_MSC_VER) && !defined(__INTEL_COMPILER) && !defined(__clang__)
-        for (j = 0; (uint32_t)j < (lpnum & (uint32_t)(~15)); j += 16)
-        {
-            SCAN_16X;
-
-            if (result == 0)
-                continue;
-
-            //noticably faster to not put these in a loop!
-            if (result & 0x2)
-            {
-                // could be j = 0, 4, 8, or 12
-                if ((bptr[j] & 0x0000ffff) == block_loc)
-                {
-                    i = fb_bound + (bptr[j] >> 16);
-                    prime = fb[i];
-                    DIVIDE_ONE_PRIME;
-                }
-                if ((bptr[j + 4] & 0x0000ffff) == block_loc)
-                {
-                    i = fb_bound + (bptr[j + 4] >> 16);
-                    prime = fb[i];
-                    DIVIDE_ONE_PRIME;
-                }
-                if ((bptr[j + 8] & 0x0000ffff) == block_loc)
-                {
-                    i = fb_bound + (bptr[j + 8] >> 16);
-                    prime = fb[i];
-                    DIVIDE_ONE_PRIME;
-                }
-                if ((bptr[j + 12] & 0x0000ffff) == block_loc)
-                {
-                    i = fb_bound + (bptr[j + 12] >> 16);
-                    prime = fb[i];
-                    DIVIDE_ONE_PRIME;
-                }
-            }
-            if (result & 0x20)
-            {
-                // could be j = 1, 5, 9, or 13
-                if ((bptr[j + 1] & 0x0000ffff) == block_loc)
-                {
-                    i = fb_bound + (bptr[j + 1] >> 16);
-                    prime = fb[i];
-                    DIVIDE_ONE_PRIME;
-                }
-                if ((bptr[j + 5] & 0x0000ffff) == block_loc)
-                {
-                    i = fb_bound + (bptr[j + 5] >> 16);
-                    prime = fb[i];
-                    DIVIDE_ONE_PRIME;
-                }
-                if ((bptr[j + 9] & 0x0000ffff) == block_loc)
-                {
-                    i = fb_bound + (bptr[j + 9] >> 16);
-                    prime = fb[i];
-                    DIVIDE_ONE_PRIME;
-                }
-                if ((bptr[j + 13] & 0x0000ffff) == block_loc)
-                {
-                    i = fb_bound + (bptr[j + 13] >> 16);
-                    prime = fb[i];
-                    DIVIDE_ONE_PRIME;
-                }
-            }
-            if (result & 0x200)
-            {
-                // could be j = 2, 6, 10, or 14
-                if ((bptr[j + 2] & 0x0000ffff) == block_loc)
-                {
-                    i = fb_bound + (bptr[j + 2] >> 16);
-                    prime = fb[i];
-                    DIVIDE_ONE_PRIME;
-                }
-                if ((bptr[j + 6] & 0x0000ffff) == block_loc)
-                {
-                    i = fb_bound + (bptr[j + 6] >> 16);
-                    prime = fb[i];
-                    DIVIDE_ONE_PRIME;
-                }
-                if ((bptr[j + 10] & 0x0000ffff) == block_loc)
-                {
-                    i = fb_bound + (bptr[j + 10] >> 16);
-                    prime = fb[i];
-                    DIVIDE_ONE_PRIME;
-                }
-                if ((bptr[j + 14] & 0x0000ffff) == block_loc)
-                {
-                    i = fb_bound + (bptr[j + 14] >> 16);
-                    prime = fb[i];
-                    DIVIDE_ONE_PRIME;
-                }
-            }
-            if (result & 0x2000)
-            {
-                // could be j= 3, 7, 11, or 15
-                if ((bptr[j + 3] & 0x0000ffff) == block_loc)
-                {
-                    i = fb_bound + (bptr[j + 3] >> 16);
-                    prime = fb[i];
-                    DIVIDE_ONE_PRIME;
-                }
-                if ((bptr[j + 7] & 0x0000ffff) == block_loc)
-                {
-                    i = fb_bound + (bptr[j + 7] >> 16);
-                    prime = fb[i];
-                    DIVIDE_ONE_PRIME;
-                }
-                if ((bptr[j + 11] & 0x0000ffff) == block_loc)
-                {
-                    i = fb_bound + (bptr[j + 11] >> 16);
-                    prime = fb[i];
-                    DIVIDE_ONE_PRIME;
-                }
-                if ((bptr[j + 15] & 0x0000ffff) == block_loc)
-                {
-                    i = fb_bound + (bptr[j + 15] >> 16);
-                    prime = fb[i];
-                    DIVIDE_ONE_PRIME;
-                }
-            }
-
-        }
-
-        // leftover bucket elements to check after doing 16x at a time
-        for (; (uint32_t)j < lpnum; j++)
-        {
-            if ((bptr[j] & 0x0000ffff) == block_loc)
-            {
-                i = fb_bound + (bptr[j] >> 16);
-                prime = fb[i];
-                //printf("block_loc = %u, bptr = %u, fb_bound = %u, fb_index = %u, prime = %u, Q mod prime = %u\n",
-                //	block_loc, bptr[j].loc, fb_bound, bptr[j].fb_index, prime, zShortMod32(Q,prime));
-                DIVIDE_ONE_PRIME;
-            }
-        }
-
-#else
 
         CLEAN_AVX2;
 
@@ -600,7 +458,7 @@ void tdiv_LP_avx2(uint32_t report_num,  uint8_t parity, uint32_t bnum,
 
 #if CHECK_AVX2_ERROR
         int numerr = 0;
-#if (defined(GCC_ASM32X) || defined(GCC_ASM64X) || defined(__MINGW32__)) && defined(USE_AVX2)
+#if (defined(GCC_ASM32X) || defined(GCC_ASM64X)) && defined(USE_AVX2)
         printf("avx2 (asm) scan found %u results to divide\n", result);
 #else
         printf("avx2 scan found %u results to divide\n", result);
@@ -656,7 +514,6 @@ void tdiv_LP_avx2(uint32_t report_num,  uint8_t parity, uint32_t bnum,
 			}
 		}
 
-#endif
 
 		//point to the next slice of primes
 		bptr += (sconf->num_blocks << (BUCKET_BITS + 1));
