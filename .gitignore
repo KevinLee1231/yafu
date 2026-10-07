@@ -33,6 +33,8 @@ nfs.*
 *.tlog
 *.last_spq*
 msieve.dat
+# NFS 因子基文件（MSIEVE_DEFAULT_NFS_FBFILE），每跑一次 NFS 分解就生成一次
+YAFU_get_poly_score.out
 
 # 下面这些是产物改到 build/ 之前的落点。留着当过渡期的护栏：这些地方已经
 # 不再产生任何东西，出现在 git status 里就说明有构建没走新的 Makefile。
