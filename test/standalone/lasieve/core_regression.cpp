@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <gmp.h>
 
-#include "factor/nfs/lasieve/asm/include/siever-config.h"
+#include "factor/nfs/lasieve/kernels/include/siever-config.h"
 #include "factor/nfs/lasieve/include/if.h"
 #include "factor/nfs/lasieve/include/gmp-aux.h"
 #include "factor/nfs/lasieve/include/redu2.h"

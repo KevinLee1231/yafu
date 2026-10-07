@@ -21,8 +21,8 @@ trap 'exit 143' TERM
 
 cd "$repo_root"
 
-INC="-I. -Ifactor/nfs/lasieve -Ifactor/nfs/lasieve/asm \
--Ifactor/nfs/lasieve/include -Ifactor/nfs/lasieve/asm/include \
+INC="-I. -Ifactor/nfs/lasieve -Ifactor/nfs/lasieve/kernels \
+-Ifactor/nfs/lasieve/include -Ifactor/nfs/lasieve/kernels/include \
 -Ifactor/shared/include -Ifactor/ecm/include -Ifactor/shared/ytools/include \
 -Ifactor/shared/aprcl/include"
 

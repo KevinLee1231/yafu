@@ -128,7 +128,7 @@ Set GMP_PREFIX or GMP_INCDIR in config.mk or on the command line.)
 endif
 
 # Normalise to absolute paths so sub-makes at deeper directory levels
-# (factor/nfs/lasieve/ and factor/nfs/lasieve/asm/) receive correct paths
+# (factor/nfs/lasieve/ and factor/nfs/lasieve/kernels/) receive correct paths
 # even when config.mk used a relative value like ../gmp-install/mingw.
 GMP_INCDIR := $(abspath $(GMP_INCDIR))
 GMP_LIBDIR := $(abspath $(GMP_LIBDIR))
@@ -1388,7 +1388,7 @@ test-calc-sanitize: _dep_status $(ARCHIVES) $(TEST_FRONTEND_OBJS)
 # paths automatically (maps to AVX512_ALL=1 in the sub-make).
 #
 # 可执行文件与 yafu 写在同一目录（仓库根），yafu 按自身位置找到它们。
-# asm/ 中只生成供链接使用的库。
+# kernels/ 中只生成供链接使用的库。
 # -----------------------------------------------------------------------------
 lasieve: _dep_status lasieve-force
 	@:

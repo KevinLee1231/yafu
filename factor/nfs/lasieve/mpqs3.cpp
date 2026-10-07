@@ -227,7 +227,7 @@ u32_t mpqs3_A_table_n[10]={
 #ifdef MPQS3_STAT
 u32_t stat_mpqs_nsieves, stat_mpqs_nsurvivors, stat_mpqs_ntrials, stat_mpqs_ndiv;
 #endif
-#include "asm/mpqs3arith.c"
+#include "kernels/mpqs3arith.c"
 
 void mpqs3_convert(u32_t *rop, double op_dbl, u64_t op_64)
 {

@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "factor/nfs/lasieve/asm/include/siever-config.h"
+#include "factor/nfs/lasieve/kernels/include/siever-config.h"
 #include "factor/nfs/lasieve/include/if.h"
 
 int main(void)

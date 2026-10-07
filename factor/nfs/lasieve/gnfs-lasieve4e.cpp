@@ -130,7 +130,7 @@ u32_t nss= 0,nzss[3]= {0,0,0};
 #include "lasieve_ns.h"
 
 namespace lasieve_ns {
-#include "asm/siever-config.c"
+#include "kernels/siever-config.c"
 static float
 FB_bound[2],sieve_report_multiplier[2], sieve_report_multiplier_FB[2];
 static u16_t sieve_min[2],max_primebits[2],max_factorbits[2];

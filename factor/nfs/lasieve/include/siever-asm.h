@@ -3,7 +3,7 @@
 
 /* 汇编与 C++ 之间仅存的接口。
  *
- * factor/nfs/lasieve/asm 下有 45 个汇编文件，它们提供的符号是裸名字；而
+ * factor/nfs/lasieve/kernels 下有的低层源，它们提供的符号是裸名字；而
  * 调用方（ecm.cpp、pm1.cpp、mpqs.cpp、mpqs3.cpp）现在是 C++，不加声明的话
  * 调用点会被改写成带修饰的名字，链接期找不到。这一层是真实的 C/汇编 ABI
  * 边界，extern "C" 是长期需要的。

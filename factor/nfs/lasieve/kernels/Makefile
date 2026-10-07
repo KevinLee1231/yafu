@@ -20,8 +20,8 @@
 #   liblasieveI16.a  /
 #
 # Normally invoked by the parent Makefile (factor/lasieve5_64/Makefile) via
-# the asm/%: force delegation rule, which passes CC, GMP_INCDIR, DETECTED_OS,
-# and any AVX512 flags through ASM_FLAGS.
+# the kernels/%: force delegation rule, which passes CC, GMP_INCDIR, DETECTED_OS,
+# and any AVX512 flags through KERNEL_FLAGS.
 #
 # Can also be invoked directly for standalone asm builds:
 #   make all
@@ -77,7 +77,7 @@ endif
 
 
 # --- AVX-512 feature flags ---------------------------------------------------
-# These are forwarded from the parent Makefile via ASM_FLAGS.
+# These are forwarded from the parent Makefile via KERNEL_FLAGS.
 # AVX512_LASCHED and AVX512_TD are the only asm-level AVX-512 switches.
 
 ifeq ($(AVX512_LASCHED),1)

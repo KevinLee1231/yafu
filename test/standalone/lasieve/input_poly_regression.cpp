@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <gmp.h>
-#include "factor/nfs/lasieve/asm/include/siever-config.h"
+#include "factor/nfs/lasieve/kernels/include/siever-config.h"
 #include "factor/nfs/lasieve/include/input-poly.h"
 
 /* 这个驱动链的是单份对象，lasieve_ns 解析成 lasieve_single；per-I 的

@@ -15,8 +15,8 @@
 #   gnfs-lasieve4I{11..16}f   (allf)
 #   gnfs-lasieve4I{11..16}g   (allg)
 #
-# Assembly libraries (liblasieve.a, liblasieveI%.a) are built in the asm/
-# subdirectory and pulled in automatically via the asm/%: force delegation.
+# Assembly libraries (liblasieve.a, liblasieveI%.a) are built in the kernels/
+# subdirectory and pulled in automatically via the kernels/%: force delegation.
 #
 # Variables accepted from the top-level yafu Makefile (all have sensible
 # defaults so this file can also be used standalone):
@@ -32,7 +32,7 @@
 #   AVX512_ALL        Enable all AVX-512 sieve paths
 #   AVX512_ECM        AVX-512 ECM
 #   AVX512_LASETUP    AVX-512 lasieve setup
-#   AVX512_LASCHED    AVX-512 scheduler  (also forwarded to asm/)
+#   AVX512_LASCHED    AVX-512 scheduler  (also forwarded to kernels/)
 #   AVX512_TD         AVX-512 trial division  (ICC only)
 #   AVX512_TDSCHED    AVX-512 TD scheduler
 #   AVX512_SIEVE1     AVX-512 sieve pass 1
@@ -130,7 +130,7 @@ GMP_LIB := $(GMP_LIBDIR)/libgmp.a
 CFLAGS_BASE := \
     -Wall -Wno-unused-variable -Wno-unused-function \
     -Ofast -fomit-frame-pointer -march=native -funroll-loops \
-    -I$(GMP_INCDIR) -L$(GMP_LIBDIR) -I../../factor/shared/include -I../../factor/ecm/include -Iinclude -Iasm/include -fcommon
+    -I$(GMP_INCDIR) -L$(GMP_LIBDIR) -I../../factor/shared/include -I../../factor/ecm/include -Iinclude -Ikernels/include -fcommon
 
 ifeq ($(DETECTED_OS),Windows)
     CFLAGS = -I. $(CFLAGS_BASE) -DULL_NO_UL -DBITS_PER_GMP_ULONG=32
@@ -146,10 +146,10 @@ ifeq ($(DEBUG),1)
 endif
 
 
-# --- ASM_FLAGS: variables forwarded to the asm/ sub-make --------------------
+# --- KERNEL_FLAGS: variables forwarded to the kernels/ sub-make --------------------
 # Always forward the compiler, GMP path, and OS so the asm Makefile doesn't
 # need its own hardcoded values.  AVX512 flags are appended below as needed.
-ASM_FLAGS := CC=$(CC) GMP_INCDIR=$(GMP_INCDIR) DETECTED_OS=$(DETECTED_OS) \
+KERNEL_FLAGS := CC=$(CC) GMP_INCDIR=$(GMP_INCDIR) DETECTED_OS=$(DETECTED_OS) \
              $(if $(DEBUG),DEBUG=$(DEBUG))
 
 
@@ -168,13 +168,13 @@ endif
 
 ifeq ($(AVX512_LASCHED),1)
     CFLAGS += -DAVX512_LASCHED
-    ASM_FLAGS += AVX512_LASCHED=1
+    KERNEL_FLAGS += AVX512_LASCHED=1
 endif
 
 ifeq ($(AVX512_TD),1)
     ifeq ($(COMPILER_FAMILY),icc)
         CFLAGS    += -DAVX512_TD
-        ASM_FLAGS += AVX512_TD=1
+        KERNEL_FLAGS += AVX512_TD=1
     endif
 endif
 
@@ -207,14 +207,14 @@ ifeq ($(AVX512_ALL),1)
         CFLAGS    += -DUSE_AVX512F -DAVX512_LASIEVE_SETUP -DAVX512_LASCHED \
                      -DAVX512_TD -DAVX512_ECM -DAVX512_SIEVE1 \
                      -DAVX512_SIEVE_SEARCH -DAVX512_TDS0 -DAVX512_TDSCHED
-        ASM_FLAGS += AVX512_TD=1
+        KERNEL_FLAGS += AVX512_TD=1
     else
         # gcc / clang: all AVX-512 paths except TD (which requires ICC codegen)
         CFLAGS    += -DAVX512_LASIEVE_SETUP -DAVX512_ECM -DAVX512_LASCHED \
                      -DAVX512_SIEVE1 -DAVX512_SIEVE_SEARCH \
                      -DAVX512_TDS0 -DAVX512_TDSCHED
     endif
-    ASM_FLAGS += AVX512_LASCHED=1
+    KERNEL_FLAGS += AVX512_LASCHED=1
 endif
 
 
@@ -230,15 +230,15 @@ list_asm_files = \
 
 ASMFILES = $(foreach asm_dir,$(ASMDIRS),$(list_asm_files))
 
-# Delegate any asm/* target to the asm sub-make, forwarding ASM_FLAGS.
-asm/%: force
-	$(MAKE) $(ASM_FLAGS) -C asm $*
+# Delegate any kernels/* target to the asm sub-make, forwarding KERNEL_FLAGS.
+kernels/%: force
+	$(MAKE) $(KERNEL_FLAGS) -C kernels $*
 
 # Generic compile rules
-%.o: %.c include/if.h asm/include/siever-config.h
+%.o: %.c include/if.h kernels/include/siever-config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-%.o: %.cpp include/if.h asm/include/siever-config.h
+%.o: %.cpp include/if.h kernels/include/siever-config.h
 	$(CXX) $(CFLAGS) $(CXX_STD) -c -o $@ $<
 
 %.o: %.s
@@ -263,12 +263,12 @@ SIEVE_G_TARGETS :=
 # --- Explicit header dependencies --------------------------------------------
 
 fbgen.o: include/gmp-aux.h
-fbgen.o lasieve-prepn.o: asm/include/32bit.h
+fbgen.o lasieve-prepn.o: kernels/include/32bit.h
 redu2.o: include/redu2.h
 primgen32.o fbgen.o: include/primgen32.h
 gnfs-lasieve4e.cpp: la-cs.cpp
 lasieve-prepn.o: include/lasieve-prepn.h include/recurrence6.h
-mpqs3.o: asm/include/mpqs-config.h
+mpqs3.o: kernels/include/mpqs-config.h
 
 
 # ----------------------------------------------------------------------------- 
@@ -315,7 +315,7 @@ endef
 $(foreach i,$(I_VALUES),$(eval $(call SIEVER_IRULES,$(i))))
 
 ALL_OBJS := $(foreach i,$(I_VALUES),$(I$(i)_OBJS))
-ALL_ASM  := $(foreach i,$(I_VALUES),asm/libcoreI$(i).a asm/liblasieveI$(i).a)
+KERNEL_LIBS  := $(foreach i,$(I_VALUES),kernels/libcoreI$(i).a kernels/liblasieveI$(i).a)
 
 # shared, and none of its symbols collide between I values
 lasieve_dispatch.o: lasieve_dispatch.cpp
@@ -339,7 +339,7 @@ libgmp-aux.a: gmp-aux.o mpz-ull.o
 # rejects: it wants a copy relocation.  The assembly is not PIC, so the parent
 # links yafu with -no-pie for this reason.
 LASIEVE_OBJS := lasieve_dispatch.o lasieve_bail.o lasieve_ctx.o $(ALL_OBJS)
-LASIEVE_LIBS := libgmp-aux.a $(ALL_ASM)
+LASIEVE_LIBS := libgmp-aux.a $(KERNEL_LIBS)
 
 objects: $(LASIEVE_OBJS) $(LASIEVE_LIBS)
 
@@ -374,24 +374,24 @@ allf allg:
 
 # --- Test / stat targets -----------------------------------------------------
 
-mpqsz.o: mpqs.cpp asm/include/mpqs-config.h
+mpqsz.o: mpqs.cpp kernels/include/mpqs-config.h
 	$(CC) $(CFLAGS) -O2 -DMPQS_STAT -DMPQS_ZEIT -c -o $@ $<
 
-mpqstest: mpqstest.o mpqsz.o lasieve_bail.o if.o mpz-ull.o asm/liblasieve.a
+mpqstest: mpqstest.o mpqsz.o lasieve_bail.o if.o mpz-ull.o kernels/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
-mpqs3z.o: mpqs3.cpp asm/include/mpqs-config.h
+mpqs3z.o: mpqs3.cpp kernels/include/mpqs-config.h
 	$(CC) $(CFLAGS) -O2 -DMPQS3_STAT -DMPQS3_ZEIT -c -o $@ $<
 
-mpqs3test: mpqs3test.o mpqs3z.o lasieve_bail.o if.o lasieve_ctx.o libgmp-aux.a asm/liblasieve.a
+mpqs3test: mpqs3test.o mpqs3z.o lasieve_bail.o if.o lasieve_ctx.o libgmp-aux.a kernels/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
-mpqsstat: mpqsstat.o mpqs.o mpqs3.o lasieve_bail.o if.o lasieve_ctx.o mpz-ull.o libgmp-aux.a asm/liblasieve.a
+mpqsstat: mpqsstat.o mpqs.o mpqs3.o lasieve_bail.o if.o lasieve_ctx.o mpz-ull.o libgmp-aux.a kernels/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
 # 多实例验证：两个实例的 ECM/PM1 状态必须互不干扰
 ctx_test.o: ctx_test.cpp include/lasieve_ctx.h include/ecm.h include/pm1.h \
-	include/if.h asm/include/siever-config.h
+	include/if.h kernels/include/siever-config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(BINPREFIX)ctx_test: ctx_test.o lasieve_ctx.o lasieve_bail.o if.o
@@ -400,30 +400,30 @@ $(BINPREFIX)ctx_test: ctx_test.o lasieve_ctx.o lasieve_bail.o if.o
 
 # ECM/P-1 的数值正确性，以及两个实例交错推进的隔离性
 ecm_pm1_test.o: ecm_pm1_test.cpp include/lasieve_ctx.h include/ecm.h include/pm1.h \
-	include/if.h asm/include/siever-config.h
+	include/if.h kernels/include/siever-config.h
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(BINPREFIX)ecm_pm1_test: ecm_pm1_test.o ecm.o pm1.o lasieve_ctx.o lasieve_bail.o if.o asm/liblasieve.a
+$(BINPREFIX)ecm_pm1_test: ecm_pm1_test.o ecm.o pm1.o lasieve_ctx.o lasieve_bail.o if.o kernels/liblasieve.a
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
 
-ecmz.o: ecm.cpp asm/include/siever-config.h
+ecmz.o: ecm.cpp kernels/include/siever-config.h
 	$(CC) $(CFLAGS) -DECM_STAT -DECM_ZEIT -c -o $@ $<
 
-ecmtest: ecmtest.o ecmz.o lasieve_bail.o if.o lasieve_ctx.o asm/liblasieve.a
+ecmtest: ecmtest.o ecmz.o lasieve_bail.o if.o lasieve_ctx.o kernels/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
-ecmstat: ecmstat.o ecmz.o lasieve_bail.o if.o lasieve_ctx.o asm/liblasieve.a
+ecmstat: ecmstat.o ecmz.o lasieve_bail.o if.o lasieve_ctx.o kernels/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
-pm1z.o: pm1.cpp asm/include/siever-config.h
+pm1z.o: pm1.cpp kernels/include/siever-config.h
 	$(CC) $(CFLAGS) -DPM1_STAT -DPM1_ZEIT -c -o $@ $<
 
-pm1test: pm1test.o pm1z.o lasieve_bail.o if.o lasieve_ctx.o asm/liblasieve.a
+pm1test: pm1test.o pm1z.o lasieve_bail.o if.o lasieve_ctx.o kernels/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
-pm1stat: pm1stat.o pm1z.o lasieve_bail.o if.o lasieve_ctx.o asm/liblasieve.a
+pm1stat: pm1stat.o pm1z.o lasieve_bail.o if.o lasieve_ctx.o kernels/liblasieve.a
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
 
@@ -431,9 +431,9 @@ pm1stat: pm1stat.o pm1z.o lasieve_bail.o if.o lasieve_ctx.o asm/liblasieve.a
 
 clean:
 	-rm -rf objI11 objI12 objI13 objI14 objI15 objI16
-	-rm -rf asm/coreI11 asm/coreI12 asm/coreI13 asm/coreI14 asm/coreI15 asm/coreI16
-	-rm -f asm/libcoreI11.a asm/libcoreI12.a asm/libcoreI13.a \
-		asm/libcoreI14.a asm/libcoreI15.a asm/libcoreI16.a
-	-rm -f *.o *.a asm/*.o asm/*.a asm/*.s asm/*.S \
+	-rm -rf kernels/coreI11 kernels/coreI12 kernels/coreI13 kernels/coreI14 kernels/coreI15 kernels/coreI16
+	-rm -f kernels/libcoreI11.a kernels/libcoreI12.a kernels/libcoreI13.a \
+		kernels/libcoreI14.a kernels/libcoreI15.a kernels/libcoreI16.a
+	-rm -f *.o *.a kernels/*.o kernels/*.a \
 		$(BINPREFIX)ctx_test $(BINPREFIX)ecm_pm1_test $(BINPREFIX)check_sieve \
 		$(BINPREFIX)check_sieve_mt
