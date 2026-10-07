@@ -22,33 +22,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ----------------------------------------------------------------------*/
 
-#if defined(_MSC_VER) && !defined(__clang__)
-#include <intrin.h>
-#pragma intrinsic(__rdtsc)
-#elif defined(_MSC_VER) && defined(__clang__)
-#include <x86intrin.h>
-#pragma intrinsic(__rdtsc)
-#endif
-
-
-#if (defined(__unix__) || defined(__MINGW32__) || defined(__clang__))
-#define asm __asm__
-#endif
-
-#if defined(WIN32)
-#include <Windows.h>
-#endif
-
-#define _POSIX_C_SOURCE 200112L
 #include "ytools.h"
+
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <math.h>
 #include <time.h>
-
-
-#ifdef __MINGW32__
+#include <unistd.h>
 #include <sys/time.h>
-#endif
 
 // ============================================================================
 // precision time
@@ -56,121 +38,13 @@ SOFTWARE.
 
 int portable_sleep(int sleep_time_ms)
 {
-#ifdef _MSC_VER //WIN32
-    Sleep(sleep_time_ms);
-#else
     struct timespec sleep_time, sleep_remaining;
-    sleep_time.tv_sec = 0;         // 0 seconds
-    sleep_time.tv_nsec = sleep_time_ms * 1000000; // 500,000,000 nanoseconds (0.5 seconds)
+    sleep_time.tv_sec = 0;                              // 0 seconds
+    sleep_time.tv_nsec = sleep_time_ms * 1000000;       // sleep_time_ms in nanoseconds
 
     nanosleep(&sleep_time, &sleep_remaining);
-#endif
     return 0;
 }
-
-#if defined(_MSC_VER) // && !defined(__clang__)
-
-    /* Core aware timing on Windows, courtesy of Brian Gladman */
-
-#if defined( _WIN64 )
-
-#define current_processor_number GetCurrentProcessorNumber
-
-#else
-
-unsigned long current_processor_number(void)
-{
-    __asm
-    {
-        mov     eax, 1
-        cpuid
-        shr     ebx, 24
-        mov     eax, ebx
-    }
-}
-
-#endif
-
-int lock_thread_to_core(void)
-{
-    DWORD_PTR afp, afs;
-
-    if (GetProcessAffinityMask(GetCurrentProcess(), &afp, &afs))
-    {
-        afp &= (DWORD_PTR)(1 << current_processor_number());
-        if (SetThreadAffinityMask(GetCurrentThread(), afp))
-            return EXIT_SUCCESS;
-    }
-    return EXIT_FAILURE;
-}
-
-int unlock_thread_from_core(void)
-{
-    DWORD_PTR afp, afs;
-
-    if (GetProcessAffinityMask(GetCurrentProcess(), &afp, &afs))
-    {
-        if (SetThreadAffinityMask(GetCurrentThread(), afp))
-            return EXIT_SUCCESS;
-    }
-    return EXIT_FAILURE;
-}
-
-#endif
-
-
-#if defined(_MSC_VER)
-
-#if 0 // defined(__clang__)
-int gettimeofday(struct timeval* tv, struct timezone* tz)
-{
-    struct timespec ts;
-    timespec_get(&ts, TIME_UTC);
-
-    //printf("timespec_get returned sec = %"PRIu64", nsec = %"PRIu64"\n", ts.tv_sec, ts.tv_nsec);
-
-    tv->tv_sec = ts.tv_sec;
-    tv->tv_usec = ts.tv_nsec / 1000;
-
-    return 0;
-}
-#else
-int gettimeofday(struct timeval* tv, struct timezone* tz)
-{
-    FILETIME ft;
-    unsigned __int64 tmpres = 0;
-    static int tzflag;
-
-    if (NULL != tv)
-    {
-        GetSystemTimeAsFileTime(&ft);
-
-        tmpres |= ft.dwHighDateTime;
-        tmpres <<= 32;
-        tmpres |= ft.dwLowDateTime;
-
-        /*converting file time to unix epoch*/
-        tmpres /= 10;  /*convert into microseconds*/
-        tmpres -= DELTA_EPOCH_IN_MICROSECS;
-        tv->tv_sec = (long)(tmpres / 1000000UL);
-        tv->tv_usec = (long)(tmpres % 1000000UL);
-    }
-
-    if (NULL != tz)
-    {
-        if (!tzflag)
-        {
-            _tzset();
-            tzflag++;
-        }
-        tz->tz_minuteswest = _timezone / 60;
-        tz->tz_dsttime = _daylight;
-    }
-
-    return 0;
-}
-#endif
-#endif
 
 double ytools_difftime(struct timeval* start, struct timeval* end)
 {
@@ -238,9 +112,7 @@ void get_random_seeds(uint32_t *seed1, uint32_t *seed2) {
 
     uint32_t tmp_seed1, tmp_seed2;
 
-#ifndef WIN32
-
-    FILE* rand_device = fopen("/dev/urandom", "r");
+FILE* rand_device = fopen("/dev/urandom", "r");
 
     if (rand_device != NULL) {
 
@@ -250,11 +122,8 @@ void get_random_seeds(uint32_t *seed1, uint32_t *seed2) {
         fread(&tmp_seed2, sizeof(uint32_t), (size_t)1, rand_device);
         fclose(rand_device);
     }
-    else
-
-#endif
-    {
-        /* <Shrug> For everyone else, sample the current time,
+    else {
+        /* <Shrug> Should not happen on Linux; sample the current time,
            the high-res timer (hopefully not correlated to the
            current time), and the process ID. Multithreaded
            applications should fold in the thread ID too */
@@ -264,11 +133,7 @@ void get_random_seeds(uint32_t *seed1, uint32_t *seed2) {
         uint64_t high_res_time = (uint64_t)start.tv_sec * 1000000 + (uint64_t)start.tv_usec;
         tmp_seed1 = ((uint32_t)(high_res_time >> 32) ^
             (uint32_t)time(NULL)) *
-#ifdef _MSC_VER
-            (uint32_t)_getpid();
-#else
             (uint32_t)getpid();
-#endif
         tmp_seed2 = (uint32_t)high_res_time;
     }
 
@@ -477,42 +342,16 @@ void hashGet(hash_t* hash, uint64_t key, uint8_t* element)
 
 void* xmalloc_align(size_t len)
 {
-
-#if (defined(__INTEL_COMPILER) || defined(__INTEL_LLVM_COMPILER))
-    void* ptr = _mm_malloc(len, 64);
-
-#elif (defined (_MSC_VER) || defined(__MINGW32__))
-    void* ptr = _aligned_malloc(len, 64);
-
-#elif defined (__APPLE__)
-    void* ptr = malloc(len);
-
-#elif defined (__GNUC__) // || defined(__INTEL_COMPILER) || defined(__INTEL_LLVM_COMPILER)
-    //void* ptr = memalign(64, len);
+    // aligned_alloc() requires the byte count to be a multiple of the alignment
     void* ptr;
     if ((len % 64) == 0)
         ptr = aligned_alloc(64, len);
     else
         ptr = aligned_alloc(64, len + 64 - (len % 64));
 
-    //void* ptr;
-    //
-    //if ((len % sizeof(void *)) == 0)
-    //    ptr = posix_memalign(&ptr, 64, len);
-    //else
-    //    ptr = posix_memalign(&ptr, 64, len + 64 - (len % sizeof(void*)));
-    
-#else
-    void* ptr = malloc(len);
-
-#endif
-
-    if (ptr == NULL)
-    {
-        if (ptr == NULL) {
-            printf("failed to allocate %u bytes in xmalloc_align\n", (uint32_t)len);
-            exit(-1);
-        }
+    if (ptr == NULL) {
+        printf("failed to allocate %zu bytes in xmalloc_align\n", len);
+        exit(-1);
     }
     return ptr;
 }
@@ -563,24 +402,6 @@ void ytools_get_computer_info(info_t* info, int do_print)
     //read cache sizes
     ytools_get_cache_sizes(&info->L1cache, &info->L2cache);
 
-//#if defined(WIN32)
-//
-//    info->sysname_sz = MAX_COMPUTERNAME_LENGTH + 1;
-//    GetComputerName((LPWSTR)info->sysname, (LPDWORD)& info->sysname_sz);
-//
-//#else
-//
-//    int ret = gethostname(info->sysname, sizeof(info->sysname) / sizeof(*info->sysname));
-//    info->sysname[(sizeof(info->sysname) - 1) / sizeof(*info->sysname)] = 0;	// null terminate
-//    if (ret != 0)
-//    {
-//        printf("error occured when getting host name\n");
-//        strcpy(info->sysname, "N/A");
-//    }
-//    info->sysname_sz = strlen(info->sysname);
-//
-//#endif
-
     ytools_extended_cpuid(info->idstr, &info->cachelinesize, &info->bSSE41Extensions,
         &info->BMI1, &info->AVX, &info->AVX2, &info->BMI2, &info->AVX512F, &info->AVX512BW, &info->AVX512ER,
         &info->AVX512PF, &info->AVX512CD, &info->AVX512VL, &info->AVX512IFMA, &info->AVX512DQ, do_print);
@@ -603,7 +424,7 @@ void ytools_get_computer_info(info_t* info, int do_print)
 // memory operand's address out of EAX, and when it did (observed under ASan,
 // which re-lays-out the stack) the store landed on a wild address.  Use the
 // compiler's own cpuid builtin instead.
-#if (defined(__unix__) || defined(__MINGW32__)) && defined(__x86_64__)
+#if defined(__x86_64__) || defined(__i386__)
 #define HAS_CPUID
 #include <cpuid.h>
 #define CPUID(code, a, b, c, d) \
@@ -626,61 +447,6 @@ void ytools_get_computer_info(info_t* info, int do_print)
 			(c) = (int)__z[2]; \
 			(d) = (int)__z[3]; \
 		} while (0)
-
-#elif defined(__unix__) && defined(__i386__)
-#define HAS_CPUID
-// same fix as the x86_64 branch above
-#include <cpuid.h>
-#define CPUID(code, a, b, c, d) \
-		do { \
-			unsigned int __z[4]; \
-			__cpuid_count((unsigned int)(code), (unsigned int)(0), \
-				__z[0], __z[1], __z[2], __z[3]); \
-			(a) = (int)__z[0]; \
-			(b) = (int)__z[1]; \
-			(c) = (int)__z[2]; \
-			(d) = (int)__z[3]; \
-		} while (0)
-#define CPUID2(code1, code2, a, b, c, d) \
-		do { \
-			unsigned int __z[4]; \
-			__cpuid_count((unsigned int)(code1), (unsigned int)(code2), \
-				__z[0], __z[1], __z[2], __z[3]); \
-			(a) = (int)__z[0]; \
-			(b) = (int)__z[1]; \
-			(c) = (int)__z[2]; \
-			(d) = (int)__z[3]; \
-		} while (0)
-
-//#elif defined(_MSC_VER) && defined(__clang__)
-//#include <x86intrin.h>
-//#define HAS_CPUID
-//#define CPUID(__leaf, __eax, __ebx, __ecx, __edx) \
-//    __asm("cpuid" : "=a"(__eax), "=b" (__ebx), "=c"(__ecx), "=d"(__edx) \
-//                  : "0"(__leaf))
-//#define CPUID2(code1, code2, a, b, c, d) \
-//	__asm("cpuid" : "=a"(a), "=b" (b), "=c"(c), "=d"(d) \
-//                  : "0"(code1), "2"(code2))
-//
-#elif defined(_MSC_VER) 
-#include <intrin.h>
-#define HAS_CPUID
-#define CPUID(code, a, b, c, d)	\
-	{	uint32_t _z[4]; \
-		__cpuid(_z, code); \
-		a = _z[0]; \
-		b = _z[1]; \
-		c = _z[2]; \
-		d = _z[3]; \
-	}
-#define CPUID2(code1, code2, a, b, c, d) \
-	{	uint32_t _z[4]; \
-		__cpuidex(_z, code1, code2); \
-		a = _z[0]; \
-		b = _z[1]; \
-		c = _z[2]; \
-		d = _z[3]; \
-	}
 #endif
 
 void ytools_get_cache_sizes(uint32_t* level1_size_out,
