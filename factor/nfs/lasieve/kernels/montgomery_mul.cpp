@@ -12,9 +12,9 @@
 #include "montgomery_mul.h"
     /* ECM / P-1 的蒙哥马利暂存区。定义放在这里而不是 ecm.cpp / pm1.cpp：
      * set_montgomery_multiplication() 就在本文件里，它写的正是这些数组；
-     * 而本文件在 CORE_MEMBERS 中，六个 I 值各有一份改名的副本，
-     * asm/liblasieve.a 里还有一份不改名的，per-I 目标和不带 I 值的
-     * 工具目标都能解析到。原来 ecm.cpp 与 pm1.cpp 各有一份暂定定义，
+     * 而本文件在 CORE_MEMBERS 中，六个 I 值各有一份 lasieve_I<N> 里的副本，
+     * kernels/liblasieve.a 里还有一份 lasieve_single 的，per-I 目标和不带
+     * I 值的工具目标都能解析到。原来 ecm.cpp 与 pm1.cpp 各有一份暂定定义，
      * 靠 -fcommon 合并，C++ 下两者同时链接会撞、只链其一时又缺。 */
 #include "lasieve_ns.h"
 
@@ -272,7 +272,7 @@ namespace lasieve_ns {
 
     int set_montgomery_multiplication(mpz_t n)
     {
-      /* 局部变量原来叫 new；C++ 里那是关键字，改名 new_len。 */
+      /* 名字不能叫 new —— 那是 C++ 关键字。 */
       size_t new_len, old;
       int j;
 

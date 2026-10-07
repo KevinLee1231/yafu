@@ -1,5 +1,4 @@
-/* medsched —— 由 factor/nfs/lasieve/asm/medsched0.asm 翻译而来
- * (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
+/* (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
  *
  * 「中筛排线」内核：和 lasched 同一条筛线递推，但排线缓冲不是按
  * `ij >> L1_BITS` 分桶的 u32 数组，而是**一条连续的 u32 指针**（sched_ptr
@@ -10,10 +9,10 @@
  *   medsched0   (ri, ij_ptr, ij_ptr_ub, sched_ptr, fbi_offs)
  *   medsched0_1 (ri, ij_ptr, ij_ptr_ub, si, lo)
  * 前者往排线缓冲写 (fbi_offs<<16)|ij，后者往字节数组 si 里做 si[ij] += lo。
- * asm/medsched.h 里声明的 medsched / medsched_1 是 C 层的分发入口，本文件
+ * kernels/medsched.h 里声明的 medsched / medsched_1 是 C 层的分发入口，本文件
  * 只提供它俩要转调的这两个汇编级内核（medsched.c 里也是这么声明的）。
  *
- * asm/medsched1.asm / medsched2.asm 等本仓库里不存在；medsched 的 ot!=0
+ * kernels/medsched1.asm / medsched2.asm 等本仓库里不存在；medsched 的 ot!=0
  * 变体在 C 版里是标量/AVX512 实现，没有对应的汇编内核，所以这里只有 0。
  *
  * ============================ 必须照抄的语义 ============================
@@ -71,7 +70,7 @@
 #include "lasieve_ns.h"
 
 namespace lasieve_ns {
-static_assert(L1_BITS == 15, "ls-defs.asm 的 l1_bits 固定为 15");
+static_assert(L1_BITS == 15, "siever-config.h 的 L1_BITS 固定为 15");
 static_assert(I_bits >= 2 && I_bits <= 16, "I_bits 超出 per-I 库的范围");
 
 #define MS_L1_SIZE   (1u << L1_BITS)
@@ -80,7 +79,7 @@ static_assert(I_bits >= 2 && I_bits <= 16, "I_bits 超出 per-I 库的范围");
 #define MS_FBI_INCR  (1u << 16)
 
 
-/* 声明照抄 asm/medsched.c 里的那两行（medsched.h 里只有 C 层的 medsched /
+/* 声明照抄 kernels/medsched.c 里的那两行（medsched.h 里只有 C 层的 medsched /
  * medsched_1，没有这两个）。 */
 u32_t *medsched0(u32_t *, u32_t *, u32_t *, u32_t **, u32_t);
 u32_t *medsched0_1(u32_t *, u32_t *, u32_t *, unsigned char *, unsigned char);

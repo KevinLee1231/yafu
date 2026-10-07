@@ -15,11 +15,11 @@
 #error "I_bits 必须由 Makefile 的 -DI_bits=<11..16> 传入（与汇编的 -Dn_i_bits=I-1 对应）"
 #endif
 
-static_assert(L1_BITS == 15, "ls-defs.asm 的 l1_bits 固定为 15");
+static_assert(L1_BITS == 15, "siever-config.h 的 L1_BITS 固定为 15");
 static_assert(I_bits >= 2 && I_bits <= 16, "I_bits 超出 per-I 库的范围");
 
-/* ls-defs.asm: n_i = 2**n_i_bits, j_per_strip = 2**(l1_bits-n_i_bits)，
- * 而 Makefile 传的是 -Dn_i_bits = I-1。 */
+/* n_i = 2**n_i_bits，j_per_strip = 2**(L1_BITS - n_i_bits)，
+ * 而 Makefile 传的是 -DI_bits=I。 */
 #define TD_NI_BITS     (I_bits - 1)
 #define TD_NI          ((u64_t)1 << TD_NI_BITS)
 #define TD_J_PER_STRIP (1 << (L1_BITS - TD_NI_BITS))

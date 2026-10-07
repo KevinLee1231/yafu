@@ -1,4 +1,4 @@
-/* MMX-TD2 —— 由 MMX-TD2.asm 翻译而来
+/* MMX-TD2 —— 
  * (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
  *
  * 两个入口，都是 MMX_Td.c 里 `MMX_REGW == 8` 那条分支调用的：

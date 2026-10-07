@@ -1,5 +1,4 @@
-/* mpqs3_gauss —— 由 mpqs3_gauss.asm 翻译而来
- * (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
+/* (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
  *
  * asm_re_strip 把一条 64 位字长的关系（约简后）按 4 路 GF(2) 消元结构
  * 「剥离」：先用 dptr 里的 4 个列号构造一张 16 项的异或查找表 tab，再用

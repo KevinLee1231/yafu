@@ -1,5 +1,4 @@
-/* asm_64bit —— 由 asm_64bit.asm 翻译而来
- * (Copyright (C) 2006 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
+/* (Copyright (C) 2006 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
  *
  * 两个 64 位模运算，都读全局 modulo64。
  *

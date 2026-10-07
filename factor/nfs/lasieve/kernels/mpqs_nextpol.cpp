@@ -1,11 +1,10 @@
-/* mpqs_nextpol —— 由 mpqs_nextpol.asm 翻译而来
- * (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
+/* (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
  *
  * 六个入口，都是 16 位 SIMD 上的定点算术：更新下一段多项式的起点。整段没有
  * 一条读 x86 标志位 —— 循环末尾的 jnz 只数迭代次数，所以逐条 intrinsics 翻译
  * 即可，不需要任何标量回退。
  *
- * 翻译时照抄的几点：
+ * 实现里几处不能想当然的地方：
  *
  * 1. 所有加减都是 paddw / psubw，即模 2^16 回绕，不是饱和也不是升到 32 位。
  *

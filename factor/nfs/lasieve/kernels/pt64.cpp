@@ -1,8 +1,7 @@
-/* pt64 —— 由 pt64.asm 翻译而来
- * (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
+/* (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
  *
  * Montgomery 形式的 Miller-Rabin 素性测试，模数是 64 位奇数。
- * 调用点在 asm/psp.c：多精度数只有一个 limb 时走 pt64(n[0]._mp_d[0])。
+ * 调用点在 kernels/psp.c：多精度数只有一个 limb 时走 pt64(n[0]._mp_d[0])。
  *
  * ============================ 全篇最重要的一条 ============================
  * x86-64 的 `mulq r/m64` 的隐含乘法源是 **rax**，不是 rdx:rax；rdx 只是
@@ -47,12 +46,12 @@
 namespace lasieve_ns {
 typedef u64_t u64;
 
-/* 声明在 asm/psp.c 里：`u64_t ASM_ATTR pt64(u64_t);`。mpqs-config.h 里没有
+/* 声明在 kernels/psp.c 里：`u64_t ASM_ATTR pt64(u64_t);`。mpqs-config.h 里没有
  * 这一条，所以这里自己写 ；符号名本身是裸的（汇编提供），
  * 少了 链接期会找不到。 */
 u64 pt64(u64 N);
 
-/* mpqs_256_inv_table 定义在 mpqs.cpp（asm/invtab.c 里还有一份同样的，
+/* mpqs_256_inv_table 定义在 mpqs.cpp（kernels/invtab.c 里还有一份同样的，
  * liblasieve.a 链的是后者），table[i] = (2i+1) 的模 2^8 逆元，
  * 汇编用 movzbq 取，所以这里必须是 unsigned char 而不是 uchar 数组别名。 */
 extern unsigned char mpqs_256_inv_table[128];

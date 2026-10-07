@@ -1,5 +1,4 @@
-/* mpqs_sieveinit —— 由 mpqs_sieveinit.asm 翻译而来
- * (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
+/* (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
  *
  * 三个入口：
  *   void asm_sieve_init   (unsigned char *sv, u32_t len, u16 *tab,
@@ -13,7 +12,7 @@
  * 这三个入口都不读任何全局数组，全部数据从参数进来（asm 里没有一条 %rip）。
  *
  * ---------------------------------------------------------------------------
- * 翻译时照抄的、看起来像笔误但必须原样的语义
+ * 看起来像笔误、但不能改的语义
  * ---------------------------------------------------------------------------
  * 1) asm_sieve_init 里 `cmpq tptrend,tptr` 之后隔着两条 `paddb` 才 `cmovnc`。
  *    如果 PADD 会改标志位，cmovnc 判的就不是 cmpq 的 CF 了。实测（本机 AMD）

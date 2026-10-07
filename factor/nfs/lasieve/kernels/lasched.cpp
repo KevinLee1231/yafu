@@ -1,5 +1,4 @@
-/* lasched —— 由 factor/nfs/lasieve/asm/lasched0.asm 与 lasched1.asm 翻译而来
- * (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
+/* (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
  *
  * 「排线」内核：给定一条加权筛线 (ri[0], ri[1]) 和该线在因子基里的当前
  * 位置 ij，把这条线上 ij < ij_ub 的每个筛法命中写进排线缓冲
@@ -14,7 +13,7 @@
  *   lasched1.asm -Dot=3 → lasched3   / lasched3_1
  *   上述四份再加 -Dnt_sched=1 → 各自的 *nt 变体
  *
- * asm/lasched3.asm **没有搬**：全仓库（Makefile、源码、脚本）里没有任何地方
+ * kernels/lasched3.asm **没有搬**：全仓库（Makefile、源码、脚本）里没有任何地方
  * 引用它，Makefile 的 lasched3I%.s 规则是从 lasched1.asm 用 -Dot=3 生成的。
  * 而且那份 lasched3.asm 是 lasched1.asm 的旧版本（只有入口没有 _1/nt 变体、
  * 直接用 %rdx 而不把第三个参数压栈、初值算法是另一套写法），真去构建它还会
@@ -60,7 +59,7 @@
  *    fbi_offs++，前提是 fbi_offs < 2^48）。
  *    而 lasched*_1 那几份**完全不用 fbi_offs**：入口没有 `shrq $16`、回边没有
  *    `addl $65536`、内层也没有 `orl %r9d,%r11d` —— 存出去的 16 位就是纯的
- *    ij & (L1_SIZE-1)，和 asm/lasched.c 里那句注释一致（"we only store the
+ *    ij & (L1_SIZE-1)，和 kernels/lasched.c 里那句注释一致（"we only store the
  *    2-byte masked ij instead of the 32-bit OR'd value above"）。
  *    这一点很容易看错成「fbi_offs 原样参与 or，只是被 movw 截断」—— 差分
  *    测试用低 16 位非零的 fbi_offs 一测就分开了。
@@ -114,13 +113,13 @@
  *       但下一轮开头就被 tester 推导整个覆盖，所以也等价于每轮重算。
  *     C 参考实现两种都是「每轮开头 ij = *ij_ptr」，与汇编一致。
  *
- * ====================== 与 asm/lasched.c 参考实现不一致的地方 ======================
+ * ====================== 与 kernels/lasched_dispatch.cpp 的分歧 ======================
  *
- * lasched.c 是 CTANGLE 从 lasched.w 生成的 C 版，它自己带了一套标量/AVX512
- * 实现，只在 #if !defined(AVX512_LASCHED) 时才转调这里的汇编入口，而
- * AVX512_LASCHED 只在 _MSC_VER 下打开 —— 也就是说 Linux/gcc 上**汇编才是
- * 生产路径**，C 里那套是没人执行的遗留实现。逐条比对下来两者确实不等价，
- * 本文件一律以汇编为准：
+ * lasched_dispatch.cpp 自带一套标量/AVX512 实现：#if !defined(AVX512_LASCHED)
+ * 时它转调本文件的内核入口，定义了 AVX512_LASCHED 就用它自己那套。构建在
+ * 启用 AVX-512 时会定义 AVX512_LASCHED，所以那条路才是生产路径，本文件的
+ * 入口只在未启用 AVX-512 时被调用。两条路的行为并不等价，本文件按内核入口
+ * 的语义写：
  *
  *   a) ot 的初值。C 是 if/else if/else 选**一个** ri，汇编是两个条件独立
  *      判断后**相加**：
@@ -144,11 +143,11 @@
 #error "I_bits 必须由 Makefile 的 -DI_bits=<11..16> 传入（与汇编的 -Dn_i_bits=I-1 对应）"
 #endif
 
-/* ls-defs.asm 里 l1_bits 固定 15，siever-config.h 的 L1_BITS 必须一致。 */
+/* L1_BITS 在 siever-config.h 里固定为 15。 */
 #include "lasieve_ns.h"
 
 namespace lasieve_ns {
-static_assert(L1_BITS == 15, "ls-defs.asm 的 l1_bits 固定为 15");
+static_assert(L1_BITS == 15, "siever-config.h 的 L1_BITS 固定为 15");
 static_assert(I_bits >= 2 && I_bits <= 16, "I_bits 超出 per-I 库的范围");
 
 #define LS_L1_BITS   L1_BITS
@@ -203,7 +202,7 @@ lasched_core(u32_t *ri, u32_t *ij_ptr, u32_t *ij_ptr_ub, u32_t n1_j,
 
 	/* lasched*_1 那几份**完全不用 fbi_offs**：入口没有 `shrq $16`，回边没有
 	 * `addl $65536`，内层也没有 `orl %r9d,%r11d`。所以 fbi 直接取 0，
-	 * 存出去的 16 位就是纯的 ij & (L1_SIZE-1)。这一点与 asm/lasched.c 里
+	 * 存出去的 16 位就是纯的 ij & (L1_SIZE-1)。这一点与 kernels/lasched.c 里
 	 * 那段注释一致：「we only store the 2-byte masked ij instead of the
 	 * 32-bit OR'd value above」。 */
 	fbi = U16 ? 0u : (fbi_offs >> 16);

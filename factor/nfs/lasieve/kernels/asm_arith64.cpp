@@ -1,15 +1,14 @@
 /* asm_arith64 —— 64 位蒙哥马利模 N 算术内核的 C++ 版。
  *
- * 由 factor/nfs/lasieve/asm/asm_arith64.asm 翻译而来
  *（Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL）。
- * 原文件是 m4 模板，寄存器别名来自文件头的 define(...)：
+ * 参数寄存器别名：
  *
  *   rop=%rdi  op=%rsi  op1=%rsi  op2=%rdx
  *
- * 全部按指令逐条翻译，没有一处代数化简。三处「看起来像笔误、但必须照抄」
+ * 刻意没有做代数化简。三处「看起来像笔误、但必须照抄」
  * 的地方在下面各自标注了原因。
  *
- * 全局量（由 montgomery_mul.c 定义，汇编里靠 .comm 合并）：
+ * 全局量（由 montgomery_mul.cpp 定义）：
  *   montgomery_modulo_n  指向 N 的 64 位表示的指针（不是 N 本身）
  *   montgomery_inv_n     = -N^-1 mod 2^64，见 montgomery_inverse() 的 return (-inv)
  *

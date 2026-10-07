@@ -1,5 +1,4 @@
-/* schedsieve —— 由 schedsieve.asm 翻译而来
- * (Copyright (C) 2001 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
+/* (Copyright (C) 2001 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
  *
  * 把一段偏移表里的偏移逐个累加到筛数组上：sieve[offsets[i]] += val。
  * 汇编版每次展开 4 个偏移，主循环走完后还有最多 3 个收尾。

@@ -1,8 +1,7 @@
 /* asm_arith192 —— 192 位蒙哥马利模 N 算术内核的 C++ 版。
  *
- * 由 factor/nfs/lasieve/asm/asm_arith192.asm 翻译而来
  *（Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL）。
- * 原文件是 m4 模板，寄存器别名来自文件头的 define(...)：
+ * 参数寄存器别名：
  *
  *   rop=%rdi op=%rsi op1=%rsi op2=%rdx op2x=%rcx
  *   res0=%r9 res1=%r10 res2=%r14 res3=%r11
@@ -10,9 +9,9 @@
  *   res5=%r10  <-- 和 res1 是同一个寄存器
  *   h=%r8 n=%rbx n0=%r12 n1=%r15 n2=%rbx aux=%r13
  *
- * 逐条翻译，没有代数化简。几处「看起来像笔误、但必须照抄」的地方就地标注。
+ * 刻意没有做代数化简。几处「看起来像笔误、但必须照抄」的地方就地标注。
  *
- * 全局量（定义在 montgomery_mul.c，汇编里靠 .comm 合并）：
+ * 全局量（定义在 montgomery_mul.cpp）：
  *   montgomery_modulo_n  指向 N 的 192 位表示
  *   montgomery_inv_n     = -N^-1 mod 2^64（montgomery_inverse() 返回 -inv）
  *

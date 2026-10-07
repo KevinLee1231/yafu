@@ -1,11 +1,10 @@
-/* mpqs3_nextpol —— 由 mpqs3_nextpol.asm 翻译而来
- * (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
+/* (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
  *
  * 六个入口，都�� 16 位 SIMD 上的定点算术：更新下一段多项式的起点。整段没有
  * 一条读 x86 标志位 —— 循环末尾的 jnz 只数迭代次数，所以逐条 intrinsics 翻译
  * 即可，不需要任何标量回退。
  *
- * 翻译时照抄的几点：
+ * 实现里几处不能想当然的地方：
  *
  * 1. 所有加减都是 paddw / psubw，即模 2^16 回绕，不是饱和也不是升到 32 位。
  *
@@ -41,8 +40,7 @@ typedef u16_t u16;
 typedef u32_t u32;
 
 /* mpqs3.cpp 里定义的那几个数组。文件作用域的变量在 C++ 里不做名字改编，
- * 子 Makefile 按 I 值用 -Dmpqs3_FB_start=mpqs3_FB_startI11 统一改名，这里跟着
- * 走就行。 */
+ * 每个 I 值有一份独立的命名空间（lasieve_I<N>），这里跟着走就行。 */
 extern u16 mpqs3_FB_start[];      /* 2*MPQS_MAX_FBSIZE：每素数两个 u16 */
 extern u16 mpqs3_FB_np_px[];      /* 2*MPQS_MAX_FBSIZE */
 extern u16 mpqs3_FB_np_p[];       /* 2*MPQS_MAX_FBSIZE */

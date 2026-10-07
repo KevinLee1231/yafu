@@ -1,5 +1,4 @@
-/* mpqs3_sieve —— 由 mpqs3_sieve.asm 翻译而来
- * (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
+/* (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
  *
  * 两个入口，都是纯标量代码，没有一条 SIMD 指令，也没有一条读 x86 标志位的
  * 指令需要标量回退 —— 汇编里的 jc / jnc 全部是「循环到哪儿为止」或者
@@ -12,7 +11,7 @@
  *                   汇编每段用一套展开不同的循环处理，五段之后直接返回。
  *
  * ------------------------------------------------------------------
- * 翻译时照抄、不能「顺手改好」的地方，逐条列在下面。
+ * 不能「顺手改好」的地方，逐条列在下面。
  *
  * 1. 段的分界是严格大于：
  *        movzwq (FB),prime ; cmpq prime,sl4 ; jc <下一段>
@@ -121,8 +120,7 @@ typedef u32_t u32;
 typedef u64_t u64;
 
 /* mpqs3.cpp 里定义的那几个符号。文件作用域的变量在 C++ 里不做名字改编，
- * 子 Makefile 按 I 值用 -Dmpqs3_FB_start=mpqs3_FB_startI11 统一改名，
- * 定义和引用一起变，对得上。 */
+ * 每个 I 值有一份独立的命名空间（lasieve_I<N>），定义和引用自然配对。 */
 extern u16 mpqs3_FB[];       /* 2*MPQS3_MAX_FBXSIZE：每素数两个 u16 */
 extern u16 mpqs3_FB0[];      /* MPQS3_MAX_FBSIZE+2*256 */
 extern u16 mpqs3_FB_start[]; /* 2*MPQS3_MAX_FBXSIZE */

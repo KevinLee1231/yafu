@@ -1,5 +1,4 @@
-/* mpqs_gauss —— 由 mpqs_gauss.asm 翻译而来
- * (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
+/* (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
  *
  * 一个入口 asm_gauss(void)，GF(2) 上的增量高斯消元。全部状态在 mpqs_gauss_*
  * 全局里，函数本身没有返回值（反汇编末尾 `movl tmp_j,%eax` 留下的值没人用）。
@@ -85,7 +84,7 @@ typedef u32_t u32;
 typedef u64_t u64;
 
 /* mpqs.cpp 里定义的那几个符号。文件作用域的变量在 C++ 里不做名字改编，
- * 子 Makefile 按 I 值用 -D 统一改名，定义和引用一起变，对得上。 */
+ * 每个 I 值在各自的命名空间里，定义和引用自然配对。 */
 extern u32_t **mpqs_gauss_row;
 extern u32_t *mpqs_gauss_mat;
 extern i16_t mpqs_gauss_c[];      /* MPQS_GAUSS_MAX = 512 */

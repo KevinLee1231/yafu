@@ -1,5 +1,4 @@
-/* mpqs_td —— 由 mpqs_td.asm 翻译而来
- * (Copyright (C) 2004 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
+/* (Copyright (C) 2004 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
  *
  * 一个入口：u32_t asm_td(u16 *relptr, u16 minus, u64_t qx)
  *
@@ -23,7 +22,7 @@
  * （见下面 0xfff0 那段注释）。
  *
  * ---------------------------------------------------------------------------
- * 翻译时照抄的、看起来像笔误但必须原样的语义
+ * 看起来像笔误、但不能改的语义
  * ---------------------------------------------------------------------------
  * 1) 约减判据是 hi16(p * lo16((p - s + ind) * inv)) == 0，注意它不是 mpqs.cpp
  *    里 #else 分支那条 C 参考的 (p-s+ind)*inv 高 16 位是否为零。参考 C 走的是
@@ -107,8 +106,7 @@ typedef u32_t u32;
 typedef u64_t u64;
 
 /* mpqs.cpp 里定义的那几个数组（都是 u16_t / u32_t / unsigned char）。
- * 子 Makefile 按 I 值用 -Dlasieve_ns=lasieve_I<N> 统一放进命名空间，这里跟着
- * 统一改名，这里跟着走就行。 */
+ * 每个 I 值有一份独立的命名空间（lasieve_I<N>），这里跟着走就行。 */
 extern u16 mpqs_FB_inv_info[];
 extern u16 mpqs_FB_start[];
 extern u16 mpqs_td_begin;

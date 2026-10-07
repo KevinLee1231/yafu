@@ -1,7 +1,6 @@
-/* tdslinie2 —— 由 factor/nfs/lasieve/asm/tdslinie2.asm 翻译而来
- * (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
+/* (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
  *
- * 「时间除数筛」内核的一个变体。签名（照抄 asm/include/siever-config.h）：
+ * 「时间除数筛」内核的一个变体。签名（照抄 kernels/include/siever-config.h）：
  *     u32_t *tdslinie2(u16_t *aux_ptr, u16_t *aux_ptr_ub,
  *                      unsigned char *sieve_interval, u32_t **tds_buffer);
  * aux_ptr / aux_ptr_ub 都是 u16_t 指针，每条线占 4 个元素：

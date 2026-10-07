@@ -1,4 +1,4 @@
-/* mpz-td —— 由 mpz-td.asm 翻译而来
+/* mpz-td —— 
  * (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
  *
  * GMP 风格的多精度 Montgomery 试除：把 nlimbs 长的数组逐 limb 乘上
@@ -57,7 +57,7 @@
 namespace lasieve_ns {
 typedef u64_t u64;
 
-/* 声明在 asm/mpz-trialdiv.cpp 里。mpqs-config.h 里没有这一条，所以两边各写
+/* 声明在 kernels/mpz-trialdiv.cpp 里。mpqs-config.h 里没有这一条，所以两边各写
  * 一份；两份必须逐字一致 —— 以前靠 extern "C" 把参数类型从修饰名里抹掉，
  * 写成 u64 / mp_size_t 也无所谓；现在定义和声明都在 lasieve_ns 里，签名差一个
  * long 就是两个不同的函数，调用端会找不到定义。

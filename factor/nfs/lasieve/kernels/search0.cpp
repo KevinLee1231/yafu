@@ -1,7 +1,6 @@
-/* lasieve_search0 —— 由 factor/nfs/lasieve/asm/search0.asm 翻译而来
- * (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
+/* (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
  *
- * 候选搜索（candidate search）内核。签名（照抄 asm/include/siever-config.h）：
+ * 候选搜索（candidate search）内核。签名（照抄 kernels/include/siever-config.h）：
  *     u32_t lasieve_search0(unsigned char *sieve_interval,
  *                           unsigned char *horizontal_sievesums,
  *                           unsigned char *horizontal_sievesums_ub,
@@ -116,7 +115,7 @@
 #include "lasieve_ns.h"
 
 namespace lasieve_ns {
-static_assert(L1_BITS == 15, "ls-defs.asm 的 l1_bits 固定为 15");
+static_assert(L1_BITS == 15, "siever-config.h 的 L1_BITS 固定为 15");
 static_assert(I_bits >= 2 && I_bits <= 16, "I_bits 超出 per-I 库的范围");
 
 /* siever-config.h 没有 8 位无符号类型，这里按内核的字节语义本地定义一个。 */

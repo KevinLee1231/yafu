@@ -1,5 +1,4 @@
-/* slinie —— 由 factor/nfs/lasieve/asm/ 下的四个 m4 模板翻译而来
- * (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
+/* (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
  *
  * 「排素数」内核：给定一段因子基记录和筛数组，把这一段里每个素数 p 的
  * 筛法权值 log(p) 累加到筛数组上它命中的位置上。同一段内核有四个变体，
@@ -21,14 +20,14 @@
  *   3752: slinie1(...)   被 #if defined(ASM_LINESIEVER1) &&
  *                          !defined(AVX512_SIEVE1) &&
  *                          !defined(CONTIGUOUS_SMALLSIEVE) 包住
- * 这四个宏都由 asm/include/siever-config.h 无条件 #define，而
+ * 这四个宏都由 kernels/include/siever-config.h 无条件 #define，而
  * AVX512_SIEVE1 / CONTIGUOUS_SMALLSIEVE 在整个仓库里**一次都没有被定义**
  * （grep 全仓无命中）。所以 Linux/gcc 下走的一定是汇编本，gnfs-lasieve4e.cpp
  * 里那段 `#else` 的手写 C 是从不编译的兜底路径。
  *
  * 那个 `#else` C 版（也就是任务里说的「C 参考实现」）**不在
- * asm/slinie.c 里 —— 仓库里从来没有过这个文件**（git log 全分支无记录）。
- * 它是 CTANGLE 的产物，直接内联在 gnfs-lasieve4e.cpp 的调用点里。
+ * kernels/slinie.c 里 —— 仓库里从来没有过这个文件**（git log 全分支无记录）。
+ * 它直接内联在 gnfs-lasieve4e.cpp 的调用点里。
  * 四个 C 版入口和四个汇编入口同名同签名，所以不需要额外留一份符号。
  *
  * 那份 C 版和汇编的关系（拿两边各自链接汇编单独跑同一批输入实测过，
@@ -41,7 +40,7 @@
  *
  * ===================== 参数 =====================
  *
- * 声明（asm/include/siever-config.h:84-90）：
+ * 声明（kernels/include/siever-config.h:84-90）：
  *     u32_t *slinie (u16_t *aux_ptr, u16_t *aux_ptr_ub, unsigned char *sieve_interval);
  *     u32_t *slinie1(u16_t *aux_ptr, u16_t *aux_ptr_ub, unsigned char *sieve_interval);
  *     u32_t *slinie2(...);  u32_t *slinie3(...);
@@ -188,14 +187,14 @@
 #error "I_bits 必须由 Makefile 的 -DI_bits=<11..16> 传入（与汇编的 -Dn_i_bits=I-1 对应）"
 #endif
 
-/* ls-defs.asm 里 l1_bits 固定 15；siever-config.h 的 L1_BITS 必须一致。 */
+/* L1_BITS 在 siever-config.h 里固定为 15。 */
 #include "lasieve_ns.h"
 
 namespace lasieve_ns {
-static_assert(L1_BITS == 15, "ls-defs.asm 的 l1_bits 固定为 15");
+static_assert(L1_BITS == 15, "siever-config.h 的 L1_BITS 固定为 15");
 static_assert(I_bits >= 2 && I_bits <= 16, "I_bits 超出 per-I 库的范围");
 
-/* ls-defs.asm: n_i = 2**n_i_bits, j_per_strip = 2**(l1_bits - n_i_bits) */
+/* n_i = 2**n_i_bits，j_per_strip = 2**(L1_BITS - n_i_bits) */
 #define LS_L1_BITS      L1_BITS
 #define LS_NI_BITS      (I_bits - 1)
 #define LS_NI           ((u64_t)1 << LS_NI_BITS)

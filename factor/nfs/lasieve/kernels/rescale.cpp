@@ -1,7 +1,7 @@
 /* rescale —— 筛区间/横向和的收缩。
  *
- * 由 rescale.asm 翻译而来（Copyright (C) 2002,2004 Jens Franke,
- * T.Kleinjung，gnfs4linux，GPL）。原文件是 m4 模板，向量化部分只用
+ * （Copyright (C) 2002,2004 Jens Franke,
+ * T.Kleinjung，gnfs4linux，GPL）。向量化部分只用
  * pavgb 一条指令：_mm_avg_epu8 就是 (a + b + 1) >> 1 的逐字节形式。
  *
  *   rescale_interval1: array[i] = (array[i] + 1) / 2

@@ -1,11 +1,10 @@
-/* tdslinie —— 由 factor/nfs/lasieve/asm/tdslinie.asm 翻译而来
- * (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
+/* (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
  *
  * 「时间除数筛」内核的一个变体。给定一组加权筛线 (prime, proot_src, root)
  * 和当前这条线的筛法区间 sieve_interval，把所有「二次命中」的位置写进
  * 因子基桶 tds_buffer[v-1]，写完把推进后的 root 写回 aux[3]。
  *
- * 签名（照抄 asm/include/siever-config.h）：
+ * 签名（照抄 kernels/include/siever-config.h）：
  *     u32_t *tdslinie(u16_t *aux_ptr, u16_t *aux_ptr_ub,
  *                     unsigned char *sieve_interval, u32_t **tds_buffer);
  * aux_ptr / aux_ptr_ub 都是 **u16_t 指针**（不是长度），每条线占 4 个元素：

@@ -1,5 +1,4 @@
-/* modinv1000 —— 由 modinv1000.asm 翻译而来
- * (Copyright (C) 2004 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
+/* (Copyright (C) 2004 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
  *
  * 32 位模逆：Stein 二进制 GCD 加「批量减 15 次」优化（define(nts,15)，
  * forloop 展开成 15 段）。返回值 y 满足 x*y ≡ 1 (mod modulo32)。

@@ -1,5 +1,4 @@
-/* mpqs_sieve —— 由 mpqs_sieve.asm 翻译而来
- * (Copyright (C) 2001 Jens Franke, T. Kleinjung，gnfs4linux，GPL)。
+/* (Copyright (C) 2001 Jens Franke, T. Kleinjung，gnfs4linux，GPL)。
  *
  * 一个入口 asm_sieve(void)，纯标量，没有一条 SIMD 指令，也没有 SIMD 对齐
  * 要求。全部状态在 mpqs_* 全局里。

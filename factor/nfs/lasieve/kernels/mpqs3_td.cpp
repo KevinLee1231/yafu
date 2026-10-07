@@ -1,5 +1,4 @@
-/* mpqs3_td.cpp —— 由 factor/nfs/lasieve/asm/mpqs3_td.asm 翻译而来
- * (Copyright (C) 2004 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
+/* (Copyright (C) 2004 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
  *
  * 两个入口：
  *   asm3_tdsieve(u16_t *fb, u16_t *fbs, u16_t **buf, u16_t disp) -> u32_t
@@ -161,7 +160,7 @@ typedef unsigned char u8;
 typedef unsigned __int128 u128;
 
 /* mpqs3.cpp 里定义的全局。文件作用域变量在 C++ 里不做名字改编，
- * 子 Makefile 按 I 值用 -Dmpqs3_FB_start=mpqs3_FB_startI11 统一改名，
+ * 每个 I 值有一份独立的命名空间（lasieve_I<N>），
  * 这里跟着走即可。 */
 extern u32 mpqs3_sievelen;
 extern u8 *mpqs3_sievearray;

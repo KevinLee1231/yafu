@@ -1,5 +1,4 @@
-/* mpqs_eval —— 由 mpqs_eval.asm 翻译而来
- * (Copyright (C) 2002,2004 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
+/* (Copyright (C) 2002,2004 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
  *
  * 四个入口做同一件事：按 32 字节一块扫筛数组，把高位为 1 的字节按位置从小到
  * 大收集进 buffer（每条 16 位），最多收 nmax 条，返回条数。带 0 的变体额外把
