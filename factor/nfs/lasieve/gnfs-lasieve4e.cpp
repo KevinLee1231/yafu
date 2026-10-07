@@ -1188,7 +1188,6 @@ int main(int argc, char** argv)
         mpz_init(aux3);
         mpz_init(sr_a);
         mpz_init(sr_b);
-        mpz_ull_init();
         mpz_init(rational_rest);
         mpz_init(algebraic_rest);
 

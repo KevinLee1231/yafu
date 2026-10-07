@@ -47,9 +47,6 @@ int main(int argc, char **argv)
   setbuf(stdout,NULL);
   initzeit(100); zeita(0);
   mpz_init(N);
-#ifdef ULL_NO_UL
-  mpz_ull_init();
-#endif
 #if 1
 {
   FILE *fi=NULL;

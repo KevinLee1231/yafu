@@ -46,7 +46,6 @@ int main(int argc, char **argv)
 
   setbuf(stdout,NULL);
   initzeit(55); zeita(0);
-  mpz_ull_init();
 //  init_montgomery_multiplication();
   mpz_init(N);
 
