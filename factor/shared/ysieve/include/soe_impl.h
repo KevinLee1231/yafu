@@ -27,12 +27,8 @@ SOFTWARE.
 
 
 #include <stdint.h>
-#if defined(_MSC_VER) && defined(__clang__)
-#include <x86intrin.h>
-#else
 #ifndef __aarch64__
 #include <immintrin.h>
-#endif
 #endif
 #include "gmp.h"
 #include "ytools.h"
@@ -97,73 +93,6 @@ __inline uint64_t _lead_zcnt64(uint64_t x)
 #define _trail_zcnt64 __builtin_ctzll
 
 #endif
-#elif defined(_MSC_VER)
-
-#include <intrin.h>
-
-#ifdef USE_BMI2
-#define _reset_lsb(x) _blsr_u32(x)
-#define _reset_lsb64(x) _blsr_u64(x)
-#else
-#define _reset_lsb(x) ((x) &= ((x) - 1))
-#define _reset_lsb64(x) ((x) &= ((x) - 1))
-#endif
-
-#ifdef __clang__
-    __inline uint32_t _trail_zcnt(uint32_t x)
-    {
-        unsigned long pos;
-        if (_BitScanForward(&pos, x))
-            return (uint32_t)pos;
-        else
-            return 32;
-    }
-    __inline uint32_t _trail_zcnt64(uint64_t x)
-    {
-        unsigned long  pos;
-        if (_BitScanForward64(&pos, x))
-            return (uint32_t)pos;
-        else
-            return 64;
-    }
-    __inline uint32_t _lead_zcnt64(uint64_t x)
-    {
-        unsigned long  pos;
-        if (_BitScanReverse64(&pos, x))
-            return (uint32_t)pos;
-        else
-            return 64;
-    }
-#else
-__inline uint32_t _trail_zcnt(uint32_t x)
-{
-    uint32_t pos;
-    if (_BitScanForward(&pos, x))
-        return pos;
-    else
-        return 32;
-}
-__inline uint32_t _trail_zcnt64(uint64_t x)
-{
-    uint32_t pos;
-    if (_BitScanForward64(&pos, x))
-        return pos;
-    else
-        return 64;
-}
-__inline uint32_t _lead_zcnt64(uint64_t x)
-{
-    uint32_t pos;
-    if (_BitScanReverse64(&pos, x))
-        return pos;
-    else
-        return 64;
-}
-#endif
-
-
-//#endif
-
 #else
 
 __inline uint64_t _lead_zcnt64(uint64_t x)
@@ -279,13 +208,6 @@ uint64_t primes_from_lineflags(soe_staticdata_t* sdata, thread_soedata_t* thread
 void get_offsets(thread_soedata_t* thread_data);
 void getRoots(soe_staticdata_t* sdata, thread_soedata_t* thread_data);
 
-//void stop_soe_worker_thread(thread_soedata_t* t);
-//void start_soe_worker_thread(thread_soedata_t* t);
-//#if defined(WIN32) || defined(_WIN64)
-//DWORD WINAPI soe_worker_thread_main(LPVOID thread_data);
-//#else
-//void* soe_worker_thread_main(void* thread_data);
-//#endif
 
 // routines for finding small numbers of primes; seed primes for main SOE
 uint32_t tiny_soe(uint32_t limit, uint32_t* primes);

@@ -117,10 +117,6 @@ int bits64(uint64_t n)
 
 // make a _udiv128 for all supported compilers (Windows: msvc, msvc+clang, msvc+intel; Linux: intel, clang, gcc)
 // For MSVC, use the intrinsic
-#if defined(_MSC_VER) && (!defined(__clang__))
-#include <intrin.h>
-#pragma intrinsic(_udiv128)
-#else
 // For other compilers, we'll implement a fallback or use inline assembly
 // This is a simplified implementation for demonstration
 static __inline uint64_t _udiv128(uint64_t high, uint64_t low, uint64_t divisor, uint64_t* remainder) {
@@ -173,14 +169,9 @@ static __inline uint64_t _udiv128(uint64_t high, uint64_t low, uint64_t divisor,
 #endif
 }
 
-#endif
 
 
 // make a _umul128 for all supported compilers (Windows: msvc, msvc+clang, msvc+intel; Linux: intel, clang, gcc)
-#if defined(_MSC_VER) || defined(__MINGW32__)
-#include <immintrin.h>
-#pragma intrinsic(_umul128)
-#else
 // For other compilers, we'll implement a fallback or use inline assembly
 // This is a simplified implementation for demonstration
 static __inline uint64_t _umul128(uint64_t x, uint64_t y, uint64_t* hi) {
@@ -227,15 +218,12 @@ static __inline uint64_t _umul128(uint64_t x, uint64_t y, uint64_t* hi) {
 #endif
 }
 
-#endif
 
 #if defined(GCC_ASM64X) && !defined(ASM_ARITH_DEBUG)
 
 
 #if defined(__INTEL_COMPILER) || defined(__clang__)
 #define ASM_ __asm__
-#elif defined(_WIN32)
-#define ASM_ ASM_M
 #else
 #define ASM_ ASM_G
 #endif
@@ -506,9 +494,6 @@ void spMultiply(uint64_t u, uint64_t v, uint64_t* product, uint64_t* carry)
 }
 
 // TODO: these defines should be shared with other files that use _addcarry_u64/_subborrow_u64
-#if defined(_MSC_VER)
-#define rettype unsigned char
-#else
 // unsigned char _addcarry_u64 (unsigned char c_in, unsigned __int64 a, unsigned __int64 b, unsigned __int64 *out)
 // unsigned char _subborrow_u64 (unsigned char c_in, unsigned __int64 a, unsigned __int64 b, unsigned __int64 *out)
 //
@@ -517,7 +502,6 @@ void spMultiply(uint64_t u, uint64_t v, uint64_t* product, uint64_t* carry)
 #define rettype uint64_t
 #define _addcarry_u64(c_in, a, b, c_out)  __builtin_addcll(a, b, c_in, c_out)
 #define _subborrow_u64(c_in, a, b, c_out) __builtin_subcll(a, b, c_in, c_out)
-#endif
 
 void spAdd(uint64_t u, uint64_t v, uint64_t* sum, uint64_t* carry)
 {
@@ -578,10 +562,7 @@ void spMulMod(uint64_t u, uint64_t v, uint64_t m, uint64_t* w)
 // created with help from Claude-code
 // 
 // Platform detection for compiler intrinsics
-#if defined(_MSC_VER) && !defined(__clang__)
-#include <intrin.h>
-#define COMPILER_MSVC
-#elif defined(__GNUC__) || defined(__clang__)
+#if defined(__GNUC__) || defined(__clang__)
 #define COMPILER_GCC_LIKE
 #endif
 

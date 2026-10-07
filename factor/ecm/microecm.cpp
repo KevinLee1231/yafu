@@ -58,35 +58,14 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
-#if defined(_MSC_VER)
-#  ifndef _WIN64
-#    error "64 bit compilation mode is required for MSVC"
-#  endif
-#  include <intrin.h>
 
-#endif
-
-#if defined(_MSC_VER) && defined(__clang__)
-
-// MSVC's version of clang-cl will not allow AVX512-IFMA.
-// there are errors in the header files.
-//#define IFMA
-//#define __AVX512IFMA__
-//#define __AVX512VL__
-
-#include <x86intrin.h>
-
-
-
-#else
 #ifndef __aarch64__
 #include <immintrin.h>
-#endif
 #endif
 
 // Using the inline asm in this file can increase performance by ~20-25%
 // (surprisingly).  Hence these macros are defined by default.
-#if defined(__x86_64__) || defined(_M_X64)
+#if defined(__x86_64__)
 #  define MICRO_ECM_ALT_MULREDC_USE_INLINE_ASM_X86
 #endif
 
@@ -95,30 +74,8 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #ifndef _trail_zcnt64
 
-#if defined( __INTEL_COMPILER)
-#if defined( USE_BMI2 ) || defined (TARGET_KNL) || defined( USE_AVX512F )
-#define _trail_zcnt64 _tzcnt_u64
-#else
-__inline uint64_t _trail_zcnt64(uint64_t x)
-{
-    uint64_t pos;
-    if (_BitScanForward64(&pos, x))
-        return pos;
-    else
-        return 64;
-}
-#endif
-#elif defined(__GNUC__) || defined(__INTEL_LLVM_COMPILER)
+#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_LLVM_COMPILER)
 #define _trail_zcnt64 __builtin_ctzll
-#elif defined(_MSC_VER)
-__inline uint64_t _trail_zcnt64(uint64_t x)
-{
-    uint32_t pos;
-    if (_BitScanForward64(&pos, x))
-        return pos;
-    else
-        return 64;
-}
 #else
 __inline uint64_t _trail_zcnt64(uint64_t x)
 {
@@ -144,12 +101,10 @@ __inline uint64_t _trail_zcnt64(uint64_t x)
 #endif
 #endif
 
-#ifdef _MSC_VER
-#  define MICRO_ECM_FORCE_INLINE __forceinline
-#elif defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER) || defined (__INTEL_LLVM_COMPILER)
+#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER) || defined (__INTEL_LLVM_COMPILER)
 #  define MICRO_ECM_FORCE_INLINE inline __attribute__((always_inline))
 #else
-#  define MICRO_ECM_FORCE_INLINE __inline
+#  define MICRO_ECM_FORCE_INLINE inline
 #endif
 
 
@@ -343,7 +298,7 @@ static uint32_t uecm_lcg_rand_32B(uint32_t lower, uint32_t upper, uint64_t *ploc
 __inline uint64_t uecm_submod(uint64_t a, uint64_t b, uint64_t n);
 __inline uint64_t uecm_addmod(uint64_t a, uint64_t b, uint64_t n);
 
-#if defined(MICRO_ECM_ALT_MULREDC_USE_INLINE_ASM_X86) && !defined(_MSC_VER)
+#if defined(MICRO_ECM_ALT_MULREDC_USE_INLINE_ASM_X86)
 
 MICRO_ECM_FORCE_INLINE uint64_t uecm_submod(uint64_t a, uint64_t b, uint64_t n)
 {
@@ -375,9 +330,6 @@ MICRO_ECM_FORCE_INLINE uint64_t uecm_addmod(uint64_t x, uint64_t y, uint64_t n)
 #else
 
 // TODO: these defines should be shared with other files that use _addcarry_u64/_subborrow_u64
-#if defined(_MSC_VER)
-#define rettype unsigned char
-#else
 // unsigned char _addcarry_u64 (unsigned char c_in, unsigned __int64 a, unsigned __int64 b, unsigned __int64 *out)
 // unsigned char _subborrow_u64 (unsigned char c_in, unsigned __int64 a, unsigned __int64 b, unsigned __int64 *out)
 //
@@ -386,7 +338,6 @@ MICRO_ECM_FORCE_INLINE uint64_t uecm_addmod(uint64_t x, uint64_t y, uint64_t n)
 #define rettype uint64_t
 //#define _addcarry_u64(c_in, a, b, c_out)  __builtin_addcll(a, b, c_in, c_out)
 #define _subborrow_u64(c_in, a, b, c_out) __builtin_subcll(a, b, c_in, c_out)
-#endif
 
 MICRO_ECM_FORCE_INLINE uint64_t uecm_submod(uint64_t a, uint64_t b, uint64_t n)
 {
@@ -398,16 +349,7 @@ MICRO_ECM_FORCE_INLINE uint64_t uecm_submod(uint64_t a, uint64_t b, uint64_t n)
 
 MICRO_ECM_FORCE_INLINE uint64_t uecm_addmod(uint64_t x, uint64_t y, uint64_t n)
 {
-#if 0
-    uint64_t r;
-    uint64_t tmp = x - n;
-    uint8_t c = _addcarry_u64(0, tmp, y, &r);
-    return (c) ? r : x + y;
-#else
-    // FYI: The clause above often compiles with a branch in MSVC.
-    // The statement below often compiles without a branch (uses cmov) in MSVC.
     return (x >= n - y) ? x - (n - y) : x + y;
-#endif
 }
 
 #endif
@@ -417,21 +359,14 @@ MICRO_ECM_FORCE_INLINE uint64_t uecm_addmod(uint64_t x, uint64_t y, uint64_t n)
 // for this algorithm, see https://jeffhurchalla.com/2022/04/28/montgomery-redc-using-the-positive-inverse-mod-r/
 MICRO_ECM_FORCE_INLINE static uint64_t uecm_mulredc_alt(uint64_t x, uint64_t y, uint64_t N, uint64_t invN)
 {
-#if defined(_MSC_VER)
-    uint64_t T_hi;
-    uint64_t T_lo = _umul128(x, y, &T_hi);
-    uint64_t m = T_lo * invN;
-    uint64_t mN_hi = __umulh(m, N);
-#else
     __uint128_t prod = (__uint128_t)x * y;
     uint64_t T_hi = (uint64_t)(prod >> 64);
     uint64_t T_lo = (uint64_t)(prod);
     uint64_t m = T_lo * invN;
     __uint128_t mN = (__uint128_t)m * N;
     uint64_t mN_hi = (uint64_t)(mN >> 64);
-#endif
     uint64_t tmp = T_hi + N;
-#if defined(MICRO_ECM_ALT_MULREDC_USE_INLINE_ASM_X86) && !defined(_MSC_VER)
+#if defined(MICRO_ECM_ALT_MULREDC_USE_INLINE_ASM_X86)
     __asm__ (
         "subq %[mN_hi], %[tmp] \n\t"    /* tmp = T_hi + N - mN_hi */
         "subq %[mN_hi], %[T_hi] \n\t"   /* T_hi = T_hi - mN_hi */
@@ -587,19 +522,13 @@ MICRO_ECM_FORCE_INLINE static uint64_t uecm_sqrredc(uint64_t x, uint64_t n, uint
 }
 MICRO_ECM_FORCE_INLINE static uint64_t uecm_mfma(uint64_t x, uint64_t y, uint64_t c, uint64_t N, uint64_t invN)
 {
-#if defined(_MSC_VER)
-    uint64_t T_hi;
-    uint64_t T_lo = _umul128(x, y, &T_hi);
-    uint64_t m = T_lo * invN;
-    uint64_t mN_hi = __umulh(m, N);
-#else
     __uint128_t z = (__uint128_t)x * y;
     uint64_t u = (uint64_t)(z >> 64);
     uint64_t v = (uint64_t)z;
     uint64_t w = (u < N - c) ? u + c : u + c - N;  // modular add
     uint64_t T_hi = w;
     uint64_t T_lo = v;
-    
+
     uint64_t m = T_lo * invN;
     __uint128_t mN = (__uint128_t)m * N;
     uint64_t mN_hi = (uint64_t)(mN >> 64);
@@ -608,9 +537,6 @@ MICRO_ECM_FORCE_INLINE static uint64_t uecm_mfma(uint64_t x, uint64_t y, uint64_
     uint64_t result = T_hi - mN_hi;
     result = (T_hi < mN_hi) ? tmp : result;
     return result;
-
-#endif
-
 }
 
 MICRO_ECM_FORCE_INLINE static void uecm_uadd(uint64_t rho, uint64_t n, const uecm_pt P1, const uecm_pt P2,
@@ -807,27 +733,18 @@ MICRO_ECM_FORCE_INLINE uint64_t uecm_submod52(uint64_t a, uint64_t b, uint64_t n
 }
 MICRO_ECM_FORCE_INLINE uint64_t uecm_addmod52(uint64_t x, uint64_t y, uint64_t n)
 {
-    // FYI: The clause above often compiles with a branch in MSVC.
-    // The statement below often compiles without a branch (uses cmov) in MSVC.
     return (x >= n - y) ? x - (n - y) : x + y;
 }
 MICRO_ECM_FORCE_INLINE static uint64_t uecm_mulredc52(uint64_t x, uint64_t y, uint64_t N, uint64_t invN)
 {
-#if defined(_MSC_VER)
-    uint64_t T_hi;
-    uint64_t T_lo = _umul128(x, y, &T_hi);
-    uint64_t m = T_lo * invN;
-    uint64_t mN_hi = __umulh(m, N);
-#else
     __uint128_t prod = (__uint128_t)x * y;
     uint64_t T_hi = (uint64_t)(prod >> 52);
     uint64_t T_lo = (uint64_t)(prod & 0x000fffffffffffffull);
     uint64_t m = (T_lo * invN) & 0x000fffffffffffffull;
     __uint128_t mN = (__uint128_t)m * N;
     uint64_t mN_hi = (uint64_t)(mN >> 52);
-#endif
     uint64_t tmp = T_hi + N;
-#if defined(MICRO_ECM_ALT_MULREDC_USE_INLINE_ASM_X86) && !defined(_MSC_VER)
+#if defined(MICRO_ECM_ALT_MULREDC_USE_INLINE_ASM_X86)
     __asm__(
         "subq %[mN_hi], %[tmp] \n\t"    /* tmp = T_hi + N - mN_hi */
         "subq %[mN_hi], %[T_hi] \n\t"   /* T_hi = T_hi - mN_hi */
@@ -3674,41 +3591,7 @@ static void uecm_dispatch_x8_list(uint64_t* n, uint64_t* f,
 
 static int uecm_get_bits(uint64_t n)
 {
-#if defined(USE_AVX2) || defined(USE_AVX512F)
-    // technically need to check the ABM flag, but I don't
-    // have that in place anywhere yet.  AVX2 is generally equivalent.
-
-#if defined( __INTEL_COMPILER) || defined(_MSC_VER)
-
-    return 64 - __lzcnt64(n);   // set a mask at the leading bit - 2
-
-#elif defined(__GNUC__) || defined(__INTEL_LLVM_COMPILER)
-
     return 64 - __builtin_clzll(n);
-
-#endif
-
-#else
-    // these builtin functions will have an efficient implementation
-    // for the current processor architecture.
-#if defined( __INTEL_COMPILER) || defined(_MSC_VER)
-
-    uint32_t pos;
-    if (_BitScanReverse64(&pos, n))
-        return pos;
-    else
-        return 64;
-
-    return 64 - pos;
-
-#elif defined(__GNUC__) || defined(__INTEL_LLVM_COMPILER)
-
-    return 64 - __builtin_clzll(n);
-
-#endif
-
-#endif
-
 }
 
 int prp_uecm(uint64_t n)
@@ -3718,40 +3601,7 @@ int prp_uecm(uint64_t n)
     uint64_t result = unityval;
     uint64_t e = (n - 1); // / 2;
 
-#if defined(USE_AVX2) || defined(USE_AVX512F)
-    // technically need to check the ABM flag, but I don't
-    // have that in place anywhere yet.  AVX2 is generally equivalent.
-
-#if defined( __INTEL_COMPILER) || defined(_MSC_VER)
-
-    uint64_t m = 1ULL << (62 - __lzcnt64(n));   // set a mask at the leading bit - 2
-
-#elif defined(__GNUC__) || defined(__INTEL_LLVM_COMPILER)
-
-    uint64_t m = 1ULL << (62 - __builtin_clzll(n));
-
-#endif
-
-#else
-    // these builtin functions will have an efficient implementation
-    // for the current processor architecture.
-#if defined( __INTEL_COMPILER) || defined(_MSC_VER)
-
-    uint32_t pos;
-    if (_BitScanReverse64(&pos, n))
-        return pos;
-    else
-        return 64;
-
-    uint64_t m = 1ULL << (62 - pos);   // set a mask at the leading bit - 2
-
-#elif defined(__GNUC__) || defined(__INTEL_LLVM_COMPILER)
-
-    uint64_t m = 1ULL << (62 - __builtin_clzll(n));
-
-#endif
-
-#endif
+uint64_t m = 1ULL << (62 - __builtin_clzll(n));   // set a mask at the leading bit - 2
 
     result = uecm_addmod(result, result, n);
 
@@ -3805,40 +3655,7 @@ int prp_uecm_fermat(uint64_t n)
     uint64_t rho = uecm_multiplicative_inverse(n);
     uint64_t unityval = ((uint64_t)0 - n) % n;  // unityval == R  (mod n)
 
-#if defined(USE_AVX2) || defined(USE_AVX512F)
-    // technically need to check the ABM flag, but I don't
-    // have that in place anywhere yet.  AVX2 is generally equivalent.
-
-#if defined( __INTEL_COMPILER) || defined(_MSC_VER)
-
-    uint64_t m = 1ULL << (62 - __lzcnt64(n));   // set a mask at the leading bit - 2
-
-#elif defined(__GNUC__) || defined(__INTEL_LLVM_COMPILER)
-
-    uint64_t m = 1ULL << (62 - __builtin_clzll(n));
-
-#endif
-
-#else
-    // these builtin functions will have an efficient implementation
-    // for the current processor architecture.
-#if defined( __INTEL_COMPILER) || defined(_MSC_VER)
-
-    uint32_t pos;
-    if (_BitScanReverse64(&pos, n))
-        return pos;
-    else
-        return 64;
-
-    uint64_t m = 1ULL << (62 - pos);   // set a mask at the leading bit - 2
-
-#elif defined(__GNUC__) || defined(__INTEL_LLVM_COMPILER)
-
-    uint64_t m = 1ULL << (62 - __builtin_clzll(n));
-
-#endif
-
-#endif
+uint64_t m = 1ULL << (62 - __builtin_clzll(n));   // set a mask at the leading bit - 2
 
     uint64_t r = unityval;
     uint64_t e = n - 1;

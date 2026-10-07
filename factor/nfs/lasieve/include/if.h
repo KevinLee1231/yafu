@@ -1,12 +1,6 @@
 
 
 
-#ifdef _WIN64
-#define NEED_ASPRINTF
-#define NEED_FNMATCH
-#define NEED_GETLINE
-#endif
-
 #include "lasieve_ns.h"
 #include <stdarg.h> 
 #include <stdio.h> 
@@ -15,14 +9,8 @@
 
 #ifdef HAVE_BOINC
 #include<stdarg.h> 
-#ifdef _WIN32
-#include"boinc_win.h"
 #include"boinc_api.h"
 #include"filesys.h"
-#else
-#include"boinc_api.h"
-#include"filesys.h"
-#endif
 #endif
 
 /* 这四个名字 yafu 那边也有一套（ytools.h 声明、util.h 定义），
@@ -98,20 +86,11 @@ int fnmatch(char*,char*,int);
 typedef unsigned long long ullong;
 
 
-#ifdef _WIN64
-#include <inttypes.h> 
-#define UL_FMTSTR "%"PRIu64
-#define DLL_FMTSTR "%"PRId64
-#define UL_XFMTSTR "%"PRIX64
-#define UL_xFMTSTR "%"PRIx64
-#define SIZET_FMTSTR "%zu"
-#else
 #define UL_FMTSTR "%lu"
 #define DLL_FMTSTR "%ld"
 #define UL_XFMTSTR "%lX"
 #define UL_xFMTSTR "%lx"
 #define SIZET_FMTSTR "%zu"
-#endif
 
 /*:1*/
 

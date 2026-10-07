@@ -22,19 +22,9 @@ benefit from your work.
 #include <math.h>
 #include <stdarg.h>
 
-#ifndef _WIN32
 #include <unistd.h>
-#else
-#include <windows.h>
-#endif
 
-#ifdef _MSC_VER
-#include <direct.h>		// _getcwd
-#endif
 
-#ifdef __MINGW32__
-#include <sys/time.h>
-#endif
 
 #ifdef USE_NFS
 
@@ -68,11 +58,6 @@ void nfsexit(int sig)
 {
 
 // idea and following comment "borrowed" from Oliver Weihe's mfaktc...
-#ifdef _WIN32
-	/* Windows resets the signal handler to the default action once it is
-	invoked so we just register it again. */
-  	signal(sig, nfsexit);
-#endif
 
 	if (IGNORE_NFS_ABORT)
 		return;
@@ -678,10 +663,6 @@ void nfs(fact_obj_t *fobj)
 			gmp_printf("nfs: commencing cado-msieve nfs on c%zu: %s\n",
 				strlen(input), input);
 
-#if defined(WIN32) || defined(_WIN64)
-			printf("cadoMsieve is not available on Windows! Bailing\n");
-			exit(-1);
-#endif
 
 			char buffer[1024];
 
@@ -868,11 +849,7 @@ void nfs(fact_obj_t *fobj)
 
 			// Specify work directory as an absolute path
 			char cwdBuf[4097];
-#ifdef _MSC_VER
-			if (_getcwd(cwdBuf, 4097) == NULL) {
-#else
 			if (getcwd(cwdBuf, 4097) == NULL) {
-#endif
 				fprintf(stderr, "nfs: could not determine current directory: %s\n",
 					strerror(errno));
 				fclose(dat);

@@ -258,13 +258,7 @@ void init_factobj(fact_obj_t* fobj)
     mpz_set_ui(fobj->nfs_obj.snfs_fullinput, 0);
 
     fobj->nfs_obj.polybatch = 250;						//default	
-#if defined(_WIN64)
-    strcpy(fobj->nfs_obj.cado_dir, ".\\");
-#elif defined(WIN32)
-    strcpy(fobj->nfs_obj.cado_dir, ".\\");
-#else
     strcpy(fobj->nfs_obj.cado_dir, "./");
-#endif
 
     fobj->nfs_obj.poly_time = 0.0;
     fobj->nfs_obj.filter_time = 0.0;

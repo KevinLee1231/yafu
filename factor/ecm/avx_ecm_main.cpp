@@ -36,9 +36,6 @@ either expressed or implied, of the FreeBSD Project.
 #include "nfs_impl.h"
 #include <math.h>
 
-#ifdef __MINGW32__
-#include <sys/time.h>
-#endif
 
 // performance comparison
 // http://www.mersenneforum.org/showthread.php?t=16480&page=20

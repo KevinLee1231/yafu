@@ -22,17 +22,7 @@ extern "C"
 {
 #endif
 
-#ifdef _MSC_VER
-
-#include <intrin.h>
-#pragma intrinsic(__emulu)
-
-#define PROD32(hi, lo, a, b)		\
-	{	uint64 __t = __emulu(a,b);	\
-		hi = (uint32)(__t >> 32);	\
-		lo = (uint32)(__t); }
-
-#elif defined(GCC_ASM32X)
+#if defined(GCC_ASM32X)
 
 #define PROD32(hi, lo, a, b) \
 	asm("mull %2  \n\t"      \

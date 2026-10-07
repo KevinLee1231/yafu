@@ -48,11 +48,7 @@ code to the public domain.
 #if defined(GCC_ASM64X)
 
 
-#ifdef _WIN32
-#define ASM_ ASM_M
-#else
 #define ASM_ ASM_G
-#endif
 
 #define TDIV_MED_CLEAN_AVX2 ASM_("vzeroupper   \n\t");
 

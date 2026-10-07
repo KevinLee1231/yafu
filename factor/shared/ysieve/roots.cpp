@@ -30,9 +30,6 @@ SOFTWARE.
 #include "threadpool.h"
 #include "soe_impl.h"
 
-#ifdef __MINGW32__
-#include <sys/time.h>
-#endif
 
 #define USE_NEW_ROOTCALC
 
@@ -1051,7 +1048,7 @@ void compute_roots_work_fcn(void *vptr)
     if (t->sdata.sieve_range == 0)
     {
 
-#if defined(USE_AVX2) || defined(_WIN64)
+#if defined(USE_AVX2)
         //int j = 0;
 
         if (t->sdata.use_monty)

@@ -1350,14 +1350,10 @@ int aiT[] =  {
 
 
 /* 每个线程独占证明过程中的可写状态。 */
-#ifdef _MSC_VER
-#define APRCL_THREAD_LOCAL __declspec(thread)
-#else
 #if defined(__cplusplus)
 #define APRCL_THREAD_LOCAL thread_local
 #else
 #define APRCL_THREAD_LOCAL _Thread_local
-#endif
 #endif
 static APRCL_THREAD_LOCAL int aiInv[PWmax];
 static APRCL_THREAD_LOCAL mpz_t biTmp, biExp, biN, biR, biS, biT, biU, TestNbr;

@@ -2,9 +2,6 @@
 #include <ytools.h>
 #include <math.h>
 
-#ifdef __MINGW32__
-#include <sys/time.h>
-#endif
 
 #define pi 3.1415926535897932384626433832795
 

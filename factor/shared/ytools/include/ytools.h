@@ -35,58 +35,25 @@ SOFTWARE.
 #include <stdarg.h>     // va_start, va_end, va_list, ...
 #include <errno.h>      // strerror, errno ...
 
-#if defined(WIN32) || defined(_WIN64) 
-#define WIN32_LEAN_AND_MEAN
-
-#if defined(__clang__)
-#include <time.h>
-#endif
-#include <windows.h>
-#include <process.h>
-#include <winsock.h>
-
-#else
 #include <sys/time.h>	//for gettimeofday using gcc
 #include <unistd.h>
-#endif
-
-#ifdef __MINGW32__
-#include <Windows.h>
-#endif
 
 // ============================================================================
 // useful definitions
 // ============================================================================
 
 #define INLINE __inline
-#if defined(_MSC_VER)
-#define getpid _getpid
-#endif
 
-#if defined(__GNUC__) && __GNUC__ >= 3
-#define PREFETCH(addr) __builtin_prefetch(addr) 
-#elif defined(_MSC_VER) && (_MSC_VER >= 1400)
-#define PREFETCH(addr) PreFetchCacheLine(PF_TEMPORAL_LEVEL_1, addr)
-#else
-#define PREFETCH(addr) /* nothing */
-#endif
+#define PREFETCH(addr) __builtin_prefetch(addr)
 
 #define MIN(a,b) ((a) < (b)? (a) : (b))
 #define MAX(a,b) ((a) > (b)? (a) : (b))
 
-#ifdef _MSC_VER
-#define strto_uint64 _strtoui64
-#else
 #define strto_uint64 strtoull
-#endif
 
 #ifndef PRId64
 // portable 64-bit formatting
-#if defined(_MSC_VER) || defined(__MINGW32__)
-#define PRId64 "I64d"
-#define PRIu64 "I64u"
-#define PRIx64 "I64x"
-#elif defined(__x86_64__)
+#if defined(__x86_64__)
 #define PRId64 "ld"
 #define PRIu64 "lu"
 #define PRIx64 "lx"
@@ -98,27 +65,8 @@ SOFTWARE.
 #endif
 
 // aligned memory allocation
-#if defined(__INTEL_COMPILER) || defined(__INTEL_LLVM_COMPILER)
-    
-#define ALIGNED_MEM __declspec(align(64))
-#define align_free _mm_free
-
-#elif defined(_MSC_VER)
-
-#define align_free _aligned_free	
-#define ALIGNED_MEM __declspec(align(64))     
-
-#elif defined(__GNUC__)
-
-#if defined(__MINGW64__) || defined(__MINGW32__) || defined(__MSYS__)
-#define align_free _aligned_free //_mm_free
-#else
 #define align_free free
-#endif
-
 #define ALIGNED_MEM __attribute__((aligned(64)))
-
-#endif
 
 // some constants
 #define LN2		0.69314718055994530942
@@ -143,56 +91,20 @@ SOFTWARE.
 // Place between 'static' and the return type:
 //     static UNUSED_FUNC uint64_t my_helper(uint64_t x) { ... }
 
-#if defined(_MSC_VER)
-// __pragma(warning(suppress:N)) silences warning N on the immediately
-// following line only -- safe for per-variable use.
-// 4101 = unreferenced local variable
-// 4100 = unreferenced formal parameter
-#define UNUSED_VAR __pragma(warning(suppress: 4100 4101))
-// 4505 = unreferenced local function removed.
-// MSVC has no per-symbol attribute equivalent, so UNUSED_FUNC is empty here.
-// In any header that defines intentionally-unused static functions, add:
-//     #pragma warning(disable: 4505)
-// once near the top of that header (inside its include guard).
-#define UNUSED_FUNC
-#elif defined(__GNUC__) || defined(__clang__) || \
-      defined(__INTEL_COMPILER) || defined(__INTEL_LLVM_COMPILER)
-// GCC, Clang, ICC (classic), and Intel LLVM (icx) all support
+// GCC, Clang, ICC (classic) and Intel LLVM (icx) all support
 // __attribute__((unused)) on both variables and functions.
 #define UNUSED_VAR __attribute__((unused))
 #define UNUSED_FUNC __attribute__((unused))
-#else
-// Unknown compiler: macros expand to nothing; warnings may still appear.
-#define UNUSED_VAR
-#define UNUSED_FUNC
-#endif
 
 // ============================================================================
 // precision time
 // ============================================================================
 
-#if defined(_MSC_VER) || defined(_MSC_EXTENSIONS)
-#define DELTA_EPOCH_IN_MICROSECS  11644473600000000Ui64
-#else
 #define DELTA_EPOCH_IN_MICROSECS  11644473600000000ULL
-#endif
-
-#ifdef _MSC_VER
-    struct timezone
-    {
-        int  tz_minuteswest; /* minutes W of Greenwich */
-        int  tz_dsttime;     /* type of dst correction */
-    };
-#endif
 
 double ytools_difftime(struct timeval* start, struct timeval* end);
 
-#if defined(_MSC_VER)
-    int gettimeofday(struct timeval* tv, struct timezone* tz);
-#endif
 
-    extern int lock_thread_to_core(void);
-    extern int unlock_thread_from_core(void);
     extern char* time_from_secs(char* str, unsigned long time);
 
     extern int portable_sleep(int sleep_time_ms);
@@ -254,13 +166,8 @@ double ytools_difftime(struct timeval* start, struct timeval* end);
         uint32_t L1cache;
         uint32_t L2cache;
 
-#if defined(WIN32)
-        char sysname[MAX_COMPUTERNAME_LENGTH + 1];
-        int sysname_sz;
-#else
         char sysname[256];
         int sysname_sz;
-#endif
         char idstr[256];
         int cachelinesize;
         char bSSE41Extensions;

@@ -1482,18 +1482,10 @@ options_t* initOpt(void)
     options->nfs_resume = 0;
     options->poly_batch = 5000;
     options->ggnfs_siever = 0;
-#if defined(_WIN64)
-#elif defined(WIN32)
-#else
-#endif
     // cado_dir used to default to whatever ggnfs_dir was set to.  ggnfs_dir
     // is gone with the siever executables, so it gets its own default: the
     // current directory, same as factor_common.c uses for cado_dir on non-Windows.
-#if defined(WIN32)
-    strcpy(options->cado_dir, ".\\");
-#else
     strcpy(options->cado_dir, "./");
-#endif
     options->skip_snfscheck = 0;
     options->minrels = 0;
     options->td = 0;

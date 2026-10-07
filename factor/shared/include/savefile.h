@@ -8,11 +8,8 @@
 
 #define NO_ZLIB
 
-#if defined(NO_ZLIB) && (defined(WIN32) || defined(_WIN64))
-#include <windows.h>
-#include <sys/types.h> 
+#include <sys/types.h>
 #include <sys/stat.h>
-#endif
 
 #ifdef NO_ZLIB
 #define gzFile   FILE
@@ -32,12 +29,6 @@
 
 typedef struct {
 
-#if defined(NO_ZLIB) && (defined(WIN32) || defined(_WIN64))
-	HANDLE file_handle;
-	uint32_t read_size;
-	uint32_t eof;
-#else
-
 #ifdef NO_ZLIB
 	FILE* fp;
 #else
@@ -45,7 +36,6 @@ typedef struct {
 #endif
 	char isCompressed;
 	char is_a_FILE;
-#endif
 	char* name;
 	char* buf;
 	uint32_t buf_off;

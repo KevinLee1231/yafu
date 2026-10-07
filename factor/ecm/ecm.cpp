@@ -30,10 +30,6 @@ code to the public domain.
 #include <ecm.h>
 #endif
 
-#ifdef __MINGW32__
-#include <sys/time.h>
-#endif
-
 void ecm_process_init(fact_obj_t* fobj);
 void ecm_process_free(fact_obj_t* fobj);
 int ecm_check_input(fact_obj_t* fobj);
@@ -51,7 +47,7 @@ void get_ecm_method(fact_obj_t* fobj, uint64_t b1, int* b1_method, int* b2_metho
     *b1_method = 0; // default param 0
     *b2_method = 0; // default gmp_stg2_default
 
-#if !defined(USE_AVX512F) || defined(__MINGW32__)
+#ifndef USE_AVX512F
     if (1)
 #else
     // run ecm curves using gmp-ecm, either the internal or external version,
@@ -696,11 +692,7 @@ void ecm_start_worker_thread(ecm_thread_data_t* t, uint32_t is_master_thread);
 void ecm_thread_free(ecm_thread_data_t* tdata);
 void ecm_thread_init(ecm_thread_data_t* tdata);
 
-#if defined(WIN32) || defined(_WIN64)
-DWORD WINAPI ecm_worker_thread_main(LPVOID thread_data);
-#else
 void* ecm_worker_thread_main(void* thread_data);
-#endif
 
 
 void ecm_sync_fcn(void *ptr)
@@ -924,8 +916,8 @@ int ecm_loop(fact_obj_t *fobj)
 	if (ecm_check_input(fobj) == 0)
 		return 0;
 	
-    // AVX-ECM won't work without AVX512F and the MINGW build appears to not work either (compiler bug?)
-#if !defined(USE_AVX512F) || defined(__MINGW32__)
+    // AVX-ECM won't work without AVX512F
+#ifndef USE_AVX512F
     if (1)
 #else
     // run ecm curves using gmp-ecm, either the internal or external version,

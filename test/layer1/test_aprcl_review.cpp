@@ -3,9 +3,7 @@
 #include "mpz_aprcl.h"
 #include "jacobi_sum.h"
 #include <limits.h>
-#if !defined(_WIN32)
 #include <pthread.h>
-#endif
 
 extern int mpz_lucas_prp_monty(mpz_t n, long p, long q);
 
@@ -49,7 +47,6 @@ static void t_lucas_variants(tk_ctx *tk)
     mpz_clear(n);
 }
 
-#if !defined(_WIN32)
 typedef struct { unsigned int index; unsigned int failures; } aprcl_work;
 static void* check_primes(void* opaque)
 {
@@ -92,14 +89,11 @@ static void t_parallel_primality(tk_ctx *tk)
         TK_EQ_U64(tk, work[i].failures, 0);
     }
 }
-#endif
 
 static const tk_test tests[] = {
     {"jacobi_table_bounds", t_jacobi_table_bounds, "fast aprcl-review"},
     {"lucas_variants", t_lucas_variants, "fast aprcl-review"},
-#if !defined(_WIN32)
     {"parallel_primality", t_parallel_primality, "fast aprcl-review"},
-#endif
 };
 const tk_module tk_module_aprcl_review = {
     "aprcl_review", "Lucas parameters and APR-CL thread isolation", tests,

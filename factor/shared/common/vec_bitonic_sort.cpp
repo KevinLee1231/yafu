@@ -38,15 +38,9 @@
 #include <x86intrin.h>
 #include <ytools.h>
 
-#if defined(WIN32) || defined(_WIN64)
-	#define WIN32_LEAN_AND_MEAN
-
-	#include <windows.h>
-#else
 	#include <fcntl.h>
 	#include <unistd.h>
 	#include <sys/resource.h>
-#endif
 
 typedef uint8_t uint8;
 typedef uint16_t uint16;

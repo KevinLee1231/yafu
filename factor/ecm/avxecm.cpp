@@ -55,10 +55,6 @@ http://www.gnu.org/licenses/ or write to the Free Software Foundation, Inc.,
 #include "soe.h"
 #include "arith.h"
 
-#ifdef __MINGW32__
-#include <sys/time.h>
-#endif
-
 //#define D 1155
 //#define U 8
 //#define R 483
@@ -1660,8 +1656,6 @@ void next_pt_vec(vec_monty_t *mdata, ecm_work *work, ecm_pt *P, uint64_t c)
 	mask = 1ULL << (64 - _lzcnt_u64((uint64_t)c) - 2);
 #elif defined(__GNUC__)
 	mask = 1ULL << (64 - __builtin_clzll((uint64_t)c) - 2);
-#elif defined _MSC_VER
-    mask = 1ULL << (64 - _lzcnt_u64((uint64_t)c) - 2);
 #endif
 
 	//goal is to compute x_c, z_c using montgomery's addition

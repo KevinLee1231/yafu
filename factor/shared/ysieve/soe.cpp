@@ -31,9 +31,6 @@ SOFTWARE.
 #include <string.h>
 #include "gmp_u64_xface.h"
 
-#ifdef __MINGW32__
-#include <sys/time.h>
-#endif
 
 // http://www.mersenneforum.org/showthread.php?t=21611
 // http://www.mersenneforum.org/showthread.php?t=11900

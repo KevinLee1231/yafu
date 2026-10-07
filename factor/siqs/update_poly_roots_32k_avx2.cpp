@@ -30,7 +30,7 @@ code to the public domain.
 // protect avx2 code under MSVC builds.  USE_AVX2 should be manually
 // enabled at the top of qs.h for MSVC builds on supported hardware.
 // this code is exclusive to 64-bit gcc format so it gets a GCC_ASM64X guard.
-#if defined( USE_AVX2 ) && defined(GCC_ASM64X) // && !defined(_MSC_VER)
+#if defined( USE_AVX2 ) && defined(GCC_ASM64X) //
 
 // we have put (j - bound_val + i) | (root1 & 0x7fff) into ymm10.
 #define UPDATE_ROOT1_NEW(it) \
@@ -1972,7 +1972,7 @@ void nextRoots_32k_avx2_intrin(static_conf_t* sconf, dynamic_conf_t* dconf)
         check_bound = med_B + BUCKET_ALLOC / 2;
         logp = update_data.logp[med_B];
         
-#if defined(GCC_ASM64X) && !defined(_MSC_VER)
+#if defined(GCC_ASM64X)
         polysieve_t helperstruct;
 
         logp = update_data.logp[med_B - 1];
@@ -2561,7 +2561,7 @@ void nextRoots_32k_avx2_intrin(static_conf_t* sconf, dynamic_conf_t* dconf)
 
         logp = update_data.logp[med_B];
 
-#if defined(GCC_ASM64X) && !defined(_MSC_VER)
+#if defined(GCC_ASM64X)
         polysieve_t helperstruct;
 
         logp = update_data.logp[med_B - 1];

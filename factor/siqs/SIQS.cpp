@@ -40,9 +40,6 @@ code to the public domain.
 
 #include "soe.h"
 
-#ifdef __MINGW32__
-#include <sys/time.h>
-#endif
 
 #if defined( USE_SS_SEARCH ) && defined(USE_POLY_BUCKET_SS)
 #define SS_TIMING
@@ -601,13 +598,9 @@ void siqsexit(int sig)
 
 static double now_sec(void)
 {
-#ifdef _MSC_VER
-    return 0.0;
-#else
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
-#endif
 }
 
 void SIQS(fact_obj_t *fobj)
@@ -1593,6 +1586,48 @@ int td_small_p(static_conf_t* sconf, dynamic_conf_t* dconf,
 }
 
 #endif
+
+/* AVX-512 的根更新是一条四步流水线，四个函数的签名各不相同（后三个还要
+ * bi/cb/bv/ptr 以及 np_p、np_n、sl_p、sl_n 这些工作区），装不进 nextRoots_ptr 那个
+ * void(*)(static_conf_t*, dynamic_conf_t*)。以前这段直接内联在调用点，
+ * 于是 nextRoots_ptr 在 AVX-512 构建下从头到尾保留着标量版 nextRoots_32k。
+ * 今天无害，仅仅因为唯一的调用点恰好绕开了它；将来谁在同一条路径上加一处
+ * nextRoots_ptr 调用，就会静默地用标量版筛法——不报错，只是慢到看不出
+ * 原因。包成一层之后，它和其余 ISA 一样由统一分派选定。
+ *
+ * 参数与原内联版本逐字一致：num_blocks 取 sconf->num_blocks，与调用点
+ * process_poly 里的局部变量同源。 */
+static void nextRoots_32k_knl_pipeline(static_conf_t* sconf,
+    dynamic_conf_t* dconf)
+{
+    int bi;
+    int cb;
+    uint32_t bv;
+    int* ptr;
+    uint32_t* sl_p;
+    uint32_t* sl_n;
+    uint32_t* np_p;
+    uint32_t* np_n;
+
+    nextRoots_32k_avx2_small(sconf, dconf);
+
+    if (sconf->num_blocks > 16)
+        nextRoots_32k_knl_medbucket_manyblocks(sconf, dconf, &bi, &cb, &bv,
+            &ptr, &np_p, &np_n, &sl_p, &sl_n);
+    else
+        nextRoots_32k_knl_medbucket(sconf, dconf, &bi, &cb, &bv,
+            &ptr, &np_p, &np_n, &sl_p, &sl_n);
+
+#ifdef TRY_COMPRESS_SORT_LARGEP
+    nextRoots_32k_knl_largebucket_cs(sconf, dconf, bi, cb, bv,
+        ptr, np_p, np_n, sl_p, sl_n);
+    //printf("compress sort needed %u of %u slices\n",
+    //    dconf->buckets->lp_num_slices, dconf->buckets->lp_alloc_slices);
+#else
+    nextRoots_32k_knl_largebucket(sconf, dconf, bi, cb, bv,
+        ptr, np_p, np_n, sl_p, sl_n);
+#endif
+}
 
 void* process_poly(void* vptr)
 {
@@ -2585,42 +2620,11 @@ void* process_poly(void* vptr)
         //if (dconf->numB == 3)
         //    exit(1);
 
-        if (sconf->obj->HAS_AVX512F)
-        {
-            int bi;
-            int cb;
-            uint32_t bv;
-            int* ptr;
-            uint32_t* sl_p;
-            uint32_t* sl_n;
-            uint32_t* np_p;
-            uint32_t* np_n;
-
-            nextRoots_32k_avx2_small(sconf, dconf);
-
-            if (num_blocks > 16)
-                nextRoots_32k_knl_medbucket_manyblocks(sconf, dconf, &bi, &cb, &bv,
-                    &ptr, &np_p, &np_n, &sl_p, &sl_n);
-            else
-                nextRoots_32k_knl_medbucket(sconf, dconf, &bi, &cb, &bv,
-                    &ptr, &np_p, &np_n, &sl_p, &sl_n);
-            
-#ifdef TRY_COMPRESS_SORT_LARGEP
-            nextRoots_32k_knl_largebucket_cs(sconf, dconf, bi, cb, bv,
-                ptr, np_p, np_n, sl_p, sl_n);
-            //printf("compress sort needed %u of %u slices\n",
-            //    dconf->buckets->lp_num_slices, dconf->buckets->lp_alloc_slices);
-#else
-            nextRoots_32k_knl_largebucket(sconf, dconf, bi, cb, bv,
-                ptr, np_p, np_n, sl_p, sl_n);
-#endif
-
-            //nextRoots_32k_knl_bucket(sconf, dconf);
-        }
-        else
-        {
-            nextRoots_ptr(sconf, dconf);
-        }
+        /* AVX-512 与其余 ISA 走同一处调用：nextRoots_ptr 在 AVX-512 构建
+         * 下指向 nextRoots_32k_knl_pipeline（见下），其余构建下指向各自的
+         * nextRoots_32k_*。以前 AVX-512 是内联的四步、其余 ISA 走指针，
+         * 两条路径分开维护。 */
+        nextRoots_ptr(sconf, dconf);
 
 #else
         // and update the roots
@@ -3797,6 +3801,10 @@ int siqs_static_init(static_conf_t* sconf, int is_tiny)
 #if defined(USE_AVX512F)
     if (obj->HAS_AVX512F)
     {
+        /* 这一支以前不动 nextRoots_ptr，于是它在 AVX-512 构建下一直是上面
+         * 的标量版 nextRoots_32k。调用点已改成统一走指针，必须在这里
+         * 指到 knl 那条四步流水线。 */
+        nextRoots_ptr = &nextRoots_32k_knl_pipeline;
         tdiv_med_ptr = &tdiv_medprimes_32k_avx2;
         tdiv_LP_ptr = &tdiv_LP_avx512;
         if (sconf->obj->VFLAG > 1)
@@ -3859,26 +3867,6 @@ int siqs_static_init(static_conf_t* sconf, int is_tiny)
         tdiv_LP_ptr = &tdiv_LP_avx2;
         med_sieve_ptr = &med_sieveblock_32k_avx2;
 
-#if defined(_MSC_VER)
-        // the avx2 code path for nextroots involves lots of inline 
-        // ASM, so visual studio builds can't use it.
-        if (obj->HAS_BMI2)
-        {
-            nextRoots_ptr = &nextRoots_32k_avx2_intrin;
-            if (sconf->obj->VFLAG > 1)
-            {
-                printf("assigning nextRoots_32k_avx2_intrin ptr\n");
-            }
-        }
-        else
-        {
-            nextRoots_ptr = &nextRoots_32k_sse41;
-            if (sconf->obj->VFLAG > 1)
-            {
-                printf("assigning nextRoots_32k_sse41 ptr\n");
-            }
-        }
-#else
 
         if (obj->HAS_BMI2)
         {
@@ -3897,7 +3885,6 @@ int siqs_static_init(static_conf_t* sconf, int is_tiny)
             nextRoots_ptr = &nextRoots_32k_avx2;
         }
 
-#endif
     }
     else if (obj->HAS_SSE41)
     {
@@ -3926,27 +3913,6 @@ int siqs_static_init(static_conf_t* sconf, int is_tiny)
         tdiv_LP_ptr = &tdiv_LP_avx2;
         med_sieve_ptr = &med_sieveblock_32k_avx2;
 
-#if defined(_MSC_VER)
-        // the avx2 code path for nextroots involves lots of inline 
-        // ASM, so visual studio builds can't use it.
-
-        if (obj->HAS_BMI2)
-        {
-            nextRoots_ptr = &nextRoots_32k_avx2_intrin;
-            if (sconf->obj->VFLAG > 1)
-            {
-                printf("assigning nextRoots_32k_avx2_intrin ptr\n");
-            }
-        }
-        else
-        {
-            nextRoots_ptr = &nextRoots_32k_sse41;
-            if (sconf->obj->VFLAG > 1)
-            {
-                printf("assigning nextRoots_32k_sse41 ptr\n");
-            }
-        }
-#else
         
         if (obj->HAS_BMI2)
         {
@@ -3970,7 +3936,6 @@ int siqs_static_init(static_conf_t* sconf, int is_tiny)
         //    printf("assigning nextRoots_32k_sse41 ptr\n");
         //}
         //nextRoots_ptr = &nextRoots_32k_sse41;
-#endif
     }
     else if (obj->HAS_SSE41)
     {
@@ -4306,7 +4271,7 @@ int siqs_static_init(static_conf_t* sconf, int is_tiny)
 		// this region of primes aligned on a 16 byte boundary and thus be able to use
 		// movdqa
 		// don't let med_B grow larger than ~1.5 * the blocksize
-#if defined(USE_AVX512F) && !defined(_MSC_VER)
+#if defined(USE_AVX512F)
         if ((sconf->factor_base->list->prime[i] > (uint32_t)(1.5 * (double)sconf->qs_blocksize)) &&
             ((i % 16) == 0))
             break;

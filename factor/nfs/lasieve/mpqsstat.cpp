@@ -91,7 +91,6 @@ int main(int argc, char *argv[])
   double cl;
 
   setbuf(stdout,NULL);
-  mpz_ull_init();
 //  init_montgomery_multiplication();
 //  initzeit(123);
   if (argc<4)

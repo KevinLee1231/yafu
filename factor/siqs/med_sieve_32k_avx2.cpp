@@ -260,14 +260,7 @@ void med_sieveblock_32k_avx2(uint8_t* sieve, sieve_fb_compressed* fb, fb_list* f
     }
 
     __m256i vzero = _mm256_setzero_si256();
-#if (defined(_MSC_VER) && defined(__clang__)) || (defined(__MINGW32__))
-    // clang-cl defines _mm256_set1_epi16 as taking a short, and therefore sets 32768 to -32768.
-    // so we have to do this instead:
-    __m256i vblock = _mm256_set1_epi16(32767);
-    vblock = _mm256_add_epi16(vblock, _mm256_set1_epi16(1));
-#else
     __m256i vblock = _mm256_set1_epi16(BLOCKSIZE);
-#endif
     //__m256i vinterval = _mm256_set1_epi16(4 * BLOCKSIZE);
     __m256i vprime, vroot1, vroot2, vtmp1, vtmp2;
     __m256i valid_mask_1, valid_mask_2, initial_mask;
@@ -614,12 +607,7 @@ void med_sieveblock_32k_avx512bw(uint8_t* sieve, sieve_fb_compressed* fb, fb_lis
 
     uint32_t prime, root1, root2, tmp, stop;
     uint8_t logp;
-#if defined(_MSC_VER) && defined(__clang__)
-    __m512i vblock = _mm512_set1_epi16(32767);
-    vblock = _mm512_add_epi16(vblock, _mm512_set1_epi16(1));
-#else
     __m512i vblock = _mm512_set1_epi16(BLOCKSIZE);
-#endif
     //__m512i vinterval = _mm512_set1_epi16(4 * BLOCKSIZE);
     __m512i vzero = _mm512_setzero_epi32();
 

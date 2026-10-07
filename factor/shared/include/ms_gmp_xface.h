@@ -19,17 +19,8 @@ $Id: gmp_xface.h 1033 2020-09-04 16:43:27Z jasonp_sf $
 #include <gmp.h>
 #include <mp.h>
 
-#ifdef __MINGW32__
-#include "mpz-ull.h"
-#else
 #define mpz_set_ull mpz_set_ui
 #define mpz_get_ull mpz_get_ui
-#endif
-
-	/* Note that when GMP_LIMB_BITS == 64 it is possible
-	   to use mpz_set_{ui|si}, except that 64-bit
-	   MSVC forces the input argument in these calls to
-	   be 32 bits in size and not 64 */
 
 /*--------------------------------------------------------------------*/
 static INLINE void mp2gmp(mp_t *src, mpz_t dest) {
@@ -108,10 +99,8 @@ static INLINE int64 gmp2int64(mpz_t src) {
 	}
 
 	if (mpz_cmp_ui(src, 0) < 0) {
-		// when ULL_NO_UL is active and GMP_BITS_PER_ULONG = 32, then
-		// this conversion doesn't work, it is assumed that the 
-		// input is non-negative.  But it works in all cases if the input
-		// is non-negative.  So we do a quick double negation.
+		// gmp2uint64 assumes a non-negative input, so we do a quick
+		// double negation to get the magnitude.
 		mpz_neg(src, src);
 		magnitude = gmp2uint64(src);
 		mpz_neg(src, src);

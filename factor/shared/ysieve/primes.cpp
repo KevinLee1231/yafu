@@ -26,12 +26,8 @@ SOFTWARE.
 #include "soe_impl.h"
 #include "ytools.h"
 #include "threadpool.h"
-#if defined(_MSC_VER) && defined(__clang__)
-#include <x86intrin.h>
-#else
 #ifndef __aarch64__
 #include <immintrin.h>
-#endif
 #endif
 #include <stdint.h>
 #include <stdio.h>
@@ -39,9 +35,6 @@ SOFTWARE.
 #include <string.h>
 #include <math.h>
 
-#ifdef __MINGW32__
-#include <sys/time.h>
-#endif
 
 //for testing one of 8 bits in a byte in one of 8 lines.
 //bit num picks the row, lines num picks the col.	

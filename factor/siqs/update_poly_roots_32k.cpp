@@ -184,7 +184,7 @@ void nextRoots_32k(static_conf_t *sconf, dynamic_conf_t *dconf)
 			}
 		}
 		
-#if defined(D_HAS_SSE2) && (defined(GCC_ASM64X) || defined(_MSC_VER)) //NOTDEF //GCC_ASM64X
+#if defined(D_HAS_SSE2) && (defined(GCC_ASM64X)) //NOTDEF //GCC_ASM64X
 		
 		// update 8 at a time using SSE2 and no branching
 		sm_ptr = &dconf->sm_rootupdates[(v-1) * med_B];
@@ -1049,7 +1049,7 @@ void nextRoots_32k(static_conf_t *sconf, dynamic_conf_t *dconf)
 			}
 		}
 		
-#if defined(D_HAS_SSE2) && (defined(GCC_ASM64X) || defined(_MSC_VER)) //NOTDEF //GCC_ASM64X
+#if defined(D_HAS_SSE2) && (defined(GCC_ASM64X)) //NOTDEF //GCC_ASM64X
 		// update 8 at a time using SSE2 and no branching		
 		sm_ptr = &dconf->sm_rootupdates[(v-1) * med_B];
 		{

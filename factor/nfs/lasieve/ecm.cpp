@@ -17,9 +17,7 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include <time.h>
 #include <unistd.h>
 
-#ifndef _WIN64 // SMJS
 #include <sys/times.h>
-#endif
 #include <sys/time.h>
 
 #define uchar         unsigned char

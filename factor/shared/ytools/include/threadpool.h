@@ -35,18 +35,10 @@ SOFTWARE.
 
 #endif
 
-#if (defined(_WIN32) || defined(_WIN64))  // && (!defined(__clang__))
-    // MINGW defines these too: mingw will use windows 
-    // threading instead of pthreads.
-#include <windows.h>
-#include <process.h>
-
-#else /* !WIN32 */
 
 #include <pthread.h>
 #include <unistd.h>
 
-#endif /* WIN32 */
 
 enum tpool_state {
     TPOOL_STATE_INIT,
@@ -84,15 +76,6 @@ typedef struct
     volatile int *thread_queue;
     volatile int *threads_waiting;
 
-#if (defined(_WIN32) || defined(_WIN64))  // && (!defined(__clang__))
-    HANDLE thread_id;
-    HANDLE run_event;
-
-    HANDLE finish_event;
-    HANDLE *queue_event;
-    HANDLE *queue_lock;
-
-#else
     pthread_t thread_id;
     pthread_mutex_t run_lock;
     pthread_cond_t run_cond;
@@ -105,7 +88,6 @@ typedef struct
     cpu_set_t *cpus;
 #endif
 
-#endif
 
 } tpool_t;
 

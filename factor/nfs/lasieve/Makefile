@@ -25,7 +25,7 @@
 #   CC            Compiler: gcc, clang, or icc (default: gcc)
 #   GMP_INCDIR    Path to gmp.h               (default: /usr/include)
 #   GMP_LIBDIR    Path to libgmp.a            (default: /usr/lib)
-#   DETECTED_OS   Windows or Linux            (auto-detected if absent)
+#   DETECTED_OS   Linux                       (auto-detected if absent)
 #   DEBUG         Set to 1 for a debug build
 #   OBJDIR        对象、静态库的输出目录（默认：.）
 #                 顶层 Makefile 传的是 build/factor/nfs/lasieve/ 的绝对路径
@@ -82,11 +82,7 @@ GMP_INCDIR ?= $(call find_dir,gmp.h,$(GMP_INC_PATHS))
 GMP_LIBDIR ?= $(call find_dir,libgmp.a,$(GMP_LIB_PATHS))
 
 ifndef DETECTED_OS
-    ifeq ($(OS),Windows_NT)
-        DETECTED_OS := Windows
-    else
-        DETECTED_OS := $(shell uname -s)
-    endif
+    DETECTED_OS := $(shell uname -s)
 endif
 
 # Compiler family — mirrors the top-level detection so ifeq ($(CC),icc) checks
@@ -125,19 +121,13 @@ GMP_LIB := $(GMP_LIBDIR)/libgmp.a
 #
 # gcc linux  : base flags only
 # clang linux: base + -ffp-model=precise (required for reproducible FP results)
-# mingw win  : base + -I. + -DULL_NO_UL -DBITS_PER_GMP_ULONG=32
-#              (GMP's ./configure sets ulong=32-bit on Windows, but lasieve
-#              assumes 64-bit; the defines reconcile this without changing
-#              siever-config.h or the montgomery asm code)
 #
 CFLAGS_BASE := \
     -Wall -Wno-unused-variable -Wno-unused-function \
     -Ofast -fomit-frame-pointer -march=native -funroll-loops \
     -I$(GMP_INCDIR) -L$(GMP_LIBDIR) -I../../factor/shared/include -I../../factor/ecm/include -Iinclude -Ikernels/include -fcommon
 
-ifeq ($(DETECTED_OS),Windows)
-    CFLAGS = -I. $(CFLAGS_BASE) -DULL_NO_UL -DBITS_PER_GMP_ULONG=32
-else ifeq ($(COMPILER_FAMILY),clang)
+ifeq ($(COMPILER_FAMILY),clang)
     CFLAGS = $(CFLAGS_BASE) -ffp-model=precise
 else
     CFLAGS = $(CFLAGS_BASE)
@@ -344,7 +334,7 @@ $(OBJDIR)/lasieve_ctx.o: lasieve_ctx.cpp include/lasieve_ctx.h | include/lasieve
 	@mkdir -p $(@D)
 	$(CXX) $(CFLAGS) $(CXX_STD) -c -o $@ $<
 
-$(OBJDIR)/libgmp-aux.a: $(OBJDIR)/gmp-aux.o $(OBJDIR)/mpz-ull.o
+$(OBJDIR)/libgmp-aux.a: $(OBJDIR)/gmp-aux.o
 	@mkdir -p $(@D)
 	$(AR) rcs $@ $^
 
@@ -404,7 +394,7 @@ $(OBJDIR)/mpqsz.o: mpqs.cpp kernels/include/mpqs-config.h
 	$(CC) $(CFLAGS) -O2 -DMPQS_STAT -DMPQS_ZEIT -c -o $@ $<
 
 $(BINPREFIX)mpqstest: $(OBJDIR)/mpqstest.o $(OBJDIR)/mpqsz.o $(OBJDIR)/lasieve_bail.o \
-	$(OBJDIR)/if.o $(OBJDIR)/mpz-ull.o $(KERNEL_DIR)/liblasieve.a
+	$(OBJDIR)/if.o $(KERNEL_DIR)/liblasieve.a
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 
@@ -419,7 +409,7 @@ $(BINPREFIX)mpqs3test: $(OBJDIR)/mpqs3test.o $(OBJDIR)/mpqs3z.o $(OBJDIR)/lasiev
 
 $(BINPREFIX)mpqsstat: $(OBJDIR)/mpqsstat.o $(OBJDIR)/mpqs.o $(OBJDIR)/mpqs3.o \
 	$(OBJDIR)/lasieve_bail.o $(OBJDIR)/if.o $(OBJDIR)/lasieve_ctx.o \
-	$(OBJDIR)/mpz-ull.o $(OBJDIR)/libgmp-aux.a $(KERNEL_DIR)/liblasieve.a
+	$(OBJDIR)/libgmp-aux.a $(KERNEL_DIR)/liblasieve.a
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -o $@ $^ $(GMP_LIB) -lm
 

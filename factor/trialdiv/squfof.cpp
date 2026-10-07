@@ -397,7 +397,7 @@ int par_shanks_loop(uint64_t* N, uint64_t* f, int num_in)
 
 
         // run parallel squfof
-#if (USE_AVX2) && !defined(_MSC_VER)
+#if (USE_AVX2)
 #if defined(__INTEL_COMPILER) || defined (__INTEL_LLVM_COMPILER)
         par_shanks_mult_unit(&mult_batch);
 #else
@@ -1404,7 +1404,7 @@ void par_shanks_mult_unit(par_mult_t* mult_save)
     }
 }
 
-#if defined(USE_AVX2) && !defined(_MSC_VER)
+#if defined(USE_AVX2)
 
 void par_shanks_mult_unit_asm(par_mult_t* mult_save)
 {

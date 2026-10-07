@@ -27,21 +27,12 @@ code to the public domain.
 #include "gmp.h"
 #include "core_types.h"
 
-#ifdef __MINGW32__
-#include <Windows.h>
-#endif
 
 #define GSTR_MAXSIZE 1024
 #define NUM_ECM_LEVELS 12
 
 //#define NO_ZLIB
 
-#if defined( _MSC_VER )
-
-#define USE_NFS
-#define MySleep(x) Sleep((x))
-
-#else
 
 //#if __GNUC__ < 14
 //
@@ -55,7 +46,6 @@ code to the public domain.
 
 //#endif
 
-#endif
 
 // these are similar to things msieve defines.  Differences:
 // the factor type contains more info about how the factor
@@ -98,13 +88,7 @@ typedef struct
 /* structure encapsulating the savefile used in a factorization */
 typedef struct {
 
-#if defined(WIN32) || defined(_WIN64)
-    HANDLE file_handle;
-    uint32_t read_size;
-    uint32_t eof;
-#else
     FILE* fp;
-#endif
     char* name;
     char* buf;
     uint32_t buf_off;

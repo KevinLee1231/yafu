@@ -24,11 +24,7 @@ typedef unsigned int uint32;
 typedef unsigned long long uint64;
 typedef long long int64;
 
-#if defined(_WIN64) || defined(__LP64__)
-	#define PTR_CONSTRAINT(x) "l"(x)
-#else
-	#define PTR_CONSTRAINT(x) "r"(x)
-#endif
+#define PTR_CONSTRAINT(x) "l"(x)
 
 #define VWORDS ((VBITS + 63) / 64)
 

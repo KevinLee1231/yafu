@@ -39,12 +39,7 @@ code to the public domain.
 #include <math.h>
 #include "tinyecm.h"
 
-#if defined(__unix__)
 #include <termios.h>
-#elif defined(_MSC_VER)
-#include <io.h>         // _isatty
-#include <direct.h>     // _getcwd
-#endif
 
 #if defined(__INTEL_LLVM_COMPILER) || defined(__GNUC__)
 #include <unistd.h>
@@ -53,7 +48,7 @@ code to the public domain.
 #include <ctype.h>
 #endif
 
-#if defined(__clang__) && !defined(_MSC_VER)
+#if defined(__clang__)
 #include <unistd.h>		// for nice()
 #endif
 
@@ -179,11 +174,7 @@ int main(int argc, char *argv[])
     {
         if (ini_success)
         {
-#ifdef _MSC_VER
-            if (_getcwd(yafu_obj.CWD, sizeof(yafu_obj.CWD)) == NULL)
-#else
             if (getcwd(yafu_obj.CWD, sizeof(yafu_obj.CWD)) == NULL)
-#endif
                 yafu_obj.CWD[0] = '\0';
         }
         else
@@ -586,16 +577,11 @@ int main(int argc, char *argv[])
         options->num_prp_witnesses = fobj->NUM_WITNESSES;
         options->threads = fobj->THREADS;
 
-#if defined(WIN32) && !defined(__MINGW32__)
-		fflush(stdin);	//important!  otherwise scanf will process printf's output
-		
-#else
 		if (!is_cmdline_run)
 		{
 			fflush(stdin);	//important!  otherwise scanf will process printf's output
 			fflush(stdout);
 		}
-#endif
 
 		// get the next expression, if running a batchfile, or
 		// re-display the command prompt
@@ -1040,13 +1026,7 @@ int check_expression(options_t* options)
 {
     int piped = 0;
 #ifndef NO_PIPE
-#if defined(__MINGW32__)
-    piped = 0;
-#elif defined(WIN32)
-    piped = (_isatty(_fileno(stdin)) == 0);
-#else
     piped = (isatty(fileno(stdin)) == 0);
-#endif
 #endif
     if (options->batchfile[0] != '\0' || options->scriptfile[0] != '\0')
         return 1;
@@ -1077,21 +1057,7 @@ void print_splash(fact_obj_t *fobj, info_t *comp_info, int is_cmdline_run,
     {
         printf("YAFU Version %s\n", YAFU_VERSION_STRING);
         logprint(logfile, "YAFU Version %s\n", YAFU_VERSION_STRING);
-#ifdef _MSC_VER
-#if defined(__INTEL_COMPILER)
-        printf("Built with Microsoft Visual Studio %d and Intel Compiler %d\n", _MSC_VER, __INTEL_COMPILER);
-        logprint(logfile, "Built with Microsoft Visual Studio %d and Intel Compiler %d\n", _MSC_VER, __INTEL_COMPILER);
-#elif defined(__INTEL_LLVM_COMPILER)
-        printf("Built with Microsoft Visual Studio %d and Intel LLVM Compiler %d\n", _MSC_VER, __clang_version__);
-        logprint(logfile, "Built with Microsoft Visual Studio %d and Intel LLVM Compiler %d\n", _MSC_VER, __clang_version__);
-#elif defined(__clang_version__)
-        printf("Built with Microsoft Visual Studio %d and LLVM Compiler %s\n", _MSC_VER, __clang_version__);
-        logprint(logfile, "Built with Microsoft Visual Studio %d and LLVM Compiler %s\n", _MSC_VER, __clang_version__);
-#else
-        printf("Built with Microsoft Visual Studio %d\n", _MSC_VER);
-        logprint(logfile, "Built with Microsoft Visual Studio % d\n", _MSC_VER);
-#endif
-#elif defined (__INTEL_COMPILER)
+#if defined (__INTEL_COMPILER)
         printf("Built with Intel Compiler %d\n", __INTEL_COMPILER);
         logprint(logfile, "Built with Intel Compiler %d\n", __INTEL_COMPILER);
 #elif defined(__INTEL_LLVM_COMPILER)
@@ -1179,11 +1145,7 @@ void print_splash(fact_obj_t *fobj, info_t *comp_info, int is_cmdline_run,
     if (strlen(cwd) == 0)
     {
         char buf[1024];
-#ifdef _MSC_VER
-        if (_getcwd(buf, sizeof(buf)) == NULL)
-#else
         if (getcwd(buf, sizeof(buf)) == NULL)
-#endif
             strcpy(buf, "(unavailable)");
         logprint(logfile, "Could not parse yafu.ini from %s\n\n", buf);
     }
@@ -1229,11 +1191,7 @@ void print_splash(fact_obj_t *fobj, info_t *comp_info, int is_cmdline_run,
         if (strlen(cwd) == 0)
         {
             char buf[1024];
-#ifdef _MSC_VER
-            if (_getcwd(buf, sizeof(buf)) == NULL)
-#else
             if (getcwd(buf, sizeof(buf)) == NULL)
-#endif
                 strcpy(buf, "(unavailable)");
             printf("Could not parse yafu.ini from %s\n\n", buf);
         }
@@ -1256,13 +1214,8 @@ void print_splash(fact_obj_t *fobj, info_t *comp_info, int is_cmdline_run,
 
 void yafu_set_idle_priority(void) {
 
-#if defined(WIN32) || defined(_WIN64)
-	SetPriorityClass(GetCurrentProcess(),
-			IDLE_PRIORITY_CLASS);
-#else
 #if __GNUC__ < 14
     nice(100);
-#endif
 #endif
 }
 
@@ -1321,12 +1274,7 @@ void finalize_batchline(yafu_obj_t* yobj)
     if (yobj->USEBATCHFILE == 1 && batch_tempname[0] != '\0')
     {
         /* 临时文件和原文件在同一目录；替换失败时保留原始输入。 */
-#if defined(WIN32) || defined(_WIN64)
-        int failed = !MoveFileExA(batch_tempname, yobj->batchfilename,
-            MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
-#else
         int failed = rename(batch_tempname, yobj->batchfilename);
-#endif
         if (failed)
         {
             fprintf(stderr, "cannot replace batch file %s with %s\n",
@@ -1442,13 +1390,7 @@ void apply_tuneinfo(yafu_obj_t* yobj, fact_obj_t *fobj, char *arg)
     char cpustr[80], osstr[80];
     double values[9] = {0};
     int end = 0, i;
-#if defined(_WIN64)
-    const char *os = "WIN64";
-#elif defined(WIN32)
-    const char *os = "WIN32";
-#else
     const char *os = "LINUX64";
-#endif
     /* 整条记录验证成功后再应用，避免长名称越界及部分更新配置。 */
     if (sscanf(arg, "%79[^,],%79[^,],%lg,%lg,%lg,%lg,%lg,%lg,%lg,%lg,%lg %n",
         cpustr, osstr, &values[0], &values[1], &values[2], &values[3],

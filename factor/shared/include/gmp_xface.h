@@ -20,11 +20,6 @@ $Id: gmp_xface.h 23 2009-07-20 02:59:07Z jasonp_sf $
 #include "ytools.h"
 #include <gmp.h>
 
-	/* Note that when GMP_LIMB_BITS == 64 it is possible
-	   to use mpz_set_{ui|si}, except that 64-bit
-	   MSVC forces the input argument in these calls to
-	   be 32 bits in size and not 64 */
-
 static INLINE void mp_t2gmp(mp_t *src, mpz_t dest) {
 
 	mpz_import(dest, (size_t)(src->nwords), -1, sizeof(uint32_t),

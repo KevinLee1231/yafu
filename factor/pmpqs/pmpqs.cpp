@@ -27,13 +27,7 @@ code to the public domain.
 #include "gmp_xface.h"
 #include <math.h>
 
-#ifdef __MINGW32__
-#include <sys/time.h>
-#endif
 
-#ifdef __MINGW32__
-#include <sys/time.h>
-#endif
 
 #define PM_BLOCKSIZE 16384
 #define RADIX_32 4294967296.0
@@ -1307,7 +1301,7 @@ uint8_t pmpqs_sqrt_tab[54][256] = { { 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
 { 0, 1, 22, 56, 2, 103, 27, 0, 44, 3, 97, 0, 112, 0, 0, 16, 4, 0, 66, 0, 35, 0, 0, 0, 54, 5, 0, 73, 0, 92, 111, 0, 88, 0, 0, 0, 6, 0, 0, 0, 47, 102, 0, 0, 0, 68, 0, 23, 17, 7, 110, 0, 0, 52, 81, 0, 0, 0, 96, 78, 32, 28, 0, 0, 8, 0, 0, 84, 0, 0, 0, 0, 109, 0, 0, 39, 0, 42, 0, 101, 70, 9, 75, 18, 0, 0, 0, 91, 0, 0, 50, 36, 0, 0, 24, 0, 108, 45, 87, 0, 10, 0, 0, 0, 0, 0, 61, 59, 95, 0, 0, 0, 0, 63, 0, 0, 57, 0, 29, 100, 19, 11, 107, 72, 0, 33, 0, 0, 65, 0, 0, 0, 0, 55, 80, 48, 0, 0, 0, 0, 0, 83, 0, 25, 12, 77, 0, 90, 0, 0, 106, 67, 0, 0, 40, 0, 0, 0, 53, 20, 94, 99, 43, 0, 37, 0, 86, 0, 0, 13, 0, 0, 0, 0, 74, 0, 0, 30, 0, 0, 105, 120, 69, 119, 0, 0, 0, 118, 46, 0, 0, 51, 34, 117, 26, 0, 14, 0, 0, 0, 21, 116, 0, 0, 0, 98, 0, 0, 0, 89, 0, 115, 104, 0, 93, 0, 79, 82, 0, 0, 0, 71, 0, 114, 0, 15, 60, 0, 0, 62, 0, 58, 49, 76, 0, 41, 85, 113, 31, 38, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
 { 0, 1, 0, 76, 2, 16, 0, 42, 0, 3, 0, 0, 99, 55, 0, 39, 4, 45, 0, 0, 32, 71, 111, 104, 0, 5, 0, 23, 84, 0, 0, 28, 0, 0, 0, 81, 6, 0, 17, 87, 0, 36, 0, 0, 0, 48, 0, 0, 53, 7, 0, 94, 110, 0, 0, 0, 0, 0, 73, 0, 78, 0, 0, 125, 8, 124, 98, 103, 90, 123, 0, 0, 0, 18, 24, 122, 0, 0, 0, 62, 64, 9, 0, 121, 109, 33, 60, 0, 29, 66, 0, 51, 43, 120, 40, 0, 0, 0, 0, 0, 10, 58, 0, 75, 0, 119, 68, 0, 46, 0, 19, 0, 83, 102, 37, 93, 0, 86, 108, 118, 0, 11, 97, 25, 56, 80, 0, 0, 0, 0, 0, 70, 0, 0, 0, 117, 0, 0, 0, 0, 89, 0, 49, 0, 12, 0, 0, 30, 0, 20, 0, 0, 34, 116, 107, 54, 77, 0, 0, 0, 0, 101, 0, 0, 72, 0, 0, 0, 0, 13, 0, 0, 0, 115, 26, 41, 0, 0, 0, 44, 96, 92, 0, 0, 0, 0, 0, 0, 0, 38, 21, 0, 106, 0, 52, 114, 14, 85, 82, 0, 0, 47, 0, 0, 63, 74, 0, 61, 31, 65, 0, 100, 0, 0, 88, 0, 0, 79, 59, 113, 0, 35, 67, 0, 0, 15, 0, 27, 0, 0, 0, 0, 105, 22, 0, 0, 0, 57, 0, 0, 95, 50, 0, 69, 0, 112, 0, 0, 0, 91, 0, 0, 0, 0, 0, 0 } };
 
-#if (defined(GCC_ASM64X) || defined(__MINGW64__)) && !defined(FORCE_GENERIC)
+#if (defined(GCC_ASM64X)) && !defined(FORCE_GENERIC)
 	#define PM_SCAN_CLEAN __asm__ volatile("emms");	
 	#define PM_SIMD_SIEVE_SCAN_VEC 1
 
@@ -1419,7 +1413,7 @@ uint32_t u32div(uint32_t c, uint32_t n)
 
 #endif
 
-#elif (defined(GCC_ASM32X) || defined(__MINGW32__)) && !defined(FORCE_GENERIC)
+#elif (defined(GCC_ASM32X)) && !defined(FORCE_GENERIC)
 	#define PM_SCAN_CLEAN asm volatile("emms");	
 	#define PM_SIMD_SIEVE_SCAN 1
 
@@ -1500,47 +1494,6 @@ uint32_t u32div(uint32_t c, uint32_t n)
 {
     return ((uint64_t)c << 32) % (uint64_t)n;
 }
-
-
-#elif defined(_WIN64) && !defined(FORCE_GENERIC)
-	#define PM_SCAN_CLEAN /*nothing*/
-	#define PM_SIMD_SIEVE_SCAN 1
-
-	#define PM_SIEVE_SCAN_64	\
-		do	{				  		\
-			__m128i local_block;	\
-			__m128i local_block2;	\
-			__m128i local_block3;	\
-			__m128i local_block4;	\
-			local_block = _mm_load_si128(sieveblock + j); \
-			local_block2 = _mm_load_si128(sieveblock + j + 2); \
-			local_block3 = _mm_load_si128(sieveblock + j + 4); \
-			local_block = _mm_or_si128(local_block, local_block2); \
-			local_block = _mm_or_si128(local_block, local_block3); \
-			local_block4 = _mm_load_si128(sieveblock + j + 6); \
-			local_block = _mm_or_si128(local_block, local_block4); \
-			result = _mm_movemask_epi8(local_block); \
-		} while (0);
-
-uint32_t mulredc32(uint32_t x, uint32_t y, uint32_t n, uint32_t nhat)
-{
-    uint64_t xx, yy;
-
-    xx = (uint64_t)x * (uint64_t)y;
-    yy = (xx & 0xffffffff) * (uint64_t)nhat;
-    yy = (yy & 0xffffffff) * (uint64_t)n;
-    yy += xx;
-    yy >>= 32;
-    if (yy >= n) yy -= n;
-
-    return (uint32_t)yy;
-}
-
-uint32_t u32div(uint32_t c, uint32_t n)
-{
-    return ((uint64_t)c << 32) % (uint64_t)n;
-}
-
 
 
 #else	/* compiler not recognized*/

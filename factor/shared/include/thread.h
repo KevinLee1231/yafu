@@ -24,46 +24,26 @@ extern "C"
 
 /* mutexes ---------------------------------------------------------*/
 
-#if defined(WIN32) || defined(_WIN64)
-typedef HANDLE mutex_t;
-#else
 typedef pthread_mutex_t mutex_t;
-#endif
 
 static INLINE void mutex_init(mutex_t *m)
 {
-#if defined(WIN32) || defined(_WIN64)
-	*m = CreateMutex(NULL, FALSE, NULL);
-#else
 	pthread_mutex_init(m, NULL);
-#endif
 }
 
 static INLINE void mutex_free(mutex_t *m)
 {
-#if defined(WIN32) || defined(_WIN64)
-	CloseHandle(*m);
-#else
 	pthread_mutex_destroy(m);
-#endif
 }
 
 static INLINE void mutex_lock(mutex_t *m)
 {
-#if defined(WIN32) || defined(_WIN64)
-	WaitForSingleObject(*m, INFINITE);
-#else
 	pthread_mutex_lock(m);
-#endif
 }
 
 static INLINE void mutex_unlock(mutex_t *m)
 {
-#if defined(WIN32) || defined(_WIN64)
-	ReleaseMutex(*m);
-#else
 	pthread_mutex_unlock(m);
-#endif
 }
 
 /* a thread pool --------------------------------------------------*/

@@ -28,12 +28,8 @@ SOFTWARE.
 #include "ytools.h"
 
 
-#if (defined(_WIN32) || defined(_WIN64))  // && (!defined(__clang__))
-DWORD WINAPI tpool_worker_main(LPVOID thread_data);
-#else
 #include <errno.h>
 void *tpool_worker_main(void *thread_data);
-#endif
 void tpool_start(tpool_t *t);
 void tpool_stop(tpool_t *t);
 
@@ -53,14 +49,7 @@ void tpool_start(tpool_t *t)
         (t->tpool_start_fcn)(t);
     }
 
-#if (defined(_WIN32) || defined(_WIN64))  // && (!defined(__clang__))
-    t->run_event = CreateEvent(NULL, FALSE, FALSE, NULL);
-    t->finish_event = CreateEvent(NULL, FALSE, FALSE, NULL);
-    *t->queue_event = CreateEvent(NULL, FALSE, FALSE, NULL);
-    t->thread_id = CreateThread(NULL, 0, tpool_worker_main, t, 0, NULL);
-    WaitForSingleObject(t->finish_event, INFINITE); /* wait for ready */
-#else
-    pthread_mutex_init(&t->run_lock, NULL);
+pthread_mutex_init(&t->run_lock, NULL);
     pthread_cond_init(&t->run_cond, NULL);
 
 #ifdef USE_TPOOL_AFFINITY
@@ -78,7 +67,6 @@ void tpool_start(tpool_t *t)
     while (t->state != TPOOL_STATE_WAIT)
         pthread_cond_wait(&t->run_cond, &t->run_lock);
     pthread_mutex_unlock(&t->run_lock);
-#endif
 
     if (t->debug > 1)
     {
@@ -100,17 +88,7 @@ void tpool_stop(tpool_t* t)
         (t->tpool_stop_fcn)(t);
     }
 
-#if (defined(_WIN32) || defined(_WIN64))  // && (!defined(__clang__))
-
-    SetEvent(t->run_event);
-    WaitForSingleObject(t->thread_id, INFINITE);
-    CloseHandle(t->thread_id);
-    CloseHandle(t->run_event);
-    CloseHandle(t->finish_event);
-    CloseHandle(*t->queue_event);
-#else
-
-    //pthread_mutex_lock(&t->run_lock);
+//pthread_mutex_lock(&t->run_lock);
     int count = 0;
     while (1)
     {
@@ -130,12 +108,7 @@ void tpool_stop(tpool_t* t)
 
             //printf("run_lock is busy in thread %d, (count = %d)\n",
             //    t->tindex, count);
-#ifdef _MSC_VER
-            // don't sleep and hope for the best?
-
-#else
             portable_sleep(100);
-#endif
 
             if (count > 100)
             {
@@ -155,7 +128,6 @@ void tpool_stop(tpool_t* t)
     pthread_join(t->thread_id, NULL);
     pthread_cond_destroy(&t->run_cond);
     pthread_mutex_destroy(&t->run_lock);
-#endif
 
     if (t->debug > 1)
     {
@@ -165,27 +137,18 @@ void tpool_stop(tpool_t* t)
 }
 
 
-#if (defined(_WIN32) || defined(_WIN64))  // && (!defined(__clang__))
-DWORD WINAPI tpool_worker_main(LPVOID thread_data) {
-#else
 void *tpool_worker_main(void *thread_data) {
-#endif
     tpool_t *t = (tpool_t *)thread_data;
 
     /*
     * Respond to the master thread that we're ready for work. If we had any thread-
     * specific initialization which needed to be done, it would go before this signal.
     */
-#if (defined(_WIN32) || defined(_WIN64))  // && (!defined(__clang__))
-    t->state = TPOOL_STATE_WAIT;
-    SetEvent(t->finish_event);
-#else
     pthread_mutex_lock(&t->run_lock);
     t->state = TPOOL_STATE_WAIT;
     pthread_cond_signal(&t->run_cond);
     pthread_mutex_unlock(&t->run_lock);
     //omp_get_num_procs();
-#endif
 
     while (1) {
 
@@ -195,14 +158,10 @@ void *tpool_worker_main(void *thread_data) {
         }
 
         /* wait forever for work to do */
-#if (defined(_WIN32) || defined(_WIN64))  // && (!defined(__clang__))
-        WaitForSingleObject(t->run_event, INFINITE);
-#else
         pthread_mutex_lock(&t->run_lock);
         while (t->state == TPOOL_STATE_WAIT) {
             pthread_cond_wait(&t->run_cond, &t->run_lock);
         }
-#endif
 
         /* do work */
         if (t->state == TPOOL_STATE_WORK)
@@ -226,17 +185,6 @@ void *tpool_worker_main(void *thread_data) {
 
         /* signal completion */
         t->state = TPOOL_STATE_WAIT;
-#if (defined(_WIN32) || defined(_WIN64))  // && (!defined(__clang__))
-
-        WaitForSingleObject(
-            *t->queue_lock,    // handle to mutex
-            INFINITE);  // no time-out interval
-
-        t->thread_queue[(*(t->threads_waiting))++] = t->tindex;
-        SetEvent(*t->queue_event);
-        ReleaseMutex(*t->queue_lock);
-
-#else
         pthread_mutex_unlock(&t->run_lock);
 
         // lock the work queue and insert my thread ID into it
@@ -246,15 +194,10 @@ void *tpool_worker_main(void *thread_data) {
         t->thread_queue[(*(t->threads_waiting))++] = t->tindex;
         pthread_cond_signal(t->queue_cond);
         pthread_mutex_unlock(t->queue_lock);
-#endif
 
     }
 
-#if (defined(_WIN32) || defined(_WIN64))  // && (!defined(__clang__))
-    return 0;
-#else
     return NULL;
-#endif
 }
 
 
@@ -266,17 +209,12 @@ void tpool_go(tpool_t *thread_data)
     int *threads_waiting;
     int i;
 
-#if (defined(_WIN32) || defined(_WIN64))  // && (!defined(__clang__))
-    HANDLE queue_lock;
-    HANDLE *queue_events = NULL;
-#else
-    pthread_mutex_t queue_lock;
+pthread_mutex_t queue_lock;
     pthread_cond_t queue_cond;
-    
+
 #ifdef USE_TPOOL_AFFINITY
     pthread_attr_t attr;
     cpu_set_t cpus;
-#endif
 #endif
 
 #ifdef USE_TPOOL_AFFINITY
@@ -287,16 +225,8 @@ void tpool_go(tpool_t *thread_data)
     thread_queue = (int *)malloc(thread_data->num_threads * sizeof(int));
     threads_waiting = (int *)malloc(sizeof(int));
 
-#if (defined(_WIN32) || defined(_WIN64))  // && (!defined(__clang__))
-    queue_lock = CreateMutex(
-        NULL,              // default security attributes
-        FALSE,             // initially not owned
-        NULL);             // unnamed mutex
-    queue_events = (HANDLE *)malloc(thread_data->num_threads * sizeof(HANDLE));
-#else
-    pthread_mutex_init(&queue_lock, NULL);
+pthread_mutex_init(&queue_lock, NULL);
     pthread_cond_init(&queue_cond, NULL);
-#endif
 
     
 
@@ -314,18 +244,12 @@ void tpool_go(tpool_t *thread_data)
         thread_data[i].thread_queue = thread_queue;
         thread_data[i].threads_waiting = threads_waiting;
 
-#if (defined(_WIN32) || defined(_WIN64))  // && (!defined(__clang__))
-        // assign a pointer to the mutex
-        thread_data[i].queue_lock = &queue_lock;
-        thread_data[i].queue_event = &queue_events[i];
-#else
-        thread_data[i].queue_lock = &queue_lock;
+thread_data[i].queue_lock = &queue_lock;
         thread_data[i].queue_cond = &queue_cond;
 
 #ifdef USE_TPOOL_AFFINITY
         thread_data[i].attr = &attr;
         thread_data[i].cpus = &cpus;
-#endif
 #endif
     }
 
@@ -339,11 +263,7 @@ void tpool_go(tpool_t *thread_data)
 
     *threads_waiting = thread_data->num_threads;
 
-#if (defined(_WIN32) || defined(_WIN64))  // && (!defined(__clang__))
-    // nothing
-#else
     pthread_mutex_lock(&queue_lock);
-#endif
 
     if (thread_data[0].debug > 1)
     {
@@ -362,18 +282,8 @@ void tpool_go(tpool_t *thread_data)
         while (*threads_waiting > 0)
         {            
             // Pop a waiting thread off the queue (OK, it's stack not a queue)
-#if (defined(_WIN32) || defined(_WIN64))  // && (!defined(__clang__))
-            WaitForSingleObject(
-                queue_lock,    // handle to mutex
-                INFINITE);  // no time-out interval
-#endif
-
             tid = thread_queue[--(*threads_waiting)];
 
-#if (defined(_WIN32) || defined(_WIN64))  // && (!defined(__clang__))
-            ReleaseMutex(queue_lock);
-#endif
-            
             if (thread_data[tid].debug > 1)
             {
                 printf("tpool: main thread sync %d\n", thread_data[tid].tindex);
@@ -414,13 +324,9 @@ void tpool_go(tpool_t *thread_data)
                 }
 
                 // send the thread a signal to start processing the poly we just generated for it
-#if (defined(_WIN32) || defined(_WIN64))  // && (!defined(__clang__))
-                SetEvent(thread_data[tid].run_event);
-#else
                 pthread_mutex_lock(&thread_data[tid].run_lock);
                 pthread_cond_signal(&thread_data[tid].run_cond);
                 pthread_mutex_unlock(&thread_data[tid].run_lock);
-#endif
                 // this thread is now busy, so increment the count of working threads
                 threads_working++;
             }
@@ -447,15 +353,7 @@ void tpool_go(tpool_t *thread_data)
         }
 
         // wait for a thread to finish and put itself in the waiting queue
-#if (defined(_WIN32) || defined(_WIN64))  // && (!defined(__clang__))
-        WaitForMultipleObjects(
-            thread_data[tid].num_threads,
-            queue_events,
-            FALSE,
-            INFINITE);
-#else
         pthread_cond_wait(&queue_cond, &queue_lock);
-#endif
 
         if (thread_data[0].debug > 1)
         {
@@ -482,11 +380,6 @@ void tpool_go(tpool_t *thread_data)
 
     free(thread_queue);
     free(threads_waiting);
-
-#if (defined(_WIN32) || defined(_WIN64))  // && (!defined(__clang__))
-    free(queue_events);
-#endif
-
 
     return;
 }

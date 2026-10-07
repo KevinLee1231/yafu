@@ -32,13 +32,7 @@ code to the public domain.
 #include <stdint.h>
 #include <gmp.h>
 
-#ifdef _MSC_VER
-#include <Windows.h>
-#endif
 
-#ifdef __MINGW32__
-#include <Windows.h>
-#endif
 
 // a structure to hold a bunch of configuration info
 // for yafu, instead of declaring a bunch of globals.
@@ -73,13 +67,8 @@ typedef struct
     char HAS_SSE41;
     char HAS_AVX;
     char HAS_AVX2;
-#if defined(WIN32)
-    char sysname[MAX_COMPUTERNAME_LENGTH + 1];
-    int sysname_sz;
-#else
     char sysname[256];
     int sysname_sz;
-#endif
 
     
 

@@ -11,26 +11,14 @@
 #include <stdarg.h>
 #include <setjmp.h>
 
-#if defined(_WIN32)
-  #define WIN32_LEAN_AND_MEAN
-  #include <windows.h>
-#else
-  #include <time.h>
-#endif
+#include <time.h>
 
 /* ================================================================== *
  * Timer
  * ================================================================== */
 double tk_now_sec(void)
 {
-#if defined(_WIN32)
-    static LARGE_INTEGER freq;
-    static int have_freq = 0;
-    LARGE_INTEGER now;
-    if (!have_freq) { QueryPerformanceFrequency(&freq); have_freq = 1; }
-    QueryPerformanceCounter(&now);
-    return (double)now.QuadPart / (double)freq.QuadPart;
-#elif defined(CLOCK_MONOTONIC)
+#if defined(CLOCK_MONOTONIC)
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
@@ -52,8 +40,6 @@ const char *tk_compiler_id(void)
 #elif defined(__clang__)
     snprintf(buf, sizeof buf, "clang %d.%d.%d",
              __clang_major__, __clang_minor__, __clang_patchlevel__);
-#elif defined(_MSC_VER)
-    snprintf(buf, sizeof buf, "msvc %d", _MSC_VER);
 #elif defined(__GNUC__)
     snprintf(buf, sizeof buf, "gcc %d.%d.%d",
              __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__);

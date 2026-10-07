@@ -53,13 +53,6 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
-#if defined(_MSC_VER)
-#  ifndef _WIN64
-#    error "64 bit compilation mode is required for MSVC"
-#  endif
-#  include <immintrin.h>
-#  include <intrin.h>
-#endif
 
 
 #ifdef USE_AVX512F
@@ -79,9 +72,7 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 
 
-#ifdef _MSC_VER
-#  define MICRO_ECM_FORCE_INLINE __forceinline
-#elif defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER) || defined (__INTEL_LLVM_COMPILER)
+#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER) || defined (__INTEL_LLVM_COMPILER)
 #  define MICRO_ECM_FORCE_INLINE inline __attribute__((always_inline))
 #else
 #  define MICRO_ECM_FORCE_INLINE __inline
@@ -281,7 +272,7 @@ static uint32_t uecm_lcg_rand_32B(uint32_t lower, uint32_t upper, uint64_t *ploc
 __inline uint64_t uecm_submod(uint64_t a, uint64_t b, uint64_t n);
 __inline uint64_t uecm_addmod(uint64_t a, uint64_t b, uint64_t n);
 
-#if defined(MICRO_ECM_ALT_MULREDC_USE_INLINE_ASM_X86) && !defined(_MSC_VER)
+#if defined(MICRO_ECM_ALT_MULREDC_USE_INLINE_ASM_X86)
 
 MICRO_ECM_FORCE_INLINE uint64_t uecm_submod(uint64_t a, uint64_t b, uint64_t n)
 {
@@ -341,21 +332,14 @@ MICRO_ECM_FORCE_INLINE uint64_t uecm_addmod(uint64_t x, uint64_t y, uint64_t n)
 // for this algorithm, see https://jeffhurchalla.com/2022/04/28/montgomery-redc-using-the-positive-inverse-mod-r/
 MICRO_ECM_FORCE_INLINE static uint64_t uecm_mulredc_alt(uint64_t x, uint64_t y, uint64_t N, uint64_t invN)
 {
-#if defined(_MSC_VER)
-    uint64_t T_hi;
-    uint64_t T_lo = _umul128(x, y, &T_hi);
-    uint64_t m = T_lo * invN;
-    uint64_t mN_hi = __umulh(m, N);
-#else
     __uint128_t prod = (__uint128_t)x * y;
     uint64_t T_hi = (uint64_t)(prod >> 64);
     uint64_t T_lo = (uint64_t)(prod);
     uint64_t m = T_lo * invN;
     __uint128_t mN = (__uint128_t)m * N;
     uint64_t mN_hi = (uint64_t)(mN >> 64);
-#endif
     uint64_t tmp = T_hi + N;
-#if defined(MICRO_ECM_ALT_MULREDC_USE_INLINE_ASM_X86) && !defined(_MSC_VER)
+#if defined(MICRO_ECM_ALT_MULREDC_USE_INLINE_ASM_X86)
     __asm__ (
         "subq %[mN_hi], %[tmp] \n\t"    /* tmp = T_hi + N - mN_hi */
         "subq %[mN_hi], %[T_hi] \n\t"   /* T_hi = T_hi - mN_hi */
@@ -668,21 +652,14 @@ MICRO_ECM_FORCE_INLINE uint64_t uecm_addmod52(uint64_t x, uint64_t y, uint64_t n
 }
 MICRO_ECM_FORCE_INLINE static uint64_t uecm_mulredc52(uint64_t x, uint64_t y, uint64_t N, uint64_t invN)
 {
-#if defined(_MSC_VER)
-    uint64_t T_hi;
-    uint64_t T_lo = _umul128(x, y, &T_hi);
-    uint64_t m = T_lo * invN;
-    uint64_t mN_hi = __umulh(m, N);
-#else
     __uint128_t prod = (__uint128_t)x * y;
     uint64_t T_hi = (uint64_t)(prod >> 52);
     uint64_t T_lo = (uint64_t)(prod & 0x000fffffffffffffull);
     uint64_t m = (T_lo * invN) & 0x000fffffffffffffull;
     __uint128_t mN = (__uint128_t)m * N;
     uint64_t mN_hi = (uint64_t)(mN >> 52);
-#endif
     uint64_t tmp = T_hi + N;
-#if defined(MICRO_ECM_ALT_MULREDC_USE_INLINE_ASM_X86) && !defined(_MSC_VER)
+#if defined(MICRO_ECM_ALT_MULREDC_USE_INLINE_ASM_X86)
     __asm__(
         "subq %[mN_hi], %[tmp] \n\t"    /* tmp = T_hi + N - mN_hi */
         "subq %[mN_hi], %[T_hi] \n\t"   /* T_hi = T_hi - mN_hi */
@@ -3294,7 +3271,7 @@ int prp_uecm(uint64_t n)
     // technically need to check the ABM flag, but I don't
     // have that in place anywhere yet.  AVX2 is generally equivalent.
 
-#if defined( __INTEL_COMPILER) || defined(_MSC_VER)
+#if defined( __INTEL_COMPILER)
 
     uint64_t m = 1ULL << (62 - __lzcnt64(n));   // set a mask at the leading bit - 2
 
@@ -3307,7 +3284,7 @@ int prp_uecm(uint64_t n)
 #else
     // these builtin functions will have an efficient implementation
     // for the current processor architecture.
-#if defined( __INTEL_COMPILER) || defined(_MSC_VER)
+#if defined( __INTEL_COMPILER)
 
     uint32_t pos;
     if (_BitScanReverse64(&pos, n))

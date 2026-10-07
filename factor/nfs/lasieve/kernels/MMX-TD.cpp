@@ -37,22 +37,12 @@ namespace lasieve_ns {
     /* Read-Ahead safety. */
     #define RAS MMX_REGW
 
-    #ifdef _WIN64
-    #define memalign(x, y)  _aligned_malloc(y, x)
-    #endif
-
     //#define TD_CONTIGUOUS_SMALLSIEVE
-
-    #ifdef _MSC_VER
-    #define AVX512_TD
-    //#define TD_CONTIGUOUS_SMALLSIEVE
-    #endif
 
     static u16_t *
     mmx_xmalloc(size_t n)
     {
       u16_t *r;
-    #ifndef _WIN64
 
       r=(u16_t *)malloc(n*sizeof(u16_t));
 
@@ -61,11 +51,6 @@ namespace lasieve_ns {
       //SMJSif (((int)r)&(MMX_REGW*sizeof(u16_t)-1))
       if (((ulong)r)&(MMX_REGW*sizeof(u16_t)-1))
         complain("mmx_malloc: memalign failed\n");
-    #else
-      r=(u16_t*)memalign(MMX_REGW*sizeof(u16_t),n*sizeof(u16_t));
-      if(r==NULL)
-        complain("mmx_malloc(%Lu) failed: %m\n",(u64_t)n);
-    #endif
       return r;
     }
 

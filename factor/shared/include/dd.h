@@ -26,11 +26,8 @@ $Id: dd.h 849 2013-03-09 08:02:27Z brgladman $
    /* These routines *require* IEEE 53-bit double precision,
       even on x86 processors that support higher precision */
 
-#if defined(WIN32) && !defined(_WIN64)
-	#include <float.h>
-	typedef uint32 dd_precision_t;
-#elif (defined(__GNUC__) || defined(__ICL)) && \
-		(defined(__i386__) || defined(__x86_64__) || defined(__MINGW32__))
+#if (defined(__GNUC__) || defined(__ICL)) && \
+		(defined(__i386__) || defined(__x86_64__))
 	#include <float.h>
 	typedef uint16 dd_precision_t;
 #else
@@ -39,37 +36,26 @@ $Id: dd.h 849 2013-03-09 08:02:27Z brgladman $
 
 static INLINE dd_precision_t dd_set_precision_ieee(void) {
 
-#if defined(WIN32) && !defined(_WIN64)
-	dd_precision_t old_prec = _control87(0, 0);
-	_control87(_PC_53, _MCW_PC);
-	return old_prec;
-
-#elif defined(GCC_ASM32X) || defined(GCC_ASM64X) || defined(__MINGW32__)
+#if defined(GCC_ASM32X) || defined(GCC_ASM64X)
 	dd_precision_t old_prec, new_prec;
 	ASM_G volatile ("fnstcw %0":"=m"(old_prec));
 	new_prec = (old_prec & ~0x0300) | 0x0200;
 	ASM_G volatile ("fldcw %0": :"m"(new_prec));
 	return old_prec;
-	
+
 #else
 	return 0;
 #endif
 }
 
 static INLINE void dd_clear_precision(dd_precision_t old_prec) {
-#if defined(WIN32) && !defined(_WIN64)
-	_control87(old_prec, 0xffffffff);
-#elif defined(GCC_ASM32X) || defined(GCC_ASM64X) || defined(__MINGW32__)
+#if defined(GCC_ASM32X) || defined(GCC_ASM64X)
 	ASM_G volatile ("fldcw %0": :"m"(old_prec));
 #endif
 }
 
 static INLINE uint32 dd_precision_is_ieee(void) {
-#if defined(WIN32) && !defined(_WIN64)
-	dd_precision_t prec = _control87(0, 0);
-	return  ((prec & _MCW_PC) == _PC_53) ? 1 : 0;
-
-#elif defined(GCC_ASM32X) || defined(GCC_ASM64X) || defined(__MINGW32__)
+#if defined(GCC_ASM32X) || defined(GCC_ASM64X)
 	dd_precision_t prec;
 	ASM_G volatile ("fnstcw %0":"=m"(prec));
 	// bug: to check the status we don't flip the bits with ~

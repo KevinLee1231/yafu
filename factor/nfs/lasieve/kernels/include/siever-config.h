@@ -12,15 +12,7 @@
 
 #define HAVE_CMOV
 
-#ifdef _WIN64
 #define ASM_ATTR   __attribute__((sysv_abi))
-#else
-#define ASM_ATTR
-#endif
-
-#ifdef _WIN64
-void bzero(void*,size_t);
-#endif
 
 namespace lasieve_ns {
 int psp(mpz_t n);
@@ -36,17 +28,10 @@ typedef short int i16_t;
 typedef unsigned short u16_t;
 
 
-#ifdef _WIN64
-typedef unsigned long long u64_t;
-typedef long long i64_t;
-typedef unsigned short ushort;
-typedef unsigned long long ulong;
-#else
- typedef unsigned long u64_t;
+typedef unsigned long u64_t;
 typedef long i64_t;
 typedef unsigned short ushort;
 typedef unsigned long ulong;
-#endif
 
 #ifndef U32_MAX
 /* 值与 <stdint.h> 的 U32_MAX 相同，但那个头文件不一定被包含进来；

@@ -25,12 +25,8 @@ SOFTWARE.
 #include "soe.h"
 #include "soe_impl.h"
 #include "ytools.h"
-#if defined(_MSC_VER) && defined(__clang__)
-#include <x86intrin.h>
-#else
 #ifndef __aarch64__
 #include <immintrin.h>
-#endif
 #endif
 #include <math.h>
 #include <string.h>
@@ -49,8 +45,6 @@ SOFTWARE.
 #if defined(_INTEL_COMPILER) || defined(__clang__)
 #define BITLOGIC32  /* 15.68 */
 //#define BITMASKS8  
-#elif defined(_MSC_VER)
-#define BITMASKS8  /* 17.56 */
 #else // gcc, mingw64-gcc
 //#define BITMASKS8  /* 17.91 */
 #define BITMASKS32 /* 16.69 */
