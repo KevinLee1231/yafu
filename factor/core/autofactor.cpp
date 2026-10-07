@@ -36,9 +36,6 @@ code to the public domain.
 #include "ecm.h"
 #include "microecm.h"
 
-#ifdef __MINGW32__
-#include <sys/time.h>
-#endif
 
 #include <math.h>
 

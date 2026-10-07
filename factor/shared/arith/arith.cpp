@@ -177,10 +177,6 @@ static __inline uint64_t _udiv128(uint64_t high, uint64_t low, uint64_t divisor,
 
 
 // make a _umul128 for all supported compilers (Windows: msvc, msvc+clang, msvc+intel; Linux: intel, clang, gcc)
-#if defined(_MSC_VER) || defined(__MINGW32__)
-#include <immintrin.h>
-#pragma intrinsic(_umul128)
-#else
 // For other compilers, we'll implement a fallback or use inline assembly
 // This is a simplified implementation for demonstration
 static __inline uint64_t _umul128(uint64_t x, uint64_t y, uint64_t* hi) {
@@ -227,7 +223,6 @@ static __inline uint64_t _umul128(uint64_t x, uint64_t y, uint64_t* hi) {
 #endif
 }
 
-#endif
 
 #if defined(GCC_ASM64X) && !defined(ASM_ARITH_DEBUG)
 

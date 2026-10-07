@@ -550,9 +550,7 @@ void siqsbench(fact_obj_t* fobj, info_t* comp_info, uint32_t digit_limit)
 	char os_str[32];
 	char system_cell[512];
 
-#if defined(_WIN32)
-	strcpy(os_str, "Windows");
-#elif defined(__linux__)
+#if defined(__linux__)
 	// Detect WSL and, if found, include the distro name from WSL_DISTRO_NAME.
 	// Fall back to /proc/version string search if the env var isn't set.
 	{
@@ -595,17 +593,7 @@ void siqsbench(fact_obj_t* fobj, info_t* comp_info, uint32_t digit_limit)
 #endif
 
 	// Compiler identification — mirrors the logic in print_splash()
-#if defined(_MSC_VER)
-#  if defined(__INTEL_COMPILER)
-	snprintf(compiler_str, sizeof(compiler_str), "MSVC %d + ICC %d", _MSC_VER, __INTEL_COMPILER);
-#  elif defined(__INTEL_LLVM_COMPILER)
-	snprintf(compiler_str, sizeof(compiler_str), "MSVC %d + ICX %s", _MSC_VER, __clang_version__);
-#  elif defined(__clang_version__)
-	snprintf(compiler_str, sizeof(compiler_str), "MSVC %d + Clang %s", _MSC_VER, __clang_version__);
-#  else
-	snprintf(compiler_str, sizeof(compiler_str), "MSVC %d", _MSC_VER);
-#  endif
-#elif defined(__INTEL_COMPILER)
+#if defined(__INTEL_COMPILER)
 	snprintf(compiler_str, sizeof(compiler_str), "ICC %d", __INTEL_COMPILER);
 #elif defined(__INTEL_LLVM_COMPILER)
 	snprintf(compiler_str, sizeof(compiler_str), "ICX %s", __clang_version__);
