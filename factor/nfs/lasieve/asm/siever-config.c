@@ -1,5 +1,3 @@
-/*3:*/
-#line 146 "siever-config.w"
 
 static void
 siever_init(void)
@@ -7,7 +5,6 @@ siever_init(void)
 }
 
 /*:3*//*5:*/
-#line 159 "siever-config.w"
 
 #ifndef MPQS_ONLY
 

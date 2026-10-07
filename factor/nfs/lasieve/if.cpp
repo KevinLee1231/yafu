@@ -1,4 +1,3 @@
-/*2:*/
 
 
 #include "if.h"
@@ -276,7 +275,6 @@ return 0;
 /*:13*//*14:*/
 
 #ifdef BIGENDIAN
-/*15:*/
 
 static u32_t
 bswap_32(u32_t x)

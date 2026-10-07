@@ -1,6 +1,5 @@
 
 
-/*1:*/
 
 #ifdef _WIN64
 #define NEED_ASPRINTF

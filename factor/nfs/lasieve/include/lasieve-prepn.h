@@ -1,7 +1,6 @@
 
 #include "lasieve_ns.h"
 
-/*3:*/
 
 namespace lasieve_ns {
 void lasieve_setup(u32_t*,u32_t*,u32_t,i32_t,i32_t,i32_t,i32_t,u32_t*,u32_t);

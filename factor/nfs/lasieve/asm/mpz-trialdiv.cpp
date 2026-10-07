@@ -1,6 +1,7 @@
-//@* Trial division by multiplication with a modular inverse.
-//Replace one \.{divl} instruction by two \.{mull} and a few other
-//instructions.
+/* Trial division by multiplication with a modular inverse.
+ * Replaces one .divl instruction by two .mull and a few other
+ * instructions.
+ */
 
 //@c
 #include <string.h>

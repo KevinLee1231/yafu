@@ -1,7 +1,6 @@
 
 #include "lasieve_ns.h"
 
-/*3:*/
 
 namespace lasieve_ns {
 int reduce2(i32_t*,i32_t*,i32_t*,i32_t*,i64_t,i64_t,i64_t,i64_t,double);

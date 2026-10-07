@@ -1,5 +1,3 @@
-/*2:*/
-#line 15 "lasched.w"
 
 #include <sys/types.h> 
 #include <limits.h> 
@@ -123,7 +121,6 @@ u32_t *lasched(u32_t *ri, u32_t *ij_ptr, u32_t *ij_ptr_ub,
 			return lasched3nt(ri, ij_ptr, ij_ptr_ub, n1_j, sched_ptr, fbi_offs);
 		}
 #endif
-#line 95 "lasched.w"
 
 
 #if !defined(AVX512_LASCHED)
@@ -418,7 +415,6 @@ u32_t *lasched(u32_t *ri, u32_t *ij_ptr, u32_t *ij_ptr_ub,
 			a = n_i - (ri[0] & (n_i - 1));
 			b = n_i - (ri[RI_OFFSET1] & (n_i - 1));
 
-#line 102 "lasched.w"
 
 			{
 				// ij0 holds the pre-halving value in 64 bits: the Case D
@@ -444,7 +440,6 @@ u32_t *lasched(u32_t *ri, u32_t *ij_ptr, u32_t *ij_ptr_ub,
 				}
 				ij = (u32_t)((ij0 + ((~ot_tester) & n_i)) / 2);
 			}/*:3*/
-#line 85 "lasched.w"
 
 			while (ij < ij_ub) {
 				u16_t i;

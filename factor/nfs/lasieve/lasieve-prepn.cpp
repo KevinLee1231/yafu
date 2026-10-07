@@ -17,7 +17,6 @@
 
 
 
-/*4:*/
 
 #include <sys/types.h> 
 #include <math.h> 
@@ -391,7 +390,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 	if (fbsz <= 0)return;
 
 #if !defined(AVX512_LASIEVE_SETUP) && defined( HAVE_ASM_LASIEVE_SETUP)
-	/*7:*/
 
 	if (FB[fbsz - 1] < FLOAT_SETUP_BOUND1 &&
 		fabs(a0) + FB[fbsz - 1] * b0 < FLOAT_SETUP_BOUND2 &&
@@ -417,7 +415,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 
 #define A1MOD0(p) (absa1%p)
 #define A1MOD1(p) absa1
-			/*5:*/
 
 			{
 				u32_t fbi, fbp_bound;
@@ -707,7 +704,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 			absa1 = (u32_t)(-a1);
 #define A1MOD0(p) ((aux= absa1%p)> 0 ? p-aux : 0 )
 #define A1MOD1(p) (p-absa1)
-			/*5:*/
 
 			{
 				u32_t fbi, fbp_bound;
@@ -996,7 +992,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 			absa1 = (u32_t)a1;
 #define A1MOD0(p) (absa1%p)
 #define A1MOD1(p) absa1
-			/*5:*/
 
 			{
 				u32_t fbi, fbp_bound;
@@ -1281,7 +1276,6 @@ lasieve_setup(u32_t* FB, u32_t* proots, u32_t fbsz, i32_t a0, i32_t a1, i32_t b0
 			absa1 = (u32_t)(-a1);
 #define A1MOD0(p) ((aux= absa1%p)> 0 ? p-aux : 0 )
 #define A1MOD1(p) (p-absa1)
-			/*5:*/
 
 			{
 				u32_t fbi, fbp_bound;

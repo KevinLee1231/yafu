@@ -1,4 +1,3 @@
-/*1:*/
 
 #include <string.h> 
 #include <math.h> 
@@ -32,7 +31,6 @@ static u32_t NCommonPrimes;
 void initprime32(pr32_struct*ps)
 {
 if(primediffs==NULL)
-/*7:*/
 
 {
 u32_t i,j,p;
@@ -95,7 +93,6 @@ return ps->Prime;
 }else{
 if(ps->first_in_sieve<U32_MAX-2*P32_SIEVESIZE){
 ps->first_in_sieve+= 2*P32_SIEVESIZE;
-/*9:*/
 
 {
 unsigned char*sieve;
@@ -213,7 +210,6 @@ if(ps->use_private==0)return 0;
 ps->first_in_sieve= ps->Prime+2;
 ps->Pind= 0;
 ps->nPrim= 0;
-/*9:*/
 
 {
 unsigned char*sieve;
@@ -284,7 +280,6 @@ pr32_seek(pr32_struct*ps,u32_t lb)
 if(lb<3)return firstprime32(ps);
 if(lb%2==0)lb++;
 ps->first_in_sieve= lb;
-/*9:*/
 
 {
 unsigned char*sieve;

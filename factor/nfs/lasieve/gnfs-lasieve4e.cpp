@@ -1,4 +1,3 @@
-/*3:*/
 
 #ifdef HAVE_BOINC
     #include<stdarg.h> 
@@ -138,7 +137,6 @@ static u16_t sieve_min[2],max_primebits[2],max_factorbits[2];
 static u32_t*(FB[2]),*(proots[2]),FBsize[2];
 
 
-/*51:*/
 
 static double*(tpoly_f[2]);
 #define CANDIDATE_SEARCH_STEPS 128
@@ -436,7 +434,6 @@ static u32_t n_i,n_j,i_bits,j_bits;
 
 /*:15*//*16:*/
 
-/*20:*/
 
 u64_t spq_i,spq_j,spq_x;
 
@@ -614,7 +611,6 @@ void dumpsieve(u32_t j_offset,u32_t side);
 
 /*:161*/
 
-/*121:*/
 
 u32_t*(td_buf[2]),**td_buf1;
 size_t td_buf_alloc[2]= {1024,1024};
@@ -961,7 +957,6 @@ int main(int argc, char** argv)
 #ifdef STC_DEBUG
     debugfile = fopen("rtdsdebug", "wb");
 #endif
-    /*23:*/
 
     //  @<Getopt@>@;
     // parse options and poly file
@@ -1382,7 +1377,6 @@ int main(int argc, char** argv)
         n_j = n_J / 2;
         j_bits = J_bits - 1;
 
-        /*24:*/
 
         // compute non-special-q-adjusted poly norms.
         // later during the sieve these are adjusted for the 
@@ -1477,7 +1471,6 @@ int main(int argc, char** argv)
 
     siever_init();
 
-    /*25:*/
 
     // @<Open the output file@>@;
     // open output file
@@ -1571,7 +1564,6 @@ int main(int argc, char** argv)
 
     /*:25*/
 
-/*26:*/
 
     // @<Generate factor bases@>@;
     {
@@ -1626,7 +1618,6 @@ int main(int argc, char** argv)
                 u32_t j, k, l;
                 asprintf(&afbname, "%s.afb.%u", las_basename, side);
                 if (force_aFBcalc > 0 || (afbfile = fopen(afbname, "rb")) == NULL) {
-                    /*27:*/
 
                     u32_t* root_buffer;
                     size_t aFB_alloc;
@@ -1734,7 +1725,6 @@ int main(int argc, char** argv)
 
                 }
                 else {
-                    /*28:*/
 
                     long afb_flen = 0;
                     u64_t afb_legacy_len;
@@ -1945,7 +1935,6 @@ int main(int argc, char** argv)
         }
 
 
-        /*52:*/
 
         {
             u32_t i;
@@ -1971,7 +1960,6 @@ int main(int argc, char** argv)
 
     /*:26*/
 
-/*32:*/
 
     // @<Rearrange factor bases@>@;
     {
@@ -2088,7 +2076,6 @@ int main(int argc, char** argv)
      * yafu from being taken down with us */
     if (sieve_count == 0)
         return 0;
-/*36:*/
 
     // @<Prepare the factor base logarithms@>@;
     {
@@ -2160,7 +2147,6 @@ int main(int argc, char** argv)
             }
             qsort(xFB[side], xFBs[side], sizeof(*(xFB[side])), xFBcmp);
 
-            /*37:*/
 
             {
                 u32_t l, ub;
@@ -2220,7 +2206,6 @@ int main(int argc, char** argv)
 
 /*:36*/
 
-/*42:*/
 
 #ifndef SI_MALLOC_DEBUG
 
@@ -2266,7 +2251,6 @@ close(fd);
     n_strips= n_j>>(L1_BITS-i_bits);
     rec_info_init(n_i,n_j);
 
-/*65:*/
 
     {
         u32_t s;
@@ -2566,7 +2550,6 @@ close(fd);
         }
 
 
-        /*44:*/
 
         sched_buf = (u16_t *)xmalloc((total_alloc + 65536 * SE_SIZE * j_per_strip) *
             sizeof(***((**schedules).schedule)));
@@ -2588,7 +2571,6 @@ close(fd);
 
         /*:44*/
 
-/*46:*/
 
 #ifdef USE_MEDSCHED
         {
@@ -2664,7 +2646,6 @@ close(fd);
 
 /*:103*/
 
-/*122:*/
 
     // @<TD Init@>@;
 
@@ -2732,7 +2713,6 @@ close(fd);
 
     all_spq_done= 1;
 
-/*17:*/
 
     // @<Do the lattice sieving between |first_spq| and |last_spq|@>@;
     {
@@ -2865,7 +2845,6 @@ nr= 1;
 #endif
 
                 if (termination_condition == USER_INTERRUPT)
-                /*19:*/
 
                 {
                     char* hn, * ofn;
@@ -2933,7 +2912,6 @@ nr= 1;
 
 
 
-/*21:*/
 
             {
                 if (((i64_t)b0) % ((i64_t)special_q) == 0 && ((i64_t)b1) % ((i64_t)special_q) == 0) {
@@ -2964,12 +2942,10 @@ nr= 1;
 
 
 
-/*48:*/
 
             {
                 u32_t subsieve_nr;
 
-/*49:*/
 
                 // setup
                 {
@@ -2984,7 +2960,6 @@ nr= 1;
                     GET_ABSSIG(absa1, a1s, a1);
                     absb0 = b0;
                     absb1 = b1;
-                    /*67:*/
 
                     {
                         u32_t s;
@@ -3101,7 +3076,6 @@ nr= 1;
                                     r = modadd32(r, pr);
                                 }
 #ifdef PREINVERT
-                                /*70:*/
 
                                 {
                                     u32_t pinv;
@@ -3160,7 +3134,6 @@ nr= 1;
 
                     /*:71*/
 
-/*50:*/
 
                     {
                         u32_t s;
@@ -3187,7 +3160,6 @@ nr= 1;
 
                     /*:50*/
 
-/*53:*/
 
                     {
                         u32_t i, k;
@@ -3222,7 +3194,6 @@ nr= 1;
                 // begin sieve over all oddness types
                 for(oddness_type= 1;oddness_type<4;oddness_type++)
                 {
-/*72:*/
 
                     // small sieve
                     {
@@ -3231,7 +3202,6 @@ nr= 1;
                             switch (oddness_type) {
                                 u16_t* x;
                             case 1:
-                                /*75:*/
 
                                 for (x = smallsieve_aux[s]; x < smallsieve_auxbound[s][0]; x += 4) {
                                     u32_t p;
@@ -3307,7 +3277,6 @@ nr= 1;
 
                                 break;
                             case 2:
-                                /*76:*/
 
                                 for (x = smallsieve_aux[s]; x < smallsieve_auxbound[s][0]; x += 4) {
                                     u32_t p, pr;
@@ -3386,7 +3355,6 @@ nr= 1;
 
                                 break;
                             case 3:
-                                /*77:*/
 
                                 for (x = smallsieve_aux[s]; x < smallsieve_auxbound[s][0]; x += 4) {
                                     u32_t p, pr;
@@ -3483,7 +3451,6 @@ nr= 1;
 /*:73*/
 
                     j_offset= 0;
-/*54:*/
 
 #ifndef NOSCHED
 
@@ -3530,7 +3497,6 @@ nss+= n_strips;
                     {
                         u16_t s,stepno;
 #ifdef USE_MEDSCHED
-/*101:*/
 
 #ifndef NOSCHED
                         for (s = 0; s < 2; s++) {
@@ -3568,7 +3534,6 @@ nss+= n_strips;
                         {
                             clock_t new_clock, clock_diff;
 
-                            /*88:*/
 
                             {
                                 u32_t j;
@@ -3583,7 +3548,6 @@ nss+= n_strips;
                                     unsigned char* si_ub;
                                     bzero(tiny_sieve_buffer, TINY_SIEVEBUFFER_SIZE);
                                     si_ub = tiny_sieve_buffer + TINY_SIEVEBUFFER_SIZE;
-                                    /*89:*/
 
                                     {
                                         u16_t* x;
@@ -3673,7 +3637,6 @@ nss+= n_strips;
 
                                     /*:91*/
 
-/*92:*/
 
                                     {
                                         unsigned char* si;
@@ -3709,7 +3672,6 @@ nss+= n_strips;
                             sieve_clock += clock_diff;
                             last_clock = new_clock;
 #endif
-                            /*93:*/
 
 #ifdef ASM_LINESIEVER
                             slinie(smallsieve_tinybound[s], smallsieve_auxbound[s][4], sieve_interval);
@@ -4164,7 +4126,6 @@ nss+= n_strips;
                             continue;
 #endif
 
-                            /*100:*/
 
 #ifndef MEDSCHE_SI_OFFS
 #ifdef BIGENDIAN
@@ -4214,7 +4175,6 @@ nss+= n_strips;
                             sieve_clock += clock_diff;
                             last_clock = new_clock;
 #endif
-                            /*104:*/
 
 #ifndef SCHED_SI_OFFS
 #ifdef BIGENDIAN
@@ -4309,7 +4269,6 @@ nss+= n_strips;
 #ifdef GCD_SIEVE_BOUND
                                 gcd_sieve();
 #endif
-        /*105:*/
 
 #if defined( ASM_SEARCH0) && !defined(AVX512_SIEVE_SEARCH)
 
@@ -4564,7 +4523,6 @@ nss+= n_strips;
 
                             }
                             else
-                                /*108:*/
 
                             {
                                 u32_t i, nc1;
@@ -4613,7 +4571,6 @@ nss+= n_strips;
                                         fss_sv2[nc1] = (unsigned char)(pvl);
 
 #ifdef DEBUG_SIEVE_REPORT_BOUNDS
-                                        /*109:*/
 
                                         if (sieve_interval[cand[i]] + horizontal_sievesums[j] <
                                             srbs[(cand[i] & (n_i - 1)) / CANDIDATE_SEARCH_STEPS]) {
@@ -4828,7 +4785,6 @@ nss+= n_strips;
     if(n_spq_discard> 0)
         logbook(0,"%u Special q discarded\n",n_spq_discard);
 
-/*22:*/
 
     // @<Diagnostic output for four large primes version@>@;
     {
@@ -4957,7 +4913,6 @@ void do_scheduling(struct schedule_struct* sched, u32_t ns, u32_t ot, u32_t s)
                 n1_j, (u32_t**)(sched->schedule[ll + 1]), fbi_lb - fbio, ot, FBsize[s]);
         
         
-        /*57:*/
 
         {
             u32_t k;
@@ -5162,7 +5117,6 @@ add_primepowers2xaFB(size_t* xaFB_alloc_ptr, u32_t pp_bound,
     if (q <= pp_bound / p) {
         u32_t j;
         for (j = 0; j < nr; j++) {
-            /*116:*/
 
             xFBptr f;
 
@@ -5218,7 +5172,6 @@ void trial_divide()
     //return;
 //#endif
 
-/*119:*/
 
     {
         for (ci = 0, nc1 = 0; ci < ncand; ci++) {
@@ -5227,7 +5180,6 @@ void trial_divide()
             u16_t s;
             double pvl, pvl0;
 
-            /*120:*/
 
             {
                 u16_t jj;
@@ -5319,7 +5271,6 @@ nzss[2]++;
 #endif
 
 
-/*123:*/
                 
     {
         u32_t nfbp;
@@ -5341,7 +5292,6 @@ nzss[2]++;
 #endif
 
 
-    /*124:*/
 
     {
 
@@ -5406,7 +5356,6 @@ nzss[2]++;
     tdsi_clock[side] += newclock - last_tdclock;
     last_tdclock = newclock;
 #endif
-    /*128:*/
 
     memcpy(tds_fbi_curpos, tds_fbi, UCHAR_MAX * sizeof(*tds_fbi));
 
@@ -6017,7 +5966,6 @@ nzss[2]++;
 
         u32_t coll;
 
-    /*120:*/
 
         {
             u16_t jj;
@@ -6039,7 +5987,6 @@ nzss[2]++;
             last_j = strip_j;
 
 
-        /*134:*/
 
 #ifdef MMX_TD
             MMX_TdUpdate(side, j_step);
@@ -6072,7 +6019,6 @@ nzss[2]++;
 
 
         true_i = (i32_t)st_i - (i32_t)i_shift;
-    /*135:*/
 
         mpz_set_si(aux1, true_i);
         mpz_mul_si(aux1, aux1, a0);
@@ -6097,7 +6043,6 @@ nzss[2]++;
 
     /*:137*/
 
-/*138:*/
 
         {
             u32_t i;
@@ -6137,7 +6082,6 @@ nzss[2]++;
         else fbp_buf = td_buf[side];
         fbp_ptr = fbp_buf;
 
-    /*139:*/
 
         {
             int np, x;
@@ -6150,14 +6094,12 @@ nzss[2]++;
 
     /*:139*/
 
-/*140:*/
 
         {
             u16_t* x;
 
 #ifndef MMX_TD
 #ifdef PREINVERT
-        /*141:*/
 
         {
             u32_t* p_inv;
@@ -6199,7 +6141,6 @@ nzss[2]++;
 
     /*:140*/
 
-/*142:*/
 
         if (side == special_q_side) {
             if (special_q < U32_MAX)
@@ -6208,7 +6149,6 @@ nzss[2]++;
 
     /*:142*/
 
-/*143:*/
 
         // aux1 holds the value of the polynomial on the current side
         fbp_ptr = mpz_trialdiv(aux1, fbp_buf, fbp_ptr - fbp_buf,
@@ -6217,7 +6157,6 @@ nzss[2]++;
 
     /*:143*/
 
-/*144:*/
 
         if (side == special_q_side) {
             if (special_q >> 32) {
@@ -6231,7 +6170,6 @@ nzss[2]++;
 
     /*:144*/
 
-/*145:*/
 
         if (mpz_sizeinbase(aux1, 2) <= max_factorbits[side]) 
         {
@@ -6282,7 +6220,6 @@ nzss[2]++;
 u16_t j_step;
 
 j_step= j_per_strip-last_j;
-/*134:*/
 
 #ifdef MMX_TD
 MMX_TdUpdate(side,j_step);
@@ -6398,7 +6335,6 @@ store_tdsurvivor(u32_t *fbp_buf0, u32_t *fbp_buf0_ub, u32_t *fbp_buf1, u32_t *fb
 {
     size_t n0, n1, n;
 
-    /*152:*/
 
     if (total_ntds >= max_tds) {
         size_t i;
@@ -6430,7 +6366,6 @@ store_tdsurvivor(u32_t *fbp_buf0, u32_t *fbp_buf0_ub, u32_t *fbp_buf1, u32_t *fb
     n0 = fbp_buf0_ub - fbp_buf0;
     n1 = fbp_buf1_ub - fbp_buf1;
     n = tds_fbp[2 * total_ntds];
-    /*153:*/
 
     if (n + n0 + n1 > tds_fbp_alloc) {
         size_t a;

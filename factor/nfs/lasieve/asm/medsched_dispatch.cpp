@@ -1,5 +1,3 @@
-/*2:*/
-#line 24 "medsched.w"
 
 #include <sys/types.h> 
 #include <limits.h> 
@@ -140,7 +138,6 @@ medsched_1(u32_t* ri, u32_t* ij_ptr, u32_t* ij_ptr_ub, u32_t ot, u32_t FBsize,
 			b = n_i - (ri[1] & (n_i - 1));
 			if (ot == 0)ij = *ij_ptr;
 			else/*3:*/
-#line 126 "medsched.w"
 
 			{
 				ij = 0;
@@ -162,7 +159,6 @@ medsched_1(u32_t* ri, u32_t* ij_ptr, u32_t* ij_ptr_ub, u32_t ot, u32_t FBsize,
 				}
 				ij = (ij + ((~ot_tester) & n_i)) / 2;
 			}/*:3*/
-#line 65 "medsched.w"
 
 			while (ij < L1_SIZE) {
 				u16_t i;
@@ -282,7 +278,6 @@ medsched_1(u32_t* ri, u32_t* ij_ptr, u32_t* ij_ptr_ub, u32_t ot, u32_t FBsize,
 			b = n_i - (ri[1] & (n_i - 1));
 
 
-	#line 126 "medsched.w"
 
 			{
 				ij = 0;
@@ -304,7 +299,6 @@ medsched_1(u32_t* ri, u32_t* ij_ptr, u32_t* ij_ptr_ub, u32_t ot, u32_t FBsize,
 				}
 				ij = (ij + ((~ot_tester) & n_i)) / 2;
 			}/*:3*/
-	#line 65 "medsched.w"
 
 			while (ij < L1_SIZE) {
 				u16_t i;

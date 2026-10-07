@@ -1,4 +1,3 @@
-/*4:*/
 
 #include <math.h> 
 #include <sys/types.h> 

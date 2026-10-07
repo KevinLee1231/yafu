@@ -1,4 +1,3 @@
-/*8:*/
 #include "lasieve_ns.h"
 #include "siever-config.h"
 

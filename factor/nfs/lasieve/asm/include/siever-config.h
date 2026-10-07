@@ -1,5 +1,3 @@
-/*1:*/
-#line 12 "siever-config.w"
 
 #ifndef __SIEVER_CONFIG_H__
 #define __SIEVER_CONFIG_H__
@@ -17,15 +15,12 @@
 #ifdef _WIN64
 #define ASM_ATTR   __attribute__((sysv_abi))
 #else
-#line 26 "siever-config.w"
 #define ASM_ATTR
 #endif
-#line 28 "siever-config.w"
 
 #ifdef _WIN64
 void bzero(void*,size_t);
 #endif
-#line 32 "siever-config.w"
 
 namespace lasieve_ns {
 int psp(mpz_t n);
@@ -47,13 +42,11 @@ typedef long long i64_t;
 typedef unsigned short ushort;
 typedef unsigned long long ulong;
 #else
-#line 50 "siever-config.w"
  typedef unsigned long u64_t;
 typedef long i64_t;
 typedef unsigned short ushort;
 typedef unsigned long ulong;
 #endif
-#line 55 "siever-config.w"
 
 #define U32_MAX 0xffffffff
 #define I32_MAX INT_MAX
@@ -89,7 +82,6 @@ u32_t*MMX_Td(u32_t*,int,u16_t);
 #define MMX_TD
 #define MMX_REGW 8
 #endif
-#line 81 "siever-config.w"
 #define ASM_LINESIEVER
 namespace lasieve_ns {
 u32_t*ASM_ATTR slinie(u16_t*,u16_t*,unsigned char*);
@@ -146,7 +138,6 @@ unsigned char*,unsigned char*,u16_t*,unsigned char*);
 #if 1
 #define VERY_LARGE_Q
 #endif
-#line 110 "siever-config.w"
 
 
 u32_t*ASM_ATTR asm_lasieve_mm_setup0(u32_t*,u32_t*,size_t,u32_t,u32_t,u32_t,u32_t,u32_t*);
@@ -182,12 +173,10 @@ u64_t ASM_ATTR asm_modmul64(u64_t,u64_t);
 
 
 /*:1*//*2:*/
-#line 142 "siever-config.w"
 
 #define FB_RAS 3
 
 /*:2*//*4:*/
-#line 153 "siever-config.w"
 
 #define N_PRIMEBOUNDS 12
 
@@ -223,6 +212,5 @@ void zeitb(ulong i);
 
 
 #endif
-#line 157 "siever-config.w"
 
 /*:4*/

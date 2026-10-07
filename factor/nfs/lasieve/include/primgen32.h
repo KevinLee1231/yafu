@@ -1,7 +1,6 @@
 
 #include "lasieve_ns.h"
 
-/*2:*/
 
 typedef struct{
 u32_t Pind;
