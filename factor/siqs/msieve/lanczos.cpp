@@ -332,7 +332,7 @@ void yafu_mul_Nx64_64x64_acc(uint64_t *v, uint64_t *x,
 			:"r"(v), "r"(c), "r"(y), "g"(n)
 			:"%eax", "%ecx", "%mm0", "%mm1", "memory");
 
-#elif defined(_MSC_VER) && !defined(_WIN64)
+#elif defined(_MSC_VER)
 	i = 0;
 	__asm
 	{
@@ -463,7 +463,7 @@ void yafu_mul_64xN_Nx64(uint64_t *x, uint64_t *y,
 			:"r"(x), "r"(c), "r"(y), "g"(n)
 			:"%eax", "%ecx", "%mm0", "%mm1", "memory");
 
-#elif defined(_MSC_VER) && !defined(_WIN64)
+#elif defined(_MSC_VER)
 	i = 0;
 	__asm
 	{

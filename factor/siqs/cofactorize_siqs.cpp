@@ -3,9 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <sys/types.h>
-#ifndef _MSC_VER
 #include <sys/time.h>
-#endif
 #include <time.h>
 #include "common.h"
 #include "cofactorize.h"
