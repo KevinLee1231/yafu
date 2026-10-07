@@ -215,8 +215,17 @@ int32 find_poly(msieve_obj *obj, mpz_t n) {
 	/* run the core polynomial finder */
 
 	obj->flags |= MSIEVE_FLAG_SIEVING_IN_PROGRESS;
-	find_poly_core(obj, n, &params, &config, degree);
+	auto search = find_poly_core(obj, n, &params, &config, degree);
 	obj->flags &= ~MSIEVE_FLAG_SIEVING_IN_PROGRESS;
+
+	if (!search) {
+		/* 原来这些情况在 find_poly_core 里直接 exit(-1)，进程当场消失，
+		 * find_poly 只能永远 return 0。记下原因，走下面的清理再返回状态码。 */
+		logprintf(obj, "polynomial selection failed: %s\n",
+				poly_search_error_str(search.error()));
+		poly_config_free(&config);
+		return 1;
+	}
 
 	/* save the best polynomial */
 
