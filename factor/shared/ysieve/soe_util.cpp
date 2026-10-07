@@ -24,12 +24,8 @@ SOFTWARE.
 
 #include "soe.h"
 #include "ytools.h"
-#if defined(_MSC_VER) && defined(__clang__)
-#include <x86intrin.h>
-#else
 #ifndef __aarch64__
 #include <immintrin.h>
-#endif
 #endif
 #include <stdio.h>
 #include <stdlib.h>

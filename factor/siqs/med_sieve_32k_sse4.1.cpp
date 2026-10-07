@@ -26,9 +26,6 @@ code to the public domain.
 // enabled at the top of qs.h for MSVC builds on supported hardware
 #ifdef USE_SSE41
 
-#if defined(_MSC_VER)
-	#include <mmintrin.h>
-#endif
 
 typedef struct
 {

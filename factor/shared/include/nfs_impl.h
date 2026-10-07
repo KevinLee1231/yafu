@@ -208,21 +208,12 @@ typedef struct {
     volatile enum nfs_thread_command command;
     volatile int* thread_queue, * threads_waiting;
 
-#if defined(WIN32) || defined(_WIN64)
-    HANDLE thread_id;
-    HANDLE run_event;
-    HANDLE finish_event;
-
-    HANDLE* queue_event;
-    HANDLE* queue_lock;
-#else
     pthread_t thread_id;
     pthread_mutex_t run_lock;
     pthread_cond_t run_cond;
 
     pthread_mutex_t* queue_lock;
     pthread_cond_t* queue_cond;
-#endif
 
 } nfs_threaddata_t; 
 
@@ -271,11 +262,7 @@ void nfs_stop_worker_thread(nfs_threaddata_t* t,
 void nfs_start_worker_thread(nfs_threaddata_t* t,
     uint32_t is_master_thread);
 void nfsexit(int sig);
-#if defined(WIN32) || defined(_WIN64)
-DWORD WINAPI nfs_worker_thread_main(LPVOID thread_data);
-#else
 void* nfs_worker_thread_main(void* thread_data);
-#endif
 
 // for msieve interface
 uint32_t factor_gnfs(msieve_obj* obj, mp_t* n, factor_list_t* factor_list); 

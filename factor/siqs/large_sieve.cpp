@@ -20,9 +20,6 @@ code to the public domain.
 
 #include "qs_impl.h"
 
-#if defined(_MSC_VER)
-	#include <mmintrin.h>
-#endif
 
 
 #ifdef USE_AVX512F

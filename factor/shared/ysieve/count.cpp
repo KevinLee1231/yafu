@@ -27,20 +27,13 @@ SOFTWARE.
 #include "soe_impl.h"
 #include "ytools.h"
 #include <stdint.h>
-#if defined(_MSC_VER) && defined(__clang__)
-#include <x86intrin.h>
-#else
 #ifndef __aarch64__
 #include <immintrin.h>
-#endif
 #endif
 #include "threadpool.h"
 #include "tinyprp.h"
 #include "mpz_aprcl.h"
 
-#ifdef __MINGW32__
-#include <sys/time.h>
-#endif
 
 uint64_t count_8_bytes(soe_staticdata_t* sdata,
     uint64_t pcount, uint64_t byte_offset);

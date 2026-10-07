@@ -104,15 +104,9 @@ typedef struct {
 
 	volatile enum thread_command command;
 
-#if defined(WIN32) || defined(_WIN64)
-	HANDLE thread_id;
-	HANDLE run_event;
-	HANDLE finish_event;
-#else
 	pthread_t thread_id;
 	pthread_mutex_t run_lock;
 	pthread_cond_t run_cond;
-#endif
 
 } qs_msieve_thread_data_t;
 

@@ -23,9 +23,6 @@ code to the public domain.
 #include "qs_impl.h"
 #include "sieve_macros_32k.h"
 
-#if defined(_MSC_VER)
-	#include <mmintrin.h>
-#endif
 
 typedef struct
 {

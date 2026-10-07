@@ -28,12 +28,6 @@ SOFTWARE.
 #include <stdlib.h>
 #include <stdint.h>
 
-#if defined(_WIN32)
-
-//#include <windows.h>
-//#include <process.h>
-
-#endif
 
 #include "gmp.h"
 #include "ytools.h"
