@@ -4321,7 +4321,7 @@ int siqs_static_init(static_conf_t* sconf, int is_tiny)
 		// this region of primes aligned on a 16 byte boundary and thus be able to use
 		// movdqa
 		// don't let med_B grow larger than ~1.5 * the blocksize
-#if defined(USE_AVX512F) && !defined(_MSC_VER)
+#if defined(USE_AVX512F)
         if ((sconf->factor_base->list->prime[i] > (uint32_t)(1.5 * (double)sconf->qs_blocksize)) &&
             ((i % 16) == 0))
             break;

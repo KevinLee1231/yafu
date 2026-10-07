@@ -678,7 +678,7 @@ void nfs(fact_obj_t *fobj)
 			gmp_printf("nfs: commencing cado-msieve nfs on c%zu: %s\n",
 				strlen(input), input);
 
-#if defined(WIN32) || defined(_WIN64)
+#if defined(WIN32)
 			printf("cadoMsieve is not available on Windows! Bailing\n");
 			exit(-1);
 #endif

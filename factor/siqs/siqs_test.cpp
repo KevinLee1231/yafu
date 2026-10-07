@@ -550,7 +550,7 @@ void siqsbench(fact_obj_t* fobj, info_t* comp_info, uint32_t digit_limit)
 	char os_str[32];
 	char system_cell[512];
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32)
 	strcpy(os_str, "Windows");
 #elif defined(__linux__)
 	// Detect WSL and, if found, include the distro name from WSL_DISTRO_NAME.

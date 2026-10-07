@@ -130,9 +130,7 @@ int is_new_token(int el_type, int el_type2);
 int invalid_dest(char* dest);
 int calc_with_assignment(str_t* in, meta_t* metadata, int force_quiet);
 
-#ifndef _MSC_VER
 #define strtok_s strtok_r
-#endif
 
 // local data
 char opchar[9] = { '=', '<', '>', '+', '-', '*', '/', '%', '^' }; // , '='};

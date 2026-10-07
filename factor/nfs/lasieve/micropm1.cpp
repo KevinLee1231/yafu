@@ -54,13 +54,6 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
-#if defined(_MSC_VER)
-#  ifndef _WIN64
-#    error "64 bit compilation mode is required for MSVC"
-#  endif
-#  include <immintrin.h>
-#  include <intrin.h>
-#endif
 
 #include <stdio.h>
 
@@ -351,7 +344,7 @@ static uint32_t upm1_lcg_rand_32B(uint32_t lower, uint32_t upper, uint64_t *ploc
 __inline uint64_t upm1_submod(uint64_t a, uint64_t b, uint64_t n);
 __inline uint64_t upm1_addmod(uint64_t a, uint64_t b, uint64_t n);
 
-#if defined(MICRO_PM1_ALT_MULREDC_USE_INLINE_ASM_X86) && !defined(_MSC_VER)
+#if defined(MICRO_PM1_ALT_MULREDC_USE_INLINE_ASM_X86)
 
 MICRO_PM1_FORCE_INLINE uint64_t upm1_submod(uint64_t a, uint64_t b, uint64_t n)
 {
@@ -411,21 +404,14 @@ MICRO_PM1_FORCE_INLINE uint64_t upm1_addmod(uint64_t x, uint64_t y, uint64_t n)
 // for this algorithm, see https://jeffhurchalla.com/2022/04/28/montgomery-redc-using-the-positive-inverse-mod-r/
 MICRO_PM1_FORCE_INLINE static uint64_t upm1_mulredc_alt(uint64_t x, uint64_t y, uint64_t N, uint64_t invN)
 {
-#if defined(_MSC_VER)
-    uint64_t T_hi;
-    uint64_t T_lo = _umul128(x, y, &T_hi);
-    uint64_t m = T_lo * invN;
-    uint64_t mN_hi = __umulh(m, N);
-#else
     __uint128_t prod = (__uint128_t)x * y;
     uint64_t T_hi = (uint64_t)(prod >> 64);
     uint64_t T_lo = (uint64_t)(prod);
     uint64_t m = T_lo * invN;
     __uint128_t mN = (__uint128_t)m * N;
     uint64_t mN_hi = (uint64_t)(mN >> 64);
-#endif
     uint64_t tmp = T_hi + N;
-#if defined(MICRO_PM1_ALT_MULREDC_USE_INLINE_ASM_X86) && !defined(_MSC_VER)
+#if defined(MICRO_PM1_ALT_MULREDC_USE_INLINE_ASM_X86)
     __asm__ (
         "subq %[mN_hi], %[tmp] \n\t"    /* tmp = T_hi + N - mN_hi */
         "subq %[mN_hi], %[T_hi] \n\t"   /* T_hi = T_hi - mN_hi */

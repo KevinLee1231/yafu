@@ -185,7 +185,7 @@ __inline static uint64_t mulredc_pos_alt(uint64_t x, uint64_t y, uint64_t N, uin
 	uint64_t mN_hi = (uint64_t)(mN >> 64);
 #endif
 	uint64_t tmp = T_hi + N;
-#if defined(ALT_MULREDC_USE_INLINE_ASM_X86) && !defined(_MSC_VER)
+#if defined(ALT_MULREDC_USE_INLINE_ASM_X86)
 	__asm__(
 		"subq %[mN_hi], %[tmp] \n\t"    /* tmp = T_hi + N - mN_hi */
 		"subq %[mN_hi], %[T_hi] \n\t"   /* T_hi = T_hi - mN_hi */

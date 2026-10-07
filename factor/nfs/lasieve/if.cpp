@@ -3,9 +3,7 @@
 #include "if.h"
 #include <time.h> 
 #include <unistd.h> 
-#ifndef _WIN64 
 #include <sys/times.h> 
-#endif
 #include <stdio.h> 
 #include <stdlib.h> 
 #include <stdarg.h> 
@@ -33,34 +31,6 @@ return x;
 
 /*:3*//*4:*/
 
-#if defined( _MSC_VER ) && defined( _WIN64 )
-#error _MSC_VER
-void*xvalloc(size_t size)
-{
-char*x;
-static long g_pagesize= 0;
-if(!g_pagesize)
-{
-SYSTEM_INFO system_info;
-GetSystemInfo(&system_info);
-g_pagesize= system_info.dwPageSize;
-}
-if(size==0)return NULL;
-if((x= _aligned_malloc(size,g_pagesize))==NULL)complain("xvalloc: %m\n");
-return x;
-}
-
-#elif defined (_WIN64)
-
-void*xvalloc(size_t size)
-{
-char*x;
-if(size==0)return NULL;
-if((x= _aligned_malloc(size,4096))==NULL)complain("xvalloc: %m\n");
-return x;
-}
-
-#else
 
 void*xvalloc(size_t size)
 {
@@ -69,7 +39,6 @@ if(size==0)return NULL;
 if((x= (char*)valloc(size))==NULL)complain("xvalloc: %m\n");
 return x;
 }
-#endif
 
 /*:4*//*5:*/
 
@@ -114,7 +83,7 @@ int qlen= vsnprintf(msg,MAXMSGLEN,fmt,arglist);
 if(qlen<0||qlen> MAXMSGLEN){
 fprintf(stderr,"ERROR: vsnprintf call failed during complain\n");
 }else{
-#if defined (__APPLE__) || defined (_WIN64)
+#if defined (__APPLE__)
 int lenfmt= strlen(fmt);
 if(lenfmt> 4&&fmt[lenfmt-3]=='%'&&fmt[lenfmt-2]=='m'&&fmt[lenfmt-1]=='\n'){
 
