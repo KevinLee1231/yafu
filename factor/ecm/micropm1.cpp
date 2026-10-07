@@ -57,13 +57,7 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 #include <stdint.h>
 #include <stdlib.h>
 #include <inttypes.h>
-#if defined(_MSC_VER)
-#  ifndef _WIN64
-#    error "64 bit compilation mode is required for MSVC"
-#  endif
-#  include <immintrin.h>
-#  include <intrin.h>
-#endif
+#include <immintrin.h>
 
 #include <stdio.h>
 
@@ -75,7 +69,7 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 // Using the inline asm in this file can increase performance by ~20-25%
 // (surprisingly).  Hence these macros are defined by default.
-#if defined(__x86_64__) || defined(_M_X64)
+#if defined(__x86_64__)
 #  define MICRO_PM1_ALT_MULREDC_USE_INLINE_ASM_X86
 #endif
 
@@ -85,12 +79,10 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 
 
-#ifdef _MSC_VER
-#  define MICRO_PM1_FORCE_INLINE __forceinline
-#elif defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER) || defined (__INTEL_LLVM_COMPILER)
+#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER) || defined (__INTEL_LLVM_COMPILER)
 #  define MICRO_PM1_FORCE_INLINE inline __attribute__((always_inline))
 #else
-#  define MICRO_PM1_FORCE_INLINE __inline
+#  define MICRO_PM1_FORCE_INLINE inline
 #endif
 
 
@@ -351,7 +343,7 @@ static uint32_t upm1_lcg_rand_32B(uint32_t lower, uint32_t upper, uint64_t *ploc
 __inline uint64_t upm1_submod(uint64_t a, uint64_t b, uint64_t n);
 __inline uint64_t upm1_addmod(uint64_t a, uint64_t b, uint64_t n);
 
-#if defined(MICRO_PM1_ALT_MULREDC_USE_INLINE_ASM_X86) && !defined(_MSC_VER)
+#if defined(MICRO_PM1_ALT_MULREDC_USE_INLINE_ASM_X86)
 
 MICRO_PM1_FORCE_INLINE uint64_t upm1_submod(uint64_t a, uint64_t b, uint64_t n)
 {
@@ -383,9 +375,6 @@ MICRO_PM1_FORCE_INLINE uint64_t upm1_addmod(uint64_t x, uint64_t y, uint64_t n)
 #else
 
 // TODO: these defines should be shared with other files that use _addcarry_u64/_subborrow_u64
-#if defined(_MSC_VER)
-#define rettype unsigned char
-#else
 // unsigned char _addcarry_u64 (unsigned char c_in, unsigned __int64 a, unsigned __int64 b, unsigned __int64 *out)
 // unsigned char _subborrow_u64 (unsigned char c_in, unsigned __int64 a, unsigned __int64 b, unsigned __int64 *out)
 //
@@ -394,7 +383,6 @@ MICRO_PM1_FORCE_INLINE uint64_t upm1_addmod(uint64_t x, uint64_t y, uint64_t n)
 #define rettype uint64_t
 //#define _addcarry_u64(c_in, a, b, c_out)  __builtin_addcll(a, b, c_in, c_out)
 #define _subborrow_u64(c_in, a, b, c_out) __builtin_subcll(a, b, c_in, c_out)
-#endif
 
 MICRO_PM1_FORCE_INLINE uint64_t upm1_submod(uint64_t a, uint64_t b, uint64_t n)
 {
@@ -412,8 +400,6 @@ MICRO_PM1_FORCE_INLINE uint64_t upm1_addmod(uint64_t x, uint64_t y, uint64_t n)
     uint8_t c = _addcarry_u64(0, tmp, y, &r);
     return (c) ? r : x + y;
 #else
-    // FYI: The clause above often compiles with a branch in MSVC.
-    // The statement below often compiles without a branch (uses cmov) in MSVC.
     return (x >= n - y) ? x - (n - y) : x + y;
 #endif
 }
@@ -425,21 +411,14 @@ MICRO_PM1_FORCE_INLINE uint64_t upm1_addmod(uint64_t x, uint64_t y, uint64_t n)
 // for this algorithm, see https://jeffhurchalla.com/2022/04/28/montgomery-redc-using-the-positive-inverse-mod-r/
 MICRO_PM1_FORCE_INLINE static uint64_t upm1_mulredc_alt(uint64_t x, uint64_t y, uint64_t N, uint64_t invN)
 {
-#if defined(_MSC_VER)
-    uint64_t T_hi;
-    uint64_t T_lo = _umul128(x, y, &T_hi);
-    uint64_t m = T_lo * invN;
-    uint64_t mN_hi = __umulh(m, N);
-#else
     __uint128_t prod = (__uint128_t)x * y;
     uint64_t T_hi = (uint64_t)(prod >> 64);
     uint64_t T_lo = (uint64_t)(prod);
     uint64_t m = T_lo * invN;
     __uint128_t mN = (__uint128_t)m * N;
     uint64_t mN_hi = (uint64_t)(mN >> 64);
-#endif
     uint64_t tmp = T_hi + N;
-#if defined(MICRO_PM1_ALT_MULREDC_USE_INLINE_ASM_X86) && !defined(_MSC_VER)
+#if defined(MICRO_PM1_ALT_MULREDC_USE_INLINE_ASM_X86)
     __asm__ (
         "subq %[mN_hi], %[tmp] \n\t"    /* tmp = T_hi + N - mN_hi */
         "subq %[mN_hi], %[T_hi] \n\t"   /* T_hi = T_hi - mN_hi */
