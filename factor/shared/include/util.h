@@ -16,15 +16,6 @@ $Id: util.h 1005 2016-11-11 15:43:21Z jasonp_sf $
 #define _MS_UTIL_H_
 
 /* system-specific stuff ---------------------------------------*/
-#if defined(WIN32) || defined(_WIN64) 
-	#define WIN32_LEAN_AND_MEAN
-
-#if defined(__clang__)
-#include <time.h>
-#endif
-	#include <windows.h>
-	#include <process.h>
-#else
 #define _POSIX_C_SOURCE 200112L
 	#include <fcntl.h>
 	#include <unistd.h>
@@ -34,7 +25,6 @@ $Id: util.h 1005 2016-11-11 15:43:21Z jasonp_sf $
 	#include <sys/time.h>
 	#include <float.h>
 	#include <dlfcn.h>
-#endif
 
 /* system-independent header files ------------------------------------*/
 
@@ -46,76 +36,21 @@ $Id: util.h 1005 2016-11-11 15:43:21Z jasonp_sf $
 #include <time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#if !defined(_MSC_VER) || _MSC_VER >= 1800
 	#include <inttypes.h>
-#endif
-#ifdef _MSC_VER
-	#define _USE_MATH_DEFINES
-#endif
 #include <math.h>
 
-#if defined(_MSC_VER) && _MSC_VER >= 1900
-/* for _getcwd() and _access_s() used in stage1_sieve_gpu.c */
-    #include <direct.h>
-    #include <io.h>
-#endif
 
-#if defined(_MSC_VER)
-#include <winsock.h>
-#endif
 
-#ifdef __MINGW32__
-#include <sys/time.h>
-#endif
 
-#if defined(_MSC_VER) || defined(_MSC_EXTENSIONS)
-#define DELTA_EPOCH_IN_MICROSECS  11644473600000000Ui64
-#else
 #define DELTA_EPOCH_IN_MICROSECS  11644473600000000ULL
-#endif
 
-#ifdef _MSC_VER
-struct timezone
-{
-	int  tz_minuteswest; /* minutes W of Greenwich */
-	int  tz_dsttime;     /* type of dst correction */
-};
-#endif
 
 double msieve_difftime(struct timeval* start, struct timeval* end);
 
-#if defined (_MSC_VER)
-int msieve_gettimeofday(struct timeval* tv, struct timezone* tz);
-#else
 #define msieve_gettimeofday gettimeofday
-#endif
 
 /* basic types  -------------------------------------------------------*/
 
-#ifdef _MSC_VER
-
-	typedef __int8 int8;
-	typedef __int16 int16;
-	typedef __int32 int32;
-	typedef __int64 int64;
-	typedef __int64 int64_t;
-	typedef unsigned __int8 uint8;
-	typedef unsigned __int16 uint16;
-	typedef unsigned __int32 uint32;
-	typedef unsigned __int64 uint64;
-	typedef unsigned __int64 uint64_t;
-
-	/* portable 64-bit formatting */
-#ifndef PRId64
-	#define PRId64 "I64d"
-#endif
-#ifndef PRIu64
-	#define PRIu64 "I64u"
-#endif
-#ifndef PRIx64
-	#define PRIx64 "I64x"
-#endif
-#else
 	typedef unsigned char uint8;
 	typedef unsigned short uint16;
 	typedef unsigned int uint32;
@@ -127,49 +62,17 @@ int msieve_gettimeofday(struct timeval* tv, struct timezone* tz);
 	typedef int int32;
 	typedef int64_t int64;
 	#endif
-#endif
 
-#if defined(WIN32) || defined(_WIN64)
-	typedef HMODULE libhandle_t;
-#else
 	typedef void * libhandle_t;
-#endif
 
 /* useful functions ---------------------------------------------------*/
 
 #define MIN(a,b) ((a) < (b)? (a) : (b))
 #define MAX(a,b) ((a) > (b)? (a) : (b))
 
-#if defined(_MSC_VER)
-    
-	#include <float.h>
-	#define INLINE __inline
-	#define getpid _getpid
-	#define ftello _ftelli64
-	#define fseeko _fseeki64
-
-#if _MSC_VER < 1900
-	int64 strtoll(const char *nptr, char **endptr, int base);
-	uint64 strtoull(const char *nptr, char **endptr, int base);
-#endif
-
-    __inline double rint(double x)
-    {
-        static double c2_52 = 4503599627370496.0e0;  /* 2 ^ 52 */ 
-        double t;
-
-        if(x != x || _copysign(x, 1.0) >= c2_52)
-            return (x);
-        t = _copysign(c2_52, x);
-        return (x + t) - t;
-    }
-
-#elif !defined(RS6K)
 	#define INLINE inline
 
-#else
 	#define INLINE /* nothing */
-#endif
 
 #if defined(__GNUC__) && __GNUC__ >= 3
 	#define PREFETCH(addr) __builtin_prefetch(addr) 
@@ -299,9 +202,7 @@ enum cpu_type get_cpu_type(void);
 
 #if defined(CPU_GENERIC)
 	#define MANUAL_PREFETCH
-	#if !defined(WIN32) && !defined(__i386__)
 		#define HAS_MANY_REGISTERS
-	#endif
 
 #elif defined(CPU_PENTIUM2) 
 	#define MANUAL_PREFETCH
@@ -321,9 +222,7 @@ enum cpu_type get_cpu_type(void);
 	defined(CPU_CORE) || defined(CPU_OPTERON)
 	#define HAS_SSE
 	#define HAS_SSE2
-	#if !defined(WIN32) && !defined(__i386__)
 		#define HAS_MANY_REGISTERS
-	#endif
 #endif
 
 #if !defined(HAS_SSE) && defined(__x86_64__)
@@ -368,18 +267,7 @@ enum cpu_type get_cpu_type(void);
 	#endif
 
 	/* for inline assembler on Windows */
-	#if defined(_WIN32)
-		#define _ICL_WIN_
-		#if defined(_M_X64)
-			#define MSC_ASM64A
-			#define MSC_ASM64X
-			#define GCC_ASM64X
 		#elif defined(_M_IX86)
-			#define MSC_ASM32A
-			#define MSC_ASM32X
-			#define GCC_ASM32X
-		#endif
-	#endif
 
 #elif defined(__GNUC__)
 
@@ -397,18 +285,12 @@ enum cpu_type get_cpu_type(void);
 
 	#define ASM_M __asm
 
-	#if defined(_M_IX86) && !defined(_WIN64)
 		#define MSC_ASM32A
 		#define MSC_ASM32X
-	#endif
 #endif
 
 /* loop alignment directives need to know whether
    we're using MSVC */
 
-#ifndef _MSC_VER
 	#define ALIGN_LOOP   ".p2align 4,,7 \n\t" 
-#else
-	#define ALIGN_LOOP /* nothing */
-#endif
 #endif /* _MS_UTIL_H_ */
