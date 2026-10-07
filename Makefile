@@ -2,7 +2,8 @@
 # yafu — Unified Makefile
 # Author of original Makefiles: Ben Buhrow
 #
-# Platforms  : Linux, Windows (MSYS2/MinGW-w64)
+# Platforms  : Linux only. 本项目只在 Linux 上开发与构建，不再保留
+#               Windows / MSYS2 / MinGW / MSVC 的兼容分支。
 # Compilers  : gcc, clang, icc/icx   — select with  make CC=gcc|clang|icc
 # Build type : release (default)     — debug with    make DEBUG=1
 #
@@ -44,15 +45,12 @@
 #   USE_NATIVE=1     Auto-detect ISA from the build CPU and add -march=native.
 #                    Works with gcc, clang, and icc.  Not suitable for
 #                    cross-compilation or CI where reproducibility matters.
-#                    Not supported on Windows/MinGW — use explicit ISA flags.
 #   SMALLINT=1     Small SIQS intervals
 #   PROFILE=1      gprof profiling
 #   OPT_DEBUG=1    Optimisation debug output
 #   TIMING=1       QS timing instrumentation
 #   FORCE_GENERIC=1  Disable all SIMD paths
 #   STATIC=1       Static link (experimental, Linux)
-#   STATIC_WIN=1   Fully static Windows binary (runs in PowerShell/cmd without DLLs)
-#   MINGW=1        Building under MinGW (skip -ldl)
 # =============================================================================
 
 
@@ -65,13 +63,7 @@
 # -----------------------------------------------------------------------------
 # 2. OS DETECTION
 # -----------------------------------------------------------------------------
-ifeq ($(OS),Windows_NT)
-    DETECTED_OS := Windows
-    EXE_EXT     := .exe
-else
-    DETECTED_OS := $(shell uname -s)
-    EXE_EXT     :=
-endif
+DETECTED_OS := $(shell uname -s)
 
 MKDIR  := mkdir -p
 RM_RF  := rm -rf
@@ -85,13 +77,6 @@ CC_BASENAME := $(notdir $(CC))
 
 ifneq (,$(findstring icx,$(CC_BASENAME)))
     COMPILER_FAMILY := icc
-else ifneq (,$(findstring icc,$(CC_BASENAME)))
-    COMPILER_FAMILY := icc
-else ifneq (,$(findstring clang,$(CC_BASENAME)))
-    COMPILER_FAMILY := clang
-else
-    COMPILER_FAMILY := gcc
-endif
 
 # MPI overrides the compiler wrapper
 ifeq ($(MPI),1)
@@ -109,16 +94,11 @@ define find_dir
 $(firstword $(foreach d,$(2),$(if $(wildcard $(d)/$(1)),$(d))))
 endef
 
-ifeq ($(DETECTED_OS),Windows)
-    SYS_INC_PATHS := /mingw64/include /mingw32/include /usr/include
-    SYS_LIB_PATHS := /mingw64/lib     /mingw32/lib     /usr/lib
-else
-    MULTIARCH := $(shell $(CC) -print-multiarch 2>/dev/null)
-    SYS_INC_PATHS := $(if $(MULTIARCH),/usr/include/$(MULTIARCH)) \
-                     /usr/include /usr/local/include /opt/local/include
-    SYS_LIB_PATHS := /usr/lib /usr/lib64 /usr/local/lib \
-                     $(if $(MULTIARCH),/usr/lib/$(MULTIARCH))
-endif
+MULTIARCH := $(shell $(CC) -print-multiarch 2>/dev/null)
+SYS_INC_PATHS := $(if $(MULTIARCH),/usr/include/$(MULTIARCH)) \
+                 /usr/include /usr/local/include /opt/local/include
+SYS_LIB_PATHS := /usr/lib /usr/lib64 /usr/local/lib \
+                 $(if $(MULTIARCH),/usr/lib/$(MULTIARCH))
 
 
 # ---- 4a. GMP  (required) ---------------------------------------------------
@@ -136,7 +116,6 @@ endif
 
 # Normalise to absolute paths so sub-makes at deeper directory levels
 # (factor/nfs/lasieve/ and factor/nfs/lasieve/kernels/) receive correct paths
-# even when config.mk used a relative value like ../gmp-install/mingw.
 GMP_INCDIR := $(abspath $(GMP_INCDIR))
 GMP_LIBDIR := $(abspath $(GMP_LIBDIR))
 
@@ -166,18 +145,13 @@ ifneq (,$(wildcard $(ECM_INCDIR)/ecm.h))
     HAVE_ECM_LIB := 1
     ECM_INC      := -I$(ECM_INCDIR)
     ECM_LPATH    := $(if $(ECM_LIBDIR),-L$(ECM_LIBDIR))
-else
-    HAVE_ECM_LIB :=
-    ECM_INC      :=
-    ECM_LPATH    :=
-endif
 
 
 # ---- 4c. CUDA Toolkit  (optional) ------------------------------------------
 # Discovery precedence (first match wins):
 #   1. CUDA_PREFIX set in config.mk or on the command line
 #   2. CUDA_ROOT environment variable  (set by the NVIDIA installer on Linux)
-#   3. CUDA_PATH environment variable  (set by the NVIDIA installer on Windows)
+#   3. CUDA_PATH environment variable
 #   4. nvcc found on PATH  (derive root from its location)
 #   5. Well-known filesystem locations  (/usr/local/cuda, /usr/local/cuda-12 …)
 #
@@ -188,27 +162,10 @@ ifndef CUDA_PREFIX
     ifneq (,$(CUDA_ROOT))
         CUDA_PREFIX := $(CUDA_ROOT)
     # 3. CUDA_PATH (Windows installer standard)
-    else ifneq (,$(CUDA_PATH))
-        CUDA_PREFIX := $(CUDA_PATH)
-    # 4. nvcc on PATH
-    else
-        _NVCC_ON_PATH := $(shell which nvcc 2>/dev/null)
-        ifneq (,$(_NVCC_ON_PATH))
-            CUDA_PREFIX := $(shell dirname $(_NVCC_ON_PATH))/..
-        # 5. Common filesystem locations
-        else
-            CUDA_PREFIX := $(firstword $(wildcard \
-                /usr/local/cuda \
-                /usr/local/cuda-12 \
-                /usr/local/cuda-11))
-        endif
-    endif
 endif
 
 ifdef CUDA_PREFIX
     CUDA_INCDIR ?= $(CUDA_PREFIX)/include
-    ifeq ($(DETECTED_OS),Windows)
-        CUDA_LIBDIR ?= $(CUDA_PREFIX)/lib/x64
     else
         CUDA_LIBDIR ?= $(CUDA_PREFIX)/lib64
     endif
@@ -219,25 +176,6 @@ ifneq (,$(wildcard $(CUDA_INCDIR)/cuda.h))
     HAVE_CUDA_TOOLKIT := 1
     CUDA_INC          := -I$(CUDA_INCDIR)
     CUDA_LPATH        := $(if $(CUDA_LIBDIR),-L$(CUDA_LIBDIR))
-else
-    HAVE_CUDA_TOOLKIT :=
-    CUDA_INC          :=
-    CUDA_LPATH        :=
-    NVCC              :=
-    # If user requested CUDA features but toolkit not found, warn and disable
-    ifdef BATCH_CUDA
-        $(warning CUDA toolkit not found — disabling BATCH_CUDA)
-        override BATCH_CUDA :=
-    endif
-    ifdef CUDA_POLY
-        $(warning CUDA toolkit not found — disabling CUDA_POLY)
-        override CUDA_POLY :=
-    endif
-    ifdef CUDA_LA
-        $(warning CUDA toolkit not found — disabling CUDA_LA)
-        override CUDA_LA :=
-    endif
-endif
 
 
 # ---- 4d. OpenCL  (optional, only meaningful with BATCH_CUDA) ---------------
@@ -251,10 +189,8 @@ ifdef OCL_PREFIX
 endif
 OCL_INCDIR ?= $(call find_dir,CL/cl.h,$(SYS_INC_PATHS))
 
-# Check for the library as well as the header — on some systems (e.g. MinGW)
+# Check for the library as well as the header
 # the headers are installed without a matching ICD loader library.
-ifeq ($(DETECTED_OS),Windows)
-    _OCL_LIBNAMES := libOpenCL.a libOpenCL.dll.a OpenCL.lib
 else
     _OCL_LIBNAMES := libOpenCL.so libOpenCL.a
 endif
@@ -272,27 +208,6 @@ ifneq (,$(_OCL_LIB_FOUND))
     OCL_INC     := -I$(OCL_INCDIR)
     OCL_LPATH   := -L$(OCL_LIBDIR)
     OCL_LIBS    := -lOpenCL
-else
-    HAVE_OPENCL :=
-    OCL_INC     :=
-    OCL_LPATH   :=
-    OCL_LIBS    :=
-    $(info OpenCL: header found ($(OCL_INCDIR)) but no library — disabling. \
-        Set OCL_PREFIX in config.mk if you have it installed.)
-endif
-else
-    HAVE_OPENCL :=
-    OCL_INC     :=
-    OCL_LPATH   :=
-    OCL_LIBS    :=
-endif
-else
-    # BATCH_CUDA not set — skip OpenCL entirely
-    HAVE_OPENCL :=
-    OCL_INC     :=
-    OCL_LPATH   :=
-    OCL_LIBS    :=
-endif
 
 
 # -----------------------------------------------------------------------------
@@ -351,16 +266,6 @@ ifndef SM
             SM := $(firstword $(_SMS_RAW))
             $(info CUDA: auto-detected SM=$(SM) \
                 (lowest capability across $(words $(_SMS_RAW)) GPU(s): $(_SMS_RAW)))
-        else
-            SM := 80
-            $(warning CUDA: nvidia-smi found no GPUs — falling back to SM=$(SM). \
-                Set SM in config.mk if this is wrong.)
-        endif
-    else
-        # CUDA toolkit not present; SM won't be used, but give it a value
-        # so any $(SM) references in non-CUDA rules don't expand to empty.
-        SM := 80
-    endif
 endif
 
 
@@ -383,9 +288,6 @@ CFLAGS := \
 # GCC 12+ strict aliasing is more aggressive than GCC 11 and triggers
 # violations in the AVX2 sieve buffer casting code. 
 # Todo: audit __m256i casts throughout siqs when using avx2 only.
-ifeq ($(OS),Windows_NT)
-    CFLAGS += -fno-strict-aliasing -DULL_NO_UL -DBITS_PER_GMP_ULONG=32
-endif
 
 VBITS ?= 64
 CFLAGS += -DVBITS=$(VBITS)
@@ -434,9 +336,6 @@ CFLAGS += $(GMP_INC) $(ECM_INC) $(CUDA_INC) $(OCL_INC)
 # -----------------------------------------------------------------------------
 ifeq ($(DEBUG),1)
     CFLAGS += -O0 -g -DDEBUG
-else
-    CFLAGS += -O2 -DNDEBUG -D_FILE_OFFSET_BITS=64 -fomit-frame-pointer
-endif
 
 
 # -----------------------------------------------------------------------------
@@ -447,44 +346,6 @@ ifeq ($(COMPILER_FAMILY),icc)
     # ICC uses -L path for its own runtime headers (legacy icc on RHEL)
     CFLAGS += -L/usr/lib/gcc/x86_64-redhat-linux/4.4.4
 
-else ifeq ($(COMPILER_FAMILY),clang)
-    CFLAGS += \
-        -Wno-unused-parameter \
-        -Wno-padded \
-        -Wno-declaration-after-statement
-    ifeq ($(DEBUG),1)
-        CFLAGS        += -fsanitize=address,undefined -fno-omit-frame-pointer
-        LDFLAGS_EXTRA += -fsanitize=address,undefined
-# don't use link time optimizations
-#    else
-#        CFLAGS        += -flto
-#        LDFLAGS_EXTRA += -flto
-    endif
-
-else
-    # GCC
-	# newer gcc versions with -O2 turn on auto-vectorization features that 
-	# interfere with and greatly slow down the hand-optimized vectorization
-	# in yafu's SIQS.  Turn them off here.
-    CFLAGS += -Wshadow -Wstrict-prototypes -fno-tree-loop-vectorize -fno-tree-slp-vectorize
-    ifeq ($(DEBUG),1)
-        # nothing extra
-# don't use link time optimizations
-#    else
-#        CFLAGS        += -flto
-#        LDFLAGS_EXTRA += -flto
-    endif
-    ifeq ($(DETECTED_OS),Windows)
-        ifdef STATIC_WIN
-            # Fully static binary — runs in PowerShell/cmd.exe with no DLLs needed.
-            # Requires that GMP, ECM, zlib etc. were installed as static (.a) libs
-            # (pacman -S mingw-w64-x86_64-gmp etc. includes both static and shared).
-            LDFLAGS_EXTRA += -static -static-libgcc
-        else
-            LDFLAGS_EXTRA += -static-libgcc
-        endif
-    endif
-endif
 
 
 # -----------------------------------------------------------------------------
@@ -524,14 +385,6 @@ endif
 # -march=native and are kept.
 # -----------------------------------------------------------------------------
 ifeq ($(USE_NATIVE),1)
-    ifeq ($(DETECTED_OS),Windows)
-        $(error USE_NATIVE is not supported on Windows/MinGW builds. \
-            -march=native does not reliably enable the expected ISA instructions \
-            under MinGW, resulting in a binary that compiles but runs slowly or \
-            incorrectly. Use explicit ISA flags instead — for example: \
-            USE_AVX2=1 USE_BMI2=1, or USE_AVX512=1. \
-            See 'make help' for the full list.)
-    endif
     # Dump all preprocessor macros the compiler defines for the native CPU.
     # The 'echo |' idiom feeds an empty C source — portable across platforms.
     _NATIVE_DEFS := $(shell echo | $(CC) -march=native -dM -E -x c - 2>/dev/null)
@@ -626,9 +479,6 @@ ifeq ($(USE_AVX2),1)
         ifneq ($(USE_NATIVE),1)
             CFLAGS += -march=core-avx2
         endif
-    else
-        CFLAGS += -mavx2
-    endif
 endif
 
 # --- BMI / BMI2 --------------------------------------------------------------
@@ -649,9 +499,6 @@ ifeq ($(USE_AVX512),1)
         # covers this and the specific arch could conflict with native target.
         ifeq ($(COMPILER_FAMILY),icc)
             CFLAGS += -march=core-avx512
-        else
-            CFLAGS += -march=skylake-avx512
-        endif
     endif
 endif
 
@@ -673,9 +520,6 @@ ifeq ($(USE_AVX512PF),1)
     ifneq ($(USE_NATIVE),1)
         ifeq ($(COMPILER_FAMILY),icc)
             CFLAGS += -xMIC-AVX512
-        else
-            CFLAGS += -march=knl
-        endif
     endif
 endif
 
@@ -698,8 +542,6 @@ ifdef CUDA_POLY
     CFLAGS += -DHAVE_CUDA_POLY -DTOOLKIT_VERSION=$(TOOLKIT_VERSION) -Ifactor/shared/cub/include
 	CUDA_PTX_ARCH ?= compute_$(SM)
 	CUB_ENGINE_ARCH ?= -gencode arch=compute_$(SM),code=sm_$(SM)
-    ifeq ($(DETECTED_OS),Windows)
-        CUDA_POLY_LIBS := "$(CUDA_LIBDIR)/cuda.lib"
     else
         CUDA_POLY_LIBS := -lcuda 
 #-lcudart
@@ -770,9 +612,6 @@ LIBS        := -L. $(GMP_LPATH) $(ECM_LPATH) $(CUDA_LPATH) $(OCL_LPATH)
 # medium-sized factors, so gmp-ecm is required rather than a build option.
 ifneq (,$(HAVE_ECM_LIB))
     LIBS        += -lecm
-else
-    $(error ecm.h not found: the ECM factoring method needs gmp-ecm.             Install libecm-dev, or point ECM_PREFIX / ECM_INCDIR + ECM_LIBDIR at it)
-endif
 
 # CUDA (batch cofactorisation)
 ifdef BATCH_CUDA
@@ -793,20 +632,7 @@ endif
 # GMP, math, threading
 LIBS        += -lgmp -lpthread -lm
 
-# Static Windows build needs extra libs that are normally pulled in implicitly
-# by the shared runtime, plus winpthread for the static pthreads implementation.
-ifeq ($(DETECTED_OS),Windows)
-    ifdef STATIC_WIN
-        LIBS        += -lwinpthread -lws2_32 -lssp
-    endif
-endif
-
-# dl (not needed on MinGW or Windows)
-ifneq ($(MINGW),1)
-    ifneq ($(DETECTED_OS),Windows)
-        LIBS        += -ldl
-    endif
-endif
+LIBS        += -ldl
 
 # ICC: SVML
 ifeq ($(COMPILER_FAMILY),icc)
@@ -1022,9 +848,6 @@ NFS_NOGPU_SRCS =
 
 ifeq ($(CUDA_POLY),1)
     NFS_SRCS += $(NFS_GPU_SRCS)
-else
-    NFS_SRCS += $(NFS_NOGPU_SRCS)
-endif
 
 
 # -----------------------------------------------------------------------------
@@ -1067,9 +890,6 @@ MSIEVE_COMMON_SRCS = \
     factor/shared/common/util.cpp \
     factor/shared/aprcl/mpz_aprcl32.cpp
 	
-ifeq ($(OS),Windows_NT)
-	MSIEVE_COMMON_SRCS += factor/shared/common/mpz-ull.cpp
-endif
 
 COMMON_GPU_SRCS = \
     factor/shared/common/lanczos/gpu/lanczos_matmul_gpu.cpp \
@@ -1083,9 +903,6 @@ COMMON_NOGPU_SRCS = \
 
 ifdef CUDA_LA
     MSIEVE_COMMON_SRCS += $(COMMON_GPU_SRCS)
-else
-    MSIEVE_COMMON_SRCS += $(COMMON_NOGPU_SRCS)
-endif
 
 
 # -----------------------------------------------------------------------------
@@ -1151,9 +968,6 @@ ifeq ($(CUDA_POLY),1)
 endif
 ifdef BATCH_CUDA
     BATCH_GPU_OBJS := $(BUILD_DIR)/cuda_ecm$(SM).ptx
-else
-    BATCH_GPU_OBJS :=
-endif
 
 
 # =============================================================================
@@ -1237,7 +1051,7 @@ lasieve-force:
 # sub-make rebuilding those object files.
 #
 # `make yafu` is the phony front end; the file is build/yafu.
-YAFU_BIN := $(BUILD_DIR)/yafu$(EXE_EXT)
+YAFU_BIN := $(BUILD_DIR)/yafu
 
 .PHONY: yafu
 yafu: $(YAFU_BIN)
@@ -1291,7 +1105,7 @@ TEST_SRCS := \
     $(TEST_DIR)/layer1/test_sieve.cpp \
     $(TEST_DIR)/layer2/test_ecm.cpp
 TEST_OBJS := $(call cxx_objs,$(TEST_SRCS))
-TEST_BIN  := $(BUILD_DIR)/yafu_test$(EXE_EXT)
+TEST_BIN  := $(BUILD_DIR)/yafu_test
 
 # YAFU objects the layered tests link against (overridable).
 TEST_KERNEL_OBJS ?= $(YAFU_COMMON_OBJS)
@@ -1339,8 +1153,8 @@ TEST_L3_SRCS  := $(TEST_DIR)/layer3/test_siqs.cpp $(TEST_DIR)/layer3/test_calc.c
     $(TEST_DIR)/layer3/test_ecm_review.cpp $(TEST_DIR)/layer3/test_qs_review.cpp \
     factor/shared/common/vec_bitonic_sort.cpp
 TEST_FRONTEND_OBJS := $(filter-out $(BUILD_DIR)/top/driver$(OBJ_EXT),$(YAFU_OBJS))
-TEST_FULL_BIN := $(BUILD_DIR)/yafu_test_full$(EXE_EXT)
-TEST_SAN_BIN := $(BUILD_DIR)/yafu_test_sanitize$(EXE_EXT)
+TEST_FULL_BIN := $(BUILD_DIR)/yafu_test_full
+TEST_SAN_BIN := $(BUILD_DIR)/yafu_test_sanitize
 
 # 每个静态库只由一条规则生成，允许主程序、演示程序和测试并行链接。
 $(BUILD_DIR)/libysiqs.a: $(YAFU_SIQS_OBJS) $(YAFU_COMMON_OBJS) $(MSIEVE_YAFU_OBJS)
@@ -1527,10 +1341,6 @@ $(BUILD_DIR)/cub-built: factor/shared/cub/sort_engine.cu factor/shared/cub/colli
 # collengine=gerbicz on such a build - see load_collision_engine().)
 ifeq ($(shell [ -n "$(SM)" ] && [ "$(SM)" -ge 70 ] && echo yes),yes)
 	$(NVCC) $(CUB_ENGINE_ARCH) --shared -Xcompiler -fPIC -I. -Ifactor/shared/cub/include -Ifactor/nfs/gnfs -Ifactor/nfs/gnfs/poly/stage1 -o $(BUILD_DIR)/collision_engine.so factor/shared/cub/collision_engine.cu
-else
-	@echo "NOTE: SM=$(SM) < 70 (pre-Volta); skipping the Gerbicz collision engine (requires sm_70+). Building the sort engine only - do not pass collengine=gerbicz."
-	@rm -f $(BUILD_DIR)/collision_engine.so
-endif
 	touch $@
 	
 # -----------------------------------------------------------------------------
@@ -1552,7 +1362,7 @@ endif
 # tree built before the move does not keep a few hundred stale files around;
 # nothing new is ever written there.
 LEGACY_ARTIFACTS := \
-    yafu$(EXE_EXT) yafu_test$(EXE_EXT) yafu_test_full$(EXE_EXT) yafu_test_sanitize$(EXE_EXT) \
+    yafu yafu_test yafu_test_full yafu_test_sanitize \
     $(wildcard factor/*/*.o factor/*/*/*.o factor/*/*/*/*.o) \
     $(wildcard factor/*/*.a factor/*/*/*.a factor/*/*/*/*.a) \
     $(wildcard factor/*/*.qo factor/*/*.no) \
@@ -1605,7 +1415,6 @@ info:
 	@echo "    BATCH_CUDA     : $(if $(BATCH_CUDA),yes,no)"
 	@echo "    CUDA_POLY      : $(if $(CUDA_POLY),yes,no)"
 	@echo "    MPI            : $(if $(filter 1,$(MPI)),yes,no)"
-	@echo "    STATIC_WIN     : $(if $(STATIC_WIN),yes,no)"
 	@echo "----------------------------------------------------------------"
 	@echo "  CFLAGS           : $(CFLAGS)"
 	@echo "  LIBS             : $(LIBS)"
@@ -1654,7 +1463,6 @@ help:
 	@echo "  ISA / micro-architecture (enabling a higher level implies lower ones):"
 	@echo "    make USE_NATIVE=1       Auto-detect ISA from build CPU + -march=native"
 	@echo "                            Works with gcc, clang, and icc on Linux."
-	@echo "                            Not supported on Windows/MinGW."
 	@echo "                            Not for cross-compilation or CI."
 	@echo "    make USE_SSE41=1        SSE 4.1"
 	@echo "    make USE_AVX2=1         AVX2  (implies SSE 4.1)"
@@ -1684,8 +1492,6 @@ help:
 	@echo "    make TIMING=1        QS timing instrumentation"
 	@echo "    make FORCE_GENERIC=1 disable all SIMD paths"
 	@echo "    make STATIC=1        static link (experimental, Linux)"
-	@echo "    make STATIC_WIN=1    fully static Windows .exe (no DLLs needed)"
-	@echo "    make MINGW=1         building under MinGW (skips -ldl)"
 	@echo ""
 	@echo "  Tip: set frequently-used flags in config.mk instead of typing"
 	@echo "  them every time (copy config.mk.example to get started)."
