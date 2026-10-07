@@ -3,7 +3,20 @@ set -eu
 
 repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 task_dir=$(mktemp -d "${TMPDIR:-/tmp}/yafu-nfs.XXXXXX")
-trap 'rm -rf -- "$task_dir"' EXIT HUP INT TERM
+cleanup()
+{
+    # 退出码必须自己带出去。本机这个 dash 上，以成功命令（rm -rf）收尾的
+    # EXIT trap 会把显式的 exit 1 变成 0 —— 于是任何"检查失败就 exit 1"的
+    # 回归脚本都会报成功。这里先把原始状态存下来、清掉 trap，再原样退出。
+    rc=$?
+    trap - EXIT HUP INT TERM
+    rm -rf -- "$task_dir"
+    exit "$rc"
+}
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 mkdir -p "$task_dir/data"
 
 cc=${CC:-cc}

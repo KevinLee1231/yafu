@@ -1,9 +1,10 @@
 # .gitignore
 # Build artifacts
+# 生成文件全部落在 build/ 下（对象、静态库、依赖文件、可执行文件、PTX、
+# GPU 引擎），目录结构镜像源码树，所以这一条就够了。
 *.o
 *.a
 /build/
-/yafu
 /msieve
 /gnfs-lasieve4e
 /gnfs-lasieve4e.exe
@@ -13,6 +14,11 @@
 /yafu_test_sanitize.exe
 *.no
 *.qo
+
+# 产物改到 build/ 之前的落点，留着当过渡护栏：这两处已经不再产生东西，
+# 真出现在 git status 里说明还有构建没走新的 Makefile。跑一次 make clean
+# 之后下面几条就可以删掉。
+/yafu
 .deps/
 
 # Logs / Checkpoints / data files
@@ -28,8 +34,8 @@ nfs.*
 *.last_spq*
 msieve.dat
 
-# lasieve 的测试可执行文件（make mpqs3test / mpqstest / ecmtest /
-# mpqsstat 产出，不是源码）
+# 下面这些是产物改到 build/ 之前的落点。留着当过渡期的护栏：这些地方已经
+# 不再产生任何东西，出现在 git status 里就说明有构建没走新的 Makefile。
 factor/nfs/lasieve/ecmtest
 factor/nfs/lasieve/mpqs3test
 factor/nfs/lasieve/mpqstest
@@ -37,16 +43,12 @@ factor/nfs/lasieve/mpqsstat
 factor/nfs/lasieve/mpqst
 factor/nfs/lasieve/tmpqs
 
-# lasieve 构建与测试的产物
+# lasieve 构建与测试的旧产物
 factor/nfs/lasieve/gnfs-lasieve4I*e
 factor/nfs/lasieve/*.job
 factor/nfs/lasieve/snfs_*.txt
 factor/nfs/lasieve/*.o
 factor/nfs/lasieve/*.a
-factor/nfs/lasieve/mpqs3test
-factor/nfs/lasieve/mpqstest
-factor/nfs/lasieve/mpqsstat
-factor/nfs/lasieve/ecmtest
 # 合成单一二进制后按 I 各编一份的中间产物
 factor/nfs/lasieve/objI*/
 factor/nfs/lasieve/kernels/coreI*/

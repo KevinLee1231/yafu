@@ -27,7 +27,7 @@ yafu
 >> factor(2056802480868100646375721251575555494408897387375737955882170045672576386016591560879707933101909539325829251496440620798637813)
 ```
 
-YAFU 从**当前工作目录**读取 `yafu.ini`，日志和中间文件也写在那里 —— 不是可执行文件所在的目录。Linux 上这两者通常不同，所以运行前先 `cd` 到放着 `yafu.ini` 的目录。无需任何安装步骤。
+YAFU 从**当前工作目录**读取 `yafu.ini`，日志和中间文件也写在那里 —— 不是可执行文件所在的目录。Linux 上这两者通常不同，所以运行前先 `cd` 到放着 `yafu.ini` 的目录。无需任何安装步骤。编译出来的程序在 `build/yafu`，运行时仍然要在这个目录里跑。
 
 ---
 
@@ -51,7 +51,7 @@ ECM 和 OpenMP 是无条件启用的：缺 `ecm.h` 会直接停止构建并说�
 
 ```sh
 make -j4 yafu
-./yafu 'factor(91)' -terse
+./build/yafu 'factor(91)' -terse
 make -j4 lasieve          # 编译外部格点筛
 make test-run             # 分层回归（算术 / 素性 / ECM / SIQS）
 make test-cli             # 命令行回归
@@ -85,7 +85,7 @@ make yafu DEBUG=1             # 调试构建
 | `help` | 功能开关速查 |
 | `clean` | 清理构建产物 |
 
-静态库等中间产物统一输出到 `build/`，仓库根目录不会产生生成文件。
+所有生成文件都落在仓库根的 `build/` 下，目录结构镜像源码树：`factor/ecm/ecm.cpp` 的对象是 `build/factor/ecm/ecm.o`，静态库是 `build/libysiqs.a`，依赖文件是 `build/.deps/factor/ecm/ecm.d`，可执行文件是 `build/yafu`。源码目录里不再产生任何生成文件，`git status` 只看得到改过的源码。`make clean` 删掉整个 `build/`。
 
 ---
 
@@ -101,7 +101,7 @@ make yafu DEBUG=1             # 调试构建
 | `factor/nfs/` | NFS 作业编排 |
 | `factor/nfs/gnfs/` | 数域筛本体：多项式选择、筛选、关系、线性代数、开方 |
 | `factor/nfs/lasieve/` | 格点筛（NFS 必需，已链入 yafu） |
-| `factor/siqs/` | 自初始化二次筛（SIQS，Contini 1997）。同一份代码里也带一份只面向小输入的精简版 `tinySIQS.c` |
+| `factor/siqs/` | 自初始化二次筛（SIQS，Contini 1997）。另有一个面向小输入的精简版 `tinysiqs(n)`，实现落在 `cofactorize_siqs.cpp` |
 | `factor/mpqs/` | 多项式二次筛（MPQS，Silverman, *Math. Comp.* 48 (1987) 329–339） |
 | `factor/pmpqs/` | 首项系数取单个素数平方的多项式二次筛，与 MPQS 只差首项系数的取法；文献里没有名字 |
 | `factor/shared/` | 共享代码：大数算术 `arith/`、素数筛 `ysieve/`、线程与线性代数 `common/`、`ytools/`、`cub/`、素性判定 `aprcl/` |
@@ -124,7 +124,7 @@ make yafu DEBUG=1             # 调试构建
 
 ## GGNFS 筛选器（NFS 必需）
 
-NFS 分解需要 GGNFS 格点筛程序。**它已经并入 yafu**：`make all` 只产出 `yafu` 一个可执行文件，筛法器是它内部的一步，由 `nfs_sieving.c` 在同一进程里调用。六个 I 值（11 到 16）是同一份映像里六套互不相干的对象——各自的筛内核、factor base、蒙哥马利状态、ECM/P-1 缓存——所以同时最多跑六个筛法器，每个占一个 I 值。
+NFS 分解需要 GGNFS 格点筛程序。**它已经并入 yafu**：`make all` 只产出 `build/yafu` 一个可执行文件，筛法器是它内部的一步，由 `nfs_sieving.cpp` 在同一进程里调用。六个 I 值（11 到 16）是同一份映像里六套互不相干的对象——各自的筛内核、factor base、蒙哥马利状态、ECM/P-1 缓存——所以同时最多跑六个筛法器，每个占一个 I 值。
 
 想换成外部的 cuda-sieve，用 `-cuda_sieve <路径>`；那是另一个程序，仍然按路径调用。
 

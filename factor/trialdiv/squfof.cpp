@@ -939,7 +939,12 @@ void shanks_mult_unit(uint64_t N, mult_t* mult_save, uint64_t* f)
         bbn = (b0 + Ro) / So;
 
         //search for symmetry point
-        while (1)
+        //
+        // 这个循环原先是 while (1)：第一阶段有 imax 兜底，第二阶段没有。输入
+        // 不理想时它就是死循环，挂到交互式会话上界面会永久卡住。向量版
+        // par_shanks_mult_unit 早就有 failsafe，这里对齐。
+        int failsafe = 10000;
+        while (failsafe)
         {
             t1 = Ro;		//hold Ro for this iteration
             Ro = bbn * So - Ro;
@@ -947,6 +952,7 @@ void shanks_mult_unit(uint64_t N, mult_t* mult_save, uint64_t* f)
             So = S + bbn * (t1 - Ro);
             S = t2;			//remember last S
             bbn = (b0 + Ro) / So;
+            failsafe--;
 
             //check for symmetry point
             if (Ro == t1)
@@ -2078,13 +2084,11 @@ void make_sqr_tab(void)
 static unsigned char issq1024[1024];
 static unsigned char issq4199[4199];
 
-#ifndef TRUE
-#define TRUE 1
-#endif
-
-#ifndef FALSE
-#define FALSE 1
-#endif
+/* 原来这里有两个 #ifndef 保护的 TRUE / FALSE，两个都定义成 1——FALSE 的值是错的。
+ * 本文件现在没有任何代码用这两个标识符（只剩 2125 行注释里提到 DoTrial=FALSE），
+ * 所以一直没咬人；留着的话，下一个写 if (!x == FALSE) 的人会在 Linux 上得到
+ * 与 Windows 相反的结果（windows.h 的 FALSE 是 0，而这里的 #ifndef 守卫会让它
+ * 保持 0，两条路径行为不一致）。直接删掉。 */
 
 void MakeIssq(void)
 {
@@ -2435,10 +2439,63 @@ int tdiv_inverse(int64_t N, int pLimit) {
  /** This is a constant that is below 1 for rounding up double values to long. */
 #define SQRTBOUND ((1 << 21)+1)
 
+/* Largest input LehmanFactor() accepts.
+ *
+ * sqRoot[] and sqrtInv[] hold SQRTBOUND entries, and the "high range" call
+ * lehmanEven(kLimit, kLimit << 1, ...) indexes them with k up to 2*kLimit,
+ * where kLimit = ((cbrt + 6)/6)*6 and cbrt = (int)pow(N, 1/3).  Solving
+ * 2*kLimit <= SQRTBOUND-1 for N gives the value below; above it that loop
+ * reads past both tables (measured: at N = 2^60-1, 2*kLimit = 2097156 while
+ * the last valid index is 2097152).  fourN = N << 2 does not break until
+ * 2^61, so the tables bind first. */
+#define LEHMAN_MAX_K (((SQRTBOUND - 1) / 2) - 6)
+#define LEHMAN_MAX_INPUT ((uint64_t)LEHMAN_MAX_K * LEHMAN_MAX_K * LEHMAN_MAX_K)
+
 const double ROUND_UP_DOUBLE = 0.9999999665;
+/* One-time tables shared by every LehmanFactor() call.  Like the ones in
+ * trialdiv.cpp they are filled once and only read afterwards, which is safe
+ * only because no caller runs two factorizations concurrently: sp_shanks_loop()
+ * is reached from the single-threaded calculator (top/cmdParser/calc.cpp) and
+ * from top/test.cpp.  Two threads inside the "if (!initialized)" block would
+ * both build the tables, so keep this precondition if that ever changes. */
 static double sqRoot[SQRTBOUND];
 static double sqrtInv[SQRTBOUND];
 static int initialized = 0;
+
+/* Exact "is test a perfect square" test, returning the root.
+ *
+ * The original spelling -- b = (int64_t)sqrt(test); b*b == test -- stops
+ * being exact once test grows past 2^53: test is converted to double, which
+ * drops the low bits, and (int64_t) of the result can land one below or one
+ * above the true floor root.  A genuine square then fails b*b == test and the
+ * factor is silently missed.
+ *
+ * The corrections below compare with division rather than multiplication so
+ * that nothing overflows when test approaches INT64_MAX, and the loop only
+ * ever runs one or two iterations because sqrt() of a double is correct to
+ * within one ulp. */
+static int lehman_perfect_square(int64_t test, int64_t *root)
+{
+    int64_t b;
+
+    if (test < 0)
+        return 0;
+
+    b = (int64_t)sqrt((double)test);
+    if (b < 0)
+        b = 0;
+
+    while ((b > 0) && (b > test / b))
+        b--;
+    while (b < test / (b + 1))
+        b++;
+
+    if (b * b != test)
+        return 0;
+
+    *root = b;
+    return 1;
+}
 
 int64_t lehmanOdd(int kBegin, int kLimit, double sqrt4N, int64_t N, int64_t fourN) {
     int k;
@@ -2476,10 +2533,9 @@ int64_t lehmanOdd(int kBegin, int kLimit, double sqrt4N, int64_t N, int64_t four
         //	{
         //		if (issq4199[test % 4199] & 1)
         //		{
-        const int64_t b = (int64_t)sqrt(test);
-        if (b * b == test) {
+        int64_t b;
+        if (lehman_perfect_square(test, &b))
             return gcd64(a + b, N);
-        }
         //		}
         //	}
         //}
@@ -2525,10 +2581,9 @@ int64_t lehmanEven(int kBegin, int kEnd, double sqrt4N, int64_t N, int64_t fourN
         //	{
         //		if (issq4199[test % 4199] & 1)
         //		{
-        const int64_t b = (int64_t)sqrt(test);
-        if (b * b == test) {
+        int64_t b;
+        if (lehman_perfect_square(test, &b))
             return gcd64(a + b, N);
-        }
         //		}
         //	}
         //}
@@ -2568,6 +2623,17 @@ int64_t lehmanEven(int kBegin, int kEnd, double sqrt4N, int64_t N, int64_t fourN
 
 uint64_t LehmanFactor(uint64_t uN, double Tune, int DoTrialFirst, double CutFrac)
 {
+    /* Everything below works in signed 64-bit on the input and indexes the
+       sqRoot[]/sqrtInv[] tables, so an out-of-range input used to walk off
+       the tables (N >= 2^60) and then compute sqrt4N from a wrapped fourN
+       (N >= 2^61), producing NaN-derived nonsense that was reported as "no
+       factor found" with nothing to say the input was too big.  LEHMAN_MAX_INPUT
+       is derived from the table size; see its definition above.
+       sp_shanks_loop() only calls us for inputs of at most 40 bits, so this
+       never rejects anything the tree actually asks for. */
+    if (uN > LEHMAN_MAX_INPUT)
+        return 0;
+
     int i;
     int k;
     int j;
@@ -2674,11 +2740,10 @@ uint64_t LehmanFactor(uint64_t uN, double Tune, int DoTrialFirst, double CutFrac
         for (a = aLimit; a >= aStart; a -= aStep) {
             const int64_t test = a * a - fourkN;
             // Here test<0 is possible because of double to long cast errors in the 'a'-computation.
-            // But then b = sqrt(test) gives NaN (sic!) => NaN*NaN != test => no errors.
-            const int64_t b = (int64_t)sqrt(test);
-            if (b * b == test) {
+            // lehman_perfect_square() rejects a negative test outright.
+            int64_t b;
+            if (lehman_perfect_square(test, &b))
                 return (int64_t)gcd64(a + b, N);
-            }
             //{
             //	/* Step 1, reduce to 18% of inputs */
             //	int64 m = test & 127;
@@ -2726,10 +2791,9 @@ uint64_t LehmanFactor(uint64_t uN, double Tune, int DoTrialFirst, double CutFrac
     for (k = kTwoA + 1; k <= kLimit; k++) {
         int64_t a = (int64_t)(sqrt4N * sqRoot[k] + ROUND_UP_DOUBLE) - 1;
         int64_t test = a * a - k * fourN;
-        int64_t b = (int64_t)sqrt(test);
-        if (b * b == test) {
+        int64_t b;
+        if (lehman_perfect_square(test, &b))
             return gcd64(a + b, N);
-        }
         //{
         //	/* Step 1, reduce to 18% of inputs */
         //	int64 m = test & 127;

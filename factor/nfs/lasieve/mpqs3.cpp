@@ -227,7 +227,22 @@ u32_t mpqs3_A_table_n[10]={
 #ifdef MPQS3_STAT
 u32_t stat_mpqs_nsieves, stat_mpqs_nsurvivors, stat_mpqs_ntrials, stat_mpqs_ndiv;
 #endif
-#include "kernels/mpqs3arith.c"
+// 这里原来 #include 的是 kernels/mpqs3arith.c：textual include，
+// 不在任何 Makefile 的源文件清单里。清理那批 .c 时它被一起删掉，
+// 编译断在这一行。内容原样搬进来。
+#ifdef MOD3
+static u32_t mpqs3_mod3(u32_t *a, u32_t n)
+{
+  u64_t ha;
+
+  ha=(u64_t)(a[2]); ha%=(u64_t)n; ha<<=32;
+  ha+=(u64_t)(a[1]); ha%=(u64_t)n; ha<<=32;
+  ha+=(u64_t)(a[0]); ha%=(u64_t)n;
+  return (u32_t)ha;
+}
+#else
+#define mpqs3_mod3 asm_mpqs3_mod3
+#endif
 
 void mpqs3_convert(u32_t *rop, double op_dbl, u64_t op_64)
 {

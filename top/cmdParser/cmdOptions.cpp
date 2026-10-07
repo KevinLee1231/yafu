@@ -233,6 +233,12 @@ char OptionHelp[NUMOPTIONS][MAXHELPLEN] = {
 // 0 = no argument
 // 1 = argument required
 // 2 = argument optional
+//
+// 下标与 OptionArray 一一对应，全靠位置对齐，所以这一列读不出对应哪个选项。
+// "e"（第 67 项）和 "obase"（第 109 项）曾经标成 0：它们于是被当成不收参数的
+// 开关，表达式被丢掉，"e" 还会一路走到 applyArg(NULL) 里 strlen(NULL) 段错误，
+// "obase" 则直接报 "invalid or out-of-range argument"。改哪个选项的 needsArg，
+// 先用下标核对 OptionArray 里的名字，别照着下面的注释数——注释与实际下标早已错开。
 int needsArg[NUMOPTIONS] = {
     1,1,1,1,1,
     1,1,1,1,1,
@@ -247,7 +253,7 @@ int needsArg[NUMOPTIONS] = {
     1,1,1,0,1,
     0,0,0,1,1,
     1,1,1,1,1,
-    1,0,0,1,1,
+    1,0,1,1,1,
     1,0,1,1,1,
     1,1,0,1,1,
     1,1,1,0,0,
@@ -255,7 +261,7 @@ int needsArg[NUMOPTIONS] = {
     1,0,0,1,1,  // resume, json-pretty, new cado options
     1,0,0,1,0,   // gpucurves, cbgn, use gpu, gpu dev, prefer avxecm stg2
     1,1,1,1,1,  // "stoplt", "stople", "stopeq", "stopgt", "stopge",
-    1,0,1,1,0,  // "stopbase", "stopprime", "siqsSSidx", "siqsSSalloc", "skipSNFScheck"
+    1,0,1,1,1,  // "stopbase", "stopprime", "siqsSSidx", "siqsSSalloc", "skipSNFScheck"
     1,1,1,0,0,   //"obase", "minrels", "stopk", "stop_strict", "terse"
     1,1,0,0,0,   // "max_siqs", "max_nfs", "np1", "nps", "npr"
     1,1,1,1,1,   // "nfs_params", "poly_testsieve", "poly_percent_thresh", "td", "jsonlog"
@@ -389,6 +395,13 @@ static void parse_range(const char *arg, const char *opt, uint32_t *start,
 // ========================================================================
 void applyArg(char* arg, int argNum, options_t* options)
 {
+    // needsArg 为 0 的选项会以 NULL 调用到这里（"没给参数"与"没这个参数"同义），
+    // 此时什么都不做，不能往下走 strlen/strcpy。
+    if (arg == NULL)
+    {
+        return;
+    }
+
     if (argNum == 0)
     {
         options->inputExpr = (char*)xrealloc(options->inputExpr,

@@ -56,6 +56,12 @@ benefit from your work.
 #include "nfs/lasieve/include/lasieve_dispatch.h"
 #endif
 
+#include <array>
+#include <filesystem>
+#include <fstream>
+
+/* .afb 缓存格式的定义在 siever 那一侧也在用，见该头文件。 */
+#include "nfs/lasieve/include/lasieve_afb.h"
 
 #ifdef USE_NFS
 
@@ -2349,7 +2355,8 @@ uint32_t process_batch(nfs_threaddata_t* thread_data, mpz_ptr prime_prod, char *
 // The lattice sievers auto-load <jobfile>.afb.<side> whenever the file
 // exists (no command line switch needed), so a factor base cache must only
 // ever be on disk in a form a siever can use safely.
-// Sievers with cache validation append a 20-byte trailer (magic 0xafb00004)
+// Sievers with cache validation append a five-word trailer (AFB_EXT_BYTES,
+// magic AFB_EXT_MAGIC)
 // when writing the cache, verify it against the current poly/params when
 // reading, and trim a full-alim cache down to the lowered FB bound that
 // applies while special-q < alim. Older sievers do none of this: they would
@@ -2357,46 +2364,37 @@ uint32_t process_batch(nfs_threaddata_t* thread_data, mpz_ptr prime_prod, char *
 // different relation set. The trailer is therefore used as the capability
 // test: prime the cache once per nfs() run, and if the file comes back
 // without a trailer the siever is too old to trust with one.
-// these must match the trailer the sievers write: AFB_EXT_WORDS u32s
-// ending the file, the first of which is AFB_EXT_MAGIC (gnfs-lasieve4e.c)
-#define AFB_TRAILER_BYTES 20
-#define AFB_TRAILER_MAGIC 0xafb00004u
 
 // classify <jobfile>.afb.0: 1 = complete with validation trailer,
 // 0 = complete legacy format (pre-validation siever), -1 = missing/malformed
 static int nfs_afb_cache_kind(const char* afbname)
 {
-	FILE* f;
-	uint32_t fbsize, magic;
-	long len, legacy;
+	std::error_code ec;
+	const std::filesystem::path path(afbname);
 
-	f = fopen(afbname, "rb");
-	if (f == NULL)
+	const std::uintmax_t len = std::filesystem::file_size(path, ec);
+	if (ec)
 		return -1;
-	if (fread(&fbsize, sizeof(uint32_t), 1, f) != 1)
-	{
-		fclose(f);
+
+	std::ifstream f(path, std::ios::binary);
+	if (!f)
 		return -1;
-	}
-	if (fseek(f, 0, SEEK_END) != 0 || (len = ftell(f)) < 0)
-	{
-		fclose(f);
+
+	std::uint32_t fbsize = 0;
+	if (!f.read(reinterpret_cast<char*>(&fbsize), sizeof(fbsize)))
 		return -1;
-	}
+
 	// legacy layout: [u32 count][count primes][count roots][u32 xFB count]
-	legacy = (long)(2 * sizeof(uint32_t) + 2 * (size_t)fbsize * sizeof(uint32_t));
-	if (len == legacy + AFB_TRAILER_BYTES)
+	const std::uintmax_t legacy = afb_legacy_bytes(fbsize);
+	if (len == legacy + AFB_EXT_BYTES)
 	{
-		if (fseek(f, -AFB_TRAILER_BYTES, SEEK_END) != 0 ||
-			fread(&magic, sizeof(uint32_t), 1, f) != 1)
-		{
-			fclose(f);
+		std::array<std::uint32_t, AFB_EXT_WORDS> ext{};
+
+		if (!f.seekg(-static_cast<std::streamoff>(AFB_EXT_BYTES), std::ios::end) ||
+			!f.read(reinterpret_cast<char*>(ext.data()), AFB_EXT_BYTES))
 			return -1;
-		}
-		fclose(f);
-		return (magic == AFB_TRAILER_MAGIC) ? 1 : -1;
+		return (ext[0] == AFB_EXT_MAGIC) ? 1 : -1;
 	}
-	fclose(f);
 	return (len == legacy) ? 0 : -1;
 }
 
@@ -2427,16 +2425,26 @@ static void nfs_afb_prime_cache(fact_obj_t* fobj, nfs_job_t* job)
 		// a cache left behind by an earlier keep_afb run (or seeded by hand)
 		// would still be auto-loaded by whatever siever runs next, so don't
 		// leave one around unless the user asked for caching
-		if (remove(afbname) == 0)
+		//
+		// siever 两个 side 各自写一份缓存（gnfs-lasieve4e.cpp 用
+		// "%s.afb.%u" 带 side），并且不加任何开关就会自动加载盘上已有的缓存。
+		// 只删 .0 的话：先用 keep_afb=1 跑一次生成两份，再关掉重跑，.afb.1
+		// 留在盘上被下一个 siever 捡起来，指纹对不上就让 sieving 阶段整个失败。
+		for (int side = 0; side < 2; side++)
 		{
-			if (fobj->VFLAG > 0)
-				printf("nfs: removed factor base cache %s (keep_afb not set)\n",
-					afbname);
-		}
-		else if (errno != ENOENT)
-		{
-			printf("nfs: could not remove %s (%s); sievers will auto-load it!\n",
-				afbname, strerror(errno));
+			snprintf(afbname, sizeof(afbname), "%s.afb.%d",
+				fobj->nfs_obj.job_infile, side);
+			if (remove(afbname) == 0)
+			{
+				if (fobj->VFLAG > 0)
+					printf("nfs: removed factor base cache %s (keep_afb not set)\n",
+						afbname);
+			}
+			else if (errno != ENOENT)
+			{
+				printf("nfs: could not remove %s (%s); sievers will auto-load it!\n",
+					afbname, strerror(errno));
+			}
 		}
 		return;
 	}

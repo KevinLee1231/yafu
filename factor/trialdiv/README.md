@@ -5,11 +5,11 @@
 
 | 文件 | 方法 | 计算量 |
 | --- | --- | --- |
-| `trialdiv.c` | 试除、素性判定的前置筛 | $O(\sqrt{p}/p)$ |
-| `rho.c` | Pollard rho、Pollard p−1、Williams p+1 的小规模版本 | $O(\sqrt{p})$ |
-| `squfof.c` | Shanks 的 SQUFOF | $O(p^{1/4})$ |
-| `LehmanClean.c` | Lehman 方法 | $O(n^{1/3})$ |
-| `tinyfactor.c` | 64 位以内的快速试除 | $O(\sqrt{p})$ |
+| `trialdiv.cpp` | 试除、素性判定的前置筛 | $O(\sqrt{p}/p)$ |
+| `rho.cpp` | Pollard rho、Pollard p−1、Williams p+1 的小规模版本 | $O(\sqrt{p})$ |
+| `squfof.cpp` | Shanks 的 SQUFOF | $O(p^{1/4})$ |
+| `squfof.cpp`（Lehman 段） | Lehman 方法 | $O(n^{1/3})$ |
+| `trialdiv.cpp` | 64 位以内的快速试除 | $O(\sqrt{p})$ |
 
 
 试除

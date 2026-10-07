@@ -89,9 +89,6 @@ int vec_check_factor(mpz_t Z, mpz_t n, mpz_t f);
 
 // GMP-ECM batch stage1
 void array_mul(uint64_t* primes, uint64_t b1, int num_p, mpz_t piprimes);
-unsigned int compute_s(mpz_t s, uint64_t *primes, uint64_t B1);
-int vec_ecm_stage1_batch(mpz_t f, ecm_work *work, ecm_pt *P, vec_bignum_t * A, 
-    vec_bignum_t * n, uint64_t B1, mpz_t s, vec_monty_t *mdata);
 
 // support parallel MMIX by requiring the lcg's state to be passed in
 uint64_t par_lcg_rand(uint64_t* lcg_state)
@@ -304,7 +301,6 @@ void vec_ecm_stage2_work_fcn(void *vptr)
     return;
 }
 
-//#define PARAM1
 
 void vec_ecm_build_curve_work_fcn(void *vptr)
 {
@@ -317,10 +313,6 @@ void vec_ecm_build_curve_work_fcn(void *vptr)
     mpz_init(X);
     mpz_init(Z);
     mpz_init(A);
-#ifdef PARAM1
-    mpz_init(X2);
-    mpz_init(Z2);
-#endif
 
     vecClear(tdata[tid].P->X);
     vecClear(tdata[tid].P->Z);
@@ -329,21 +321,12 @@ void vec_ecm_build_curve_work_fcn(void *vptr)
 	for (i = 0; i < VECLEN; i++)
     {
         int j;
-#ifdef PARAM1
-        build_one_curve_param1(&tdata[tid], X, Z, X2, Z2, A, 0); // 65953669); // 36875098);
-        insert_mpz_to_vec(tdata[tid].P->X, X, i);
-        insert_mpz_to_vec(tdata[tid].P->Z, Z, i);
-        insert_mpz_to_vec(tdata[tid].work->pt2.X, X2, i);
-        insert_mpz_to_vec(tdata[tid].work->pt2.Z, Z2, i);
-        insert_mpz_to_vec(tdata[tid].work->s, A, i);
-#else
         // 8689346476060549ULL
         vec_build_one_curve(&tdata[tid], X, Z, A, tdata[tid].sigma[i]); // 6710676431370252287 + i);
 
         insert_mpz_to_vec(tdata[tid].P->X, X, i);
         insert_mpz_to_vec(tdata[tid].P->Z, Z, i);
         insert_mpz_to_vec(tdata[tid].work->s, A, i);
-#endif
         tdata[tid].sigma[i] = tdata[tid].work->sigma;
     }
 
@@ -368,12 +351,24 @@ void vec_ecm_build_curve_work_fcn(void *vptr)
     mpz_clear(Z);
     mpz_clear(A);
 
-#ifdef PARAM1
-    mpz_clear(X2);
-    mpz_clear(Z2);
-#endif
-
     return;
+}
+
+/* 报告"stage 1 累加到哪个素数"：last_pid 是已处理素数的个数，最后处理的是
+ * primes[last_pid - 1]。
+ *
+ * last_pid 正常至少为 1（vec_ecm_stage1 的循环从 i = 1 起），但每条曲线开始
+ * 时 work->last_pid 被清零（见 vec_ecm_main），而它是 uint32_t：万一在
+ * stage 1 尚未回写时被读到，last_pid - 1 会下溢成 0xffffffff，在表外几十 GB
+ * 处取值。这里显式挡掉，fallback 是拿不到素数时打印用的值。
+ *
+ * 上界不用管：循环条件是 i < nump，last_pid 最大就是 nump，primes[nump-1]
+ * 仍是表内最后一个元素。
+ */
+static inline uint64_t last_b1_reached(uint32_t last_pid, const uint64_t *primes,
+                                       uint64_t fallback)
+{
+    return last_pid ? primes[last_pid - 1] : fallback;
 }
 
 void vec_ecm_work_init(ecm_work* work)
@@ -518,6 +513,7 @@ void vec_ecm_work_free(ecm_work* work)
 
     free(work->Pbprod);
     free(work->Paprod);
+    free(work->Pa_inv);
     free(work->Pb);
     vecFree(work->stg2acc);
 
@@ -2145,7 +2141,7 @@ void vececm(thread_data_t* tdata)
                             mpz_init(tmp1);
 
                             fprintf(intsave, "METHOD=ECM; SIGMA=%"PRIu64"; B1=%"PRIu64"; ",
-                                tdata[j].sigma[i], ecm_primes[tdata[j].work->last_pid - 1]);
+                                tdata[j].sigma[i], last_b1_reached(tdata[j].work->last_pid, ecm_primes, ecm_maxp));
                             gmp_fprintf(intsave, "N=0x%Zx; ", gmpn);
 
                             extract_bignum_from_vec_to_mpz(tmp1, tdata[j].work->tt4, i, NWORDS);
@@ -2918,27 +2914,6 @@ void vec_ecm_stage1(vec_monty_t *mdata, ecm_work *work, ecm_pt *P,
 	int i;
 	uint64_t q;
 
-#ifdef PARAM1
-    {
-        mpz_t s, f;
-        // timing variables
-        struct timeval stopt;	// stop time of this job
-        struct timeval startt;	// start time of this job
-        double t_time;
-
-        gettimeofday(&startt, NULL);
-        mpz_init(s);
-        mpz_init(f);
-        work->last_pid = compute_s(s, PRIMES, stg1);
-        gettimeofday(&stopt, NULL);
-        t_time = ytools_difftime(&startt, &stopt);
-        printf("Built product of %"PRIu64" bits in %1.0f ms\n", mpz_sizeinbase(s, 2), t_time * 1000);
-        ecm_stage1_batch(f, work, P, work->s, work->n, stg1, s, mdata);
-        mpz_clear(s);
-        mpz_clear(f);
-        return;
-    }
-#endif
 
 #ifdef MPZ_VERIFY
     mpz_t gtmp, gtmp2, gn, gnhat;
@@ -3005,8 +2980,8 @@ void vec_ecm_stage1(vec_monty_t *mdata, ecm_work *work, ecm_pt *P,
 
     if (verbose > 1)
 	{
-		printf("\nStage 1 completed at prime %"PRIu64" with %u point-adds and %u point-doubles\n", 
-			primes[i-1], work->stg1Add, work->stg1Doub);
+		printf("\nStage 1 completed at prime %"PRIu64" with %u point-adds and %u point-doubles\n",
+			last_b1_reached(i, primes, 0), work->stg1Add, work->stg1Doub);
 		fflush(stdout);
 	}
 
@@ -3495,11 +3470,12 @@ int vec_ecm_stage2_init(ecm_pt* P, vec_monty_t* mdata, ecm_work* work, int verbo
         vecmulmod_ptr(work->tt1, P3->Z, Pout->X, work->n, work->tt4, mdata);			//Z * (U + V)^2
         vecmulmod_ptr(work->tt2, P3->X, Pout->Z, work->n, work->tt4, mdata);			//x * (U - V)^2
 
-#ifndef DO_STAGE2_INV
-        //store Pb[j].X * Pb[j].Z as well
-        vecmulmod_ptr(Pout->X, Pout->Z, Pbprod[rprime_map_U[j]],
-            work->n, work->tt4, mdata);
-#endif
+        if constexpr (!stage2_inv)
+        {
+            //store Pb[j].X * Pb[j].Z as well
+            vecmulmod_ptr(Pout->X, Pout->Z, Pbprod[rprime_map_U[j]],
+                work->n, work->tt4, mdata);
+        }
 
         work->ptadds++;
 
@@ -3520,16 +3496,17 @@ int vec_ecm_stage2_init(ecm_pt* P, vec_monty_t* mdata, ecm_work* work, int verbo
     // initialize accumulator
     vecCopy(mdata->one, acc);
 
-#ifdef DO_STAGE2_INV
-    // invert all of the Pb's
-    foundDuringInv = batch_invert_pt_inplace(Pb, Pbprod, mdata, work, lastMapID + 1);
-
-    if (doneIfFoundDuringInv && foundDuringInv)
+    if constexpr (stage2_inv)
     {
-        work->last_pid = -1;
-        return foundDuringInv;
+        // invert all of the Pb's
+        foundDuringInv = batch_invert_pt_inplace(Pb, Pbprod, mdata, work, lastMapID + 1);
+
+        if (doneIfFoundDuringInv && foundDuringInv)
+        {
+            work->last_pid = -1;
+            return foundDuringInv;
+        }
     }
-#endif
 
     // Pd = [w]Q
     vecCopy(P->Z, Pd->Z);
@@ -3564,9 +3541,7 @@ void vec_ecm_stage2_pair(uint32_t pairmap_steps, uint32_t* pairmap_v, uint32_t* 
     ecm_pt* Pb = work->Pb;      // inverted
     ecm_pt* Pd = work->Pdnorm;  // non-inverted Pd
     vec_bignum_t** Paprod = work->Paprod;
-#ifndef DO_STAGE2_INV
     vec_bignum_t** Pbprod = work->Pbprod;
-#endif
     vec_bignum_t* acc = work->stg2acc;
 
 
@@ -3613,25 +3588,27 @@ void vec_ecm_stage2_pair(uint32_t pairmap_steps, uint32_t* pairmap_v, uint32_t* 
             vecaddsubmod_ptr(Pd->X, Pd->Z, work->sum2, work->diff2, mdata);
             vec_add(mdata, work, &Pa[i - 2], &Pa[i]);
 
-#ifndef DO_STAGE2_INV
-            vecmulmod_ptr(Pa[i].X, Pa[i].Z, work->Paprod[i], work->n, work->tt4, mdata);
-#endif
+            if constexpr (!stage2_inv)
+            {
+                vecmulmod_ptr(Pa[i].X, Pa[i].Z, work->Paprod[i], work->n, work->tt4, mdata);
+            }
 
             work->A += wscale * w;
             if (verbose & (debug == 2))
                 printf("Pa[%d] = [%"PRIu64"]Q\n", i, work->A);
         }
 
-#ifdef DO_STAGE2_INV
-        // and invert all of the Pa's into a separate vector
-        foundDuringInv |= batch_invert_pt_to_bignum(Pa, work->Pa_inv, Paprod, mdata, work, 0, 2 * L);
-        work->numinv++;
-        if (doneIfFoundDuringInv && foundDuringInv)
+        if constexpr (stage2_inv)
         {
-            work->last_pid = -1;
-            return; // foundDuringInv;
+            // and invert all of the Pa's into a separate vector
+            foundDuringInv |= batch_invert_pt_to_bignum(Pa, work->Pa_inv, Paprod, mdata, work, 0, 2 * L);
+            work->numinv++;
+            if (doneIfFoundDuringInv && foundDuringInv)
+            {
+                work->last_pid = -1;
+                return; // foundDuringInv;
+            }
         }
-#endif
 
         if (verbose & (debug == 2))
             printf("A table generated to L = %d\n", 2 * L);
@@ -3684,9 +3661,10 @@ void vec_ecm_stage2_pair(uint32_t pairmap_steps, uint32_t* pairmap_v, uint32_t* 
                 vecaddsubmod_ptr(Pd->X, Pd->Z, work->sum2, work->diff2, mdata);
                 vec_add(mdata, work, &Pa[i - 2], &Pa[i]);
 
-#ifndef DO_STAGE2_INV
-                vecmulmod_ptr(Pa[i].X, Pa[i].Z, work->Paprod[i], work->n, work->tt4, mdata);
-#endif
+                if constexpr (!stage2_inv)
+                {
+                    vecmulmod_ptr(Pa[i].X, Pa[i].Z, work->Paprod[i], work->n, work->tt4, mdata);
+                }
 
                 work->A += wscale * w;
             }
@@ -3696,10 +3674,11 @@ void vec_ecm_stage2_pair(uint32_t pairmap_steps, uint32_t* pairmap_v, uint32_t* 
             // by 2 * w, U times.
             amin += U;
 
-#ifdef DO_STAGE2_INV
-            foundDuringInv = batch_invert_pt_to_bignum(Pa, work->Pa_inv,
-                work->Paprod, mdata, work, 2 * L - shiftdist * U, 2 * L);
-#endif
+            if constexpr (stage2_inv)
+            {
+                foundDuringInv = batch_invert_pt_to_bignum(Pa, work->Pa_inv,
+                    work->Paprod, mdata, work, 2 * L - shiftdist * U, 2 * L);
+            }
         }
         else
         {
@@ -3724,11 +3703,14 @@ void vec_ecm_stage2_pair(uint32_t pairmap_steps, uint32_t* pairmap_v, uint32_t* 
             //        10078477ULL, amin, pa, pb);
             //}
 
-#ifdef DO_STAGE2_INV
-            CROSS_PRODUCT_INV;
-#else
-            CROSS_PRODUCT;
-#endif
+            if constexpr (stage2_inv)
+            {
+                CROSS_PRODUCT_INV;
+            }
+            else
+            {
+                CROSS_PRODUCT;
+            }
             work->paired++;
         }
     }

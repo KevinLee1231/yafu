@@ -1321,9 +1321,13 @@ int resume_check_input_match(mpz_t file_n, mpz_t input_n, mpz_t common_fact, int
 		gmp_printf("input to yafu = %Zd\n", input_n);
 	}
 
-	//mpz_gcd(common_fact, file_n, input_n);	
+	//mpz_gcd(common_fact, file_n, input_n);
 	if (mpz_cmp_ui(file_n, 0) == 0)
+	{
+		// 提前返回前要清掉 r，否则这条路径每次调用泄漏一个 mpz。
+		mpz_clear(r);
 		return 0;
+	}
 
 	mpz_tdiv_qr(common_fact, r, input_n, file_n);	
 

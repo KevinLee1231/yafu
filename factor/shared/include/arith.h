@@ -37,198 +37,32 @@ code to the public domain.
 #define UNKNOWN 3
 
 
-#if defined( __INTEL_COMPILER)
-// leading and trailing zero count are ABM instructions
-// that require haswell or later on Intel or ABM on AMD.
-// The same basic functionality exists with the 
-// bsf and bsr instructions that are standard x86, if
-// those requirements are not met.
-#if defined( USE_BMI2 ) || defined (TARGET_KNL) || defined( USE_AVX512F )
-#define _reset_lsb(x) _blsr_u32(x)
-#define _reset_lsb64(x) _blsr_u64(x)
-#define _lead_zcnt64 __lzcnt64
-#define _trail_zcnt _tzcnt_u32
-#define _trail_zcnt64 _tzcnt_u64
-#else
-#define _reset_lsb(x) ((x) &= ((x) - 1))
-#define _reset_lsb64(x) ((x) &= ((x) - 1))
-__inline uint32_t _trail_zcnt(uint32_t x)
-{
-    uint32_t pos;
-    if (_BitScanForward(&pos, x))
-        return pos;
-    else
-        return 32;
-}
-__inline uint64_t _trail_zcnt64(uint64_t x)
-{
-    uint32_t pos;
-    if (_BitScanForward64(&pos, x))
-        return pos;
-    else
-        return 64;
-}
-__inline uint64_t _lead_zcnt64(uint64_t x)
-{
-    uint32_t pos;
-    if (_BitScanReverse64(&pos, x))
-        return pos;
-    else
-        return 64;
-}
-#endif
-#elif defined(__GNUC__) || defined(__INTEL_LLVM_COMPILER)
-#if defined( USE_BMI2 ) || defined (TARGET_KNL) || defined( USE_AVX512F )
-#define _reset_lsb(x) _blsr_u32(x)
-#define _reset_lsb64(x) _blsr_u64(x)
-#define _lead_zcnt64 __builtin_clzll
-#define _trail_zcnt __builtin_ctzl
-#define _trail_zcnt64 __builtin_ctzll
-#else
-#define _reset_lsb(x) ((x) &= ((x) - 1))
-#define _reset_lsb64(x) ((x) &= ((x) - 1))
-#define _lead_zcnt64 __builtin_clzll
-#define _trail_zcnt __builtin_ctzl
-#define _trail_zcnt64 __builtin_ctzll
+/* Leading / trailing zero count now go through <bit>.
+ *
+ * This used to be three compiler-specific branches (ICC / GCC / MSVC) spelling
+ * out the same operations -- and they did not agree.  The GCC branch used
+ * __builtin_ctz* / __builtin_clz*, which are undefined for an argument of 0;
+ * the ICC and MSVC branches used _BitScan* with an explicit zero test returning
+ * 32 or 64.  The same code therefore read an undefined value on Linux and 32/64
+ * on Windows.  <bit> settles both: std::countr_zero(0) and std::countl_zero(0)
+ * return the bit width, by definition.  GCC lowers them to the same tzcnt /
+ * lzcnt the BMI paths emitted, so nothing gets slower -- one implementation and
+ * one behaviour everywhere replace three.
+ *
+ * Clearing the lowest set bit stays as "x &= x - 1" for now: the C++26 spelling
+ * would be std::reset_lowest_bit (P2983), but libstdc++ 16 does not ship it yet.
+ * Both spellings compile to blsr / lea+and; swap it in when the library catches up.
+ */
+#include <bit>
 
-#endif
-#elif defined(_MSC_VER)
-#include <immintrin.h>
-#include <intrin.h>
-
-#ifdef USE_BMI2
-#define _reset_lsb(x) _blsr_u32(x)
-#define _reset_lsb64(x) _blsr_u64(x)
-#else
-#define _reset_lsb(x) ((x) &= ((x) - 1))
-#define _reset_lsb64(x) ((x) &= ((x) - 1))
-#endif
-
-#ifdef __clang__
-__inline uint32_t _trail_zcnt(uint32_t x)
-{
-    unsigned long pos;
-    if (_BitScanForward(&pos, x))
-        return (uint32_t)pos;
-    else
-        return 32;
-}
-__inline uint32_t _trail_zcnt64(uint64_t x)
-{
-    unsigned long  pos;
-    if (_BitScanForward64(&pos, x))
-        return (uint32_t)pos;
-    else
-        return 64;
-}
-__inline uint32_t _lead_zcnt64(uint64_t x)
-{
-    unsigned long  pos;
-    if (_BitScanReverse64(&pos, x))
-        return (uint32_t)pos;
-    else
-        return 64;
-}
-#else
-__inline uint32_t _trail_zcnt(uint32_t x)
-{
-    uint32_t pos;
-    if (_BitScanForward(&pos, x))
-        return pos;
-    else
-        return 32;
-}
-__inline uint32_t _trail_zcnt64(uint64_t x)
-{
-    uint32_t pos;
-    if (_BitScanForward64(&pos, x))
-        return pos;
-    else
-        return 64;
-}
-__inline uint32_t _lead_zcnt64(uint64_t x)
-{
-    uint32_t pos;
-    if (_BitScanReverse64(&pos, x))
-        return pos;
-    else
-        return 64;
-}
-#endif
-
-
-#else
-
-__inline uint64_t _lead_zcnt64(uint64_t x)
-{
-    uint64_t pos;
-    if (x)
-    {
-        pos = 0;
-        for (pos = 0; ; pos++)
-        {
-            if (x & (1ULL << (63 - pos)))
-                break;
-        }
-    }
-    else
-    {
-#ifdef CHAR_BIT
-        pos = CHAR_BIT * sizeof(x);
-#else
-        pos = 8 * sizeof(x);
-#endif
-    }
-    return pos;
-}
-
-__inline uint32_t _trail_zcnt(uint32_t x)
-{
-    uint32_t pos;
-    if (x)
-    {
-        x = (x ^ (x - 1)) >> 1;  // Set x's trailing 0s to 1s and zero rest
-        for (pos = 0; x; pos++)
-        {
-            x >>= 1;
-        }
-    }
-    else
-    {
-#ifdef CHAR_BIT
-        pos = CHAR_BIT * sizeof(x);
-#else
-        pos = 8 * sizeof(x);
-#endif
-    }
-    return pos;
-}
-
-__inline uint64_t _trail_zcnt64(uint64_t x)
-{
-    uint64_t pos;
-    if (x)
-    {
-        x = (x ^ (x - 1)) >> 1;  // Set x's trailing 0s to 1s and zero rest
-        for (pos = 0; x; pos++)
-        {
-            x >>= 1;
-        }
-    }
-    else
-    {
-#ifdef CHAR_BIT
-        pos = CHAR_BIT * sizeof(x);
-#else
-        pos = 8 * sizeof(x);
-#endif
-    }
-    return pos;
-}
-#define _reset_lsb(x) ((x) &= ((x) - 1))
-#define _reset_lsb64(x) ((x) &= ((x) - 1))
-
-#endif
+/* <bit> 的这几个函数只接受无符号整数类型，而 __builtin_ctz* / __builtin_clz*
+ * 靠隐式转换就接受了——仓库里确实有传 int64_t 的调用点（squfof.cpp）。所以
+ * 宏里补上转换，语义就是按二进制补码数位，与原来一致。 */
+#define _reset_lsb(x)    ((x) &= ((x) - 1))
+#define _reset_lsb64(x)  ((x) &= ((x) - 1))
+#define _lead_zcnt64(x)  (std::countl_zero(static_cast<uint64_t>(x)))
+#define _trail_zcnt(x)   (std::countr_zero(static_cast<uint32_t>(x)))
+#define _trail_zcnt64(x) (std::countr_zero(static_cast<uint64_t>(x)))
 
 #if defined(__SIZEOF_INT128__) && (__SIZEOF_INT128__ == 16)
 #define HAS_UINT128

@@ -24,9 +24,9 @@
 
 `arith/` 的 `mp_t` 是定长的、以 32 位为单位的数组（`arith.h`，`MAX_MP_WORDS` 个字）。定长带来两个好处：可以在栈上分配、不需要单独的分配器；乘法可以用固定形状的循环展开。代价是超过 `MAX_MP_WORDS` 就得进位到 GMP（`gmp_xface.h` 里的 `mp_t2gmp` / `gmp2mp_t`）。
 
-`arith0.c` 到 `arith3.c` 按运算类型分：`arith.c` 派发，`arith1.c` 加减比较，`arith2.c` 乘除（Montgomery 形式），`arith3.c` GCD、模逆、位扫描。`limb1.h` 与 `limb2.h` 是两份 limb 布局（32 位与 52 位），`mp_platform.h` 定义平台相关的类型别名与内建函数包装。
+这一块原先按运算类型拆成 `arith0.cpp` 到 `arith3.cpp`（派发 / 加减比较 / 乘除 Montgomery 形式 / ...），现已合并进单个 `arith.cpp`。其余 GCD、模逆、位扫描。`limb1.h` 与 `limb2.h` 是两份 limb 布局（32 位与 52 位），`mp_platform.h` 定义平台相关的类型别名与内建函数包装。
 
-`fftmul.c` 是大块的 FFT 乘法，用在 NFS 的多项式运算里。`vecarith52*.c` 在 `factor/ecm/` 下（52 位 limb 的 AVX-512 向量化实现），虽然物理上不在 `shared/`，但它服务的是 ECM 与 `arith/` 的同一类需求。
+`fftmul.cpp` 是大块的 FFT 乘法，用在 NFS 的多项式运算里。`vecarith52*.c` 在 `factor/ecm/` 下（52 位 limb 的 AVX-512 向量化实现），虽然物理上不在 `shared/`，但它服务的是 ECM 与 `arith/` 的同一类需求。
 
 
 线性代数与筛选

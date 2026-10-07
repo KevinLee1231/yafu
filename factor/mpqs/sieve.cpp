@@ -707,6 +707,29 @@ static void collect_relations(sieve_conf_t *conf,
 /*--------------------------------------------------------------------*/
 static mp_t two = {1, {2}};
 
+/* Remainder of (tf_offset + rcorrect) * recip, scaled back down by 2^recip_bits.
+ *
+ * This is the multiply-and-shift reciprocal division used by trial factoring:
+ * with (tf_offset + rcorrect)*recip < prime * 2^recip_bits the quotient
+ * q = ((tf_offset + rcorrect)*recip) >> recip_bits is exact, so
+ * tf_offset - q*prime is tf_offset mod prime.  The factor base stores its
+ * reciprocals in two flavours, built for numerators up to 2^32 and up to
+ * 2^40, and recip_bits says which one this prime uses -- it is part of the
+ * prime, so a wrong value silently tests the wrong residue.
+ *
+ * recip_bits is a template parameter so each call site keeps the compile-time
+ * constant shift it had before; check_sieve_val() has four trial division
+ * loops that differ only in this value. */
+template <uint32 recip_bits>
+static inline uint32 tf_remainder(uint32 tf_offset, uint32 rcorrect,
+                              uint32 recip, uint32 prime)
+{
+	uint32 j;
+
+	j = (uint32)(((uint64)(tf_offset + rcorrect) * (uint64)recip) >> recip_bits);
+	return tf_offset - j * prime;
+}
+
 uint32 check_sieve_val(sieve_conf_t *conf, int32 sieve_offset,
 			uint32 bits, mp_t *a, signed_mp_t *b, signed_mp_t *c,
 			uint32 poly_index, bucket_t *hash_bucket) {
@@ -861,9 +884,7 @@ uint32 check_sieve_val(sieve_conf_t *conf, int32 sieve_offset,
 			continue;
 		}
 
-		j = (uint32)(((uint64)(tf_offset + rcorrect) * 
-					(uint64)recip) >> 32);
-		j = tf_offset - j * prime;
+		j = tf_remainder<32>(tf_offset, rcorrect, recip, prime);
 		if (j == root1 || j == root2) {
 			do {
 				bits += logprime;
@@ -898,9 +919,7 @@ uint32 check_sieve_val(sieve_conf_t *conf, int32 sieve_offset,
 			continue;
 		}
 
-		j = (uint32)(((uint64)(tf_offset + rcorrect) * 
-					(uint64)recip) >> 40);
-		j = tf_offset - j * prime;
+		j = tf_remainder<40>(tf_offset, rcorrect, recip, prime);
 		if (j == root1 || j == root2) {
 			do {
 				bits += logprime;
@@ -948,9 +967,7 @@ uint32 check_sieve_val(sieve_conf_t *conf, int32 sieve_offset,
 			continue;
 		}
 
-		j = (uint32)(((uint64)(tf_offset + rcorrect) * 
-					(uint64)recip) >> 32);
-		j = tf_offset - j * prime;
+		j = tf_remainder<32>(tf_offset, rcorrect, recip, prime);
 		if (j == root1 || j == root2) {
 			do {
 				fb_offsets[num_factors++] = i;
@@ -986,9 +1003,7 @@ uint32 check_sieve_val(sieve_conf_t *conf, int32 sieve_offset,
 			continue;
 		}
 
-		j = (uint32)(((uint64)(tf_offset + rcorrect) * 
-					(uint64)recip) >> 40);
-		j = tf_offset - j * prime;
+		j = tf_remainder<40>(tf_offset, rcorrect, recip, prime);
 		if (j == root1 || j == root2) {
 			do {
 				fb_offsets[num_factors++] = i;

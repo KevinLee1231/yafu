@@ -1590,7 +1590,9 @@ void pmpqs_make_fb_mpqs(fb_list_pm_mpqs *fb, uint32_t *modsqrt, mpz_t n)
 
 	mpz_init(tmpr);
 
-	// the 0th element in the fb is always  2, so start searching with 3
+	// fb index 0 holds the sentinel 1 and fb index 1 holds the prime 2, so
+	// prime pmpqs_p[k] lands at fb index k+1.  Start one step past 2:
+	// fb index 2 pairs with pmpqs_p[1] == 3.
 	j=2; i=1;
 	while (j<fb->B)
 	{
@@ -2912,11 +2914,20 @@ void pmpqs_computeB(pm_mpqs_poly *poly, mpz_t n)
 
     //gmp_printf("n = %Zd, ut1 = %"PRIu64", ut2 = %"PRIu64", nmodd = %"PRIu64", t2 = %Zd\n", n, ut1, ut2, nmodd, t2);
 
-	// (n - h1^2)/d
+	// (n - h1^2)/d.  d | (n - h1^2) 由 h1^2 == n (mod d) 保证，所以这里的
+	// 截断除法是精确的，t2 可以是负数。
 	mpz_tdiv_q_ui(t2, t2, polyd);
 
-	// (n - h1^2)/d mod d
-    ut3 = mpz_tdiv_ui(t2, polyd);
+	// (n - h1^2)/d mod d.
+	//
+	// 原来用 mpz_tdiv_ui，它取的是**绝对值**的模：n < h1^2 时 t2 为负，算出来
+	// 是 |t2| mod d，符号整个丢掉，后面 h2 与 b=h1+h2*d 就不再满足
+	// b^2 == n (mod d^2)，产出的多项式与 (a x + b)^2 - n 无关。举例 d=7、n=2
+	// （(2/7)=1 且 7 = 3 mod 4）：h1=4、t2=-2，原式得 ut3=2、b=18，而
+	// 18^2-2=322 不能被 49 整除；取数学意义的模得 ut3=5、b=39，39^2-2=49*31。
+	// n 越大越走不到这个分支（d^2 << n），所以它只在百万级到 10^8 量级露出来。
+	mpz_fdiv_r_ui(t2, t2, polyd);
+    ut3 = (uint64_t)mpz_get_ui(t2);
 
 	// compute t6 = (2*h1)^-1 mod d = (2*h1)^(d-2) mod d
     ut1 = ((uint64_t)ut2 * 2ULL) % (uint64_t)polyd;

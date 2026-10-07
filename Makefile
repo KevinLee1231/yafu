@@ -9,7 +9,7 @@
 # Quick-start
 # -----------
 #   cp config.mk.example config.mk   # first time only; edit paths as needed
-#   Add to .gitignore: config.mk  .deps/
+#   Add to .gitignore: config.mk  build/
 #   make yafu                        # build yafu (default compiler: gcc)
 #   make all                         # build yafu
 #   make lasieve                     # build the external lattice sievers
@@ -19,6 +19,13 @@
 #   make info                        # show fully resolved configuration
 #   make help                        # show feature-flag reference
 #   make clean                       # remove all build artefacts
+#
+# Everything this Makefile generates goes under build/, tree-mirrored, so the
+# source directories stay clean: build/yafu, build/factor/ecm/ecm.o,
+# build/libysiqs.a, build/.deps/factor/ecm/ecm.d, ...
+#
+# The tree is C++ only: every source is .cpp, and everything is compiled as
+# C++26.  There are no C rules left here on purpose.
 #
 # Feature flags (pass on command line or set in config.mk):
 #   OMP=1          OpenMP threading
@@ -815,11 +822,23 @@ LIBS        += $(USER_LDFLAGS) $(LDFLAGS_EXTRA)
 
 OBJ_EXT := .o
 NO_EXT   := .no
-# .c and .cpp have to land on the same object name while the tree is mixed.
-# A substitution reference keeps the stem; patsubst replaces the whole word.
-# $(call) takes the *value*, so the argument has to be $(VAR) and not VAR.
-cxx_objs = $(foreach s,$(1),$(if $(filter %.cpp,$(s)),$(s:.cpp=$(OBJ_EXT)),$(s:.c=$(OBJ_EXT))))
-cxx_no   = $(foreach s,$(1),$(if $(filter %.cpp,$(s)),$(s:.cpp=$(NO_EXT)),$(s:.c=$(NO_EXT))))
+
+# 所有生成文件都落在仓库根的 build/ 下，路径镜像源码树：
+#   factor/ecm/ecm.cpp  ->  build/factor/ecm/ecm.o
+#   factor/mpqs/sieve   ->  build/factor/mpqs/sieve.qo
+#   top/driver.cpp      ->  build/top/driver.o
+# 依赖文件、可执行文件、PTX 和 GPU 引擎也都在这里。源码树不再产生任何
+# 生成文件，所以 `git status` 只看得到改过的源码。
+BUILD_DIR := build
+
+# objmap <extension> <source list>
+#
+# 源文件只有 .cpp 一种了（迁移收尾时把 52 个不参与构建的遗留 .c 删掉了），
+# 所以不再需要"同一份代码按 .c/.cpp 落到同名对象"的那套兼容分支。
+objmap   = $(foreach s,$(2),$(BUILD_DIR)/$(s:.cpp=$(1)))
+cxx_objs = $(foreach s,$(1),$(call objmap,$(OBJ_EXT),$(s)))
+cxx_qo   = $(foreach s,$(1),$(call objmap,.qo,$(s)))
+cxx_no   = $(foreach s,$(1),$(call objmap,$(NO_EXT),$(s)))
 
 # -----------------------------------------------------------------------------
 # 12. MSIEVE / YAFU shared sources
@@ -1097,18 +1116,15 @@ MSIEVE_COMMON_OBJS = $(call cxx_objs,$(MSIEVE_COMMON_SRCS))
 NFS_OBJS          = $(call cxx_no,$(NFS_SRCS))
 NFS_GPU_OBJS      = $(call cxx_no,$(NFS_GPU_SRCS))
 NFS_NOGPU_OBJS    = $(call cxx_no,$(NFS_NOGPU_SRCS))
-QS_OBJS = \
-    factor/mpqs/gf2.qo \
-    factor/mpqs/mpqs.qo \
-    factor/mpqs/mpqs_xface.qo \
-    factor/mpqs/poly.qo \
-    factor/mpqs/relation.qo \
-    factor/mpqs/sieve.qo \
-    factor/mpqs/sqrt.qo \
-    factor/mpqs/sieve_core_generic_32k.qo \
-    factor/mpqs/sieve_core_generic_64k.qo
 
-DEPS_DIR      := .deps
+# sieve_core.cpp 按 32k / 64k 两种块大小各编一份，产物名与源文件不同，
+# 所以这里不能直接由 QS_SRCS 派生，只把单份的那个剔掉。
+QS_OBJS := \
+    $(BUILD_DIR)/factor/mpqs/sieve_core_generic_32k.qo \
+    $(BUILD_DIR)/factor/mpqs/sieve_core_generic_64k.qo \
+    $(filter-out $(BUILD_DIR)/factor/mpqs/sieve_core.qo,$(call cxx_qo,$(QS_SRCS)))
+
+DEPS_DIR      := $(BUILD_DIR)/.deps
 ALL_OBJS      := $(YAFU_OBJS) $(YAFU_SIQS_OBJS) $(YAFU_ECM_OBJS) \
                  $(YAFU_COMMON_OBJS) $(YAFU_NFS_OBJS) \
                  $(MSIEVE_YAFU_OBJS) $(MSIEVE_COMMON_OBJS)
@@ -1117,25 +1133,24 @@ ALL_OBJS      := $(YAFU_OBJS) $(YAFU_SIQS_OBJS) $(YAFU_ECM_OBJS) \
 # of .deps subdirectories that need to exist before compilation starts.
 ALL_COMPILED  := $(ALL_OBJS) $(QS_OBJS) $(NFS_OBJS)
 
-# Mirror the source tree under .deps/ for every compiled object.
-# .o → .deps/path/to/file.d
-# .qo → .deps/path/to/file.d  (strip the q, keep the path)
-# .no → .deps/path/to/file.d  (strip the n, keep the path)
-ALL_DEPS      := $(patsubst %.o,$(DEPS_DIR)/%.d,\
-                 $(patsubst %.qo,$(DEPS_DIR)/%.d,\
-                 $(patsubst %.no,$(DEPS_DIR)/%.d,$(ALL_COMPILED))))
-DEPS_SUBDIRS  := $(sort $(DEPS_DIR)/ $(dir $(ALL_DEPS)))
+# Dependency files mirror the source tree, not the object tree:
+#   build/factor/ecm/ecm.o  ->  build/.deps/factor/ecm/ecm.d
+# The three object extensions all lose one character here, so strip the
+# build/ prefix first and take the basename.
+src_rel       = $(patsubst $(BUILD_DIR)/%,%,$(1))
+ALL_DEPS      := $(addprefix $(DEPS_DIR)/,\
+                 $(addsuffix .d,$(basename $(call src_rel,$(ALL_COMPILED)))))
 
 # GPU / PTX objects
 GPU_OBJS :=
 ifdef CUDA_LA
-    GPU_OBJS += lanczos_kernel.ptx
+    GPU_OBJS += $(BUILD_DIR)/lanczos_kernel.ptx
 endif
 ifeq ($(CUDA_POLY),1)
-    GPU_OBJS += stage1_core.ptx factor/shared/cub/built
+    GPU_OBJS += $(BUILD_DIR)/stage1_core.ptx $(BUILD_DIR)/cub-built
 endif
 ifdef BATCH_CUDA
-    BATCH_GPU_OBJS := cuda_ecm$(SM).ptx
+    BATCH_GPU_OBJS := $(BUILD_DIR)/cuda_ecm$(SM).ptx
 else
     BATCH_GPU_OBJS :=
 endif
@@ -1166,13 +1181,10 @@ _dep_status:
 	@echo "  OpenCL  : $(if $(HAVE_OPENCL),found ($(OCL_INCDIR)),DISABLED — CL/cl.h not found; set OCL_PREFIX in config.mk)"
 	@echo "---------------------------------------------------------------------"
 
-# Create .deps subdirectory tree (order-only — never triggers a rebuild)
-$(DEPS_SUBDIRS):
-	$(MKDIR) $@
-
+# Every compile rule creates its own output and dependency directories, so
+# there is no directory list to keep in step with the source lists above.
 
 # 静态库是链接中间产物：放在 build/ 下，根目录不留生成文件
-BUILD_DIR   := build
 ARCHIVES    := $(BUILD_DIR)/libysiqs.a $(BUILD_DIR)/libyecm.a \
                $(BUILD_DIR)/libynfs.a $(BUILD_DIR)/libmsieve.a
 
@@ -1182,25 +1194,32 @@ ARCHIVES    := $(BUILD_DIR)/libysiqs.a $(BUILD_DIR)/libyecm.a \
 
 # The sieve is one of these, so -no-pie is not optional: the hand-written
 # assembly has 32-bit absolute relocations and is not position independent.
-#
-# LASIEVE_FILES is the list of everything the sub-make produces.  It comes from
-# the sub-make rather than being spelled out here so that it is defined in one
-# place, and every entry is a prerequisite of yafu, so a change to sieve source
-# relinks yafu instead of leaving a stale siever inside it.
 LASIEVE_DIR     ?= factor/nfs/lasieve
-LASIEVE_BINDIR  ?= ../../..
-LASIEVE_FILES   := $(strip $(foreach f,$(shell $(MAKE) -s -C $(LASIEVE_DIR) bobs),$(LASIEVE_DIR)/$(f)))
+# 筛法器的对象、库和它自己的测试可执行文件同样进 build/，路径镜像源码树。
+# 取绝对路径：子构建用它算出 kernels/ 那一层，而且 bobs 打印出来的链接输入
+# 必须是父构建能直接用的路径。
+LASIEVE_OBJDIR  := $(abspath $(BUILD_DIR)/$(LASIEVE_DIR))
 
 # What the sub-make has to be told.  One list, used by every entry point into
 # it, so the flags cannot drift apart between them.
 LASIEVE_VARS := \
     CC=$(CC) \
-    BINDIR=$(LASIEVE_BINDIR) \
+    CXX=$(CXX) \
+    OBJDIR=$(LASIEVE_OBJDIR) \
+    BINDIR=$(LASIEVE_OBJDIR) \
     GMP_INCDIR=$(GMP_INCDIR) \
     GMP_LIBDIR=$(GMP_LIBDIR) \
     DETECTED_OS=$(DETECTED_OS) \
     $(if $(filter 1,$(DEBUG)),DEBUG=1) \
     $(if $(filter 1,$(USE_AVX512)),AVX512_ALL=1)
+
+# LASIEVE_FILES is the list of everything the sub-make produces, already
+# repo-absolute.  It comes from the sub-make rather than being spelled out here
+# so that it is defined in one place, and every entry is a prerequisite of
+# yafu, so a change to sieve source relinks yafu instead of leaving a stale
+# siever inside it.  LASIEVE_VARS has to be settled first: bobs echoes the
+# same paths lasieve-force will build.
+LASIEVE_FILES := $(strip $(shell $(MAKE) -s -C $(LASIEVE_DIR) bobs $(LASIEVE_VARS)))
 
 # Phony on purpose.  A rule of the form "$(LASIEVE_FILES): <recipe>" never runs
 # its recipe once the files exist, because make considers them up to date -- and
@@ -1210,15 +1229,24 @@ LASIEVE_VARS := \
 # real up-to-date checking; this only has to run.
 .PHONY: lasieve-force
 lasieve-force:
-	$(MAKE) -C $(LASIEVE_DIR) objects $(LASIEVE_VARS) CXX="$(CXX)"
+	$(MAKE) -C $(LASIEVE_DIR) objects $(LASIEVE_VARS)
 
 # Order-only: the objects must exist before the link, but they are not what
 # decides whether yafu relinks.  LASIEVE_FILES is a := list rather than a set of
 # prerequisites, so a change to sieve source reaches the link through the
 # sub-make rebuilding those object files.
-yafu: _dep_status $(YAFU_OBJS) $(ARCHIVES) $(GPU_OBJS) | lasieve-force
-	$(CXX) $(CXXFLAGS) -no-pie $(YAFU_OBJS) -o yafu$(EXE_EXT) \
+#
+# `make yafu` is the phony front end; the file is build/yafu.
+YAFU_BIN := $(BUILD_DIR)/yafu$(EXE_EXT)
+
+.PHONY: yafu
+yafu: $(YAFU_BIN)
+
+$(YAFU_BIN): _dep_status $(YAFU_OBJS) $(ARCHIVES) $(GPU_OBJS) | lasieve-force
+	$(MKDIR) $(@D)
+	$(CXX) $(CXXFLAGS) -no-pie $(YAFU_OBJS) -o $@ \
 	    $(ARCHIVES) $(LASIEVE_FILES) $(LIBS)
+	@echo "built $@"
 
 
 # -----------------------------------------------------------------------------
@@ -1263,17 +1291,17 @@ TEST_SRCS := \
     $(TEST_DIR)/layer1/test_sieve.cpp \
     $(TEST_DIR)/layer2/test_ecm.cpp
 TEST_OBJS := $(call cxx_objs,$(TEST_SRCS))
-TEST_BIN  := yafu_test$(EXE_EXT)
+TEST_BIN  := $(BUILD_DIR)/yafu_test$(EXE_EXT)
 
 # YAFU objects the layered tests link against (overridable).
 TEST_KERNEL_OBJS ?= $(YAFU_COMMON_OBJS)
 
 # 测试对象同样跟踪所包含的头文件，修改算术实现后自动重编译。
-$(TEST_DIR)/%.o: $(TEST_DIR)/%.cpp $(TEST_DIR)/testkit.h $(TEST_DIR)/test_data.h
-	$(MKDIR) $(DEPS_DIR)/$(dir $<)
-	$(CXX) $(CXXFLAGS) -I$(TEST_DIR) -MMD -MP -MF $(DEPS_DIR)/$(patsubst %.cpp,%.d,$<) -c -o $@ $<
+$(BUILD_DIR)/$(TEST_DIR)/%.o: $(TEST_DIR)/%.cpp $(TEST_DIR)/testkit.h $(TEST_DIR)/test_data.h
+	$(MKDIR) $(@D) $(DEPS_DIR)/$*
+	$(CXX) $(CXXFLAGS) -I$(TEST_DIR) -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
 
--include $(patsubst %.cpp,$(DEPS_DIR)/%.d,$(TEST_SRCS))
+-include $(DEPS_DIR)/$(patsubst %.cpp,%.d,$(TEST_SRCS))
 
 $(BUILD_DIR)/libyafu_common.a: $(TEST_KERNEL_OBJS)
 	@mkdir -p $(@D)
@@ -1282,6 +1310,7 @@ $(BUILD_DIR)/libyafu_common.a: $(TEST_KERNEL_OBJS)
 	ranlib $@
 
 test: _dep_status $(TEST_OBJS) $(BUILD_DIR)/libyafu_common.a
+	$(MKDIR) $(dir $(TEST_BIN))
 	$(CXX) $(CXXFLAGS) $(TEST_OBJS) -o $(TEST_BIN) $(BUILD_DIR)/libyafu_common.a $(LIBS)
 	@echo "built $(TEST_BIN) — run it:  ./$(TEST_BIN)   (try --list, --bench, --help)"
 
@@ -1309,9 +1338,9 @@ TEST_L3_SRCS  := $(TEST_DIR)/layer3/test_siqs.cpp $(TEST_DIR)/layer3/test_calc.c
     $(TEST_DIR)/layer3/test_options.cpp \
     $(TEST_DIR)/layer3/test_ecm_review.cpp $(TEST_DIR)/layer3/test_qs_review.cpp \
     factor/shared/common/vec_bitonic_sort.cpp
-TEST_FRONTEND_OBJS := $(filter-out top/driver$(OBJ_EXT),$(YAFU_OBJS))
-TEST_FULL_BIN := yafu_test_full$(EXE_EXT)
-TEST_SAN_BIN := yafu_test_sanitize$(EXE_EXT)
+TEST_FRONTEND_OBJS := $(filter-out $(BUILD_DIR)/top/driver$(OBJ_EXT),$(YAFU_OBJS))
+TEST_FULL_BIN := $(BUILD_DIR)/yafu_test_full$(EXE_EXT)
+TEST_SAN_BIN := $(BUILD_DIR)/yafu_test_sanitize$(EXE_EXT)
 
 # 每个静态库只由一条规则生成，允许主程序、演示程序和测试并行链接。
 $(BUILD_DIR)/libysiqs.a: $(YAFU_SIQS_OBJS) $(YAFU_COMMON_OBJS) $(MSIEVE_YAFU_OBJS)
@@ -1336,6 +1365,7 @@ $(BUILD_DIR)/libmsieve.a: $(MSIEVE_COMMON_OBJS) $(QS_OBJS) $(NFS_OBJS)
 	ranlib $@
 
 test-full: _dep_status $(ARCHIVES) $(TEST_FRONTEND_OBJS)
+	$(MKDIR) $(dir $(TEST_FULL_BIN))
 	$(CC) $(CFLAGS) -DTK_WITH_LAYER3 -I$(TEST_DIR) \
 	    $(TEST_SRCS) $(TEST_L3_SRCS) $(TEST_FRONTEND_OBJS) -o $(TEST_FULL_BIN) \
 	    $(ARCHIVES) $(LIBS)
@@ -1346,12 +1376,26 @@ test-full-run: test-full
 
 .PHONY: test-cli
 test-cli: yafu
-	sh $(TEST_DIR)/test_cli.sh ./yafu$(EXE_EXT)
+	sh $(TEST_DIR)/test_cli.sh $(YAFU_BIN)
 
 .PHONY: test-standalone
 test-standalone:
 	CC="$(CC)" CFLAGS="$(USER_CFLAGS)" CXX="$(CXX)" CXXFLAGS="$(USER_CXXFLAGS)" sh $(TEST_DIR)/test_nfs.sh
 	CC="$(CC)" CFLAGS="$(USER_CFLAGS)" CXX="$(CXX)" CXXFLAGS="$(USER_CXXFLAGS)" sh $(TEST_DIR)/test_lasieve.sh
+
+# -----------------------------------------------------------------------------
+# test-all: 跑完所有回归，并替每一套的成败负责
+#
+# 以前各套脚本各自清理、各自退出，顶层一条一行地调用，谁的退出码没传出来整轮
+# 就是绿的。现在交给 test/run_all.sh：逐套记录、逐套打印、最后汇总。
+# -----------------------------------------------------------------------------
+.PHONY: test-all
+test-all: $(YAFU_BIN) test
+	CC="$(CC)" CXX="$(CXX)" YAFU="$(YAFU_BIN)" sh $(TEST_DIR)/run_all.sh unit cli nfs lasieve harness
+
+.PHONY: test-harness
+test-harness:
+	sh $(TEST_DIR)/harness_selftest.sh
 
 # 为所有参与链接的项目源码启用检查；下次常规 make 会按配置记录自动重建。
 .PHONY: test-sanitize
@@ -1362,10 +1406,11 @@ test-sanitize:
 # 只为本次回归涉及的源码和测试启用运行时检查，不覆盖常规对象文件。
 .PHONY: test-calc-sanitize
 test-calc-sanitize: _dep_status $(ARCHIVES) $(TEST_FRONTEND_OBJS)
+	$(MKDIR) $(dir $(TEST_SAN_BIN))
 	$(CC) $(CFLAGS) -O1 -fsanitize=address,undefined -fno-omit-frame-pointer \
 	    -DTK_WITH_LAYER3 -I$(TEST_DIR) $(TEST_SRCS) $(TEST_L3_SRCS) \
 	    top/cmdParser/calc.cpp factor/core/factor_common.cpp \
-	    $(filter-out top/cmdParser/calc$(OBJ_EXT),$(TEST_FRONTEND_OBJS)) \
+	    $(filter-out $(BUILD_DIR)/top/cmdParser/calc$(OBJ_EXT),$(TEST_FRONTEND_OBJS)) \
 	    -o $(TEST_SAN_BIN) $(ARCHIVES) $(LIBS)
 	./$(TEST_SAN_BIN) calc
 
@@ -1387,14 +1432,15 @@ test-calc-sanitize: _dep_status $(ARCHIVES) $(TEST_FRONTEND_OBJS)
 # USE_AVX512=1 in config.mk or on the command line enables AVX-512 sieve
 # paths automatically (maps to AVX512_ALL=1 in the sub-make).
 #
-# 可执行文件与 yafu 写在同一目录（仓库根），yafu 按自身位置找到它们。
-# kernels/ 中只生成供链接使用的库。
+# 筛法器的一切生成物（对象、libcoreI<N>.a / liblasieveI<N>.a，以及它自己的
+# 测试可执行文件）都写在 build/factor/nfs/lasieve/ 下，kernels/ 那一层对应
+# build/factor/nfs/lasieve/kernels/。
 # -----------------------------------------------------------------------------
 lasieve: _dep_status lasieve-force
 	@:
 
 lasieve-clean:
-	$(MAKE) -C $(LASIEVE_DIR) clean BINDIR=$(LASIEVE_BINDIR)
+	$(MAKE) -C $(LASIEVE_DIR) clean OBJDIR=$(LASIEVE_OBJDIR) BINDIR=$(LASIEVE_OBJDIR)
 
 
 # -----------------------------------------------------------------------------
@@ -1414,7 +1460,7 @@ $(BUILD_CONFIG): _force_build_config | $(DEPS_DIR)/
 $(sort $(ALL_COMPILED) $(TEST_OBJS)): $(BUILD_CONFIG)
 
 # Standard .c → .o
-# -MF redirects the dependency file into .deps/, mirroring the source tree.
+# -MF redirects the dependency file into build/.deps/, mirroring the source tree.
 CXX ?= g++
 # C++26 is the newest this compiler has.  What that buys the migration:
 # one- and two-dimensional local VLAs are in C++ and this tree uses them heavily
@@ -1425,66 +1471,67 @@ CXXFLAGS := $(filter-out -std=gnu11,$(CFLAGS)) -std=c++26
 # 与 USER_CFLAGS 对应的 C++ 覆盖入口，供 test-standalone 传下去。
 USER_CXXFLAGS ?= $(filter-out -std=gnu11 -std=c++26,$(CFLAGS))
 
-%.o: %.c | $(DEPS_SUBDIRS)
-	$(CC) $(CFLAGS) -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
-
-%.o: %.cpp | $(DEPS_SUBDIRS)
+$(BUILD_DIR)/%.o: %.cpp
+	$(MKDIR) $(@D) $(DEPS_DIR)/$*
 	$(CXX) $(CXXFLAGS) -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
 
 # QS objects (.qo) — also get dependency files now
-factor/mpqs/sieve_core_generic_32k.qo: factor/mpqs/sieve_core.cpp | $(DEPS_SUBDIRS)
+$(BUILD_DIR)/factor/mpqs/sieve_core_generic_32k.qo: factor/mpqs/sieve_core.cpp
+	$(MKDIR) $(@D) $(dir $(DEPS_DIR)/factor/mpqs/sieve_core_generic_32k.d)
 	$(CXX) $(CXXFLAGS) -DBLOCK_KB=32 -DHAS_SSE2 \
 	    -DROUTINE_NAME=qs_core_sieve_generic_32k \
 	    -MMD -MP -MF $(DEPS_DIR)/factor/mpqs/sieve_core_generic_32k.d \
 	    -c -o $@ $<
 
-factor/mpqs/sieve_core_generic_64k.qo: factor/mpqs/sieve_core.cpp | $(DEPS_SUBDIRS)
+$(BUILD_DIR)/factor/mpqs/sieve_core_generic_64k.qo: factor/mpqs/sieve_core.cpp
+	$(MKDIR) $(@D) $(dir $(DEPS_DIR)/factor/mpqs/sieve_core_generic_64k.d)
 	$(CXX) $(CXXFLAGS) -DBLOCK_KB=64 -DHAS_SSE2 \
 	    -DROUTINE_NAME=qs_core_sieve_generic_64k \
 	    -MMD -MP -MF $(DEPS_DIR)/factor/mpqs/sieve_core_generic_64k.d \
 	    -c -o $@ $<
 
-%.qo: %.c | $(DEPS_SUBDIRS)
-	$(CC) $(CFLAGS) -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
-
-%.qo: %.cpp | $(DEPS_SUBDIRS)
+$(BUILD_DIR)/%.qo: %.cpp
+	$(MKDIR) $(@D) $(DEPS_DIR)/$*
 	$(CXX) $(CXXFLAGS) -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
 
 # NFS objects (.no) — add -Ifactor/nfs/gnfs for NFS-internal includes
-%.no: %.c | $(DEPS_SUBDIRS)
-	$(CC) $(CFLAGS) -Ifactor/nfs/gnfs -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
-%.no: %.cpp | $(DEPS_SUBDIRS)
+$(BUILD_DIR)/%.no: %.cpp
+	$(MKDIR) $(@D) $(DEPS_DIR)/$*
 	$(CXX) $(CXXFLAGS) -Ifactor/nfs/gnfs -MMD -MP -MF $(DEPS_DIR)/$*.d -c -o $@ $<
 
 # GPU / PTX rules
-stage1_core.ptx: factor/nfs/gnfs/poly/stage1/stage1_core_gpu/stage1_core.cu $(NFS_GPU_HDR)
+$(BUILD_DIR)/stage1_core.ptx: factor/nfs/gnfs/poly/stage1/stage1_core_gpu/stage1_core.cu $(NFS_GPU_HDR)
+	$(MKDIR) $(@D)
 	$(NVCC) -arch $(CUDA_PTX_ARCH) -ptx -I. -Ifactor/shared/cub/include -Ifactor/nfs/gnfs -Ifactor/nfs/gnfs/poly/stage1 -o $@ $<
-	
-#stage1_core.ptx: factor/nfs/gnfs/poly/stage1/stage1_core_gpu/stage1_core.cu
+
+# $(BUILD_DIR)/stage1_core.ptx: factor/nfs/gnfs/poly/stage1/stage1_core_gpu/stage1_core.cu
 #	$(NVCC) -arch sm_$(SM) -ptx -o $@ $<
 
-lanczos_kernel.ptx: factor/shared/common/lanczos/gpu/lanczos_kernel.cu
+$(BUILD_DIR)/lanczos_kernel.ptx: factor/shared/common/lanczos/gpu/lanczos_kernel.cu
+	$(MKDIR) $(@D)
 	$(NVCC) -arch sm_$(SM) -ptx -DVBITS=$(VBITS) -o $@ $<
 
-cuda_ecm$(SM).ptx: $(COMMON_BATCH_GPU_SRCS)
+$(BUILD_DIR)/cuda_ecm$(SM).ptx: $(COMMON_BATCH_GPU_SRCS)
+	$(MKDIR) $(@D)
 	$(NVCC) -arch sm_$(SM) -ptx -o $@ $<
 
-# factor/shared/cub/built:
-# 	cd cub && $(MAKE) WIN=$(WIN) WIN64=$(WIN64) VBITS=$(VBITS) sm=$(SM)0 && cd ..
-
-factor/shared/cub/built: factor/shared/cub/sort_engine.cu factor/shared/cub/collision_engine.cu factor/shared/cub/collision_engine.h factor/shared/cub/collision_bucket.h
-	$(NVCC) $(CUB_ENGINE_ARCH) --shared -Xcompiler -fPIC -o factor/shared/cub/sort_engine.so factor/shared/cub/sort_engine.cu
+# cub_built is a stamp for the two GPU engines; both .so files land next to it.
+# stage1_sieve_gpu.cpp opens them as "build/sort_engine.so" etc., relative to
+# the directory yafu runs in, which is the repository root.
+$(BUILD_DIR)/cub-built: factor/shared/cub/sort_engine.cu factor/shared/cub/collision_engine.cu factor/shared/cub/collision_engine.h factor/shared/cub/collision_bucket.h
+	$(MKDIR) $(@D)
+	$(NVCC) $(CUB_ENGINE_ARCH) --shared -Xcompiler -fPIC -o $(BUILD_DIR)/sort_engine.so factor/shared/cub/sort_engine.cu
 # The Gerbicz collision engine uses __match_any_sync, which requires
 # compute capability 7.0 (Volta) or newer. For older GPUs, skip building it;
 # the sort engine is the default and works on sm_60. (Do not pass
 # collengine=gerbicz on such a build - see load_collision_engine().)
 ifeq ($(shell [ -n "$(SM)" ] && [ "$(SM)" -ge 70 ] && echo yes),yes)
-	$(NVCC) $(CUB_ENGINE_ARCH) --shared -Xcompiler -fPIC -I. -Ifactor/shared/cub/include -Ifactor/nfs/gnfs -Ifactor/nfs/gnfs/poly/stage1 -o factor/shared/cub/collision_engine.so factor/shared/cub/collision_engine.cu
+	$(NVCC) $(CUB_ENGINE_ARCH) --shared -Xcompiler -fPIC -I. -Ifactor/shared/cub/include -Ifactor/nfs/gnfs -Ifactor/nfs/gnfs/poly/stage1 -o $(BUILD_DIR)/collision_engine.so factor/shared/cub/collision_engine.cu
 else
 	@echo "NOTE: SM=$(SM) < 70 (pre-Volta); skipping the Gerbicz collision engine (requires sm_70+). Building the sort engine only - do not pass collengine=gerbicz."
-	@rm -f factor/shared/cub/collision_engine.so
+	@rm -f $(BUILD_DIR)/collision_engine.so
 endif
-	touch factor/shared/cub/built
+	touch $@
 	
 # -----------------------------------------------------------------------------
 # 27. AUTOMATIC DEPENDENCY INCLUSION  (.d files from .deps/)
@@ -1497,27 +1544,26 @@ endif
 # -----------------------------------------------------------------------------
 # 28. CLEAN
 # -----------------------------------------------------------------------------
-# NOTE on .ptx: the kernel for the target architecture is generated into the
-# working directory at build time and is not tracked.
-# PTX module so that GPU batch factorization works on machines without nvcc.
-# The build also generates .ptx modules (cuda_ecm$(SM).ptx, lanczos_kernel.ptx,
-# stage1_core.ptx), and those should be cleaned. A bare `*.ptx` glob therefore
-# deletes a tracked file and leaves the working tree dirty after `make clean`.
-# Only remove the generated ones.
-GENERATED_PTX := $(filter-out cuda_ecm80.ptx,$(wildcard *.ptx))
+# Everything this Makefile generates lives under build/, so one rm -rf covers
+# objects, archives, dependency files, the executables, the PTX modules and the
+# GPU engines.
+#
+# LEGACY_* are the places earlier revisions wrote to.  They are swept here so a
+# tree built before the move does not keep a few hundred stale files around;
+# nothing new is ever written there.
+LEGACY_ARTIFACTS := \
+    yafu$(EXE_EXT) yafu_test$(EXE_EXT) yafu_test_full$(EXE_EXT) yafu_test_sanitize$(EXE_EXT) \
+    $(wildcard factor/*/*.o factor/*/*/*.o factor/*/*/*/*.o) \
+    $(wildcard factor/*/*.a factor/*/*/*.a factor/*/*/*/*.a) \
+    $(wildcard factor/*/*.qo factor/*/*.no) \
+    factor/nfs/lasieve/objI11 factor/nfs/lasieve/objI12 factor/nfs/lasieve/objI13 \
+    factor/nfs/lasieve/objI14 factor/nfs/lasieve/objI15 factor/nfs/lasieve/objI16 \
+    factor/nfs/lasieve/kernels/coreI11 factor/nfs/lasieve/kernels/coreI12 \
+    factor/nfs/lasieve/kernels/coreI13 factor/nfs/lasieve/kernels/coreI14 \
+    factor/nfs/lasieve/kernels/coreI15 factor/nfs/lasieve/kernels/coreI16
 
 clean:
-	$(RM_RF) \
-	    $(MSIEVE_YAFU_OBJS) \
-	    $(YAFU_OBJS) $(YAFU_NFS_OBJS) $(YAFU_SIQS_OBJS) \
-	    $(YAFU_ECM_OBJS) $(YAFU_COMMON_OBJS) \
-	    $(MSIEVE_COMMON_OBJS) \
-	    $(QS_OBJS) $(NFS_OBJS) $(NFS_GPU_OBJS) $(NFS_NOGPU_OBJS) \
-	    $(DEPS_DIR) \
-	    $(ARCHIVES) $(BUILD_DIR) \
-	    yafu$(EXE_EXT) \
-	    $(GENERATED_PTX)
-	$(RM_RF) $(TEST_OBJS) $(BUILD_DIR) $(TEST_BIN) $(TEST_FULL_BIN) $(TEST_SAN_BIN)
+	$(RM_RF) $(BUILD_DIR) $(DEPS_DIR) $(LEGACY_ARTIFACTS)
 	@echo "Note: use 'make lasieve-clean' to also clean factor/nfs/lasieve"
 
 
@@ -1533,6 +1579,7 @@ info:
 	@echo "  Compiler family  : $(COMPILER_FAMILY)"
 	@echo "  Debug build      : $(if $(filter 1,$(DEBUG)),yes,no)"
 	@echo "  VBITS            : $(VBITS)"
+	@echo "  Build directory  : $(BUILD_DIR)/  (all generated files, tree-mirrored)"
 	@echo "----------------------------------------------------------------"
 	@echo "  ISA flags"
 	@echo "    USE_NATIVE     : $(if $(filter 1,$(USE_NATIVE)),yes,no)"
@@ -1575,21 +1622,26 @@ info:
 help:
 	@echo ""
 	@echo "  Targets:"
-	@echo "    make yafu            build the main yafu binary"
+	@echo "    make yafu            build the main yafu binary -> $(BUILD_DIR)/yafu"
 	@echo "    make all             build all four targets above"
-	@echo "    make test            build the test suite (yafu_test)"
+	@echo "    make test            build the test suite -> $(BUILD_DIR)/yafu_test"
 	@echo "    make test-run        build and run the test suite"
 	@echo "    make test-clean      remove test build artefacts"
 	@echo "    make test-full       build Layers 0-3 (SIQS and calculator integration)"
 	@echo "    make test-cli        run command-line regressions"
 	@echo "    make test-standalone run isolated NFS and lasieve regressions"
+	@echo "    make test-all         run every regression and report each one"
+	@echo "    make test-harness     check the regression harness itself"
 	@echo "    make test-sanitize   rebuild all test dependencies with ASan/UBSan and run fast tests"
 	@echo "    make test-calc-sanitize  build+run calculator regressions with ASan/UBSan"
 	@echo "    make test-full-run   build and run Layers 0-3"
-	@echo "    make lasieve         build the NFS sievers next to the yafu executable"
+	@echo "    make lasieve         rebuild the NFS sieve objects under $(BUILD_DIR)/"
 	@echo "    make clean           remove yafu build artefacts (not lasieve)"
 	@echo "    make lasieve-clean   remove lasieve build artefacts"
 	@echo "    make info            show resolved flags and dependency paths"
+	@echo ""
+	@echo "  Every generated file lands under $(BUILD_DIR)/, tree-mirrored:"
+	@echo "  $(BUILD_DIR)/factor/ecm/ecm.o, $(BUILD_DIR)/libysiqs.a, $(BUILD_DIR)/yafu, ..."
 	@echo ""
 	@echo "  Compiler selection (default: gcc):"
 	@echo "    make CC=gcc          GCC"

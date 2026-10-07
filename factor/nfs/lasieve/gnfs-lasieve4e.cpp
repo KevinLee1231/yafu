@@ -128,9 +128,25 @@ u32_t nss= 0,nzss[3]= {0,0,0};
 #include "strategy.h"
 
 #include "lasieve_ns.h"
+#include "lasieve_afb.h"
 
 namespace lasieve_ns {
-#include "kernels/siever-config.c"
+// 这里原来 #include 的是 kernels/siever-config.c：它是被 textual include
+// 进 namespace lasieve_ns 的 CTANGLE 残留，所以不出现在任何 Makefile 的
+// 源文件清单里。清理那批不参与构建的 .c 时它也跟着没了，编译断在这一行。
+// 内容原样搬进来，语义不变。
+static void siever_init(void)
+{
+}
+
+#ifndef MPQS_ONLY
+const ulong schedule_primebounds[N_PRIMEBOUNDS]=
+{0x100000,0x200000,0x400000,0x800000,0x1000000,0x2000000,0x4000000,
+0x8000000,0x10000000,0x20000000,0x40000000,0x80000000};
+
+const ulong schedule_sizebits[N_PRIMEBOUNDS]= {20,21,22,23,24,25,26,27,28,29,30,32};
+#endif
+
 static float
 FB_bound[2],sieve_report_multiplier[2], sieve_report_multiplier_FB[2];
 static u16_t sieve_min[2],max_primebits[2],max_factorbits[2];
@@ -173,8 +189,6 @@ static u32_t FB_bound_lowered;
    of the polynomial, and a checksum covering the records and the trailer
    fields.  Files without the trailer are rejected unless
    LASIEVE_AFB_ALLOW_LEGACY=1, since their completeness cannot be verified. */
-#define AFB_EXT_MAGIC 0xafb00004
-#define AFB_EXT_WORDS 5
 
 /* _WIN64 (not _WIN32) deliberately: it matches this file's Windows.h
    include guard, and the 64-bit asm rules out Win32 siever builds. */
@@ -562,7 +576,6 @@ static void gcd_sieve(void);
 
 /*:64*//*102:*/
 
-u16_t**schedbuf;
 
 /*:102*//*110:*/
 
@@ -1743,12 +1756,11 @@ int main(int argc, char** argv)
                         fseek(afbfile, sizeof(u32_t), SEEK_SET) != 0) {
                         complain("Cannot get size of %s: %m\n", afbname);
                     }
-                    afb_legacy_len = 2 * sizeof(u32_t) +
-                        2 * (u64_t)FBsize[side] * sizeof(u32_t);
+                    afb_legacy_len = afb_legacy_bytes(FBsize[side]);
                     if ((u64_t)afb_flen == afb_legacy_len)
                         afb_has_ext = 0;
                     else if ((u64_t)afb_flen ==
-                        afb_legacy_len + AFB_EXT_WORDS * sizeof(u32_t))
+                        afb_legacy_len + AFB_EXT_BYTES)
                         afb_has_ext = 1;
                     else
                         complain("%s: file length %ld does not match FB size %u; "
@@ -2625,24 +2637,6 @@ close(fd);
 
     }
 
-/*:43*//*103:*/
-
-    {
-        u32_t s;
-        size_t schedbuf_alloc;
-
-        for (s = 0, schedbuf_alloc = 0; s < 2; s++) {
-            u32_t i;
-
-            for (i = 0; i < n_schedules[s]; i++)
-                if (schedules[s][i].n_pieces > schedbuf_alloc)
-                    schedbuf_alloc = schedules[s][i].n_pieces;
-        }
-        schedbuf = (u16_t**)xmalloc((1 + schedbuf_alloc) * sizeof(*schedbuf));
-
-        totalmem += (1 + schedbuf_alloc) * sizeof(*schedbuf);
-        //printf("after schedbuf, totalmem is %lu bytes\n", totalmem);
-    }
 
 /*:103*/
 
@@ -4134,10 +4128,6 @@ nss+= n_strips;
 #define MEDSCHED_SI_OFFS 0
 #endif
 #endif
-#ifdef ASM_SCHEDSIEVE1
-                            schedsieve(medsched_logs[s], n_medsched_pieces[s],
-                                med_sched[s], sieve_interval);
-#else
                             {
                                 u32_t l;
 
@@ -4164,7 +4154,6 @@ nss+= n_strips;
 #endif
                                 }
                             }
-#endif
 
                             /*:100*/
 
@@ -4208,16 +4197,6 @@ nss+= n_strips;
 #endif
 
                                 for (j = 0; j < n_schedules[s]; j++) {
-#ifdef ASM_SCHEDSIEVE1
-                                    u32_t i, k;
-
-                                    k = schedules[s][j].current_strip;
-                                    for (i = 0; i <= schedules[s][j].n_pieces; i++) {
-                                        schedbuf[i] = schedules[s][j].schedule[i][k];
-                                    }
-                                    schedsieve(schedules[s][j].schedlogs, schedules[s][j].n_pieces,
-                                        schedbuf, sieve_interval);
-#else
                                     u32_t l, k;
 
                                     k = schedules[s][j].current_strip;
@@ -4248,7 +4227,6 @@ nss+= n_strips;
                                         }
 #endif
                                     }
-#endif
                                 }
                             }
 
@@ -5361,16 +5339,6 @@ nzss[2]++;
 
     /*:128*//*129:*/
 
-#if defined( ASM_SCHEDTDSIEVE) && !defined(AVX512_TDSCHED)
-    {
-        u32_t x, * (y[2]);
-
-        x = 0;
-        y[0] = med_sched[side][0];
-        y[1] = med_sched[side][n_medsched_pieces[side]];
-        schedtdsieve(&x, 1, y, sieve_interval, tds_fbi_curpos);
-    }
-#else
     {
         u32_t l;
 
@@ -5429,7 +5397,6 @@ nzss[2]++;
         }
     }
 
-#endif
 
 #ifndef NO_TD_CLOCK
     newclock= clock();
@@ -5445,16 +5412,6 @@ nzss[2]++;
 
         for (j = 0; j < n_schedules[side]; j++)
         {
-#ifdef ASM_SCHEDTDSIEVE
-            u32_t i, k;
-            k = schedules[side][j].current_strip++;
-            for (i = 0; i <= schedules[side][j].n_pieces; i++) {
-                schedbuf[i] = schedules[side][j].schedule[i][k];
-            }
-            schedtdsieve(schedules[side][j].fbi_bounds, schedules[side][j].n_pieces,
-                schedbuf, sieve_interval, tds_fbi_curpos);
-#else
-
 #if 1
             u32_t k, l, fbi_offset;
             u16_t* x, * x_ub;
@@ -5575,7 +5532,6 @@ nzss[2]++;
             }
 #endif
 
-#endif
 
         }
     }
@@ -5767,13 +5723,6 @@ nzss[2]++;
         }
 #endif
 
-#if defined( ASM_TDSLINIE0) && !defined(AVX512_TDS0)
-        if (x < smallsieve_auxbound[side][0]) {
-            tdslinie0(x, smallsieve_auxbound[side][0], sieve_interval, tds_fbi_curpos);
-            x = smallsieve_auxbound[side][0];
-        }
-#else
-
 #if defined(AVX512_TDS0)
 
 #if defined(CONTIGUOUS_SMALLSIEVE)
@@ -5944,7 +5893,6 @@ nzss[2]++;
 
 #endif
 
-#endif
 #ifndef NO_TD_CLOCK
         newclock = clock();
         tds1_clock[side] += newclock - last_tdclock;

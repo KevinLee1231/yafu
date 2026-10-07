@@ -921,9 +921,9 @@ uint32_t make_fb_siqs(static_conf_t* sconf);
 void get_dummy_params(int bits, uint32_t* B, uint32_t* M, uint32_t* NB);
 void print_siqs_splash(dynamic_conf_t* dconf, static_conf_t* sconf);
 
-// tiny variants of a few routines, that live in tinySIQS.c
-int tiny_update_check(static_conf_t* sconf);
-void* tiny_process_poly(void* ptr);
+// tinySIQS.c 里的两个 tiny 例程原先声明在这里。那个文件不参与构建（它的内容
+// 早已并进 siqs_aux.cpp），所以这两条声明从来没有过定义、也没有调用者——
+// 谁写个 tiny_update_check() 就会在链接时才发现。随该文件一并删除。
 
 //test routines
 int check_specialcase(FILE* sieve_log, fact_obj_t* fobj);

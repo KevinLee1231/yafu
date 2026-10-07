@@ -34,13 +34,13 @@ siever 才是最终目标。
 
 | 来源 | 个数 | 谁定义 |
 | --- | --- | --- |
-| `liblasieveI%d.a` 的筛内核 | 30 | `asm/lasched.c`、`medsched.c`、`search0.c`、`slinie*.asm`、`tdslinie*.asm` |
+| `liblasieveI%d.a` 的筛内核 | 30 | `asm/lasched.c`、`medsched.cpp`、`search0.cpp`、`slinie*.asm`、`tdslinie*.asm` |
 | `gnfs-lasieve4e.c` 的文件级全局（含 `main`） | 15 | 同名 C 源 |
-| `recurrence6.c` 的文件级全局 | 2 | 同名 C 源 |
-| **汇编按名读取的 C 全局** | **59** | `mpqs.c` 18 个、`mpqs3.c` 21 个、`mpqs_gauss_*` 9 个、`modulo32`/`modulo64`、`montgomery_*` 6 个 |
+| `recurrence6.cpp` 的文件级全局 | 2 | 同名 C 源 |
+| **汇编按名读取的 C 全局** | **59** | `mpqs.cpp` 18 个、`mpqs3.cpp` 21 个、`mpqs_gauss_*` 9 个、`modulo32`/`modulo64`、`montgomery_*` 6 个 |
 
 后三类里，`main` 改名为 `mainI<N>` 之后由一个 `lasieve_run(I, argc, argv)`
-分派；`lasieve-prepn.c` 与 `strategy.c` 是仅有的两个调用了改名符号的共享
+分派；`lasieve-prepn.c` 与 `strategy.cpp` 是仅有的两个调用了改名符号的共享
 对象，必须也按 I 各编一份。
 
 最后一类是最容易被低估的：`asm/liblasieve.a`（39 个对象）**定义**
@@ -104,12 +104,12 @@ ECM 与 P−1 的位图访问曾经按字节下标算而缓冲区按 u64 字分�
     la-cs.c          lasieve-prepn.c    mpz-ull.c           primgen32.c
     recurrence6.c    redu2.c            strategy.c
 
-其余 27 个是手写的，包括全部 MPQS、ECM、P−1 实现、`lasieve_ctx.c`
-（实例状态）和几个测试程序（`ctx_test.c`、`ecm_pm1_test.c`、`ecmtest.c`、
-`mpqstest.c`、`mpqs3test.c`、`mpqsstat.c`、`ecmstat.c`、`pm1stat.c`、
-`pm1test.c`）。
+其余 27 个是手写的，包括全部 MPQS、ECM、P−1 实现、`lasieve_ctx.cpp`
+（实例状态）和几个测试程序（`ctx_test.cpp`、`ecm_pm1_test.cpp`、`ecmtest.cpp`、
+`mpqstest.cpp`、`mpqs3test.cpp`、`mpqsstat.cpp`、`ecmstat.cpp`、`pm1stat.cpp`、
+`pm1test.cpp`）。
 
-`w_files/primgen64.w` 是孤儿，没有对应的 `primgen64.c`。
+`w_files/primgen64.w` 是孤儿，没有对应的实现（CTANGLE 时代曾由 `primgen64.c` 生成，该 C 文件已随遗留 C 文件一并删除）。
 
 
 关于 asm/

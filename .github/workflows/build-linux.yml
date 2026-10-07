@@ -141,9 +141,9 @@ jobs:
             ECM_PREFIX="$HOME/ecm-install" \
             USER_LDFLAGS="-static"
 
-      # ── 6. Rename to target-specific name ────────────────────────────────────
+      # ── 6. Stage artifact ────────────────────────────────────────────────────
       - name: Stage artifact
-        run: cp yafu ${{ matrix.artifact_name }}
+        run: cp build/yafu ${{ matrix.artifact_name }}
 
       # ── 7. Verify static linkage ─────────────────────────────────────────────
       # Builds are fully static (-static) so ldd should show only the vdso
@@ -173,7 +173,7 @@ jobs:
             GMP_LIBDIR="$GMP_LIB" \
             ECM_PREFIX="$HOME/ecm-install" \
             USER_LDFLAGS="-static"
-          ./yafu_test_full --tag fast
+          ./build/yafu_test_full --tag fast
 
   # ─────────────────────────────────────────────────────────────────────────────
   # RELEASE — only on version tags (e.g. git tag v2.1.0 && git push --tags)

@@ -5,12 +5,12 @@
 
 | 文件 | 职责 |
 | --- | --- |
-| `autofactor.c` | 逐个输入决定分解路线：先试除，再按剩余大小与因子猜测选 ECM / SIQS / NFS |
-| `batch_factor.c` | 一批数一起分解时的并行与余因子处理 |
-| `factor_common.c` | 试除、余因子提取、跨方法共享的公共步骤 |
-| `tune.c` | 读取 `yafu.ini` 里的交叉点参数，并自带的 `tune` 命令实测 |
-| `prime_sieve.c` | 给试除用的素数表 |
-| `gpu_cofactorization.c`、`gpu_cofactorization_cl.c` | 把余因子分解整批丢给 GPU（CUDA / OpenCL） |
+| `autofactor.cpp` | 逐个输入决定分解路线：先试除，再按剩余大小与因子猜测选 ECM / SIQS / NFS |
+| `batch_factor.cpp` | 一批数一起分解时的并行与余因子处理 |
+| `factor_common.cpp` | 试除、余因子提取、跨方法共享的公共步骤 |
+| `tune.cpp` | 读取 `yafu.ini` 里的交叉点参数，并自带的 `tune` 命令实测 |
+| `prime_sieve.cpp` | 给试除用的素数表 |
+| `gpu_cofactorization.cpp` | 把余因子分解整批丢给 GPU（CUDA）。OpenCL 的内核源 `opencl_tinyecm.cl`、`opencl_intrinsics.cl` 还在树里，但驱动端已不参与构建 |
 | `cuda_tinyecm.cu`、`opencl_tinyecm.cl` | GPU 上的 tinyECM 内核 |
 
 

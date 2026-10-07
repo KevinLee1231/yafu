@@ -1,84 +1,94 @@
-# YAFU modular test system
+# yafu 测试
 
-Run the test targets from the repository root. They use the same compiler,
-GMP paths, ISA selection and optional libraries as the main build, as
-configured in `config.mk`.
+回归分两层：**框架层**（`test/layer0..3`，链接进 `build/yafu_test`）和
+**脚本层**（独立编译、跑真实可执行文件或子构建）。两层都由
+`test/run_all.sh` 统一编排。
+
+## 一条命令跑全部
 
 ```sh
-make test                 # 构建测试框架与第 0-2 层测试
-./yafu_test
-make test-full            # 加入第 3 层测试
-./yafu_test_full calc      # 运行计算器与因数分解对象的回归测试
-./yafu_test_full --tag fast
-make test-cli             # 独立工作目录中的命令行、管道、脚本与批处理检查
-make test-standalone      # NFS/lasieve 的解析、文件拆分和批量因子树回归
+make test-all              # 编译 yafu + 测试框架，然后跑所有回归
+make test-harness          # 只验证回归驱动自己可信
+sh test/run_all.sh         # 不重编，只跑（需要 yafu 与测试框架已就绪）
+sh test/run_all.sh cli     # 只跑名字里含 cli 的套件
 ```
 
-`make test-run` and `make test-full-run` build and run their respective
-executables. The latter includes the 50-, 60- and 70-digit SIQS cases, which
-can take longer than the other tests. `make test-clean` removes the test
-executables, test objects and the common test archive.
+`make test-all` 逐套打印结果并给汇总；**任何一套非 0，整体非 0**，失败的套件
+会把日志复制成 `test-failed-<名字>.log` 留在仓库根，方便事后看。
 
-## Modules
+## 套件一览
 
-| Layer | Modules | Checks |
+| 名字 | 跑什么 | 入口 |
 | --- | --- | --- |
-| Framework | `meta`, shared data self-check | Assertions, deterministic RNG and known-answer corpus |
-| 0 | `mp_arith`, `mp_bitscan` | Platform arithmetic and bit operations |
-| 1 | `sp_arith`, `modular`, `primality`, `sieve` | Arithmetic, modular operations, primality and prime generation |
-| 1 | `monty_review`, `aprcl_review`, `tinyprp_review` | 算术边界、GMP 对照、Jacobi 表边界和并发素性判断 |
-| 2 | `microecm`, `tinyecm` | Small-factor routines |
-| 3 | `siqs` | Complete factorizations of 50-, 60- and 70-digit inputs |
-| 3 | `calc` | String/stack growth, long expressions, nested calls, optional argument scopes, unary operators, invalid-input recovery, assignment limits, totient values, and factor-object copying/lifetime |
-| 3 | `options`, `ecm_review`, `qs_review` | 参数/INI 解析、筛选边界、线程资源、队列、排序与 small MPQS |
+| `build` | 编译 yafu | `make yafu` |
+| `unit` | 分层单元测试，全部 | `./build/yafu_test` |
+| `unit_fast` | 只跑标了 `fast` 的 | `./build/yafu_test --tag fast` |
+| `cli` | 命令行 / 管道 / 批处理 / 计算器 | `test/test_cli.sh` |
+| `nfs` | NFS 文件拆分与批量因子树（独立编译） | `test/test_nfs.sh` |
+| `lasieve` | 筛法器六个 I 值、并发隔离、stat/test 链接 | `test/test_lasieve.sh` |
+| `harness` | 驱动自检 | `test/harness_selftest.sh` |
 
-Layer 3 links the factoring archives. Calculator tests also link the
-frontend objects except `top/driver.o`, since the test runner supplies its
-own `main()`. `make test-cli` checks the separately linked command-line
-program, including pipes, missing final newlines, long expressions and
-preservation of batch input when its temporary file cannot be created.
-
-## Running selected tests
+各套也可以单独跑：
 
 ```sh
-./yafu_test_full --list
-./yafu_test_full calc --tag calc-long
-./yafu_test_full calc --tag calc-copy
-./yafu_test_full mp_arith modular
-./yafu_test_full --seed 12345
-./yafu_test_full --stop
-./yafu_test_full --bench
-./yafu_test_full siqs --tag siqs-c50
+make test-run              # 等价于 unit
+make test-full-run         # 第 0-3 层，含 SIQS 集成与计算器
+make test-cli
+make test-standalone       # = nfs + lasieve 两套
+make test-sanitize         # ASan/UBSan 下重建并跑
 ```
 
-Bare arguments select modules. `--tag` selects tests by their listed tags;
-`--bench` additionally runs optional timing measurements. Assertion
-failures cause a nonzero exit status. Each test uses an independent RNG
-stream derived from the printed seed.
+## 为什么要有 `harness`
 
-For GCC or Clang builds with AddressSanitizer and UndefinedBehaviorSanitizer
-available, use the complete instrumentation target:
+一套永远绿的回归比没有回归更糟：它让人以为代码被覆盖了。2026-10-07 在这个
+仓库里就撞上过——筛法器的 `check_sieve` 长期链接失败（`tdsieve_sched2buf` 只
+剩声明、实现早随 `.asm -> .cpp` 迁移删掉了），脚本照样报成功，
+`make test-standalone` 一直是绿的。
+
+所以 `harness_selftest.sh` 会故意制造失败，确认驱动确实会报出来：子套件非 0
+时驱动必须非 0、失败的退出码要原样传出、挑不出套件时不能静默通过。
+
+## 分层测试写在哪
+
+| 层 | 位置 | 覆盖 |
+| --- | --- | --- |
+| 0 | `test/layer0/` | 平台 128 位乘除、加减进位链 |
+| 1 | `test/layer1/` | 模运算、Montgomery、素性判定、素数筛 |
+| 2 | `test/layer2/` | ECM：小因子例程 |
+| 3 | `test/layer3/` | SIQS 完整分解、计算器、参数与 INI 解析 |
+
+框架在 `test/testkit.{h,cpp}`、`test_data.{h,cpp}`、`test_main.cpp`。每个
+layer 文件导出一个 `tk_module`，由 `test_main.cpp` 汇总。加一个模块的步骤：
+
+1. 在对应 `layerN/` 下新建 `test_<名字>.cpp`；
+2. 定义 `static const tk_test tk_tests_<名字>[]` 和
+   `const tk_module tk_module_<名字>`；
+3. 在 `test/testkit.h` 里加 `extern` 声明；
+4. 在 `test/test_main.cpp` 的模块表里加一行；
+5. 在顶层 `Makefile` 的 `TEST_SRCS`（第 0-2 层）或 `TEST_L3_SRCS`（第 3 层）
+   里加源文件路径。
+
+断言用 `TK_CHECK` / `TK_CHECKF` / `TK_EQ_U64`（非中止，一次报出全部失败）和
+`TK_REQUIRE`（当继续做没有意义时中止当前测试）。基准用 `TK_BENCH`，只在
+`--bench` 下跑，不影响成败。RNG 由 `--seed` 决定且每个测试一条独立流，失败能
+从打印出的种子复现。
+
+## 退出码
+
+各脚本统一成这样：
 
 ```sh
-make -j4 test-sanitize
+cleanup()
+{
+    rc=$?
+    trap - EXIT HUP INT TERM
+    rm -rf -- "$task_dir"
+    exit "$rc"
+}
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 ```
 
-它为参与测试链接的全部项目 C 对象启用 ASan/UBSan，并运行 `fast` 测试。
-GMP 等外部库仍使用系统提供的二进制。随后运行普通 `make` 会自动恢复普通
-编译选项；这两种配置应顺序构建，避免同时写同一组对象。
-
-也保留较小的计算器检查入口：
-
-```sh
-make test-calc-sanitize
-```
-
-This builds and runs the `calc` regressions with instrumentation in the
-test sources, `top/cmdParser/calc.c` and `factor/core/factor_common.c`. Other
-archives and frontend objects retain the normal build flags. The target
-does not replace the normal objects or executables.
-
-To add a module, define `tk_test` entries and a `tk_module` in a source file,
-register it in `test_main.c`, and add it to the appropriate source list in
-the root `Makefile`. Use independent expected results and include failure
-paths as well as successful calculations.
+信号各有各的 trap，不会再出现"收到 Ctrl-C 之后脚本从中断处继续跑并报通过"。

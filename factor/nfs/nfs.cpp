@@ -1296,7 +1296,13 @@ void nfs(fact_obj_t *fobj)
 			// continuing with factor(), like if we detected an existing poly file
 			// or data file and are refusing to continue.  In those cases user
 			// intervention is required.  So we need to exit.
-			exit(0);
+			//
+			// 退出码必须是失败。NFS_STATE_EXIT 由 18 处错误条件设置（nfs.dat 头
+			// 非法、属于别的输入、CADO 路径过长等），原本这里 exit(0) 把这些全
+			// 报成成功：按退出码判断成败的脚本、上层驱动和 CI 都会把损坏的
+			// nfs.dat 当成"跑通了"。彻底的做法是让 nfs() 向上返回失败码、由
+			// factor() 决定，先把退出码纠正过来。
+			exit(1);
 			break;
 
 		case NFS_STATE_FILTCHECK:

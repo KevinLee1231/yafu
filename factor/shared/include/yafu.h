@@ -22,7 +22,9 @@ code to the public domain.
 #ifndef _YAFU_HEAD_DEF
 #define _YAFU_HEAD_DEF
 
-#define YAFU_VERSION_STRING "3.1.9"
+// 永远与 CHANGELOG.md 的版本号一致（当前 2.0.0）。改版本号时这里必须同步改，
+// 否则 `yafu -v`、自动分解生成的 factor.json 里记的版本会与 CHANGELOG 对不上。
+#define YAFU_VERSION_STRING "2.0.0"
 
 // default maximum size for strings/buffers
 #define GSTR_MAXSIZE 1024
