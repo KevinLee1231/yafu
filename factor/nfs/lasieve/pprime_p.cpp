@@ -42,10 +42,6 @@ static short witness_initialized=0;
 short have_compos_witness;
 
 // SMJS
-#ifdef _WIN64
-static int randInited = 0;
-static gmp_randstate_t randstate; 
-#endif
 
 static int
 possibly_prime(mpz_srcptr n, mpz_srcptr n_minus_1, mpz_ptr x, mpz_ptr y, mpz_srcptr q, ulong k)
@@ -53,12 +49,6 @@ possibly_prime(mpz_srcptr n, mpz_srcptr n_minus_1, mpz_ptr x, mpz_ptr y, mpz_src
   ulong i;
 
   // SMJS
-#ifdef _WIN64
-  if (!randInited) {
-    gmp_randinit_default(randstate);
-    randInited = 1;
-  }
-#endif
   // SMJS Ended added
 
   /* find random x s.t. 1 < x < n */
@@ -66,11 +56,7 @@ possibly_prime(mpz_srcptr n, mpz_srcptr n_minus_1, mpz_ptr x, mpz_ptr y, mpz_src
     {
       // SMJS mpz_random missing from MPIR mpz_random (x, mpz_size (n));
       //  https://gmplib.org/manual/Integer-Random-Numbers.html#Integer-Random-Numbers
-#ifdef _WIN64
-      mpz_urandomm (x, randstate, n);
-#else
       mpz_random (x, mpz_size (n));
-#endif
       mpz_mmod (x, x, n);
     }
   while (mpz_cmp_ui (x, 1L) <= 0);

@@ -28,10 +28,6 @@ SOFTWARE.
 #include "cuda_xface.h"
 #include "cofactorize.h"
 
-#ifdef _MSC_VER
-// so I can browse the code in visual studio
-#define HAVE_CUDA_BATCH_FACTOR
-#endif
 
 #ifdef HAVE_CUDA_BATCH_FACTOR
 typedef struct {

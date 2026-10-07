@@ -35,11 +35,6 @@
 #include "lasieve-prepn.h"
 #pragma STDC FENV_ACCESS ON
 
-#ifdef _MSC_VER
-// so that I can read the code in MSVC without it being grayed out.
-// It will not build in Visual studio.
-#define AVX512_LASIEVE_SETUP
-#endif
 
 #include "lasieve_ns.h"
 

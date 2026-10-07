@@ -33,9 +33,6 @@ code to the public domain.
 #include <ecm.h>
 #include <math.h>
 
-#ifdef __MINGW32__
-#include <sys/time.h>
-#endif
 
 int test_pmpqs(mpz_t* inputs, int num_inputs)
 {
@@ -566,13 +563,8 @@ tinyqs_marker:
 					num = i;
 					break;
 				}
-#ifdef _MSC_VER
-				gmp_sscanf(buf, "%Zd, %"PRIu64", %"PRIu64"",
-					gmp_comp, &known1, &known2);
-#else
 				gmp_sscanf(buf, "%Zd, %" PRIu64 ", %" PRIu64 "",
 					gmp_comp, &known1, &known2);
-#endif
 
 				bits = mpz_sizeinbase(gmp_comp, 2);
 				totBits += bits;
@@ -962,13 +954,8 @@ tinyecm_104_list_marker:
 				num = i;
 				break;
 			}
-#ifdef _MSC_VER
-			gmp_sscanf(buf, "%Zd, %"PRIu64", %"PRIu64"",
-				gmp_comp, &known1, &known2);
-#else
 			gmp_sscanf(buf, "%Zd, %" PRIu64 ", %" PRIu64 "",
 				gmp_comp, &known1, &known2);
-#endif
 
 			bits = mpz_sizeinbase(gmp_comp, 2);
 			totBits += bits;
@@ -1062,13 +1049,8 @@ tinyecm_128_marker:
 				num = i;
 				break;
 			}
-#ifdef _MSC_VER
-			gmp_sscanf(buf, "%Zd, %"PRIu64", %"PRIu64"",
-				gmp_comp, &known1, &known2);
-#else
 			gmp_sscanf(buf, "%Zd, %" PRIu64 ", %" PRIu64 "",
 				gmp_comp, &known1, &known2);
-#endif
 
 			bits = mpz_sizeinbase(gmp_comp, 2);
 			totBits += bits;
@@ -1151,13 +1133,8 @@ uecm_52_list_marker:
 				num = i;
 				break;
 			}
-#ifdef _MSC_VER
 			gmp_sscanf(buf, "%Zd, %u, %u",
 				gmp_comp, &known1, &known2);
-#else
-			gmp_sscanf(buf, "%Zd, %u, %u",
-				gmp_comp, &known1, &known2);
-#endif
 
 			bits = mpz_sizeinbase(gmp_comp, 2);
 			totBits += bits;
@@ -1342,13 +1319,8 @@ mpqs_marker:
 				num = i;
 				break;
 			}
-#ifdef _MSC_VER
-			gmp_sscanf(buf, "%Zd, %"PRIu64", %"PRIu64"",
-				gmp_comp, &known1, &known2);
-#else
 			gmp_sscanf(buf, "%Zd, %" PRIu64 ", %" PRIu64 "",
 				gmp_comp, &known1, &known2);
-#endif
 
 			bits = mpz_sizeinbase(gmp_comp, 2);
 			totBits += bits;

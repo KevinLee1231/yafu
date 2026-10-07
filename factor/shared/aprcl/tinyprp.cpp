@@ -61,9 +61,6 @@
 #include "gmp.h"
 #endif
 
-#ifdef __MINGW32__
-#include <sys/time.h>
-#endif
 
 // for this algorithm, see https://jeffhurchalla.com/2022/04/25/a-faster-multiplicative-inverse-mod-a-power-of-2/
 static uint64_t prp_multiplicative_inverse(uint64_t a)

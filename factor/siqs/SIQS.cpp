@@ -40,9 +40,6 @@ code to the public domain.
 
 #include "soe.h"
 
-#ifdef __MINGW32__
-#include <sys/time.h>
-#endif
 
 #if defined( USE_SS_SEARCH ) && defined(USE_POLY_BUCKET_SS)
 #define SS_TIMING
@@ -601,13 +598,9 @@ void siqsexit(int sig)
 
 static double now_sec(void)
 {
-#ifdef _MSC_VER
-    return 0.0;
-#else
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     return (double)ts.tv_sec + (double)ts.tv_nsec * 1e-9;
-#endif
 }
 
 void SIQS(fact_obj_t *fobj)

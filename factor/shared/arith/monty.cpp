@@ -689,15 +689,11 @@ static void ciosSubtract128(uint64_t* res_lo, uint64_t* res_hi, uint64_t carries
 		t_hi = n_hi;
 		b = my_sbb64(0, n_lo, mod_lo, &n_lo);
 		b = my_sbb64(b, n_hi, mod_hi, &n_hi);
-#ifdef _MSC_VER
-		b = my_sbb64(b, carries, 0, &carries);
-#else
 		if (__builtin_constant_p(carries) && carries == 0) {
 		}
 		else {
 			b = my_sbb64(b, carries, 0, &carries);
 		}
-#endif
 
 	} while (b == 0);
 	// get the saved values when a borrow occurs
