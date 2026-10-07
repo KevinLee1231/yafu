@@ -962,12 +962,7 @@ static double poly_murphy_callback(double* v, void* extra)
 
 /*-------------------------------------------------------------------------*/
 
-// the reorganized callbacks cause problems for the gcc compiler in mingw.
-// specifically, loss of precision and thus fewer hits.  I don't know
-// why this happens yet.  For now, just fall back on the official version.
-#if 1 //!defined(__MINGW32__)
 #define NEW_CALLBACK_STRUCTURE
-#endif
 
 // the myriad of callbacks and where they are used can be confusing.
 // here's my notes on how we end up in the various optimize functions below.

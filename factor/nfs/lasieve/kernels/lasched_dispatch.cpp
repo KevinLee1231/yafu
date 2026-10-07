@@ -26,12 +26,6 @@
 #define RI_INCR 2
 #endif
 
-#ifdef _MSC_VER
-// so that I can read the code in MSVC without it being grayed out.
-// It will not build in Visual studio.
-#define AVX512_LASCHED
-#endif
-
 
 #include "lasieve_ns.h"
 

@@ -22,9 +22,6 @@ verbatim.
 
 #include "mp_platform.h"
 
-#ifdef _MSC_VER
-#pragma warning(disable: 4505)   /* unreferenced static function removed */
-#endif
 
 
 /* ====================================================================
@@ -44,21 +41,14 @@ verbatim.
 // for this algorithm, see https://jeffhurchalla.com/2022/04/28/montgomery-redc-using-the-positive-inverse-mod-r/
 __inline static uint64_t mulredc_pos_alt(uint64_t x, uint64_t y, uint64_t N, uint64_t invN)
 {
-#if defined(_MSC_VER)
-	uint64_t T_hi;
-	uint64_t T_lo = _umul128(x, y, &T_hi);
-	uint64_t m = T_lo * invN;
-	uint64_t mN_hi = __umulh(m, N);
-#else
 	__uint128_t prod = (__uint128_t)x * y;
 	uint64_t T_hi = (uint64_t)(prod >> 64);
 	uint64_t T_lo = (uint64_t)(prod);
 	uint64_t m = T_lo * invN;
 	__uint128_t mN = (__uint128_t)m * N;
 	uint64_t mN_hi = (uint64_t)(mN >> 64);
-#endif
 	uint64_t tmp = T_hi + N;
-#if defined(ALT_MULREDC_USE_INLINE_ASM_X86) && !defined(_MSC_VER)
+#if defined(ALT_MULREDC_USE_INLINE_ASM_X86)
 	__asm__(
 		"subq %[mN_hi], %[tmp] \n\t"    /* tmp = T_hi + N - mN_hi */
 		"subq %[mN_hi], %[T_hi] \n\t"   /* T_hi = T_hi - mN_hi */
@@ -203,12 +193,6 @@ __inline static uint64_t sqrredc_pos(uint64_t x, uint64_t n, uint64_t inv)
 }
 __inline static uint64_t mfma64(uint64_t x, uint64_t y, uint64_t c, uint64_t N, uint64_t invN)
 {
-#if defined(_MSC_VER)
-	uint64_t T_hi;
-	uint64_t T_lo = _umul128(x, y, &T_hi);
-	uint64_t m = T_lo * invN;
-	uint64_t mN_hi = __umulh(m, N);
-#else
 	__uint128_t z = (__uint128_t)x * y;
 	uint64_t u = (uint64_t)(z >> 64);
 	uint64_t v = (uint64_t)z;
@@ -225,7 +209,6 @@ __inline static uint64_t mfma64(uint64_t x, uint64_t y, uint64_t c, uint64_t N, 
 	result = (T_hi < mN_hi) ? tmp : result;
 	return result;
 
-#endif
 
 }
 
@@ -598,22 +581,11 @@ MP_FORCE_INLINE uint32_t submod32(uint32_t a, uint32_t b, uint32_t n)
 
 MP_FORCE_INLINE uint64_t addmod(uint64_t x, uint64_t y, uint64_t n)
 {
-#if 0
-    uint64_t r;
-    uint64_t tmp = x - n;
-    uint8_t c = _addcarry_u64(0, tmp, y, &r);
-    return (c) ? r : x + y;
-#else
-    // FYI: The clause above often compiles with a branch in MSVC.
-    // The statement below often compiles without a branch (uses cmov) in MSVC.
     return (x>=n-y) ? x-(n-y) : x+y;
-#endif
 }
 
 MP_FORCE_INLINE uint32_t addmod32(uint32_t x, uint32_t y, uint32_t n)
 {
-    // FYI: The clause above often compiles with a branch in MSVC.
-    // The statement below often compiles without a branch (uses cmov) in MSVC.
     return (x >= n - y) ? x - (n - y) : x + y;
 }
 

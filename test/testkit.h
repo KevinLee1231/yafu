@@ -6,7 +6,7 @@
 
  Design notes:
    * Explicit registration -- no linker-section auto-registration (that is
-     an MSVC portability minefield). Each test module exposes a single
+     a portability minefield). Each test module exposes a single
      `const tk_module` descriptor; test_main.c lists the ones to run.
    * Assertions are non-aborting by default (TK_CHECK*): a failing check is
      recorded and the test continues, so one test reports every failure it

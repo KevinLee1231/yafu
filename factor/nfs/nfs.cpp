@@ -22,11 +22,7 @@ benefit from your work.
 #include <math.h>
 #include <stdarg.h>
 
-#ifndef _WIN32
 #include <unistd.h>
-#else
-#include <windows.h>
-#endif
 
 
 

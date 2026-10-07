@@ -281,8 +281,5 @@ enum cpu_type get_cpu_type(void);
 
 #endif
 
-/* loop alignment directives need to know whether
-   we're using MSVC */
-
-	#define ALIGN_LOOP   ".p2align 4,,7 \n\t" 
+#define ALIGN_LOOP   ".p2align 4,,7 \n\t" 
 #endif /* _MS_UTIL_H_ */

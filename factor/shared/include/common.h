@@ -63,21 +63,6 @@ Purpose:	Port into Yafu-1.14.  Much of the functionality in here
 		#endif
 	#endif
 
-	/* for inline assembler on Windows */
-
-#elif defined(__MINGW32__)
-
-	#define ASM_M __asm__
-	#define ASM_G __asm__
-
-	#if defined(__x86_64__) 
-		#define GCC_ASM64A
-		#define GCC_ASM64X
-	#elif defined(__i386__)
-		#define GCC_ASM32A
-		#define GCC_ASM32X
-	#endif
-
 #elif defined(__GNUC__)
 
 	#define ASM_G __asm__
@@ -92,12 +77,5 @@ Purpose:	Port into Yafu-1.14.  Much of the functionality in here
 
 #endif
 
-/* loop alignment directives need to know whether
-   we're using MSVC */
-
-#ifndef _MSC_VER
-	#define ALIGN_LOOP   ".p2align 4,,7 \n\t" 
-#else
-	#define ALIGN_LOOP /* nothing */
-#endif
+#define ALIGN_LOOP   ".p2align 4,,7 \n\t" 
 #endif /* _COMMON_H_ */

@@ -3390,9 +3390,7 @@ void write_factor_json(fact_obj_t* fobj, factor_work_t *fwork,
 
 		fprintf(fid, "\t\"info\":{");
 
-#if defined(_MSC_VER) && defined(__clang_version__)
-		fprintf(fid, "\"compiler\":\"MSVC %d, %s\",", _MSC_VER, __clang_version__);
-#elif defined (__INTEL_COMPILER)
+#if defined (__INTEL_COMPILER)
 		fprintf(fid, "\"compiler\":\"INTEL %d\",", __INTEL_COMPILER);
 #elif defined(__clang_version__)
 		fprintf(fid, "\"compiler\":\"%s\",", __clang_version__);

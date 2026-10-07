@@ -83,7 +83,6 @@ SOFTWARE.
 
 
 #if (defined(GCC_ASM64X)) && !defined(ASM_ARITH_DEBUG)
-#if !defined(_MSC_VER)
 __inline uint64_t _umul128(uint64_t x, uint64_t y, uint64_t* hi)
 {
     __asm__(
@@ -96,7 +95,6 @@ __inline uint64_t _umul128(uint64_t x, uint64_t y, uint64_t* hi)
     *hi = y;
     return x;
 }
-#endif
 #endif
 
 
@@ -786,7 +784,7 @@ void ciosModMul128(uint64_t* res_lo, uint64_t* res_hi, uint64_t b_lo, uint64_t b
 void ciosModSqr128(uint64_t* res_lo, uint64_t* res_hi, uint64_t b_lo, uint64_t b_hi, uint64_t mod_lo, uint64_t mod_hi,
 	uint64_t mmagic)
 {
-#if 1 //def _MSC_VER
+#if 1
 	*res_lo = b_lo;
 	*res_hi = b_hi;
 	ciosModMul128(res_lo, res_hi, b_lo, b_hi, mod_lo, mod_hi, mmagic);

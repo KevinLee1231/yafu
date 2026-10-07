@@ -88,8 +88,7 @@
 #define D_HAS_SSE2
 #endif
 
-#if (defined(__GNUC__) && !defined(__INTEL_COMPILER) && !defined(__INTEL_LLVM_COMPILER)) || \
-    (defined(_MSC_VER) && defined(__clang__))
+#if defined(__GNUC__) && !defined(__INTEL_COMPILER) && !defined(__INTEL_LLVM_COMPILER)
 #define _MM_SCALE_1 1
 #define _MM_SCALE_2 2
 #endif
@@ -151,7 +150,7 @@
 #define USE_ASM_SMALL_PRIME_SIEVING
 #endif
 
-#if !defined (FORCE_GENERIC) && (defined(GCC_ASM64X) || (defined(_MSC_VER) && defined(USE_AVX2)))
+#if !defined (FORCE_GENERIC) && defined(GCC_ASM64X)
     //assume we have sse2, set defines to use the sse2 code available
 #define SIMD_SIEVE_SCAN 1
 #define SIMD_SIEVE_SCAN_VEC 1
@@ -162,8 +161,6 @@
 #elif !defined (FORCE_GENERIC) && defined(MSC_ASM32A)
 #define SIMD_SIEVE_SCAN 1
 
-#elif !defined (FORCE_GENERIC) && defined(_WIN64)
-#define SIMD_SIEVE_SCAN 1
 #endif
 
 

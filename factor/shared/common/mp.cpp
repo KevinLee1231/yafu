@@ -910,7 +910,7 @@ void mp_modmul(mp_t *a, mp_t *b, mp_t *n, mp_t *res) {
 }
 
 /*---------------------------------------------------------------*/
-#if !defined(GCC_ASM64A) && !(defined(_MSC_VER) && defined(_WIN64))
+#if !defined(GCC_ASM64A)
 
 static uint64 mp_mod_2(uint32 num[4], uint64 p) {
 
@@ -1062,7 +1062,7 @@ uint64 mp_modmul_2(uint64 a, uint64 b, uint64 p) {
 	else
 		return mp_mod_2(num, p);
 }
-#endif /* !defined(GCC_ASM64A) && !(defined(_MSC_VER) && defined(_WIN64)) */
+#endif /* !defined(GCC_ASM64A) */
 
 /*---------------------------------------------------------------*/
 uint32 mp_iroot(mp_t *a, uint32 root, mp_t *res) {

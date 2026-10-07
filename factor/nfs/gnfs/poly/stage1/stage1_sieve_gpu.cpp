@@ -22,12 +22,7 @@ $Id: stage1_sieve_gpu.c 1056 2024-06-09 13:04:11Z brgladman $
    place with '\r'; when stdout is redirected (or several GPU threads
    share it) we fall back to plain newline-terminated lines so logs
    stay readable and threads don't clobber each other's updates. */
-#if defined(WIN32) || defined(_WIN64)
-	#include <io.h>
-	#define stdout_is_tty() (_isatty(_fileno(stdout)) != 0)
-#else
-	#define stdout_is_tty() (isatty(fileno(stdout)) != 0)
-#endif
+#define stdout_is_tty() (isatty(fileno(stdout)) != 0)
 
 /* GPU collision search; this code looks for self-collisions
    among arithmetic progressions, by finding k1 and k2 such that
@@ -896,11 +891,7 @@ format_local_time(char *buf, size_t len)
 	time_t now = time(NULL);
 	struct tm tm_buf;
 
-#if defined(WIN32) || defined(_WIN64)
-	localtime_s(&tm_buf, &now);
-#else
 	localtime_r(&now, &tm_buf);
-#endif
 	strftime(buf, len, "%Y-%m-%d %H:%M:%S", &tm_buf);
 }
 
@@ -1451,11 +1442,7 @@ static void
 load_sort_engine(msieve_obj *obj, device_data_t *d)
 {
 	char libname[256];
-	#if defined(WIN32) || defined(_WIN64)
-	const char *suffix = ".dll";
-	#else
 	const char *suffix = ".so";
-	#endif
 
 	sprintf(libname, "build/sort_engine%s", suffix);
 
@@ -1476,51 +1463,11 @@ load_sort_engine(msieve_obj *obj, device_data_t *d)
 		}
 	}
 
-#ifdef _MSC_VER && _MSC_VER >= 1900
-/*  convert the sort engine file path to an absolute path using
-    backslash directory separators  */
-	char libpath[256], *p, *q;
-	int len;
-
-	_getcwd(libpath, 256);
-	len = strlen(libpath);
-	p = libpath + len;
-	if(*(p - 1) != '\\')
-	{
-		*p++ = '\\';
-		len++;
-	}
-	q = libname - 1;
-	while(*++q && len < 256)
-	{
-		*p++ = (*q != '/' ? *q : '\\');
-		len++;
-	}
-	if(len < 256) {
-		*p++ = 0;
-	}
-	else {
-		printf("error: buffer overflow in %s at line %d\n", __FILE__, __LINE__);
-		exit(-1);
-	}
-
-	if(_access_s(libpath, 0)) {
-		printf("error: GPU sort engine not found at \"%s\"\n", libpath);
-		exit(-1);
-	}
-
-	d->sort_engine_handle = load_dynamic_lib(libpath);
-	if(d->sort_engine_handle == NULL) {
-		printf("error: cannot load GPU sort engine from \"%s\" (check dependencies)\n", libpath);
-		exit(-1);
-}
-#else
 	d->sort_engine_handle = load_dynamic_lib(libname);
 	if(d->sort_engine_handle == NULL) {
 		printf("error: failed to load GPU sorting engine from \"%s\"\n", libname);
 		exit(-1);
 	}
-#endif
 	/* the sort engine uses the same CUDA context */
 
 	d->sort_engine_init = get_lib_symbol(
@@ -1546,11 +1493,7 @@ static void
 load_collision_engine(msieve_obj *obj, device_data_t *d)
 {
 	char libname[256];
-	#if defined(WIN32) || defined(_WIN64)
-	const char *suffix = ".dll";
-	#else
 	const char *suffix = ".so";
-	#endif
 
 	sprintf(libname, "build/collision_engine%s", suffix);
 

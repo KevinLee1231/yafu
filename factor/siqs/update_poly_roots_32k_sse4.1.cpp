@@ -264,7 +264,7 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 			}
 		}	
 
-#if defined(GCC_ASM64X) || (defined(_MSC_VER) && defined (_WIN64))
+#if defined(GCC_ASM64X)
 		// update 8 at a time using SSE2 and no branching
 		sm_ptr = &dconf->sm_rootupdates[(v-1) * med_B];
 		{
@@ -1139,7 +1139,7 @@ void nextRoots_32k_sse41(static_conf_t *sconf, dynamic_conf_t *dconf)
 
 		// continue one at a time once we exceed 15 bits, because the 8x SSE2
 		// code has a hard time with unsigned 16 bit comparisons
-#if defined(GCC_ASM64X) || (defined(_MSC_VER) && defined(_WIN64))
+#if defined(GCC_ASM64X)
 
 		// update 8 at a time using SSE2 and no branching		
 		sm_ptr = &dconf->sm_rootupdates[(v-1) * med_B];

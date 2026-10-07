@@ -611,11 +611,7 @@ static void
 load_spmv_engine(msieve_obj *obj, gpudata_t *d)
 {
 	char libname[256];
-	#if defined(WIN32) || defined(_WIN64)
-	const char *suffix = ".dll";
-	#else
 	const char *suffix = ".so";
-	#endif
 
 	if (d->gpu_info->compute_version_major < 2) {
 		printf("error: GPU compute capability >= 2.0 required\n");

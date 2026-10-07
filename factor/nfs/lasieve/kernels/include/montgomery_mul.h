@@ -30,14 +30,6 @@ extern ulong mm_z1[NMAX_ULONGS];
 }  /* namespace lasieve_ns */
 
 
-/*
-#ifdef _WIN64
-typedef  unsigned long long ulong;
-#else
-typedef  unsigned long ulong;
-#endif
-*/
-
 namespace lasieve_ns {
 extern void ASM_ATTR (*asm_mulmod)(ulong *,ulong *,ulong *);
 extern void ASM_ATTR (*asm_zero)(ulong *);
