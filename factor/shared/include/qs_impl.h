@@ -717,16 +717,11 @@ void med_sieveblock_32k_avx2(uint8_t* sieve, sieve_fb_compressed* fb, fb_list* f
     uint32_t start_prime, uint8_t s_init);
 void med_sieveblock_32k_avx512bw(uint8_t* sieve, sieve_fb_compressed* fb, fb_list* full_fb,
     uint32_t start_prime, uint8_t s_init);
-extern void (*med_sieve_ptr)(uint8_t*, sieve_fb_compressed*, fb_list*, uint32_t, uint8_t);
 
 void lp_sieveblock(uint8_t* sieve, uint32_t bnum, uint32_t numblocks,
     lp_bucket* lp, int side, dynamic_conf_t* dconf);
-void lp_sieveblock_avx512f(uint8_t* sieve, uint32_t bnum, uint32_t numblocks,
-    lp_bucket* lp, int side, dynamic_conf_t* dconf);
 void lp_sieveblock_avx512bw(uint8_t* sieve, uint32_t bnum, uint32_t numblocks,
     lp_bucket* lp, int side, dynamic_conf_t* dconf);
-extern void (*lp_sieveblock_ptr)(uint8_t* , uint32_t , uint32_t ,
-    lp_bucket* , int , dynamic_conf_t* );
 
 // sieving of primes using subset-sum
 void lp_sieve_ss(uint8_t* sieve, int side, dynamic_conf_t* dconf);
@@ -746,42 +741,98 @@ int check_relations_siqs_16_avx2(uint32_t blocknum, uint8_t parity,
     static_conf_t* sconf, dynamic_conf_t* dconf);
 int check_relations_siqs_16_avx512(uint32_t blocknum, uint8_t parity,
     static_conf_t* sconf, dynamic_conf_t* dconf);
-extern int (*scan_ptr)(uint32_t, uint8_t, static_conf_t*, dynamic_conf_t*);
 
 void filter_SPV(uint8_t parity, uint8_t* sieve, uint32_t poly_id, uint32_t bnum,
     static_conf_t* sconf, dynamic_conf_t* dconf);
 
-void tdiv_LP_sse2(uint32_t report_num, uint8_t parity, uint32_t bnum,
-    static_conf_t* sconf, dynamic_conf_t* dconf);
-void tdiv_LP_avx2(uint32_t report_num, uint8_t parity, uint32_t bnum,
-    static_conf_t* sconf, dynamic_conf_t* dconf);
 void tdiv_LP_avx512(uint32_t report_num, uint8_t parity, uint32_t bnum,
     static_conf_t* sconf, dynamic_conf_t* dconf);
 void tdiv_LP_avx512_allreports(uint8_t parity, uint32_t bnum,
     static_conf_t* sconf, dynamic_conf_t* dconf);
 
-extern void (*tdiv_LP_ptr)(uint32_t, uint8_t, uint32_t,
-    static_conf_t* , dynamic_conf_t* );
 
-void tdiv_medprimes_32k(uint8_t parity, uint32_t poly_id, uint32_t bnum,
-    static_conf_t* sconf, dynamic_conf_t* dconf);
+/* ======================================================================
+   siqs_kernels —— SIQS 核心内核的 ISA 策略对象
+
+   原来这里是九个互相独立的全局函数指针（firstRoots / nextRoots /
+   testRoots / tdiv_med / tdiv_LP / resieve_med / med_sieve /
+   lp_sieveblock / scan），在 siqs_init 里按 CPU 特性分派。问题不在于
+   分派本身，而在于九个指针彼此独立：任何一个分支忘了设某一个，剩下的
+   调用点就会静默地用标量版，既不报错也看不出变慢。AVX-512 那条路过去
+   就漏设过 nextRoots_ptr（SIQS.cpp 里那段注释记着这次事故）。
+
+   现在把八个纯 ISA 相关的内核打包成一个对象，整体赋值、整体使用，漏设单个
+   函数在结构上不再可能。后来项目收敛成只保留 AVX-512，这里实际上只剩一
+   组取值——保留对象的意义不再是"多档可选"，而是"八个内核同生共死"，再加
+   编译期就能看出还有哪些实现被引用。scan 不在这里：它的选择还要看输入位数
+   （tlp / dlp cutoff，落到 4 / 8 / 16 路），所以这里给七个实现，由
+   siqs_scan_for() 把位数与 ISA 合成一个具体函数。
+   ====================================================================== */
+
+enum class siqs_isa : uint8_t { generic = 0, sse41 = 1, avx2 = 2, avx512 = 3 };
+
+struct siqs_kernels {
+    void (*firstRoots)(static_conf_t*, dynamic_conf_t*);
+    void (*nextRoots)(static_conf_t*, dynamic_conf_t*);
+    void (*testRoots)(static_conf_t*, dynamic_conf_t*);
+    void (*tdiv_med)(uint8_t, uint32_t, uint32_t,
+        static_conf_t*, dynamic_conf_t*);
+    void (*tdiv_LP)(uint32_t, uint8_t, uint32_t,
+        static_conf_t*, dynamic_conf_t*);
+    void (*resieve_med)(uint8_t, uint32_t, uint32_t,
+        static_conf_t*, dynamic_conf_t*);
+    void (*med_sieve)(uint8_t*, sieve_fb_compressed*, fb_list*,
+        uint32_t, uint8_t);
+    void (*lp_sieveblock)(uint8_t*, uint32_t, uint32_t,
+        lp_bucket*, int, dynamic_conf_t*);
+
+    /* scan 不在这里选死：它一档看输入位数（tlp / dlp cutoff，落到 4 / 8 / 16
+       路 unrolling），一档看 ISA。七个实现按 (unrolling, isa) 摆开，由
+       siqs_scan_for() 把这两档合成一个具体函数。 */
+    int (*scan4_sse2)(uint32_t, uint8_t, static_conf_t*, dynamic_conf_t*);
+    int (*scan4_avx2)(uint32_t, uint8_t, static_conf_t*, dynamic_conf_t*);
+    int (*scan8_sse2)(uint32_t, uint8_t, static_conf_t*, dynamic_conf_t*);
+    int (*scan8_avx2)(uint32_t, uint8_t, static_conf_t*, dynamic_conf_t*);
+    int (*scan16_sse2)(uint32_t, uint8_t, static_conf_t*, dynamic_conf_t*);
+    int (*scan16_avx2)(uint32_t, uint8_t, static_conf_t*, dynamic_conf_t*);
+    int (*scan16_avx512)(uint32_t, uint8_t, static_conf_t*, dynamic_conf_t*);
+
+    siqs_isa isa;
+    const char* isa_name;
+};
+
+/* 唯一实例。siqs_select_kernels() 填好之后不再改动。 */
+extern siqs_kernels g_kernels;
+
+/* 按 CPU 特性挑一组内核。只在 siqs_init 里调用一次。 */
+siqs_kernels siqs_select_kernels(const int has_avx512f, const int has_avx512bw,
+    const int has_avx2, const int has_bmi2, const int has_sse41);
+
+/* 关系扫描的档位。unrolling 取 sconf->scan_unrolling（32 / 64 / 128，分别
+   对应 4 / 8 / 16 路），落到哪个实现由 isa 决定——原来的代码在五处分支里
+   各自重新判一遍 HAS_AVX512F / HAS_AVX2，现在只需要看一次。 */
+inline int (*siqs_scan_for(const siqs_kernels& k, int unrolling))(uint32_t, uint8_t, static_conf_t*, dynamic_conf_t*) {
+    const bool avx2 = (k.isa >= siqs_isa::avx2);
+    switch (unrolling / 32) {
+    case 1:  return avx2 ? k.scan4_avx2  : k.scan4_sse2;
+    case 2:  return avx2 ? k.scan8_avx2  : k.scan8_sse2;
+    default:
+        if (k.isa == siqs_isa::avx512) return k.scan16_avx512;
+        return avx2 ? k.scan16_avx2 : k.scan16_sse2;
+    }
+}
+
 void tdiv_medprimes_32k_avx2(uint8_t parity, uint32_t poly_id, uint32_t bnum,
     static_conf_t* sconf, dynamic_conf_t* dconf);
 // TBD
 //void tdiv_medprimes_32k_knl(uint32_t* reports, uint32_t num_reports,
 //    uint8_t parity, uint32_t poly_id, uint32_t bnum,
 //    static_conf_t* sconf, dynamic_conf_t* dconf);
-extern void (*tdiv_med_ptr)(uint8_t, uint32_t, uint32_t,
-    static_conf_t*, dynamic_conf_t*);
 
-void resieve_medprimes_32k(uint8_t parity, uint32_t poly_id, uint32_t bnum,
-    static_conf_t* sconf, dynamic_conf_t* dconf);
-void resieve_medprimes_32k_avx2(uint8_t parity, uint32_t poly_id, uint32_t bnum,
-    static_conf_t* sconf, dynamic_conf_t* dconf);
+
 void resieve_medprimes_32k_avx512bw(uint8_t parity, uint32_t poly_id, uint32_t bnum,
     static_conf_t* sconf, dynamic_conf_t* dconf);
-extern void (*resieve_med_ptr)(uint8_t, uint32_t, uint32_t,
-    static_conf_t*, dynamic_conf_t*);
+
 
 void trial_divide_Q_siqs(uint32_t report_num,
     uint8_t parity, uint32_t poly_id, uint32_t blocknum,
@@ -819,7 +870,6 @@ void computeBl(static_conf_t* sconf, dynamic_conf_t* dconf, int needC);
 void nextB(dynamic_conf_t* dconf, static_conf_t* sconf, int needC);
 
 void firstRoots_32k(static_conf_t* sconf, dynamic_conf_t* dconf);
-extern void (*firstRoots_ptr)(static_conf_t*, dynamic_conf_t*);
 
 // functions implementing the subset-sum algorithm
 void ss_search_setup(static_conf_t* sconf, dynamic_conf_t* dconf);
@@ -830,11 +880,7 @@ void ss_search_poly_buckets_2(static_conf_t* sconf, dynamic_conf_t* dconf, int s
 void ss_search_sort_set_1(static_conf_t* sconf, dynamic_conf_t* dconf);
 
 void nextRoots_32k(static_conf_t* sconf, dynamic_conf_t* dconf);
-void nextRoots_32k_sse41(static_conf_t* sconf, dynamic_conf_t* dconf);
-void nextRoots_32k_avx2(static_conf_t* sconf, dynamic_conf_t* dconf);
 void nextRoots_32k_avx2_small(static_conf_t* sconf, dynamic_conf_t* dconf);
-void nextRoots_32k_avx2_intrin(static_conf_t* sconf, dynamic_conf_t* dconf);
-extern void (*nextRoots_ptr)(static_conf_t*, dynamic_conf_t*);
 
 void nextRoots_32k_generic_small(static_conf_t* sconf, dynamic_conf_t* dconf);
 void nextRoots_32k_generic_polybatch(static_conf_t* sconf, dynamic_conf_t* dconf);
@@ -852,7 +898,6 @@ void nextRoots_32k_knl_bucket(static_conf_t* sconf, dynamic_conf_t* dconf);
 void nextBigRoots_32k_knl_polybatch(static_conf_t* sconf, dynamic_conf_t* dconf);
 
 void testfirstRoots_32k(static_conf_t* sconf, dynamic_conf_t* dconf);
-extern void (*testRoots_ptr)(static_conf_t*, dynamic_conf_t*);
 
 void batch_roots(int* rootupdates, int* firstroots1, int* firstroots2,
     siqs_poly* poly, uint32_t start_prime, fb_list* fb, uint32_t* primes);

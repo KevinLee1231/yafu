@@ -78,9 +78,13 @@ uint32 factor_gnfs(msieve_obj *obj, mp_t *input_n,
 	   (obj->flags & (MSIEVE_FLAG_NFS_POLY1 | 
 			  MSIEVE_FLAG_NFS_POLYSIZE |
 			  MSIEVE_FLAG_NFS_POLYROOT))) {
+		/* find_poly 以前永远返回 0（失败时在深层直接 exit），这一行的
+		 * 结果会被下面 read_poly 立刻覆盖。现在它真的返回状态码了，
+		 * 失败就不该继续往下走。 */
 		status = find_poly(obj, n);
-		status = read_poly(obj, n, &rat_poly, 
-					&alg_poly, &params.skewness);
+		if (status == 0)
+			status = read_poly(obj, n, &rat_poly,
+						&alg_poly, &params.skewness);
 	}
 	if (status != 0) {
 		if ((obj->flags & MSIEVE_FLAG_NFS_POLY1) &&

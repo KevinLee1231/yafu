@@ -282,7 +282,7 @@ void get_params(static_conf_t *sconf)
 
     // does much better with much smaller sieve intervals.  maybe 
     // because smaller L2?
-    int param_table[NUM_PARAM_ROWS][7] = {
+    double param_table[NUM_PARAM_ROWS][7] = {
         {50,	30,	30,	1, 1.8, 0, 0},
         { 60, 36, 40, 1  , 1.8, 0, 0},
         { 70, 50, 40, 1  , 1.8, 0, 0},
@@ -375,7 +375,7 @@ void get_params(static_conf_t *sconf)
         
     }; 
 #else
-    int param_table[NUM_PARAM_ROWS][7] = {
+    double param_table[NUM_PARAM_ROWS][7] = {
         {50,	30,	    30,	    2 , 1.8, 0, 0},
         {60,	36,	    40,	    2 , 1.8, 0, 0},
         {70,	50,	    40,	    2 , 1.8, 0, 0},
@@ -441,7 +441,7 @@ void get_params(static_conf_t *sconf)
 #endif
 #endif
 
-    int param_table_bkup[NUM_PARAM_ROWS][4] = {
+    double param_table_bkup[NUM_PARAM_ROWS][4] = {
         { 50, 30, 30, 1 },
         { 60, 36, 40, 1 },
         { 70, 50, 40, 1 },

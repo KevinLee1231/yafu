@@ -194,7 +194,22 @@ build_stage2_workers(uint32 s, msieve_obj* obj, mpz_t n, uint32 degree,
 }
 
 /*------------------------------------------------------------------*/
-void find_poly_core(msieve_obj *obj, mpz_t n,
+const char* poly_search_error_str(poly_search_error e)
+{
+	switch (e) {
+	case poly_search_error::stage1_bound_missing:	return "stage 1 bound not provided";
+	case poly_search_error::stage2_bound_missing:	return "stage 2 size bound not provided";
+	case poly_search_error::middle_stage_missing:	return "middle polyselect stage missing";
+	case poly_search_error::poly1_outfile:		return "cannot open poly1 file";
+	case poly_search_error::sizeopt_outfile:		return "cannot open sizeopt file";
+	case poly_search_error::rootopt_outfile:		return "cannot open root opt file";
+	case poly_search_error::sizeopt_infile:		return "cannot open sizeopt input file";
+	case poly_search_error::rootopt_infile:		return "cannot open rootopt input file";
+	}
+	return "unknown";
+}
+
+std::expected<void, poly_search_error> find_poly_core(msieve_obj *obj, mpz_t n,
 			poly_param_t *params,
 			poly_config_t *config,
 			uint32 degree) {
@@ -221,20 +236,17 @@ void find_poly_core(msieve_obj *obj, mpz_t n,
 
 	if ((obj->flags & MSIEVE_FLAG_NFS_POLY1) &&
 	    params->stage1_norm == 0) {
-		printf("error: stage 1 bound not provided\n");
-		exit(-1);
+		return std::unexpected(poly_search_error::stage1_bound_missing);
 	}
 	if (((obj->flags & MSIEVE_FLAG_NFS_POLYSIZE) ||
 	     (obj->flags & MSIEVE_FLAG_NFS_POLYROOT)) &&
 	    params->stage2_norm == 0) {
-		printf("error: stage 2 size bound not provided\n");
-		exit(-1);
+		return std::unexpected(poly_search_error::stage2_bound_missing);
 	}
 	if ((obj->flags & MSIEVE_FLAG_NFS_POLY1) &&
 	    (obj->flags & MSIEVE_FLAG_NFS_POLYROOT) &&
 	    !(obj->flags & MSIEVE_FLAG_NFS_POLYSIZE)) {
-		printf("error: middle polyselect stage missing\n");
-		exit(-1);
+		return std::unexpected(poly_search_error::middle_stage_missing);
 	}
 
 	/* parse arguments */
@@ -294,8 +306,7 @@ void find_poly_core(msieve_obj *obj, mpz_t n,
 			sprintf(buf, "%s.m", obj->savefile.name);
 			stage1_outfile = fopen(buf, "a");
 			if (stage1_outfile == NULL) {
-				printf("error: cannot open poly1 file\n");
-				exit(-1);
+				return std::unexpected(poly_search_error::poly1_outfile);
 			}
 			poly_stage1_init(&stage1_data, stage1_callback_log, 
 					stage1_outfile);
@@ -381,8 +392,10 @@ void find_poly_core(msieve_obj *obj, mpz_t n,
 			sprintf(buf, "%s.ms", obj->savefile.name);
 			sizeopt_outfile = fopen(buf, "a");
 			if (sizeopt_outfile == NULL) {
-				printf("error: cannot open sizeopt file %s\n", buf);
-				exit(-1);
+				/* stage1_outfile 可能已经打开（原来 exit 时靠进程退出兜底） */
+				if (stage1_outfile != NULL)
+					fclose(stage1_outfile);
+				return std::unexpected(poly_search_error::sizeopt_outfile);
 			}
 			poly_sizeopt_init(&sizeopt_data, sizeopt_callback_log, 
 					sizeopt_outfile);
@@ -429,8 +442,11 @@ void find_poly_core(msieve_obj *obj, mpz_t n,
 		rootopt_callback_data.config = config;
 		rootopt_callback_data.all_poly_file = fopen(buf, "a");
 		if (rootopt_callback_data.all_poly_file == NULL) {
-			printf("error: cannot open root opt file\n");
-			exit(-1);
+			if (stage1_outfile != NULL)
+				fclose(stage1_outfile);
+			if (sizeopt_outfile != NULL)
+				fclose(sizeopt_outfile);
+			return std::unexpected(poly_search_error::rootopt_outfile);
 		}
 		else
 		{
@@ -529,8 +545,7 @@ void find_poly_core(msieve_obj *obj, mpz_t n,
 		sprintf(buf, "%s.m", obj->savefile.name);
 		stage1_outfile = fopen(buf, "r");
 		if (stage1_outfile == NULL) {
-			printf("error: cannot open sizeopt input file %s\n", buf);
-			exit(-1);
+			return std::unexpected(poly_search_error::sizeopt_infile);
 		}
 
 		while (1) {
@@ -568,8 +583,10 @@ void find_poly_core(msieve_obj *obj, mpz_t n,
 		sprintf(buf, "%s.ms", obj->savefile.name);
 		sizeopt_outfile = fopen(buf, "r");
 		if (sizeopt_outfile == NULL) {
-			printf("error: cannot open rootopt input file\n");
-			exit(-1);
+			/* rootopt 的输出文件在上面的 POLYROOT 分支里开着 */
+			if (rootopt_callback_data.all_poly_file != NULL)
+				fclose(rootopt_callback_data.all_poly_file);
+			return std::unexpected(poly_search_error::rootopt_infile);
 		}
 
 		while (1) {
