@@ -52,27 +52,15 @@ GMP_INCDIR ?= /usr/include
 OBJDIR     ?= .
 
 ifndef DETECTED_OS
-    ifeq ($(OS),Windows_NT)
-        DETECTED_OS := Windows
-    else
-        DETECTED_OS := $(shell uname -s)
-    endif
+    DETECTED_OS := $(shell uname -s)
 endif
 
 
-# --- CFLAGS: platform selection ----------------------------------------------
+# --- CFLAGS ------------------------------------------------------------------
 #
-# clang and gcc use identical flags on Linux; the compiler is chosen via CC.
-# Windows/MinGW requires -DULL_NO_UL and -DBITS_PER_GMP_ULONG=32 to reconcile
-# GMP's 32-bit ulong (as configured by its ./configure on Windows) with
-# lasieve's 64-bit ulong assumption in include/siever-config.h.
+# clang and gcc use identical flags; the compiler is chosen via CC.
 #
-ifeq ($(DETECTED_OS),Windows)
-    CFLAGS = -m64 -g -Ofast -march=native -I. -Iinclude -I../include -I$(GMP_INCDIR) \
-             -DULL_NO_UL -DBITS_PER_GMP_ULONG=32 -fcommon
-else
-    CFLAGS = -m64 -g -Ofast -march=native -I. -Iinclude -I../include -I$(GMP_INCDIR) -fcommon
-endif
+CFLAGS = -m64 -g -Ofast -march=native -I. -Iinclude -I../include -I$(GMP_INCDIR) -fcommon
 
 ifeq ($(DEBUG),1)
     CFLAGS := $(filter-out -Ofast -march=native,$(CFLAGS))

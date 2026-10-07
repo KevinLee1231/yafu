@@ -2,7 +2,7 @@
 # yafu — Unified Makefile
 # Author of original Makefiles: Ben Buhrow
 #
-# Platforms  : Linux, Windows (MSYS2/MinGW-w64)
+# Platforms  : Linux
 # Compilers  : gcc, clang, icc/icx   — select with  make CC=gcc|clang|icc
 # Build type : release (default)     — debug with    make DEBUG=1
 #
@@ -44,15 +44,12 @@
 #   USE_NATIVE=1     Auto-detect ISA from the build CPU and add -march=native.
 #                    Works with gcc, clang, and icc.  Not suitable for
 #                    cross-compilation or CI where reproducibility matters.
-#                    Not supported on Windows/MinGW — use explicit ISA flags.
 #   SMALLINT=1     Small SIQS intervals
 #   PROFILE=1      gprof profiling
 #   OPT_DEBUG=1    Optimisation debug output
 #   TIMING=1       QS timing instrumentation
 #   FORCE_GENERIC=1  Disable all SIMD paths
 #   STATIC=1       Static link (experimental, Linux)
-#   STATIC_WIN=1   Fully static Windows binary (runs in PowerShell/cmd without DLLs)
-#   MINGW=1        Building under MinGW (skip -ldl)
 # =============================================================================
 
 
@@ -65,13 +62,8 @@
 # -----------------------------------------------------------------------------
 # 2. OS DETECTION
 # -----------------------------------------------------------------------------
-ifeq ($(OS),Windows_NT)
-    DETECTED_OS := Windows
-    EXE_EXT     := .exe
-else
-    DETECTED_OS := $(shell uname -s)
-    EXE_EXT     :=
-endif
+DETECTED_OS := $(shell uname -s)
+EXE_EXT     :=
 
 MKDIR  := mkdir -p
 RM_RF  := rm -rf
@@ -109,16 +101,11 @@ define find_dir
 $(firstword $(foreach d,$(2),$(if $(wildcard $(d)/$(1)),$(d))))
 endef
 
-ifeq ($(DETECTED_OS),Windows)
-    SYS_INC_PATHS := /mingw64/include /mingw32/include /usr/include
-    SYS_LIB_PATHS := /mingw64/lib     /mingw32/lib     /usr/lib
-else
-    MULTIARCH := $(shell $(CC) -print-multiarch 2>/dev/null)
-    SYS_INC_PATHS := $(if $(MULTIARCH),/usr/include/$(MULTIARCH)) \
-                     /usr/include /usr/local/include /opt/local/include
-    SYS_LIB_PATHS := /usr/lib /usr/lib64 /usr/local/lib \
-                     $(if $(MULTIARCH),/usr/lib/$(MULTIARCH))
-endif
+MULTIARCH := $(shell $(CC) -print-multiarch 2>/dev/null)
+SYS_INC_PATHS := $(if $(MULTIARCH),/usr/include/$(MULTIARCH)) \
+                 /usr/include /usr/local/include /opt/local/include
+SYS_LIB_PATHS := /usr/lib /usr/lib64 /usr/local/lib \
+                 $(if $(MULTIARCH),/usr/lib/$(MULTIARCH))
 
 
 # ---- 4a. GMP  (required) ---------------------------------------------------
@@ -136,7 +123,7 @@ endif
 
 # Normalise to absolute paths so sub-makes at deeper directory levels
 # (factor/nfs/lasieve/ and factor/nfs/lasieve/kernels/) receive correct paths
-# even when config.mk used a relative value like ../gmp-install/mingw.
+# even when config.mk used a relative value like ../gmp-install/local.
 GMP_INCDIR := $(abspath $(GMP_INCDIR))
 GMP_LIBDIR := $(abspath $(GMP_LIBDIR))
 
@@ -207,11 +194,7 @@ endif
 
 ifdef CUDA_PREFIX
     CUDA_INCDIR ?= $(CUDA_PREFIX)/include
-    ifeq ($(DETECTED_OS),Windows)
-        CUDA_LIBDIR ?= $(CUDA_PREFIX)/lib/x64
-    else
-        CUDA_LIBDIR ?= $(CUDA_PREFIX)/lib64
-    endif
+    CUDA_LIBDIR ?= $(CUDA_PREFIX)/lib64
     NVCC        ?= $(CUDA_PREFIX)/bin/nvcc
 endif
 
@@ -251,13 +234,9 @@ ifdef OCL_PREFIX
 endif
 OCL_INCDIR ?= $(call find_dir,CL/cl.h,$(SYS_INC_PATHS))
 
-# Check for the library as well as the header — on some systems (e.g. MinGW)
-# the headers are installed without a matching ICD loader library.
-ifeq ($(DETECTED_OS),Windows)
-    _OCL_LIBNAMES := libOpenCL.a libOpenCL.dll.a OpenCL.lib
-else
-    _OCL_LIBNAMES := libOpenCL.so libOpenCL.a
-endif
+# Check for the library as well as the header — on some systems the headers
+# are installed without a matching ICD loader library.
+_OCL_LIBNAMES := libOpenCL.so libOpenCL.a
 
 OCL_LIBDIR ?= $(firstword $(foreach l,$(_OCL_LIBNAMES),\
                   $(call find_dir,$(l),$(SYS_LIB_PATHS))))
@@ -380,13 +359,6 @@ CFLAGS := \
     -Wall \
     -Wconversion
 
-# GCC 12+ strict aliasing is more aggressive than GCC 11 and triggers
-# violations in the AVX2 sieve buffer casting code. 
-# Todo: audit __m256i casts throughout siqs when using avx2 only.
-ifeq ($(OS),Windows_NT)
-    CFLAGS += -fno-strict-aliasing -DULL_NO_UL -DBITS_PER_GMP_ULONG=32
-endif
-
 VBITS ?= 64
 CFLAGS += -DVBITS=$(VBITS)
 
@@ -474,16 +446,6 @@ else
 #        CFLAGS        += -flto
 #        LDFLAGS_EXTRA += -flto
     endif
-    ifeq ($(DETECTED_OS),Windows)
-        ifdef STATIC_WIN
-            # Fully static binary — runs in PowerShell/cmd.exe with no DLLs needed.
-            # Requires that GMP, ECM, zlib etc. were installed as static (.a) libs
-            # (pacman -S mingw-w64-x86_64-gmp etc. includes both static and shared).
-            LDFLAGS_EXTRA += -static -static-libgcc
-        else
-            LDFLAGS_EXTRA += -static-libgcc
-        endif
-    endif
 endif
 
 
@@ -524,14 +486,6 @@ endif
 # -march=native and are kept.
 # -----------------------------------------------------------------------------
 ifeq ($(USE_NATIVE),1)
-    ifeq ($(DETECTED_OS),Windows)
-        $(error USE_NATIVE is not supported on Windows/MinGW builds. \
-            -march=native does not reliably enable the expected ISA instructions \
-            under MinGW, resulting in a binary that compiles but runs slowly or \
-            incorrectly. Use explicit ISA flags instead — for example: \
-            USE_AVX2=1 USE_BMI2=1, or USE_AVX512=1. \
-            See 'make help' for the full list.)
-    endif
     # Dump all preprocessor macros the compiler defines for the native CPU.
     # The 'echo |' idiom feeds an empty C source — portable across platforms.
     _NATIVE_DEFS := $(shell echo | $(CC) -march=native -dM -E -x c - 2>/dev/null)
@@ -698,13 +652,9 @@ ifdef CUDA_POLY
     CFLAGS += -DHAVE_CUDA_POLY -DTOOLKIT_VERSION=$(TOOLKIT_VERSION) -Ifactor/shared/cub/include
 	CUDA_PTX_ARCH ?= compute_$(SM)
 	CUB_ENGINE_ARCH ?= -gencode arch=compute_$(SM),code=sm_$(SM)
-    ifeq ($(DETECTED_OS),Windows)
-        CUDA_POLY_LIBS := "$(CUDA_LIBDIR)/cuda.lib"
-    else
-        CUDA_POLY_LIBS := -lcuda 
+    CUDA_POLY_LIBS := -lcuda
 #-lcudart
 # -L/usr/local/cuda-12.8/targets/x86_64-linux/lib/ -lcuda -lcudart_static
-    endif
 endif
 
 # ifdef CUDA_LA
@@ -791,22 +741,7 @@ endif
 
 # MPI / BOINC
 # GMP, math, threading
-LIBS        += -lgmp -lpthread -lm
-
-# Static Windows build needs extra libs that are normally pulled in implicitly
-# by the shared runtime, plus winpthread for the static pthreads implementation.
-ifeq ($(DETECTED_OS),Windows)
-    ifdef STATIC_WIN
-        LIBS        += -lwinpthread -lws2_32 -lssp
-    endif
-endif
-
-# dl (not needed on MinGW or Windows)
-ifneq ($(MINGW),1)
-    ifneq ($(DETECTED_OS),Windows)
-        LIBS        += -ldl
-    endif
-endif
+LIBS        += -lgmp -lpthread -lm -ldl
 
 # ICC: SVML
 ifeq ($(COMPILER_FAMILY),icc)
@@ -1065,10 +1000,6 @@ MSIEVE_COMMON_SRCS = \
     factor/shared/common/thread.cpp \
     factor/shared/common/util.cpp \
     factor/shared/aprcl/mpz_aprcl32.cpp
-	
-ifeq ($(OS),Windows_NT)
-	MSIEVE_COMMON_SRCS += factor/shared/common/mpz-ull.cpp
-endif
 
 COMMON_GPU_SRCS = \
     factor/shared/common/lanczos/gpu/lanczos_matmul_gpu.cpp \
@@ -1604,7 +1535,6 @@ info:
 	@echo "    BATCH_CUDA     : $(if $(BATCH_CUDA),yes,no)"
 	@echo "    CUDA_POLY      : $(if $(CUDA_POLY),yes,no)"
 	@echo "    MPI            : $(if $(filter 1,$(MPI)),yes,no)"
-	@echo "    STATIC_WIN     : $(if $(STATIC_WIN),yes,no)"
 	@echo "----------------------------------------------------------------"
 	@echo "  CFLAGS           : $(CFLAGS)"
 	@echo "  LIBS             : $(LIBS)"
@@ -1653,7 +1583,6 @@ help:
 	@echo "  ISA / micro-architecture (enabling a higher level implies lower ones):"
 	@echo "    make USE_NATIVE=1       Auto-detect ISA from build CPU + -march=native"
 	@echo "                            Works with gcc, clang, and icc on Linux."
-	@echo "                            Not supported on Windows/MinGW."
 	@echo "                            Not for cross-compilation or CI."
 	@echo "    make USE_SSE41=1        SSE 4.1"
 	@echo "    make USE_AVX2=1         AVX2  (implies SSE 4.1)"
@@ -1683,8 +1612,6 @@ help:
 	@echo "    make TIMING=1        QS timing instrumentation"
 	@echo "    make FORCE_GENERIC=1 disable all SIMD paths"
 	@echo "    make STATIC=1        static link (experimental, Linux)"
-	@echo "    make STATIC_WIN=1    fully static Windows .exe (no DLLs needed)"
-	@echo "    make MINGW=1         building under MinGW (skips -ldl)"
 	@echo ""
 	@echo "  Tip: set frequently-used flags in config.mk instead of typing"
 	@echo "  them every time (copy config.mk.example to get started)."
