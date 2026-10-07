@@ -639,8 +639,6 @@ static inline uint8_t my_sbb64(uint8_t borrow_in, uint64_t a, uint64_t b, uint64
 	c = __builtin_usubll_overflow(a, b, (unsigned long long*)diff);
 	c |= __builtin_usubll_overflow(*diff, borrow_in, (unsigned long long*)diff);
 	return c;
-#elif defined(_MSC_VER)
-	return _subborrow_u64(borrow_in, a, b, (unsigned long long*)diff);
 #else
 	if (__builtin_constant_p(borrow_in) && borrow_in == 0) {
 		if (__builtin_constant_p(a) && a == 0) {

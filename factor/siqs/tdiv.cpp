@@ -448,7 +448,7 @@ void trial_divide_Q_siqs(uint32_t report_num,  uint8_t parity,
 
 			//quick prime check: compute 2^(residue-1) mod residue.  
 
-#if defined(_MSC_VER) || (BITS_PER_DIGIT == 32)
+#if (BITS_PER_DIGIT == 32)
 			mpz_set_64(dconf->gmptmp1, q64);
 			mpz_set_64(dconf->gmptmp2, 2);
 			//mpz_set_64(dconf->gmptmp3, q64 - 1);

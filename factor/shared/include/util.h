@@ -76,8 +76,6 @@ double msieve_difftime(struct timeval* start, struct timeval* end);
 
 #if defined(__GNUC__) && __GNUC__ >= 3
 	#define PREFETCH(addr) __builtin_prefetch(addr) 
-#elif defined(_MSC_VER) && (_MSC_VER >= 1400)
-	#define PREFETCH(addr) PreFetchCacheLine(PF_TEMPORAL_LEVEL_1, addr)
 #else
 	#define PREFETCH(addr) /* nothing */
 #endif
@@ -281,12 +279,6 @@ enum cpu_type get_cpu_type(void);
 		#define GCC_ASM32X
 	#endif
 
-#elif defined(_MSC_VER)
-
-	#define ASM_M __asm
-
-		#define MSC_ASM32A
-		#define MSC_ASM32X
 #endif
 
 /* loop alignment directives need to know whether

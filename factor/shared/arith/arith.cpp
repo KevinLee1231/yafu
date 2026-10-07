@@ -224,8 +224,6 @@ static __inline uint64_t _umul128(uint64_t x, uint64_t y, uint64_t* hi) {
 
 #if defined(__INTEL_COMPILER) || defined(__clang__)
 #define ASM_ __asm__
-#elif defined(_WIN32)
-#define ASM_ ASM_M
 #else
 #define ASM_ ASM_G
 #endif

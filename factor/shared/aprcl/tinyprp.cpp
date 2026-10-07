@@ -1041,8 +1041,6 @@ static inline uint64_t my_rdtsc(void)
 #elif defined(__x86_64__) && defined(__GNUC__)
 	// supported by gcc in immintrin.h for x86 platform
 	return __builtin_ia32_rdtsc();
-#elif defined(_MSC_VER)
-	return __rdtsc();
 #elif defined(__aarch64__)
 	// should be a 64 bits wallclock counter
 	// document for old/recent architecture and/or BMC chipsets mention it

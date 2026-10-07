@@ -39,7 +39,7 @@ either expressed or implied, of the FreeBSD Project.
 
 #define D 120
 
-#if defined( _MSC_VER) || defined(AVX512_ECM)
+#if defined(AVX512_ECM)
 #define USE_AVX512F
 #endif
 
@@ -57,14 +57,9 @@ either expressed or implied, of the FreeBSD Project.
 #define ALIGNED_MEM __declspec(align(64))
 #define align_free _mm_free
 
-#elif defined(_MSC_VER)
-
-#define align_free _aligned_free	
-#define ALIGNED_MEM __declspec(align(64))     
-
 #elif defined(__GNUC__)
 
-#if defined(__MINGW64__) || defined(__MSYS__)
+#if defined(__MSYS__)
 #define align_free _aligned_free //_mm_free
 #else
 #define align_free free

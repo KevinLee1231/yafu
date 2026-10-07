@@ -332,45 +332,6 @@ void yafu_mul_Nx64_64x64_acc(uint64_t *v, uint64_t *x,
 			:"r"(v), "r"(c), "r"(y), "g"(n)
 			:"%eax", "%ecx", "%mm0", "%mm1", "memory");
 
-#elif defined(_MSC_VER)
-	i = 0;
-	__asm
-	{
-		push	ebx
-		mov	edi,y
-		lea	ebx,c
-		mov	esi,v
-		mov	ecx,i
-		align 16
-	L0:	movq	mm0,[edi+ecx*8]
-		mov	eax,[esi+ecx*8]
-		inc	ecx
-		movzx	edx, al
-		movq	mm1,[ebx+edx*8]
-		movzx	edx,ah
-		pxor	mm1,[1*256*8+ebx+edx*8]
-		shr	eax,16
-		movzx	edx,al
-		pxor	mm1,[2*256*8+ebx+edx*8]
-		movzx	edx,ah
-		pxor	mm1,[3*256*8+ebx+edx*8]
-		mov	eax,[4-8+esi+ecx*8]
-		movzx	edx,al
-		pxor	mm1,[4*256*8+ebx+edx*8]
-		movzx	edx,ah
-		shr	eax,16
-		cmp	ecx,n
-		pxor	mm1,[5*256*8+ebx+edx*8]
-		movzx	edx,al
-		pxor	mm1,[6*256*8+ebx+edx*8]
-		movzx	edx,ah
-		pxor	mm1,[7*256*8+ebx+edx*8]
-		pxor	mm1, mm0
-		movq	[-8+edi+ecx*8],mm1
-		jne	L0
-		pop	ebx
-		emms
-	}
 #else
 	for (i = 0; i < n; i++) {
 		uint64_t word = v[i];
@@ -463,58 +424,6 @@ void yafu_mul_64xN_Nx64(uint64_t *x, uint64_t *y,
 			:"r"(x), "r"(c), "r"(y), "g"(n)
 			:"%eax", "%ecx", "%mm0", "%mm1", "memory");
 
-#elif defined(_MSC_VER)
-	i = 0;
-	__asm
-	{
-		push	ebx
-		mov	edi,y
-		lea	ebx,c
-		mov	esi,x
-		mov	ecx,i
-		align 16
-	L0:	movq	mm0,[edi+ecx*8]
-		mov	eax,[esi+ecx*8]
-		inc	ecx
-		movzx	edx,al
-		movq	mm1,mm0
-		pxor	mm1,[ebx+edx*8]
-		movq	[ebx+edx*8],mm1
-		movzx	edx,ah
-		movq	mm1, mm0
-		pxor	mm1,[1*256*8+ebx+edx*8]
-		movq	[1*256*8+ebx+edx*8],mm1
-		shr	eax,16
-		movzx	edx,al
-		movq	mm1,mm0
-		pxor	mm1,[2*256*8+ebx+edx*8]
-		movq	[2*256*8+ebx+edx*8],mm1
-		movzx	edx,ah
-		movq	mm1,mm0
-		pxor	mm1,[3*256*8+ebx+edx*8]
-		movq	[3*256*8+ebx+edx*8],mm1
-		mov	eax,[4-8+esi+ecx*8]
-		movzx	edx,al
-		movq	mm1,mm0
-		pxor	mm1,[4*256*8+ebx+edx*8]
-		movq	[4*256*8+ebx+edx*8],mm1
-		movzx	edx,ah
-		shr	eax,16
-		cmp	ecx,n
-		movq	mm1,mm0
-		pxor	mm1,[5*256*8+ebx+edx*8]
-		movq	[5*256*8+ebx+edx*8],mm1
-		movzx	edx,al
-		movq	mm1,mm0
-		pxor	mm1,[6*256*8+ebx+edx*8]
-		movq	[6*256*8+ebx+edx*8],mm1
-		movzx	edx,ah
-		pxor	mm0,[7*256*8+ebx+edx*8]
-		movq	[7*256*8+ebx+edx*8],mm0
-		jne	L0
-		emms
-		pop	ebx
-	}
 #else
 
 	for (i = 0; i < n; i++) {

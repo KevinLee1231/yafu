@@ -220,32 +220,6 @@ static INLINE uint64 mp_modmul_2(uint64 a, uint64 b, uint64 n) {
 	return res;
 }
 
-#elif defined(_MSC_VER) && defined(_WIN64) /*-------------------------*/
-
-#include <stdint.h>
-
-#ifdef __clang__
-static INLINE uint64 mp_modmul_2(uint64 a, uint64 b, uint64 n) {
-	__uint128_t p = (__uint128_t)a * (__uint128_t)b;
-	p %= (__uint128_t)n;
-	return (uint64)(p);
-	//return mul_mod_64(a, b, n);
-}
-
-#else
-
-#include <intrin.h>
-#pragma(_udiv128)
-
-static INLINE uint64 mp_modmul_2(uint64 a, uint64 b, uint64 n) {
-	uint64_t hi, lo, q, r;
-	lo = _umul128(a, b, &hi);
-	q = _udiv128(hi, lo, n, &r);
-	return r;
-}
-
-#endif
-
 #else  /*-------------------------------------------------------------*/
 
 uint64 mp_modmul_2(uint64 a, uint64 b, uint64 n);

@@ -90,16 +90,6 @@ Purpose:	Port into Yafu-1.14.  Much of the functionality in here
 		#define GCC_ASM32X
 	#endif
 
-#elif defined(_MSC_VER)
-
-	#define ASM_M __asm
-
-	#if defined(_M_IX86)
-		#define MSC_ASM32A
-		#define MSC_ASM32X
-	#elif defined(_WIN64)	
-		
-	#endif
 #endif
 
 /* loop alignment directives need to know whether

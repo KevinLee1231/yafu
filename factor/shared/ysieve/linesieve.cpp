@@ -49,8 +49,6 @@ SOFTWARE.
 #if defined(_INTEL_COMPILER) || defined(__clang__)
 #define BITLOGIC32  /* 15.68 */
 //#define BITMASKS8  
-#elif defined(_MSC_VER)
-#define BITMASKS8  /* 17.56 */
 #else // gcc, mingw64-gcc
 //#define BITMASKS8  /* 17.91 */
 #define BITMASKS32 /* 16.69 */

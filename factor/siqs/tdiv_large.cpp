@@ -290,42 +290,6 @@ const uint32_t bitmask[16] = { 0x1, 0x2, 0x4, 0x8,
 			result = 0xffff;	/*dont know what compiler this is. force the normal method*/
 	#endif
 
-#elif defined(_WIN64)
-
-	#define SCAN_CLEAN /*nothing*/
-
-	#if defined(D_HAS_SSE2)
-
-		#define SCAN_16X			\
-		do {							\
-			__m128i local_mask; \
-			__m128i local_bptr; \
-			__m128i local_bptr2; \
-			__m128i local_bptr3; \
-			__m128i local_bptr4; \
-			local_mask = _mm_load_si128(&mask[0]); \
-			local_bptr = _mm_load_si128(bptr + j); \
-			local_bptr2 = _mm_load_si128(bptr + j + 4); \
-			local_bptr = _mm_cmpeq_epi16(local_bptr, local_mask); \
-			local_bptr3 = _mm_load_si128(bptr + j + 8); \
-			local_bptr2 = _mm_cmpeq_epi16(local_bptr2, local_mask); \
-			local_bptr4 = _mm_load_si128(bptr + j + 12); \
-			local_bptr3 = _mm_cmpeq_epi16(local_bptr3, local_mask); \
-			local_bptr4 = _mm_cmpeq_epi16(local_bptr4, local_mask); \
-			local_bptr4 = _mm_or_si128(local_bptr4, local_bptr); \
-			local_bptr2 = _mm_or_si128(local_bptr2, local_bptr3); \
-			local_bptr4 = _mm_or_si128(local_bptr4, local_bptr2); \
-			result = _mm_movemask_epi8(local_bptr4); \
-			} while (0);
-
-	#else
-
-		#define SCAN_16X	\
-			result = 0xffff;	/* force the normal method*/
-
-	#endif
-
-
 #else	/* compiler not recognized*/
 
 	#define SCAN_16X	\

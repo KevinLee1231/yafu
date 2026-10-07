@@ -1496,47 +1496,6 @@ uint32_t u32div(uint32_t c, uint32_t n)
 }
 
 
-#elif defined(_WIN64) && !defined(FORCE_GENERIC)
-	#define PM_SCAN_CLEAN /*nothing*/
-	#define PM_SIMD_SIEVE_SCAN 1
-
-	#define PM_SIEVE_SCAN_64	\
-		do	{				  		\
-			__m128i local_block;	\
-			__m128i local_block2;	\
-			__m128i local_block3;	\
-			__m128i local_block4;	\
-			local_block = _mm_load_si128(sieveblock + j); \
-			local_block2 = _mm_load_si128(sieveblock + j + 2); \
-			local_block3 = _mm_load_si128(sieveblock + j + 4); \
-			local_block = _mm_or_si128(local_block, local_block2); \
-			local_block = _mm_or_si128(local_block, local_block3); \
-			local_block4 = _mm_load_si128(sieveblock + j + 6); \
-			local_block = _mm_or_si128(local_block, local_block4); \
-			result = _mm_movemask_epi8(local_block); \
-		} while (0);
-
-uint32_t mulredc32(uint32_t x, uint32_t y, uint32_t n, uint32_t nhat)
-{
-    uint64_t xx, yy;
-
-    xx = (uint64_t)x * (uint64_t)y;
-    yy = (xx & 0xffffffff) * (uint64_t)nhat;
-    yy = (yy & 0xffffffff) * (uint64_t)n;
-    yy += xx;
-    yy >>= 32;
-    if (yy >= n) yy -= n;
-
-    return (uint32_t)yy;
-}
-
-uint32_t u32div(uint32_t c, uint32_t n)
-{
-    return ((uint64_t)c << 32) % (uint64_t)n;
-}
-
-
-
 #else	/* compiler not recognized*/
 
 	#define PM_SCAN_CLEAN /*nothing*/

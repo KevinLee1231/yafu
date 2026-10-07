@@ -582,8 +582,6 @@ uint64_t pow2m(uint64_t b, uint64_t n)
         bits = 64 - _lead_zcnt64(b);
 #elif defined(__GNUC__)
         bits = 64 - __builtin_clzll(b);
-#elif defined _MSC_VER
-        bits = 64 - _lead_zcnt64(b);
 #endif
     }
     else
