@@ -251,11 +251,7 @@ typedef uint32 (*qs_core_sieve_fcn)(sieve_conf_t *conf,
 DECLARE_SIEVE_FCN(qs_core_sieve_generic_32k);
 DECLARE_SIEVE_FCN(qs_core_sieve_generic_64k);
 
-#if defined(_MSC_VER) && (_MSC_VER >= 1400)
-	#define HAS_MSVC_SIEVE_CORE
-	DECLARE_SIEVE_FCN(qs_core_sieve_vc8_32k);
-	DECLARE_SIEVE_FCN(qs_core_sieve_vc8_64k);
-#elif defined(GCC_ASM32X)
+#if defined(GCC_ASM32X)
 	DECLARE_SIEVE_FCN(qs_core_sieve_p2_64k);
 	DECLARE_SIEVE_FCN(qs_core_sieve_p3_64k);
 	DECLARE_SIEVE_FCN(qs_core_sieve_p4_64k);

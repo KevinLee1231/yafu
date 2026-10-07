@@ -31,25 +31,6 @@ void nfs_start_worker_thread(nfs_threaddata_t *t,
 	}
 
 	t->command = NFS_COMMAND_INIT;
-#if defined(WIN32) || defined(_WIN64)
-		
-	// specific to different structure of poly selection threading
-	if (is_master_thread == 2)
-	{
-		t->run_event = CreateEvent(NULL, FALSE, FALSE, NULL);
-		t->finish_event = CreateEvent(NULL, FALSE, FALSE, NULL);
-		*t->queue_event = CreateEvent(NULL, FALSE, FALSE, NULL);
-	}
-	else
-	{
-		t->run_event = CreateEvent(NULL, FALSE, TRUE, NULL);
-		t->finish_event = CreateEvent(NULL, FALSE, FALSE, NULL);
-	}
-
-	t->thread_id = CreateThread(NULL, 0, nfs_worker_thread_main, t, 0, NULL);
-
-	WaitForSingleObject(t->finish_event, INFINITE); /* wait for ready */
-#else
 	{
 		int status = pthread_mutex_init(&t->run_lock, NULL);
 		if (status != 0)
@@ -91,7 +72,6 @@ void nfs_start_worker_thread(nfs_threaddata_t *t,
 	if (is_master_thread == 2)
 		pthread_mutex_unlock(&t->run_lock);
 
-#endif
 
 }
 
@@ -105,17 +85,6 @@ void nfs_stop_worker_thread(nfs_threaddata_t *t,
 	}
 
 	t->command = NFS_COMMAND_END;
-#if defined(WIN32) || defined(_WIN64)
-	SetEvent(t->run_event);
-	WaitForSingleObject(t->thread_id, INFINITE);
-	CloseHandle(t->thread_id);
-	CloseHandle(t->run_event);
-	CloseHandle(t->finish_event);
-
-	// specific to different structure of poly selection threading
-	if (is_master_thread == 2)
-		CloseHandle(*t->queue_event);
-#else
 	if (is_master_thread == 2)
 		pthread_mutex_lock(&t->run_lock);
 
@@ -124,15 +93,10 @@ void nfs_stop_worker_thread(nfs_threaddata_t *t,
 	pthread_join(t->thread_id, NULL);
 	pthread_cond_destroy(&t->run_cond);
 	pthread_mutex_destroy(&t->run_lock);
-#endif
 
 }
 
-#if defined(WIN32) || defined(_WIN64)
-DWORD WINAPI nfs_worker_thread_main(LPVOID thread_data) {
-#else
 void *nfs_worker_thread_main(void *thread_data) {
-#endif
 	nfs_threaddata_t *t = (nfs_threaddata_t *)thread_data;
 
 	/*
@@ -143,28 +107,19 @@ void *nfs_worker_thread_main(void *thread_data) {
 	// specific to different structure of poly selection threading
 	if (t->is_poly_select)
 	{
-#if defined(WIN32) || defined(_WIN64)
-		t->command = NFS_COMMAND_WAIT;
-		SetEvent(t->finish_event);
-#else
 		pthread_mutex_lock(&t->run_lock);
 		t->command = NFS_COMMAND_WAIT;
 		pthread_cond_signal(&t->run_cond);
 		pthread_mutex_unlock(&t->run_lock);
-#endif
 	}
 
 	while(1) {
 
 		/* wait forever for work to do */
-#if defined(WIN32) || defined(_WIN64)
-		WaitForSingleObject(t->run_event, INFINITE);		
-#else
 		pthread_mutex_lock(&t->run_lock);
 		while (t->command == NFS_COMMAND_WAIT) {
 			pthread_cond_wait(&t->run_cond, &t->run_lock);
 		}
-#endif
 		/* do work */
 
 		if (t->command == NFS_COMMAND_RUN)
@@ -179,19 +134,6 @@ void *nfs_worker_thread_main(void *thread_data) {
 
 		if (t->is_poly_select)
 		{
-#if defined(WIN32) || defined(_WIN64)
-
-			WaitForSingleObject( 
-				*t->queue_lock,    // handle to mutex
-				INFINITE);  // no time-out interval
- 			
-			t->thread_queue[(*(t->threads_waiting))++] = t->tindex;
-
-			SetEvent(*t->queue_event);			
-
-			ReleaseMutex(*t->queue_lock);
-		
-#else
 			pthread_mutex_unlock(&t->run_lock);
 
 			// lock the work queue and insert my thread ID into it
@@ -201,26 +143,17 @@ void *nfs_worker_thread_main(void *thread_data) {
 			t->thread_queue[(*(t->threads_waiting))++] = t->tindex;
 			pthread_cond_signal(t->queue_cond);
 			pthread_mutex_unlock(t->queue_lock);
-#endif
 		}
 		else
 		{
 
-#if defined(WIN32) || defined(_WIN64)
-			SetEvent(t->finish_event);		
-#else
 			pthread_cond_signal(&t->run_cond);
 			pthread_mutex_unlock(&t->run_lock);
-#endif
 
 		}
 	}
 
-#if defined(WIN32) || defined(_WIN64)
-	return 0;
-#else
 	return NULL;
-#endif
 }
 
 #endif

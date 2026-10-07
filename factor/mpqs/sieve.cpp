@@ -95,17 +95,7 @@ int do_sieving(msieve_obj *obj, mp_t *n,
 	/* decide on the core sieving routine to use */
 
 	core_sieve_fcn = NULL;
-#if defined(HAS_MSVC_SIEVE_CORE)
-	if (sieve_block_size == 32768) {
-		logprintf(obj, "using VC8 32kb sieve core\n");
-		core_sieve_fcn = qs_core_sieve_vc8_32k;
-	}
-	else {
-		logprintf(obj, "using VC8 64kb sieve core\n");
-		core_sieve_fcn = qs_core_sieve_vc8_64k;
-	}
-#else
-	if (sieve_block_size == 32768) {
+if (sieve_block_size == 32768) {
 		logprintf(obj, "using generic 32kb sieve core\n");
 		core_sieve_fcn = qs_core_sieve_generic_32k;
 	}
@@ -113,7 +103,6 @@ int do_sieving(msieve_obj *obj, mp_t *n,
 		logprintf(obj, "using generic 64kb sieve core\n");
 		core_sieve_fcn = qs_core_sieve_generic_64k;
 	}
-#endif
 
 	/* round the size of the sieve interval (positive plus
 	   negative parts combined) up to an integral number 

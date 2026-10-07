@@ -20,10 +20,6 @@ benefit from your work.
 #include "factor.h"
 #include <math.h>
 
-#ifdef __MINGW32__
-#include <sys/time.h>
-#endif
-
 #ifdef USE_NFS
 
 
@@ -938,13 +934,8 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
 	// thread work-queue controls
 	int threads_working = 0;
 	int *thread_queue, *threads_waiting;
-#if defined(WIN32) || defined(_WIN64)
-	HANDLE queue_lock = NULL;
-	HANDLE *queue_events = NULL;
-#else
 	pthread_mutex_t queue_lock;
 	pthread_cond_t queue_cond;
-#endif
 
 	int special_polyfind = 0;		// if user has specified np1, nps, or npr
 	int i,j,is_startup;
@@ -1266,16 +1257,8 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
 
 	if (fobj->THREADS > 1)
 	{
-#if defined(WIN32) || defined(_WIN64)
-		queue_lock = CreateMutex( 
-			NULL,              // default security attributes
-			FALSE,             // initially not owned
-			NULL);             // unnamed mutex
-		queue_events = (HANDLE *)malloc(fobj->THREADS * sizeof(HANDLE));
-#else
 		pthread_mutex_init(&queue_lock, NULL);
 		pthread_cond_init(&queue_cond, NULL);
-#endif
 	}
 
 
@@ -1367,14 +1350,8 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
 
 		if (fobj->THREADS > 1)
 		{
-#if defined(WIN32) || defined(_WIN64)
-			// assign a pointer to the mutex
-			t->queue_lock = &queue_lock;
-			t->queue_event = &queue_events[i];
-#else
 			t->queue_lock = &queue_lock;
 			t->queue_cond = &queue_cond;
-#endif
 		}
 
 	}
@@ -1420,11 +1397,7 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
 
 	if (fobj->THREADS > 1)
 	{
-#if defined(WIN32) || defined(_WIN64)
-		// nothing
-#else
 		pthread_mutex_lock(&queue_lock);
-#endif
 	}	
 
     //printf("============= starting %d thread poly search with option %d  =================\n", 
@@ -1453,18 +1426,9 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
 			if (fobj->THREADS > 1)
 			{
 				// Pop a waiting thread off the queue (OK, it's stack not a queue)
-#if defined(WIN32) || defined(_WIN64)
-
-				WaitForSingleObject( 
-					queue_lock,    // handle to mutex
-					INFINITE);  // no time-out interval
-#endif
   
 				tid = thread_queue[--(*threads_waiting)];
 
-#if defined(WIN32) || defined(_WIN64)
-				ReleaseMutex(queue_lock);
-#endif
 			}
 			else
 			{
@@ -1720,15 +1684,10 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
 							if (fobj->THREADS > 1)
 							{
 								// send the thread a signal to start processing the poly we just generated for it
-#if defined(WIN32) || defined(_WIN64)
-								thread_data[tid].command = NFS_COMMAND_RUN_POLY;
-								SetEvent(thread_data[tid].run_event);
-#else
 								pthread_mutex_lock(&thread_data[tid].run_lock);
 								thread_data[tid].command = NFS_COMMAND_RUN_POLY;
 								pthread_cond_signal(&thread_data[tid].run_cond);
 								pthread_mutex_unlock(&thread_data[tid].run_lock);
-#endif
 							}
 
 							// this thread is now busy, so increment the count of working threads
@@ -1814,15 +1773,7 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
 		if (fobj->THREADS > 1)
 		{
 			// wait for a thread to finish and put itself in the waiting queue
-#if defined(WIN32) || defined(_WIN64)
-			j = WaitForMultipleObjects(
-                fobj->THREADS,
-				queue_events,
-				FALSE,
-				INFINITE);
-#else
 			pthread_cond_wait(&queue_cond, &queue_lock);
-#endif
 		}
 		else
 		{
@@ -1877,10 +1828,6 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
 	free(thread_queue);
 	free(threads_waiting);
 
-#if defined(WIN32) || defined(_WIN64)
-	if (fobj->THREADS > 1)
-		free(queue_events);
-#endif
 
 	if (!NFS_ABORT)
 	{

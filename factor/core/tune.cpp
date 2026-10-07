@@ -12,14 +12,8 @@
 // factor/nfs/lasieve/lasieve_dispatch.c.  I is 11..16 and picks which of the
 // six per-I object sets runs.  tune measures one I value per test point --
 // the one make_job_file reports -- so that the points are comparable.
-#ifndef _MSC_VER
 #include <unistd.h>
-#endif
 #include "nfs/lasieve/include/lasieve_dispatch.h"
-
-#ifdef __MINGW32__
-#include <sys/time.h>
-#endif
 
 //----------------------- LOCAL DECLARATIONS ----------------------------------//
 #define NUM_SIQS_PTS 10
@@ -218,30 +212,22 @@ void factor_tune(fact_obj_t *inobj)
 		int sieverI;          // which of the six I values this test point uses
 
 		// remove previous tests
-#ifndef _MSC_VER
-		//printf("checking if tunerels.out exists\n");
+//printf("checking if tunerels.out exists\n");
 		if (access("tunerels.out", F_OK) == 0)
-#endif
 		{
 			//printf("tunerels exists, checking for write access\n");
-#ifndef _MSC_VER
 			if (access("tunerels.out", W_OK) == 0)
-#endif
 			{
 				//printf("write access confirmed, attempting to remove it\n");
 				remove("tunerels.out");
 			}
 		}
 
-#ifndef _MSC_VER
 		//printf("checking if tune.job.afb.0 exists\n");
 		if (access("tune.job.afb.0", F_OK) == 0)
-#endif
 		{
 			//printf("tune.job.afb.0 exists, checking for write access\n");
-#ifndef _MSC_VER
 			if (access("tune.job.afb.0", W_OK) == 0)
-#endif
 			{
 				//printf("write access confirmed, attempting to remove it\n");
 				remove("tune.job.afb.0");
@@ -760,28 +746,7 @@ void update_INI(double mult, double exponent, double mult2,
 			printf("found OS = %s and CPU = %s in tune_info field\n",osstr, cpustr);
 
 
-#if defined(_WIN64)
-			if ((strcmp(cpustr, cpu_str) == 0) && (strcmp(osstr, "WIN64") == 0))
-			{
-				printf("Replacing tune_info entry for %s - %s\n",osstr,cpustr);
-				found_entry = 1;
-				sprintf(newline, "tune_info=%s,WIN64,%lg,%lg,%lg,%lg,%lg,%lg,%lg,%lg,%lg\n",
-                    cpu_str,mult,exponent,mult2,exponent2,xover,
-					b1slope, b1intercept, size_exp, cpu_freq);
-				fputs(newline, out);
-			}
-#elif defined(WIN32)
-			if ((strcmp(cpustr, cpu_str) == 0) && (strcmp(osstr, "WIN32") == 0))
-			{
-				printf("Replacing tune_info entry for %s - %s\n",osstr,cpustr);
-				found_entry = 1;
-				sprintf(newline, "tune_info=%s,WIN32,%lg,%lg,%lg,%lg,%lg,%lg,%lg,%lg,%lg\n",
-					cpu_str, mult, exponent, mult2, exponent2, xover,
-					b1slope, b1intercept, size_exp, cpu_freq);
-				fputs(newline, out);
-			}
-#else 
-			if ((strcmp(cpustr, cpu_str) == 0) && (strcmp(osstr, "LINUX64") == 0))
+if ((strcmp(cpustr, cpu_str) == 0) && (strcmp(osstr, "LINUX64") == 0))
 			{
 				printf("Replacing tune_info entry for %s - %s\n",osstr,cpustr);
 				found_entry = 1;
@@ -790,7 +755,6 @@ void update_INI(double mult, double exponent, double mult2,
 					b1slope, b1intercept, size_exp, cpu_freq);
 				fputs(newline, out);
 			}
-#endif
 			else
 			{
 				//just write the original line
@@ -806,25 +770,11 @@ void update_INI(double mult, double exponent, double mult2,
 
 	if (!found_entry)
 	{
-#if defined(_WIN64)
-		printf("Adding tune_info entry for WIN64 - %s\n", cpu_str);
-		sprintf(newline, "\ntune_info=%s,WIN64,%lg,%lg,%lg,%lg,%lg,%lg,%lg,%lg,%lg\n",
-			cpu_str, mult, exponent, mult2, exponent2, xover,
-			b1slope, b1intercept, size_exp, cpu_freq);
-		fputs(newline, out);
-#elif defined(WIN32)
-		printf("Adding tune_info entry for WIN32 - %s\n", cpu_str);
-		sprintf(newline, "\ntune_info=%s,WIN32,%lg,%lg,%lg,%lg,%lg,%lg,%lg,%lg,%lg\n",
-			cpu_str, mult, exponent, mult2, exponent2, xover,
-			b1slope, b1intercept, size_exp, cpu_freq);
-		fputs(newline, out);
-#else 
-		printf("Adding tune_info entry for LINUX64 - %s\n", cpu_str);
+printf("Adding tune_info entry for LINUX64 - %s\n", cpu_str);
 		sprintf(newline, "\ntune_info=%s,LINUX64,%lg,%lg,%lg,%lg,%lg,%lg,%lg,%lg,%lg\n",
 			cpu_str, mult, exponent, mult2, exponent2, xover,
 			b1slope, b1intercept, size_exp, cpu_freq);
 		fputs(newline, out);
-#endif
 	}
 
 	fclose(in);

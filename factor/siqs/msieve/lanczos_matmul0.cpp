@@ -125,12 +125,8 @@ static void yafu_mul_packed(qs_packed_matrix_t *matrix, uint64_t *x, uint64_t *b
 		}
 		else {
 			t->command = COMMAND_RUN;
-#if defined(WIN32) || defined(_WIN64)
-			SetEvent(t->run_event);
-#else
 			pthread_cond_signal(&t->run_cond);
 			pthread_mutex_unlock(&t->run_lock);
-#endif
 		}
 	}
 
@@ -142,13 +138,9 @@ static void yafu_mul_packed(qs_packed_matrix_t *matrix, uint64_t *x, uint64_t *b
 		qs_msieve_thread_data_t *t = matrix->thread_data + i;
 
 		if (i < matrix->num_threads - 1) {
-#if defined(WIN32) || defined(_WIN64)
-			WaitForSingleObject(t->finish_event, INFINITE);
-#else
 			pthread_mutex_lock(&t->run_lock);
 			while (t->command != COMMAND_WAIT)
 				pthread_cond_wait(&t->run_cond, &t->run_lock);
-#endif
 		}
 
 		if (i > 0) {
@@ -163,9 +155,6 @@ static void yafu_mul_packed(qs_packed_matrix_t *matrix, uint64_t *x, uint64_t *b
 #if (defined(__GNUC__) || defined(__ICL)) && \
 	defined(__i386__) && defined(HAS_MMX)
 	asm volatile ("emms");
-#elif defined(_MSC_VER) && !defined(_WIN64) && \
-	defined(NDEBUG) && defined(HAS_MMX)
-	__asm emms
 #endif
 }
 
@@ -200,12 +189,8 @@ void yafu_mul_trans_packed(qs_packed_matrix_t *matrix, uint64_t *x, uint64_t *b)
 		}
 		else {
 			t->command = COMMAND_RUN_TRANS;
-#if defined(WIN32) || defined(_WIN64)
-			SetEvent(t->run_event);
-#else
 			pthread_cond_signal(&t->run_cond);
 			pthread_mutex_unlock(&t->run_lock);
-#endif
 		}
 	}
 
@@ -215,13 +200,9 @@ void yafu_mul_trans_packed(qs_packed_matrix_t *matrix, uint64_t *x, uint64_t *b)
 		qs_msieve_thread_data_t *t = matrix->thread_data + i;
 
 		if (i < matrix->num_threads - 1) {
-#if defined(WIN32) || defined(_WIN64)
-			WaitForSingleObject(t->finish_event, INFINITE);
-#else
 			pthread_mutex_lock(&t->run_lock);
 			while (t->command != COMMAND_WAIT)
 				pthread_cond_wait(&t->run_cond, &t->run_lock);
-#endif
 		}
 		t->b = tmp_b[i];
 	}
@@ -229,9 +210,6 @@ void yafu_mul_trans_packed(qs_packed_matrix_t *matrix, uint64_t *x, uint64_t *b)
 #if (defined(__GNUC__) || defined(__ICL)) && \
 	defined(__i386__) && defined(HAS_MMX)
 	asm volatile ("emms");
-#elif defined(_MSC_VER) && !defined(_WIN64) && \
-	defined(NDEBUG) && defined(HAS_MMX)
-	__asm emms
 #endif
 }
 
@@ -452,24 +430,16 @@ static void yafu_matrix_thread_free(qs_msieve_thread_data_t *t) {
 }
 
 /*-------------------------------------------------------------------*/
-#if defined(WIN32) || defined(_WIN64)
-static DWORD WINAPI yafu_worker_thread_main(LPVOID thread_data) {
-#else
 static void *yafu_worker_thread_main(void *thread_data) {
-#endif
 	qs_msieve_thread_data_t *t = (qs_msieve_thread_data_t *)thread_data;
 
 	while(1) {
 
 		/* wait forever for work to do */
-#if defined(WIN32) || defined(_WIN64)
-		WaitForSingleObject(t->run_event, INFINITE);
-#else
 		pthread_mutex_lock(&t->run_lock);
 		while (t->command == COMMAND_WAIT) {
 			pthread_cond_wait(&t->run_cond, &t->run_lock);
 		}
-#endif
 		/* do work */
 		
 		if (t->command == COMMAND_RUN)
@@ -484,21 +454,13 @@ static void *yafu_worker_thread_main(void *thread_data) {
 		/* signal completion */
 
 		t->command = COMMAND_WAIT;
-#if defined(WIN32) || defined(_WIN64)
-		SetEvent(t->finish_event);
-#else
 		pthread_cond_signal(&t->run_cond);
 		pthread_mutex_unlock(&t->run_lock);
-#endif
 	}
 
 	yafu_matrix_thread_free(t);
 
-#if defined(WIN32) || defined(_WIN64)
-	return 0;
-#else
 	return NULL;
-#endif
 }
 
 /*-------------------------------------------------------------------*/
@@ -515,13 +477,6 @@ static void yafu_start_worker_thread(qs_msieve_thread_data_t *t,
 	}
 
 	t->command = COMMAND_INIT;
-#if defined(WIN32) || defined(_WIN64)
-	t->run_event = CreateEvent(NULL, FALSE, TRUE, NULL);
-	t->finish_event = CreateEvent(NULL, FALSE, FALSE, NULL);
-	t->thread_id = CreateThread(NULL, 0, yafu_worker_thread_main, t, 0, NULL);
-
-	WaitForSingleObject(t->finish_event, INFINITE); /* wait for ready */
-#else
 	pthread_mutex_init(&t->run_lock, NULL);
 	pthread_cond_init(&t->run_cond, NULL);
 
@@ -532,7 +487,6 @@ static void yafu_start_worker_thread(qs_msieve_thread_data_t *t,
 	pthread_mutex_lock(&t->run_lock); /* wait for ready */
 	while (t->command != COMMAND_WAIT)
 		pthread_cond_wait(&t->run_cond, &t->run_lock);
-#endif
 }
 
 /*-------------------------------------------------------------------*/
@@ -545,19 +499,11 @@ static void yafu_stop_worker_thread(qs_msieve_thread_data_t *t,
 	}
 	
 	t->command = COMMAND_END;
-#if defined(WIN32) || defined(_WIN64)
-	SetEvent(t->run_event);
-	WaitForSingleObject(t->thread_id, INFINITE);
-	CloseHandle(t->thread_id);
-	CloseHandle(t->run_event);
-	CloseHandle(t->finish_event);
-#else
 	pthread_cond_signal(&t->run_cond);
 	pthread_mutex_unlock(&t->run_lock);
 	pthread_join(t->thread_id, NULL);
 	pthread_cond_destroy(&t->run_cond);
 	pthread_mutex_destroy(&t->run_lock);
-#endif
 }
 
 /*-------------------------------------------------------------------*/

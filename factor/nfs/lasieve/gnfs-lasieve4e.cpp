@@ -1,14 +1,8 @@
 
 #ifdef HAVE_BOINC
-    #include<stdarg.h> 
-    #ifdef _WIN32
-        #include"boinc_win.h"
+    #include<stdarg.h>
         #include"boinc_api.h"
         #include"filesys.h"
-    #else
-        #include"boinc_api.h"
-        #include"filesys.h"
-    #endif
 
     void boincstop(int retcode);
     int boincstart(int argc_init,char**argv);
@@ -25,25 +19,12 @@
 
 #include <assert.h> 
 
-#if !defined(_MSC_VER) && !defined(__INTEL_COMPILER)
-#include <strings.h> 
-#endif
+#include <strings.h>
 
 // BRB: support for avx512 intrinsics
 #include <immintrin.h>
 #include <pthread.h>
 #include <stdint.h>
-
-#ifdef _WIN64
-
-#include <Windows.h>
-
-// Interesting, windows doesn't seem to have bzero, but when compiled optmised its OK
-// because its optimised out, so only complains if compiled -g
-// Remember to remove prototype from siever_config.w if you define this
-//#define bzero(p,s) memset((p),0,(s))
-
-#endif
 
 #include <stdio.h> 
 #include <sys/types.h> 
@@ -53,9 +34,7 @@
 #endif
 #include <math.h> 
 #include <stdlib.h> 
-#if !defined(_MSC_VER) && !defined(__INTEL_COMPILER)
-#include <unistd.h> 
-#endif
+#include <unistd.h>
 #include <limits.h>
 #include <errno.h>
 #include <string.h>
@@ -190,40 +169,23 @@ static u32_t FB_bound_lowered;
    fields.  Files without the trailer are rejected unless
    LASIEVE_AFB_ALLOW_LEGACY=1, since their completeness cannot be verified. */
 
-/* _WIN64 (not _WIN32) deliberately: it matches this file's Windows.h
-   include guard, and the 64-bit asm rules out Win32 siever builds. */
-#ifdef _WIN64
-#define AFB_PID() ((int)GetCurrentProcessId())
-#else
 #define AFB_PID() ((int)getpid())
-#endif
 
 /* Atomically publish src as dst, replacing any existing dst; plain rename
-   does that on POSIX but refuses to replace on Windows. */
+   does that on POSIX. */
 static int afb_replace(const char *src, const char *dst)
 {
-#ifdef _WIN64
-    return MoveFileExA(src, dst, MOVEFILE_REPLACE_EXISTING) ? 0 : -1;
-#else
     return rename(src, dst);
-#endif
 }
 
 /* Remove an aborted staging file (see afb_replace) so a failed or
    interrupted write does not leave "<afbname>.tmp.<pid>" litter behind.
-   errno (and, on Windows, GetLastError) is preserved so the complain()
-   that follows still reports the original failure via %m / %lu, not the
-   result of this cleanup. */
+   errno is preserved so the complain() that follows still reports the
+   original failure via %m, not the result of this cleanup. */
 static void afb_unlink_tmp(const char *tmp)
 {
     int e = errno;
-#ifdef _WIN64
-    DWORD le = GetLastError();
-#endif
     remove(tmp);
-#ifdef _WIN64
-    SetLastError(le);
-#endif
     errno = e;
 }
 
@@ -739,7 +701,7 @@ extern u64_t MMX_TdNloop;
 /*******************************************************/
 double sTime()
 /*******************************************************/
-#if 0 && !defined (_MSC_VER) && !defined (__MINGW32__) && !defined (MINGW32)
+#if 0
 {
     static struct timeval this_tv;
     static struct timezone dumbTZ;
@@ -946,20 +908,6 @@ int main(int argc, char** argv)
 
 #ifdef HAVE_BOINC
     double pct;
-#endif
-
-#if defined (_MSC_VER) && defined (_DEBUG)
-    int tmpDbgFlag;
-    tmpDbgFlag = _CrtSetDbgFlag(_CRTDBG_REPORT_FLAG);
-
-    /*
-    tmpDbgFlag |= _CRTDBG_CHECK_ALWAYS_DF;
-    tmpDbgFlag |= _CRTDBG_CHECK_CRT_DF;
-    tmpDbgFlag |= _CRTDBG_DELAY_FREE_MEM_DF;
-    */
-
-    tmpDbgFlag |= _CRTDBG_LEAK_CHECK_DF;
-    _CrtSetDbgFlag(tmpDbgFlag);
 #endif
 
     n_spq = 0;
@@ -1720,15 +1668,8 @@ int main(int argc, char** argv)
                             }
                             if (afb_replace(afbtmp, afbname) != 0) {
                                 afb_unlink_tmp(afbtmp);
-#ifdef _WIN64
-                                /* MoveFileExA reports through GetLastError,
-                                   not errno. */
-                                complain("Cannot rename %s to %s: error %lu\n",
-                                    afbtmp, afbname, GetLastError());
-#else
                                 complain("Cannot rename %s to %s: %m\n", afbtmp,
                                     afbname);
-#endif
                             }
                             free(afbtmp);
                         }
@@ -2829,14 +2770,8 @@ nr= 1;
 
 
 
-#ifdef _WIN64
-            if ((termination_condition = _setjmp(termination_jb, 0)) != 0) 
+if ((termination_condition = setjmp(termination_jb)) != 0)
             {
-
-#else
-            if ((termination_condition = setjmp(termination_jb)) != 0)
-            {
-#endif
 
                 if (termination_condition == USER_INTERRUPT)
 
@@ -2847,23 +2782,7 @@ nr= 1;
 
                     hn = (char*)xmalloc(100);
 
-#if defined(__MINGW32__)
-
-                    int sysname_sz = 100;
-                    GetComputerName((LPSTR)hn, (LPDWORD)&sysname_sz);
-                    ret = 0;
-
-#elif defined(WIN32)
-
-                    int sysname_sz = 100;
-                    GetComputerName((LPWSTR)hn, (LPDWORD)&sysname_sz);
-                    ret = 0;
-
-#else
-
-                    ret = gethostname(hn, 99);
-
-#endif
+ret = gethostname(hn, 99);
 
                     if (ret == 0)
                         asprintf(&ofn, "%s.%s.last_spq%d", las_basename, hn, process_no);
@@ -6814,11 +6733,7 @@ void boincstatus(double percent)
 {
 if(percent<1.0)boinc_fraction_done(percent);
 
-#ifdef _WIN32
-Sleep(1);
-#else
  sleep(1);
-#endif
 
 if(boinc_time_to_checkpoint()){
 

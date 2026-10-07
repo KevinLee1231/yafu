@@ -41,20 +41,8 @@ benefit from your work.
 #include <stdarg.h>
 #include <errno.h>
 #include <fcntl.h>
-#if defined(WIN32) || defined(_WIN64)
-#include <process.h>
-#else
-#include <sys/wait.h>
-#endif
-
-#ifdef __MINGW32__
-#include <sys/time.h>
-#endif
-
-#if !defined(WIN32) && !defined(_WIN64)
 #include <sys/wait.h>		// WIFEXITED/WEXITSTATUS for the cuda siever
 #include "nfs/lasieve/include/lasieve_dispatch.h"
-#endif
 
 #include <array>
 #include <filesystem>
@@ -584,13 +572,6 @@ static int nfs_run_siever(fact_obj_t* fobj, int I, const siever_argv_t* a)
 
 static int nfs_run_child(const siever_argv_t* a, const char* logfile)
 {
-#if defined(WIN32) || defined(_WIN64)
-	intptr_t rc;
-
-	fflush(NULL);
-	rc = _spawnvp(_P_WAIT, a->argv[0], (const char* const*)a->argv);
-	return (rc < 0) ? -1 : (int)rc;
-#else
 	pid_t pid;
 	int status;
 
@@ -627,7 +608,6 @@ static int nfs_run_child(const siever_argv_t* a, const char* logfile)
 	if (WIFEXITED(status))
 		return WEXITSTATUS(status);
 	return -1;
-#endif
 }
 
 static int nfs_cuda_file_exists(const char* name)
@@ -1191,19 +1171,7 @@ void nfs_sieve_sync(void* vptr)
 		int ret;
 		char* hn = (char*)xmalloc(128);
 
-#if defined(WIN32)
-
-		int sysname_sz = 128;
-#ifdef __MINGW32__
-		GetComputerName((LPSTR)hn, (LPDWORD)&sysname_sz);
-#else
-		GetComputerName((LPWSTR)hn, (LPDWORD)&sysname_sz);
-#endif
-		ret = 0;
-
-#else
 		ret = gethostname(hn, 127);
-#endif
 
 		if (ret == 0) sprintf(ofn, "%s.%s.last_spq%d", fobj->nfs_obj.job_infile, hn, tid);
 		else sprintf(ofn, "%s.unknown_host.last_spq%d", fobj->nfs_obj.job_infile, tid);
@@ -2780,12 +2748,8 @@ void do_sieving_nfs(fact_obj_t *fobj, nfs_job_t *job)
 		}
 		else {
 			t->command = NFS_COMMAND_RUN;
-#if defined(WIN32) || defined(_WIN64)
-			SetEvent(t->run_event);
-#else
 			pthread_cond_signal(&t->run_cond);
 			pthread_mutex_unlock(&t->run_lock);
-#endif
 		}
 	}
 
@@ -2797,13 +2761,9 @@ void do_sieving_nfs(fact_obj_t *fobj, nfs_job_t *job)
 			continue;
 
 		if (i < fobj->THREADS - 1) {
-#if defined(WIN32) || defined(_WIN64)
-			WaitForSingleObject(t->finish_event, INFINITE);
-#else
 			pthread_mutex_lock(&t->run_lock);
 			while (t->command != NFS_COMMAND_WAIT)
 				pthread_cond_wait(&t->run_cond, &t->run_lock);
-#endif
 		}
 	}
 
@@ -2828,17 +2788,9 @@ void do_sieving_nfs(fact_obj_t *fobj, nfs_job_t *job)
 			char* hn = xmalloc(128);
 			int ret;
 
-#if defined(WIN32)
-
-			int sysname_sz = 128;
-			GetComputerName((LPWSTR)hn, (LPDWORD)&sysname_sz);
-			ret = 0;
-
-#else
 
 			ret = gethostname(hn, 127);
 
-#endif
 
 			if (ret == 0) sprintf(ofn, "%s.%s.last_spq%d", fobj->nfs_obj.job_infile, hn, i);
 			else sprintf(ofn, "%s.unknown_host.last_spq%d", fobj->nfs_obj.job_infile, i);
