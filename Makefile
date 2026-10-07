@@ -891,7 +891,6 @@ COMMON_SRCS = \
     factor/shared/ysieve/linesieve.cpp \
     factor/shared/ysieve/soe.cpp \
     factor/shared/ysieve/tiny.cpp \
-    factor/shared/ysieve/worker.cpp \
     factor/shared/ysieve/soe_util.cpp \
     factor/shared/ysieve/wrapper.cpp \
     factor/shared/aprcl/mpz_aprcl.cpp \

@@ -279,13 +279,6 @@ uint64_t primes_from_lineflags(soe_staticdata_t* sdata, thread_soedata_t* thread
 void get_offsets(thread_soedata_t* thread_data);
 void getRoots(soe_staticdata_t* sdata, thread_soedata_t* thread_data);
 
-//void stop_soe_worker_thread(thread_soedata_t* t);
-//void start_soe_worker_thread(thread_soedata_t* t);
-//#if defined(WIN32) || defined(_WIN64)
-//DWORD WINAPI soe_worker_thread_main(LPVOID thread_data);
-//#else
-//void* soe_worker_thread_main(void* thread_data);
-//#endif
 
 // routines for finding small numbers of primes; seed primes for main SOE
 uint32_t tiny_soe(uint32_t limit, uint32_t* primes);

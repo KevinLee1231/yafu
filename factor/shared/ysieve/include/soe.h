@@ -38,8 +38,6 @@ SOFTWARE.
 #include "gmp.h"
 #include "ytools.h"
 
-#define USE_SOE_THREADPOOL
-
 
 enum soe_command {
     SOE_COMMAND_INIT,
