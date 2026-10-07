@@ -26,16 +26,7 @@ in arith.h, arith.c, monty.h, monty.c, microecm.c and micropm1.c.
 #include "common.h"
 
 /* -------- vendor intrinsics: pulled in once, here -------- */
-#if defined(_MSC_VER)
-  #include <intrin.h>
-  #if !defined(_M_ARM64)
-    #include <immintrin.h>
-  #endif
-  #if !defined(__clang__)
-    #pragma intrinsic(_umul128)
-    #pragma intrinsic(_udiv128)
-  #endif
-#elif !defined(__aarch64__)
+#if !defined(__aarch64__)
   #include <immintrin.h>
 #endif
 
@@ -53,12 +44,10 @@ in arith.h, arith.c, monty.h, monty.c, microecm.c and micropm1.c.
 #endif
 
 /* GNU-style inline asm usable for x86-64?
-   common.h already sets GCC_ASM64X for gcc/clang/icc on unix-x64, for mingw,
-   and for icc/clang on win-x64.  __MINGW64__ is folded in to match the
-   historical monty.h gate.  ASM_ARITH_DEBUG forces the portable path so the
-   two code paths can be A/B compared. */
-#if (defined(GCC_ASM64X) || defined(__MINGW64__)) && !defined(ASM_ARITH_DEBUG) \
-    && (defined(__x86_64__) || defined(_M_X64))
+   common.h already sets GCC_ASM64X for gcc/clang/icc on unix-x64.
+   ASM_ARITH_DEBUG forces the portable path so the two code paths can be
+   A/B compared. */
+#if defined(GCC_ASM64X) && !defined(ASM_ARITH_DEBUG) && defined(__x86_64__)
   #define MP_HAS_GNU_ASM_X64 1
 #else
   #define MP_HAS_GNU_ASM_X64 0
@@ -84,21 +73,18 @@ in arith.h, arith.c, monty.h, monty.c, microecm.c and micropm1.c.
 /* MP_FORCE_INLINE expands to include `static`.  This is deliberate: the old
    monty.h modular block (submod/addmod/mulredc/sqrredc/...) was declared plain
    `__inline` with external linkage, which is a one-definition-rule landmine
-   when a header is included by multiple TUs (gnu89-inline vs C99 vs MSVC all
-   disagree about who emits the external symbol).  Routing every header-resident
-   kernel through this macro makes them all `static inline` and removes the
-   hazard. */
-#if defined(_MSC_VER)
-  #define MP_FORCE_INLINE static __forceinline
-#elif defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER) \
+   when a header is included by multiple TUs (gnu89-inline vs C99 disagree about
+   who emits the external symbol).  Routing every header-resident kernel
+   through this macro makes them all `static inline` and removes the hazard. */
+#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER) \
    || defined(__INTEL_LLVM_COMPILER)
   #define MP_FORCE_INLINE static inline __attribute__((always_inline))
 #else
-  #define MP_FORCE_INLINE static __inline
+  #define MP_FORCE_INLINE static inline
 #endif
 
 /* Compiler-compat attribute macros.  These now live HERE (moved down out of
-   ytools.h, which drags in windows.h / winsock and must not be a dependency of
+   ytools.h, which is a much heavier header and must not be a dependency of
    low-level arithmetic).  ytools.h should `#include "mp_platform.h"` and delete
    its own copies of these -- along with ALIGNED_MEM / INLINE / PREFETCH, which
    are also pure compiler detection with no OS dependency.
@@ -106,17 +92,7 @@ in arith.h, arith.c, monty.h, monty.c, microecm.c and micropm1.c.
    (before ytools.h is edited) an identical macro redefinition is legal and
    silent in C regardless of include order.  The #ifndef guards additionally
    let a ytools.h-first TU win without a diagnostic. */
-#if defined(_MSC_VER)
-  /* 4100 = unref formal parameter, 4101 = unref local variable */
-  #ifndef UNUSED_VAR
-    #define UNUSED_VAR __pragma(warning(suppress: 4100 4101))
-  #endif
-  /* MSVC has no per-symbol form; headers with intentionally-unused statics add
-     `#pragma warning(disable: 4505)` near the top (limb1.h / limb2.h do). */
-  #ifndef UNUSED_FUNC
-    #define UNUSED_FUNC
-  #endif
-#elif defined(__GNUC__) || defined(__clang__) || \
+#if defined(__GNUC__) || defined(__clang__) || \
       defined(__INTEL_COMPILER) || defined(__INTEL_LLVM_COMPILER)
   #ifndef UNUSED_VAR
     #define UNUSED_VAR __attribute__((unused))
@@ -134,8 +110,8 @@ in arith.h, arith.c, monty.h, monty.c, microecm.c and micropm1.c.
 #endif
 
 /* Carry/borrow return type.  The _addcarry_u64 / _subborrow_u64 provided here
-   (the MSVC intrinsic, or the portable wrappers further down) uniformly follow
-   the MSVC convention: they RETURN the carry/borrow and write the result
+   (the x86 intrinsic, or the portable wrappers further down) uniformly follow
+   the same convention: they RETURN the carry/borrow and write the result
    through the out pointer.  A single unsigned char is therefore correct on
    every compiler; use mp_carry_t in place of the ad-hoc `rettype` that appeared
    in monty.h / microecm.c / arith.c. */
@@ -156,53 +132,10 @@ typedef unsigned char mp_carry_t;
     MP_FORCE_INLINE uint32_t _reset_lsb(uint32_t x) { return x & (x - 1); }
 #endif
 
-#if defined(__INTEL_COMPILER)
-  #if defined(USE_BMI2) || defined(TARGET_KNL) || defined(USE_AVX512F)
-    #define _lead_zcnt64  __lzcnt64
-    #define _trail_zcnt   _tzcnt_u32
-    #define _trail_zcnt64 _tzcnt_u64
-  #else
-    MP_FORCE_INLINE uint32_t _trail_zcnt(uint32_t x) {
-        uint32_t pos; return _BitScanForward(&pos, x) ? pos : 32;
-    }
-    MP_FORCE_INLINE uint64_t _trail_zcnt64(uint64_t x) {
-        uint32_t pos; return _BitScanForward64(&pos, x) ? pos : 64;
-    }
-    MP_FORCE_INLINE uint64_t _lead_zcnt64(uint64_t x) {
-        /* _BitScanReverse64 yields the INDEX of the highest set bit; the
-           contract here is a leading-zero COUNT, as returned by lzcnt,
-           __builtin_clzll and the portable fallback.  Hence 63 - pos. */
-        uint32_t pos; return _BitScanReverse64(&pos, x) ? (uint64_t)(63 - pos) : 64;
-    }
-  #endif
-#elif defined(__GNUC__) || defined(__INTEL_LLVM_COMPILER)
+#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_LLVM_COMPILER)
   #define _lead_zcnt64  __builtin_clzll
   #define _trail_zcnt   __builtin_ctzl
   #define _trail_zcnt64 __builtin_ctzll
-#elif defined(_MSC_VER)
-  #ifdef __clang__   /* clang-cl: _BitScan* return unsigned long */
-    MP_FORCE_INLINE uint32_t _trail_zcnt(uint32_t x) {
-        unsigned long pos; return _BitScanForward(&pos, x) ? (uint32_t)pos : 32;
-    }
-    MP_FORCE_INLINE uint32_t _trail_zcnt64(uint64_t x) {
-        unsigned long pos; return _BitScanForward64(&pos, x) ? (uint32_t)pos : 64;
-    }
-    MP_FORCE_INLINE uint32_t _lead_zcnt64(uint64_t x) {
-        /* index -> count: see the note above */
-        unsigned long pos; return _BitScanReverse64(&pos, x) ? (uint32_t)(63 - pos) : 64;
-    }
-  #else
-    MP_FORCE_INLINE uint32_t _trail_zcnt(uint32_t x) {
-        uint32_t pos; return _BitScanForward(&pos, x) ? pos : 32;
-    }
-    MP_FORCE_INLINE uint32_t _trail_zcnt64(uint64_t x) {
-        uint32_t pos; return _BitScanForward64(&pos, x) ? pos : 64;
-    }
-    MP_FORCE_INLINE uint32_t _lead_zcnt64(uint64_t x) {
-        /* index -> count: see the note above */
-        uint32_t pos; return _BitScanReverse64(&pos, x) ? (uint32_t)(63 - pos) : 64;
-    }
-  #endif
 #else   /* portable loop fallback */
   MP_FORCE_INLINE uint64_t _lead_zcnt64(uint64_t x) {
       uint64_t pos;
@@ -249,10 +182,8 @@ MP_FORCE_INLINE uint64_t _trail_full_zcnt(uint64_t n) {
 
 /* ======================================================================
    4. Wide-multiply / divide / carry polyfills
-   MSVC gets these from <intrin.h>.  Everything else is defined once here.
+   One definition of each, here.
    ====================================================================== */
-
-#if !defined(_MSC_VER)
 
   /* --- 64x64 -> 128 multiply --- */
   #if defined(HAS_UINT128)
@@ -297,8 +228,8 @@ MP_FORCE_INLINE uint64_t _trail_full_zcnt(uint64_t n) {
      ASM_ARITH_DEBUG clears MP_HAS_GNU_ASM_X64 and drops back to __int128.
 
      CONTRACT: requires d != 0 and hi < d.  divq raises #DE if the quotient
-     will not fit in 64 bits -- which matches MSVC's documented _udiv128
-     behaviour.  Note the __int128 fallback instead truncates silently, so a
+     will not fit in 64 bits.  Note the __int128 fallback instead truncates
+     silently, so a
      caller that violates the precondition changes from wrong-answer to trap
      when this branch is active.  Callers must guarantee hi < d regardless. */
   #if MP_HAS_GNU_ASM_X64
@@ -320,21 +251,18 @@ MP_FORCE_INLINE uint64_t _trail_full_zcnt(uint64_t n) {
     }
   #else
     /* No hardware path: unreachable on the current support matrix (every
-       target has either MSVC intrinsics or __int128).  If a non-x86
+       target has either GNU-asm divq or __int128).  If a non-x86
        no-__int128 target is ever added, provide a software _udiv128 here,
        e.g. built on the Knuth uint128_div() that lives in limb2.c. */
     uint64_t _udiv128(uint64_t hi, uint64_t lo, uint64_t d, uint64_t *rem);
   #endif
 
-#endif /* !_MSC_VER */
-
 /* ======================================================================
  5. Add-with-carry / subtract-with-borrow
- Outside the !_MSC_VER guard on purpose: MSVC needs the mp_* wrappers
- too (it has the native intrinsics, so it takes the first branch).
+ The mp_* wrappers are defined on every target.
  ====================================================================== */
 /* --- add-carry / sub-borrow -------------------------------------------
-   Canonical API (MSVC/Intel convention on every target): RETURN the
+   Canonical API (the Intel convention, used on every target here): RETURN the
    carry/borrow, write the low result through `out`.
 
        mp_carry_t mp_addcarry_u64 (mp_carry_t c_in, uint64_t a, uint64_t b, uint64_t *out);
@@ -343,8 +271,8 @@ MP_FORCE_INLINE uint64_t _trail_full_zcnt(uint64_t n) {
    These are performance-critical, so we use the best mechanism available
    rather than a portable emulation:
 
-     1. native _addcarry_u64/_subborrow_u64 -- MSVC <intrin.h>, and
-        gcc/clang/icc on x86 via <immintrin.h> (adxintrin.h).  Lowers to a
+     1. native _addcarry_u64/_subborrow_u64 -- gcc/clang/icc on x86 via
+        <immintrin.h> (adxintrin.h).  Lowers to a
         single adc/sbb and chains carries without materializing flags.
      2. clang __builtin_addcll/__builtin_subcll -- carry-in AND carry-out in
         one builtin; used on non-x86 clang (e.g. aarch64).
@@ -375,10 +303,7 @@ MP_FORCE_INLINE uint64_t _trail_full_zcnt(uint64_t n) {
     /* escape hatch: force the native path on for a toolchain that has the
        intrinsics but is not recognized by the tests below. */
     #define MP_HAS_NATIVE_ADDCARRY 1
-  #elif defined(_MSC_VER) && defined(_M_X64)
-    /* <intrin.h> provides both; MSVC on ARM64 does not, and falls through. */
-    #define MP_HAS_NATIVE_ADDCARRY 1
-  #elif (defined(__x86_64__) || defined(_M_X64)) && \
+  #elif defined(__x86_64__) && \
         (defined(__clang__) || defined(__INTEL_COMPILER) || \
          defined(__INTEL_LLVM_COMPILER))
     #define MP_HAS_NATIVE_ADDCARRY 1
@@ -410,8 +335,8 @@ MP_FORCE_INLINE uint64_t _trail_full_zcnt(uint64_t n) {
      compilers, and there is no single typed temporary that satisfies all of
      them:
 
-       gcc / clang / MSVC   unsigned long long *
-       icc classic (LP64)   unsigned __int64 *  ==  unsigned long *
+       gcc / clang         unsigned long long *
+       icc classic (LP64)  unsigned __int64 *  ==  unsigned long *
 
      Passing `unsigned long long *` gets icc warning #167; passing uint64_t *
      gets -Wincompatible-pointer-types on LP64 gcc/clang.  A `void *` satisfies
@@ -423,9 +348,8 @@ MP_FORCE_INLINE uint64_t _trail_full_zcnt(uint64_t n) {
      temporary did -- the address never escapes, so it stays in a register.
 
      C++ does NOT implicitly convert void*, so MP_INTRIN_OUT falls back to a
-     typed pointer there.  That is correct for gcc/clang/MSVC; an icc C++ TU
-     would see warning #167 again, which is noisy but harmless.  YAFU is C,
-     so the C path is the one that matters. */
+     typed pointer there.  The tree is all .cpp now, so the C branch is only
+     kept for the benefit of any future C translation unit. */
   typedef union { uint64_t u64; unsigned long long ull; unsigned long ul; }
       mp_u64_slot_t;
   typedef union { uint32_t u32; unsigned int ui; unsigned long ul; }
@@ -476,7 +400,7 @@ MP_FORCE_INLINE uint64_t _trail_full_zcnt(uint64_t n) {
   #define MP_CARRY_IMPL "clang __builtin_addcll/__builtin_subcll"
 
   /* __builtin_addcll RETURNS the sum and writes the carry-out through the
-     pointer -- the opposite of the MSVC convention, so do not cross them. */
+     pointer -- the opposite of the convention above, so do not cross them. */
   MP_FORCE_INLINE mp_carry_t mp_addcarry_u64(mp_carry_t c_in, uint64_t a,
                                              uint64_t b, uint64_t *out) {
       unsigned long long carry_out;
