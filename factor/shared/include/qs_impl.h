@@ -763,6 +763,75 @@ void tdiv_LP_avx512_allreports(uint8_t parity, uint32_t bnum,
 extern void (*tdiv_LP_ptr)(uint32_t, uint8_t, uint32_t,
     static_conf_t* , dynamic_conf_t* );
 
+/* ======================================================================
+   siqs_kernels —— SIQS 核心内核的 ISA 策略对象
+
+   原来这里是九个互相独立的全局函数指针（firstRoots / nextRoots /
+   testRoots / tdiv_med / tdiv_LP / resieve_med / med_sieve /
+   lp_sieveblock / scan），在 siqs_init 里按 CPU 特性分派。问题不在于
+   分派本身，而在于九个指针彼此独立：任何一个分支忘了设某一个，剩下的
+   调用点就会静默地用标量版，既不报错也看不出变慢。AVX-512 那条路过去
+   就漏设过 nextRoots_ptr（SIQS.cpp 里那段注释记着这次事故）。
+
+   现在把八个纯 ISA 相关的内核打包成一个对象，整体赋值、整体使用，
+   漏设单个函数在结构上不再可能。scan 不在这里：它的选择除了 ISA 还要
+   看输入位数（tlp / dlp cutoff），所以这里给三个实现，由调用方按位数
+   挑档位，实际落到哪个由 isa 字段决定。
+   ====================================================================== */
+
+enum class siqs_isa : uint8_t { generic = 0, sse41 = 1, avx2 = 2, avx512 = 3 };
+
+struct siqs_kernels {
+    void (*firstRoots)(static_conf_t*, dynamic_conf_t*);
+    void (*nextRoots)(static_conf_t*, dynamic_conf_t*);
+    void (*testRoots)(static_conf_t*, dynamic_conf_t*);
+    void (*tdiv_med)(uint8_t, uint32_t, uint32_t,
+        static_conf_t*, dynamic_conf_t*);
+    void (*tdiv_LP)(uint32_t, uint8_t, uint32_t,
+        static_conf_t*, dynamic_conf_t*);
+    void (*resieve_med)(uint8_t, uint32_t, uint32_t,
+        static_conf_t*, dynamic_conf_t*);
+    void (*med_sieve)(uint8_t*, sieve_fb_compressed*, fb_list*,
+        uint32_t, uint8_t);
+    void (*lp_sieveblock)(uint8_t*, uint32_t, uint32_t,
+        lp_bucket*, int, dynamic_conf_t*);
+
+    /* scan 不在这里选死：它一档看输入位数（tlp / dlp cutoff，落到 4 / 8 / 16
+       路 unrolling），一档看 ISA。七个实现按 (unrolling, isa) 摆开，由
+       siqs_scan_for() 把这两档合成一个具体函数。 */
+    int (*scan4_sse2)(uint32_t, uint8_t, static_conf_t*, dynamic_conf_t*);
+    int (*scan4_avx2)(uint32_t, uint8_t, static_conf_t*, dynamic_conf_t*);
+    int (*scan8_sse2)(uint32_t, uint8_t, static_conf_t*, dynamic_conf_t*);
+    int (*scan8_avx2)(uint32_t, uint8_t, static_conf_t*, dynamic_conf_t*);
+    int (*scan16_sse2)(uint32_t, uint8_t, static_conf_t*, dynamic_conf_t*);
+    int (*scan16_avx2)(uint32_t, uint8_t, static_conf_t*, dynamic_conf_t*);
+    int (*scan16_avx512)(uint32_t, uint8_t, static_conf_t*, dynamic_conf_t*);
+
+    siqs_isa isa;
+    const char* isa_name;
+};
+
+/* 唯一实例。siqs_select_kernels() 填好之后不再改动。 */
+extern siqs_kernels g_kernels;
+
+/* 按 CPU 特性挑一组内核。只在 siqs_init 里调用一次。 */
+siqs_kernels siqs_select_kernels(const int has_avx512f, const int has_avx512bw,
+    const int has_avx2, const int has_bmi2, const int has_sse41);
+
+/* 关系扫描的档位。unrolling 取 sconf->scan_unrolling（32 / 64 / 128，分别
+   对应 4 / 8 / 16 路），落到哪个实现由 isa 决定——原来的代码在五处分支里
+   各自重新判一遍 HAS_AVX512F / HAS_AVX2，现在只需要看一次。 */
+inline int (*siqs_scan_for(const siqs_kernels& k, int unrolling))(uint32_t, uint8_t, static_conf_t*, dynamic_conf_t*) {
+    const bool avx2 = (k.isa >= siqs_isa::avx2);
+    switch (unrolling / 32) {
+    case 1:  return avx2 ? k.scan4_avx2  : k.scan4_sse2;
+    case 2:  return avx2 ? k.scan8_avx2  : k.scan8_sse2;
+    default:
+        if (k.isa == siqs_isa::avx512) return k.scan16_avx512;
+        return avx2 ? k.scan16_avx2 : k.scan16_sse2;
+    }
+}
+
 void tdiv_medprimes_32k(uint8_t parity, uint32_t poly_id, uint32_t bnum,
     static_conf_t* sconf, dynamic_conf_t* dconf);
 void tdiv_medprimes_32k_avx2(uint8_t parity, uint32_t poly_id, uint32_t bnum,
@@ -771,8 +840,7 @@ void tdiv_medprimes_32k_avx2(uint8_t parity, uint32_t poly_id, uint32_t bnum,
 //void tdiv_medprimes_32k_knl(uint32_t* reports, uint32_t num_reports,
 //    uint8_t parity, uint32_t poly_id, uint32_t bnum,
 //    static_conf_t* sconf, dynamic_conf_t* dconf);
-extern void (*tdiv_med_ptr)(uint8_t, uint32_t, uint32_t,
-    static_conf_t*, dynamic_conf_t*);
+
 
 void resieve_medprimes_32k(uint8_t parity, uint32_t poly_id, uint32_t bnum,
     static_conf_t* sconf, dynamic_conf_t* dconf);
@@ -780,8 +848,7 @@ void resieve_medprimes_32k_avx2(uint8_t parity, uint32_t poly_id, uint32_t bnum,
     static_conf_t* sconf, dynamic_conf_t* dconf);
 void resieve_medprimes_32k_avx512bw(uint8_t parity, uint32_t poly_id, uint32_t bnum,
     static_conf_t* sconf, dynamic_conf_t* dconf);
-extern void (*resieve_med_ptr)(uint8_t, uint32_t, uint32_t,
-    static_conf_t*, dynamic_conf_t*);
+
 
 void trial_divide_Q_siqs(uint32_t report_num,
     uint8_t parity, uint32_t poly_id, uint32_t blocknum,

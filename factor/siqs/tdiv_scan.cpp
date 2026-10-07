@@ -370,8 +370,8 @@ int check_relations_siqs_4_sse2(uint32_t blocknum, uint8_t parity,
 
 	//remove small primes, and test if its worth continuing for each report
 	filter_SPV(parity, dconf->sieve,dconf->numB-1,blocknum,sconf,dconf);
-	tdiv_med_ptr(parity, dconf->numB-1,blocknum,sconf,dconf);
-	resieve_med_ptr(parity, dconf->numB-1,blocknum,sconf,dconf);
+	g_kernels.tdiv_med(parity, dconf->numB-1,blocknum,sconf,dconf);
+	g_kernels.resieve_med(parity, dconf->numB-1,blocknum,sconf,dconf);
 
 	// factor all reports in this block
 	for (j=0; j<dconf->num_reports; j++)
@@ -379,7 +379,7 @@ int check_relations_siqs_4_sse2(uint32_t blocknum, uint8_t parity,
 		if (dconf->valid_Qs[j])
 		{
             dconf->total_surviving_reports++;
-            tdiv_LP_ptr(j, parity, blocknum, sconf, dconf);
+            g_kernels.tdiv_LP(j, parity, blocknum, sconf, dconf);
 			trial_divide_Q_siqs(j, parity, dconf->numB-1, blocknum,sconf,dconf);
 		}
 	}
@@ -488,8 +488,8 @@ int check_relations_siqs_8_sse2(uint32_t blocknum, uint8_t parity,
 
 	//remove small primes, and test if its worth continuing for each report
 	filter_SPV(parity, dconf->sieve, dconf->numB-1, blocknum,sconf,dconf);
-	tdiv_med_ptr(parity, dconf->numB-1,blocknum,sconf,dconf);
-	resieve_med_ptr(parity, dconf->numB-1,blocknum,sconf,dconf);
+	g_kernels.tdiv_med(parity, dconf->numB-1,blocknum,sconf,dconf);
+	g_kernels.resieve_med(parity, dconf->numB-1,blocknum,sconf,dconf);
 
 	// factor all reports in this block
 	for (j=0; j<dconf->num_reports; j++)
@@ -497,7 +497,7 @@ int check_relations_siqs_8_sse2(uint32_t blocknum, uint8_t parity,
 		if (dconf->valid_Qs[j])
 		{
             dconf->total_surviving_reports++;
-            tdiv_LP_ptr(j, parity, blocknum, sconf, dconf);
+            g_kernels.tdiv_LP(j, parity, blocknum, sconf, dconf);
 			trial_divide_Q_siqs(j, parity, dconf->numB-1, blocknum,sconf,dconf);
 		}
 	}
@@ -610,8 +610,8 @@ int check_relations_siqs_16_sse2(uint32_t blocknum, uint8_t parity,
 
 	//remove small primes, and test if its worth continuing for each report
 	filter_SPV(parity, dconf->sieve, dconf->numB-1,blocknum,sconf,dconf);
-	tdiv_med_ptr(parity, dconf->numB-1,blocknum,sconf,dconf);
-	resieve_med_ptr(parity, dconf->numB-1,blocknum,sconf,dconf);
+	g_kernels.tdiv_med(parity, dconf->numB-1,blocknum,sconf,dconf);
+	g_kernels.resieve_med(parity, dconf->numB-1,blocknum,sconf,dconf);
 
 	// factor all reports in this block
 	for (j=0; j<dconf->num_reports; j++)
@@ -619,7 +619,7 @@ int check_relations_siqs_16_sse2(uint32_t blocknum, uint8_t parity,
 		if (dconf->valid_Qs[j])
 		{
             dconf->total_surviving_reports++;
-            tdiv_LP_ptr(j, parity, blocknum, sconf, dconf);
+            g_kernels.tdiv_LP(j, parity, blocknum, sconf, dconf);
 			trial_divide_Q_siqs(j, parity, dconf->numB-1, blocknum,sconf,dconf);
 		}
 	}
@@ -683,8 +683,8 @@ int check_relations_siqs_4_avx2(uint32_t blocknum, uint8_t parity,
 
     //remove small primes, and test if its worth continuing for each report
     filter_SPV(parity, dconf->sieve, dconf->numB - 1, blocknum, sconf, dconf);
-    tdiv_med_ptr(parity, dconf->numB - 1, blocknum, sconf, dconf);
-    resieve_med_ptr(parity, dconf->numB - 1, blocknum, sconf, dconf);
+    g_kernels.tdiv_med(parity, dconf->numB - 1, blocknum, sconf, dconf);
+    g_kernels.resieve_med(parity, dconf->numB - 1, blocknum, sconf, dconf);
 
     // factor all reports in this block
     for (j = 0; j < dconf->num_reports; j++)
@@ -692,7 +692,7 @@ int check_relations_siqs_4_avx2(uint32_t blocknum, uint8_t parity,
         if (dconf->valid_Qs[j])
         {
             dconf->total_surviving_reports++;
-            tdiv_LP_ptr(j, parity, blocknum, sconf, dconf);
+            g_kernels.tdiv_LP(j, parity, blocknum, sconf, dconf);
             trial_divide_Q_siqs(j, parity, dconf->numB - 1, blocknum, sconf, dconf);
         }
     }
@@ -756,8 +756,8 @@ int check_relations_siqs_8_avx2(uint32_t blocknum, uint8_t parity,
 
     //remove small primes, and test if its worth continuing for each report
     filter_SPV(parity, dconf->sieve, dconf->numB - 1, blocknum, sconf, dconf);
-    tdiv_med_ptr(parity, dconf->numB - 1, blocknum, sconf, dconf);
-    resieve_med_ptr(parity, dconf->numB - 1, blocknum, sconf, dconf);
+    g_kernels.tdiv_med(parity, dconf->numB - 1, blocknum, sconf, dconf);
+    g_kernels.resieve_med(parity, dconf->numB - 1, blocknum, sconf, dconf);
 
     // factor all reports in this block
     for (j = 0; j < dconf->num_reports; j++)
@@ -765,7 +765,7 @@ int check_relations_siqs_8_avx2(uint32_t blocknum, uint8_t parity,
         if (dconf->valid_Qs[j])
         {
             dconf->total_surviving_reports++;
-            tdiv_LP_ptr(j, parity, blocknum, sconf, dconf);
+            g_kernels.tdiv_LP(j, parity, blocknum, sconf, dconf);
             trial_divide_Q_siqs(j, parity, dconf->numB - 1, blocknum, sconf, dconf);
         }
     }
@@ -825,8 +825,8 @@ int check_relations_siqs_16_avx2(uint32_t blocknum, uint8_t parity,
 
     //remove small primes, and test if its worth continuing for each report
     filter_SPV(parity, dconf->sieve, dconf->numB - 1, blocknum, sconf, dconf);
-    tdiv_med_ptr(parity, dconf->numB - 1, blocknum, sconf, dconf);
-    resieve_med_ptr(parity, dconf->numB - 1, blocknum, sconf, dconf);
+    g_kernels.tdiv_med(parity, dconf->numB - 1, blocknum, sconf, dconf);
+    g_kernels.resieve_med(parity, dconf->numB - 1, blocknum, sconf, dconf);
 
     // factor all reports in this block
     for (j = 0; j < dconf->num_reports; j++)
@@ -834,7 +834,7 @@ int check_relations_siqs_16_avx2(uint32_t blocknum, uint8_t parity,
         if (dconf->valid_Qs[j])
         {
             dconf->total_surviving_reports++;
-            tdiv_LP_ptr(j, parity, blocknum, sconf, dconf);
+            g_kernels.tdiv_LP(j, parity, blocknum, sconf, dconf);
 
 #if defined( USE_SS_SEARCH ) && defined(USE_POLY_BUCKET_SS)
 
@@ -979,8 +979,8 @@ int check_relations_siqs_16_avx512(uint32_t blocknum, uint8_t parity,
 
     // remove small primes, and test if its worth continuing for each report
     filter_SPV(parity, dconf->sieve, dconf->numB - 1, blocknum, sconf, dconf);
-    tdiv_med_ptr(parity, dconf->numB - 1, blocknum, sconf, dconf);
-    resieve_med_ptr(parity, dconf->numB - 1, blocknum, sconf, dconf);
+    g_kernels.tdiv_med(parity, dconf->numB - 1, blocknum, sconf, dconf);
+    g_kernels.resieve_med(parity, dconf->numB - 1, blocknum, sconf, dconf);
 	//tdiv_LP_avx512_allreports(parity, blocknum, sconf, dconf);
 
     // factor all reports in this block
@@ -989,7 +989,7 @@ int check_relations_siqs_16_avx512(uint32_t blocknum, uint8_t parity,
 		if (dconf->valid_Qs[j])
 		{
 			dconf->total_surviving_reports++;
-			tdiv_LP_ptr(j, parity, blocknum, sconf, dconf);
+			g_kernels.tdiv_LP(j, parity, blocknum, sconf, dconf);
 
 #if defined( USE_SS_SEARCH ) && defined(USE_POLY_BUCKET_SS)
 

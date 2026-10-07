@@ -52,20 +52,11 @@ code to the public domain.
 // is chosen.
 // #define OPT_DEBUG
 
-// define the fat-binary function pointers
-void (*testRoots_ptr)(static_conf_t*, dynamic_conf_t*);
-void (*nextRoots_ptr)(static_conf_t*, dynamic_conf_t*);
-void (*firstRoots_ptr)(static_conf_t*, dynamic_conf_t*);
-void (*resieve_med_ptr)(uint8_t, uint32_t, uint32_t,
-    static_conf_t*, dynamic_conf_t*);
-void (*tdiv_med_ptr)(uint8_t, uint32_t, uint32_t,
-    static_conf_t*, dynamic_conf_t*);
-void (*tdiv_LP_ptr)(uint32_t, uint8_t, uint32_t,
-    static_conf_t* , dynamic_conf_t* );
-int (*scan_ptr)(uint32_t, uint8_t, static_conf_t*, dynamic_conf_t*);
-void (*lp_sieveblock_ptr)(uint8_t* , uint32_t , uint32_t ,
-    lp_bucket* , int , dynamic_conf_t* );
-void (*med_sieve_ptr)(uint8_t*, sieve_fb_compressed*, fb_list*, uint32_t, uint8_t);
+// The nine fat-binary kernels used to be nine independent global function
+// pointers assigned one by one in siqs_init.  They are now one siqs_kernels
+// object (see qs_impl.h) so a dispatch branch cannot forget one of them and
+// silently fall back to the scalar version.
+siqs_kernels g_kernels;
 
 typedef struct
 {
@@ -1629,6 +1620,98 @@ static void nextRoots_32k_knl_pipeline(static_conf_t* sconf,
 #endif
 }
 
+/* ======================================================================
+   siqs_select_kernels —— 按 CPU 特性挑一组内核
+
+   原来这段是 siqs_init 里一串嵌套 if/else，八个指针逐个赋值，任何一个分支
+   漏设某一个，剩下的调用点就会静默地用标量版。九个指针里的 scan 还散在
+   另一个函数里按输入位数分派，同一套 ISA 判断重复了五遍。现在全部收进
+   一个 siqs_kernels 对象：ISA 决定哪一组，位数只决定 scan 的 unrolling
+   档位，两者由 siqs_scan_for() 合成。
+
+   每个分支都给出完整的九项，漏写会在这里暴露，而不是在使用点。
+   ====================================================================== */
+siqs_kernels siqs_select_kernels(const int has_avx512f, const int has_avx512bw,
+    const int has_avx2, const int has_bmi2, const int has_sse41)
+{
+    /* 最低一档：只要求 SSE2，任何 x86-64 都成立 */
+    siqs_kernels k = {
+        &firstRoots_32k,                       // firstRoots
+        &nextRoots_32k,                        // nextRoots
+        &testfirstRoots_32k,                   // testRoots
+        &tdiv_medprimes_32k,                   // tdiv_med
+        &tdiv_LP_sse2,                         // tdiv_LP
+        &resieve_medprimes_32k,                 // resieve_med
+        &med_sieveblock_32k,                   // med_sieve
+        &lp_sieveblock,                        // lp_sieveblock
+
+        &check_relations_siqs_4_sse2,           // scan4_sse2
+        &check_relations_siqs_4_avx2,           // scan4_avx2
+        &check_relations_siqs_8_sse2,           // scan8_sse2
+        &check_relations_siqs_8_avx2,           // scan8_avx2
+        &check_relations_siqs_16_sse2,          // scan16_sse2
+        &check_relations_siqs_16_avx2,          // scan16_avx2
+        &check_relations_siqs_16_avx512,        // scan16_avx512
+
+        siqs_isa::generic,
+        "generic"
+    };
+
+#if defined(USE_AVX512F)
+    if (has_avx512f)
+    {
+        /* AVX-512 的根更新是四步流水线，见 nextRoots_32k_knl_pipeline */
+        k.nextRoots = &nextRoots_32k_knl_pipeline;
+        k.tdiv_med = &tdiv_medprimes_32k_avx2;
+        k.tdiv_LP = &tdiv_LP_avx512;
+        k.isa = siqs_isa::avx512;
+        k.isa_name = "avx-512";
+
+#  if defined(USE_AVX512BW)
+        if (has_avx512bw)
+        {
+            k.resieve_med = &resieve_medprimes_32k_avx512bw;
+            k.med_sieve = &med_sieveblock_32k_avx512bw;
+            k.lp_sieveblock = &lp_sieveblock_avx512bw;
+        }
+        else
+#  endif
+        {
+            k.resieve_med = &resieve_medprimes_32k_avx2;
+            k.lp_sieveblock = &lp_sieveblock_avx512f;
+            k.med_sieve = &med_sieveblock_32k_avx2;
+        }
+        return k;
+    }
+#endif
+
+#if defined(USE_AVX2)
+    if (has_avx2)
+    {
+        k.resieve_med = &resieve_medprimes_32k_avx2;
+        k.tdiv_med = &tdiv_medprimes_32k_avx2;
+        k.tdiv_LP = &tdiv_LP_avx2;
+        k.med_sieve = &med_sieveblock_32k_avx2;
+        k.nextRoots = has_bmi2 ? &nextRoots_32k_avx2_intrin : &nextRoots_32k_avx2;
+        k.isa = siqs_isa::avx2;
+        k.isa_name = has_bmi2 ? "avx2+bmi2" : "avx2";
+        return k;
+    }
+#endif
+
+    if (has_sse41)
+    {
+        k.nextRoots = &nextRoots_32k_sse41;
+        k.med_sieve = &med_sieveblock_32k_sse41;
+        k.isa = siqs_isa::sse41;
+        k.isa_name = "sse4.1";
+    }
+
+    (void)has_avx512bw;
+    (void)has_bmi2;
+    return k;
+}
+
 void* process_poly(void* vptr)
 {
     // top-level sieving function which performs all work for a single
@@ -1703,7 +1786,7 @@ void* process_poly(void* vptr)
     }
 #endif
 
-    firstRoots_ptr(sconf, dconf);
+    g_kernels.firstRoots(sconf, dconf);
 
 #if defined( USE_SS_SEARCH ) && defined( USE_POLY_BUCKET_SS )
 
@@ -2292,7 +2375,7 @@ void* process_poly(void* vptr)
                     memset(sieve, blockinit - 4, 32768);
                 }
 #endif
-                med_sieve_ptr(sieve, fb_sieve_p, fb, start_prime, blockinit - 4);
+                g_kernels.med_sieve(sieve, fb_sieve_p, fb, start_prime, blockinit - 4);
             }
             else
             {
@@ -2304,7 +2387,7 @@ void* process_poly(void* vptr)
                     memset(sieve, blockinit, 32768);
                 }
 #endif
-                med_sieve_ptr(sieve, fb_sieve_p, fb, start_prime, blockinit);
+                g_kernels.med_sieve(sieve, fb_sieve_p, fb, start_prime, blockinit);
             }
 
 #if 0 //defined( USE_SS_SEARCH )
@@ -2334,7 +2417,7 @@ void* process_poly(void* vptr)
             dconf->t_mpsieve += (tstop - tstart);
             tstart = tstop;
 
-            lp_sieveblock_ptr(sieve, i, num_blocks, buckets, 0, dconf);
+            g_kernels.lp_sieveblock(sieve, i, num_blocks, buckets, 0, dconf);
 
             tstop = now_sec();
             dconf->t_lpsieve += (tstop - tstart);
@@ -2343,7 +2426,7 @@ void* process_poly(void* vptr)
             // set the roots for the factors of a to force the following routine
             // to explicitly trial divide since we haven't found roots for them
             set_aprime_roots(sconf, dconf, invalid_root_marker, poly->qlisort, poly->s, fb_sieve_p, 0);
-            scan_ptr(i, 0, sconf, dconf);
+            siqs_scan_for(g_kernels, sconf->scan_unrolling)(i, 0, sconf, dconf);
 
             tstop = now_sec();
             dconf->t_tdiv += (tstop - tstart);
@@ -2393,7 +2476,7 @@ void* process_poly(void* vptr)
                     memset(sieve, blockinit - 4, 32768);
                 }
 #endif
-                med_sieve_ptr(sieve, fb_sieve_n, fb, start_prime, blockinit - 4);
+                g_kernels.med_sieve(sieve, fb_sieve_n, fb, start_prime, blockinit - 4);
             }
             else
             {
@@ -2405,14 +2488,14 @@ void* process_poly(void* vptr)
                     memset(sieve, blockinit, 32768);
                 }
 #endif
-                med_sieve_ptr(sieve, fb_sieve_n, fb, start_prime, blockinit);
+                g_kernels.med_sieve(sieve, fb_sieve_n, fb, start_prime, blockinit);
             }
 
             double tstop = now_sec();
             dconf->t_mpsieve += (tstop - tstart);
             tstart = tstop;
 
-            lp_sieveblock_ptr(sieve, i, num_blocks, buckets, 1, dconf);
+            g_kernels.lp_sieveblock(sieve, i, num_blocks, buckets, 1, dconf);
 
             tstop = now_sec();
             dconf->t_lpsieve += (tstop - tstart);
@@ -2421,7 +2504,7 @@ void* process_poly(void* vptr)
             // set the roots for the factors of a to force the following routine
             // to explicitly trial divide since we haven't found roots for them
             set_aprime_roots(sconf, dconf, invalid_root_marker, poly->qlisort, poly->s, fb_sieve_n, 0);
-            scan_ptr(i, 1, sconf, dconf);
+            siqs_scan_for(g_kernels, sconf->scan_unrolling)(i, 1, sconf, dconf);
 
             tstop = now_sec();
             dconf->t_tdiv += (tstop - tstart);
@@ -2624,11 +2707,11 @@ void* process_poly(void* vptr)
          * 下指向 nextRoots_32k_knl_pipeline（见下），其余构建下指向各自的
          * nextRoots_32k_*。以前 AVX-512 是内联的四步、其余 ISA 走指针，
          * 两条路径分开维护。 */
-        nextRoots_ptr(sconf, dconf);
+        g_kernels.nextRoots(sconf, dconf);
 
 #else
         // and update the roots
-        nextRoots_ptr(sconf, dconf);
+        g_kernels.nextRoots(sconf, dconf);
 #endif
 
 #endif
@@ -3338,7 +3421,7 @@ int siqs_dynamic_init(dynamic_conf_t *dconf, static_conf_t *sconf)
         dconf->buckets = (lp_bucket *)malloc(sizeof(lp_bucket));
 
         // test to see how many slices we'll need.
-        testRoots_ptr(sconf, dconf);
+        g_kernels.testRoots(sconf, dconf);
 
 #if defined(USE_BATCHPOLY) || defined(USE_BATCHPOLY_X2)
         // this should be a function of the L2 size.
@@ -3769,203 +3852,18 @@ int siqs_static_init(static_conf_t* sconf, int is_tiny)
     sconf->small_limit = 256;
     sconf->use_dlp = 0;
 
-    // function pointer to the sieve array scanner
-    scan_ptr = NULL;
+    // Kernels are selected once, here, by CPU capability.  See
+    // siqs_select_kernels() for why this is one object and not nine
+    // independent pointers.
+    g_kernels = siqs_select_kernels(obj->HAS_AVX512F, obj->HAS_AVX512BW,
+        obj->HAS_AVX2, obj->HAS_BMI2, obj->HAS_SSE41);
+    if (obj->VFLAG > 1)
+        printf("siqs kernels: %s\n", g_kernels.isa_name);
 
-
-    // relevant:
-    // https://software.intel.com/en-us/node/523363
-    // https://gcc.gnu.org/onlinedocs/gcc-4.9.2/gcc/X86-Built-in-Functions.html
-
-
-    // fat binary assignments.  First assign the lowest level core functions.  
-    // Sometimes these assume at least SSE2.
-
-    // sieve core functions
-    med_sieve_ptr = &med_sieveblock_32k;
-    lp_sieveblock_ptr = &lp_sieveblock;
-
-    // poly core function
-    firstRoots_ptr = &firstRoots_32k;
-    nextRoots_ptr = &nextRoots_32k;
-    testRoots_ptr = &testfirstRoots_32k;
-
-    // tdiv core functions
-    tdiv_med_ptr = &tdiv_medprimes_32k;
-    tdiv_LP_ptr = &tdiv_LP_sse2;
-    resieve_med_ptr = &resieve_medprimes_32k;
-
-    // now override the default assignments based on first, what was
-    // available during compilation, and second, what is available 
-    // at runtime.
-#if defined(USE_AVX512F)
-    if (obj->HAS_AVX512F)
-    {
-        /* 这一支以前不动 nextRoots_ptr，于是它在 AVX-512 构建下一直是上面
-         * 的标量版 nextRoots_32k。调用点已改成统一走指针，必须在这里
-         * 指到 knl 那条四步流水线。 */
-        nextRoots_ptr = &nextRoots_32k_knl_pipeline;
-        tdiv_med_ptr = &tdiv_medprimes_32k_avx2;
-        tdiv_LP_ptr = &tdiv_LP_avx512;
-        if (sconf->obj->VFLAG > 1)
-        {
-            printf("assigning tdiv_LP_avx512 ptr\n");
-            printf("assigning tdiv_medprimes_32k_avx2 ptr\n");
-        }
-
-#if defined(USE_AVX512BW)
-        if (obj->HAS_AVX512BW)
-        {
-            resieve_med_ptr = &resieve_medprimes_32k_avx512bw;
-            med_sieve_ptr = &med_sieveblock_32k_avx512bw;
-            lp_sieveblock_ptr = &lp_sieveblock_avx512bw;
-            if (sconf->obj->VFLAG > 1)
-            {
-                printf("assigning resieve_medprimes_32k_avx512bw ptr\n");
-                printf("assigning lp_sieveblock_avx512bw ptr\n");
-                printf("assigning med_sieveblock_32k_avx512bw ptr\n");
-            }
-        }
-        else
-        {
-            resieve_med_ptr = &resieve_medprimes_32k_avx2;
-            lp_sieveblock_ptr = &lp_sieveblock_avx512f;
-            med_sieve_ptr = &med_sieveblock_32k_avx2;
-            if (sconf->obj->VFLAG > 1)
-            {
-                printf("assigning resieve_medprimes_32k_avx2 ptr\n");
-                printf("assigning lp_sieveblock_avx512f ptr\n");
-                printf("assigning med_sieveblock_32k_avx2 ptr\n");
-            }
-        }
-
-#else
-        resieve_med_ptr = &resieve_medprimes_32k_avx2;
-        lp_sieveblock_ptr = &lp_sieveblock_avx512f;
-        med_sieve_ptr = &med_sieveblock_32k_avx2;
-        if (sconf->obj->VFLAG > 1)
-        {
-            printf("assigning resieve_medprimes_32k_avx2 ptr\n");
-            printf("assigning lp_sieveblock_avx512f ptr\n");
-            printf("assigning med_sieveblock_32k_avx2 ptr\n");
-        }
-#endif
-
-
-    }
-    else if (obj->HAS_AVX2)
-    {
-        if (sconf->obj->VFLAG > 1)
-        {
-            printf("assigning tdiv_medprimes_32k_avx2 ptr\n");
-            printf("assigning tdiv_LP_avx2 ptr\n");
-            printf("assigning resieve_medprimes_32k_avx2 ptr\n");
-            printf("assigning med_sieveblock_32k_avx2 ptr\n");
-        }
-        resieve_med_ptr = &resieve_medprimes_32k_avx2;
-        tdiv_med_ptr = &tdiv_medprimes_32k_avx2;
-        tdiv_LP_ptr = &tdiv_LP_avx2;
-        med_sieve_ptr = &med_sieveblock_32k_avx2;
-
-
-        if (obj->HAS_BMI2)
-        {
-            if (VFLAG > 1)
-            {
-                printf("assigning nextRoots_32k_avx2_intrin ptr\n");
-            }
-            nextRoots_ptr = &nextRoots_32k_avx2_intrin;
-        }
-        else
-        {
-            if (VFLAG > 1)
-            {
-                printf("assigning nextRoots_32k_avx2 ptr\n");
-            }
-            nextRoots_ptr = &nextRoots_32k_avx2;
-        }
-
-    }
-    else if (obj->HAS_SSE41)
-    {
-        nextRoots_ptr = &nextRoots_32k_sse41;
-        med_sieve_ptr = &med_sieveblock_32k_sse41;
-        if (sconf->obj->VFLAG > 1)
-        {
-            printf("assigning nextRoots_32k_sse41 ptr\n");
-            printf("assigning med_sieveblock_32k_sse41 ptr\n");
-        }
-
-    }
-
-#elif defined(USE_AVX2)
-    if (obj->HAS_AVX2)
-    {
-        if (sconf->obj->VFLAG > 1)
-        {
-            printf("assigning tdiv_medprimes_32k_avx2 ptr\n");
-            printf("assigning tdiv_LP_avx2 ptr\n");
-            printf("assigning resieve_medprimes_32k_avx2 ptr\n");
-            printf("assigning med_sieveblock_32k_avx2 ptr\n");
-        }
-        resieve_med_ptr = &resieve_medprimes_32k_avx2;
-        tdiv_med_ptr = &tdiv_medprimes_32k_avx2;
-        tdiv_LP_ptr = &tdiv_LP_avx2;
-        med_sieve_ptr = &med_sieveblock_32k_avx2;
-
-        
-        if (obj->HAS_BMI2)
-        {
-            if (VFLAG > 1)
-            {
-                printf("assigning nextRoots_32k_avx2_intrin ptr\n");
-            }
-            nextRoots_ptr = &nextRoots_32k_avx2_intrin;
-        }
-        else
-        {
-            if (VFLAG > 1)
-            {
-                printf("assigning nextRoots_32k_avx2 ptr\n");
-            }
-            nextRoots_ptr = &nextRoots_32k_avx2;
-        }
-
-        //if (VFLAG > 1)
-        //{
-        //    printf("assigning nextRoots_32k_sse41 ptr\n");
-        //}
-        //nextRoots_ptr = &nextRoots_32k_sse41;
-    }
-    else if (obj->HAS_SSE41)
-    {
-        nextRoots_ptr = &nextRoots_32k_sse41;
-        med_sieve_ptr = &med_sieveblock_32k_sse41;
-        if (sconf->obj->VFLAG > 1)
-        {
-            printf("assigning nextRoots_32k_sse41 ptr\n");
-            printf("assigning med_sieveblock_32k_sse41 ptr\n");
-        }
-
-    }
-
-
-#elif defined(USE_SSE41)
-
-    nextRoots_ptr = &nextRoots_32k_sse41;
-    med_sieve_ptr = &med_sieveblock_32k_sse41;
-    if (sconf->obj->VFLAG > 1)
-    {
-        printf("assigning nextRoots_32k_sse41 ptr\n");
-        printf("assigning med_sieveblock_32k_sse41 ptr\n");
-    }
-
-#endif
-		
 #if defined( __amd64__ ) && defined(USE_AVX512F) && !defined(TRY_COMPRESS_SORT_LARGEP)
     // amd eypc (zen4) was slower when using the avx512 variants of these
-    lp_sieveblock_ptr = &lp_sieveblock;
-    tdiv_LP_ptr = &tdiv_LP_avx2;
+    g_kernels.lp_sieveblock = lp_sieveblock;
+    g_kernels.tdiv_LP = tdiv_LP_avx2;
 #endif
 
 	sconf->qs_blocksize = 32768;
@@ -4485,32 +4383,12 @@ int siqs_static_init(static_conf_t* sconf, int is_tiny)
         sconf->num_lp = 3;
         // NOTE: for TF cutoffs above 127 bits, only the avx512 version
         // of scan_relations will work.
-#ifdef USE_AVX512F
-        if (sconf->obj->HAS_AVX512F) scan_ptr = &check_relations_siqs_16_avx512;
-        else if (sconf->obj->HAS_AVX2) scan_ptr = &check_relations_siqs_16_avx2;
-        else scan_ptr = &check_relations_siqs_16_sse2;
-#elif defined (USE_AVX2)
-        if (sconf->obj->HAS_AVX2) scan_ptr = &check_relations_siqs_16_avx2;
-        else scan_ptr = &check_relations_siqs_16_sse2;
-#else
-        scan_ptr = &check_relations_siqs_16_sse2;
-#endif
 		sconf->scan_unrolling = 128;
 	}
     else if (sconf->digits_n >= dlp_cutoff)
 	{
 		sconf->use_dlp = 1;
         sconf->num_lp = 2;
-#ifdef USE_AVX512F
-        if (sconf->obj->HAS_AVX512F) scan_ptr = &check_relations_siqs_16_avx512;
-        else if (sconf->obj->HAS_AVX2) scan_ptr = &check_relations_siqs_16_avx2;
-        else scan_ptr = &check_relations_siqs_16_sse2;
-#elif defined (USE_AVX2)
-        if (sconf->obj->HAS_AVX2) scan_ptr = &check_relations_siqs_16_avx2;
-        else scan_ptr = &check_relations_siqs_16_sse2;
-#else
-        scan_ptr = &check_relations_siqs_16_sse2;
-#endif
 		sconf->scan_unrolling = 128;
 	}
 	else
@@ -4519,32 +4397,14 @@ int siqs_static_init(static_conf_t* sconf, int is_tiny)
         sconf->num_lp = 1;
 		if (sconf->digits_n < 30)
 		{
-#ifdef USE_AVX2
-            if (sconf->obj->HAS_AVX2) scan_ptr = &check_relations_siqs_4_avx2;
-            else scan_ptr = &check_relations_siqs_4_sse2;
-#else
-            scan_ptr = &check_relations_siqs_4_sse2;
-#endif
 			sconf->scan_unrolling = 32;
 		}
 		else if (sconf->digits_n < 60)
 		{
-#ifdef USE_AVX2
-            if (sconf->obj->HAS_AVX2) scan_ptr = &check_relations_siqs_4_avx2;
-            else scan_ptr = &check_relations_siqs_4_sse2;
-#else
-            scan_ptr = &check_relations_siqs_4_sse2;
-#endif
 			sconf->scan_unrolling = 32;
 		}
 		else
 		{
-#ifdef USE_AVX2
-            if (sconf->obj->HAS_AVX2) scan_ptr = &check_relations_siqs_8_avx2;
-            else scan_ptr = &check_relations_siqs_8_sse2;
-#else
-            scan_ptr = &check_relations_siqs_8_sse2;
-#endif
 			sconf->scan_unrolling = 64;
 		}
 	}
@@ -4555,16 +4415,6 @@ int siqs_static_init(static_conf_t* sconf, int is_tiny)
         sconf->num_lp = 4;
         // NOTE: for TF cutoffs above 127 bits, only the avx512 version
         // of scan_relations will work.
-#ifdef USE_AVX512F
-        if (sconf->obj->HAS_AVX512F) scan_ptr = &check_relations_siqs_16_avx512;
-        else if (sconf->obj->HAS_AVX2) scan_ptr = &check_relations_siqs_16_avx2;
-        else scan_ptr = &check_relations_siqs_16_sse2;
-#elif defined(USE_AVX2)
-        if (sconf->obj->HAS_AVX2) scan_ptr = &check_relations_siqs_16_avx2;
-        else scan_ptr = &check_relations_siqs_16_sse2;
-#else
-        scan_ptr = &check_relations_siqs_16_sse2;
-#endif
         sconf->scan_unrolling = 128;
     }
 
@@ -4574,16 +4424,6 @@ int siqs_static_init(static_conf_t* sconf, int is_tiny)
         sconf->num_lp = 3;
         // NOTE: for TF cutoffs above 127 bits, only the avx512 version
         // of scan_relations will work.
-#ifdef USE_AVX512F
-        if (sconf->obj->HAS_AVX512F) scan_ptr = &check_relations_siqs_16_avx512;
-        else if (sconf->obj->HAS_AVX2) scan_ptr = &check_relations_siqs_16_avx2;
-        else scan_ptr = &check_relations_siqs_16_sse2;
-#elif defined(USE_AVX2)
-        if (sconf->obj->HAS_AVX2) scan_ptr = &check_relations_siqs_16_avx2;
-        else scan_ptr = &check_relations_siqs_16_sse2;
-#else
-        scan_ptr = &check_relations_siqs_16_sse2;
-#endif
 		sconf->scan_unrolling = 128;
 	}
 	
@@ -4591,16 +4431,6 @@ int siqs_static_init(static_conf_t* sconf, int is_tiny)
 	{
 		sconf->use_dlp = 1;
         sconf->num_lp = 2;
-#ifdef USE_AVX512F
-        if (sconf->obj->HAS_AVX512F) scan_ptr = &check_relations_siqs_16_avx512;
-        else if (sconf->obj->HAS_AVX2) scan_ptr = &check_relations_siqs_16_avx2;
-        else scan_ptr = &check_relations_siqs_16_sse2;
-#elif defined(USE_AVX2)
-        if (sconf->obj->HAS_AVX2) scan_ptr = &check_relations_siqs_16_avx2;
-        else scan_ptr = &check_relations_siqs_16_sse2;
-#else
-        scan_ptr = &check_relations_siqs_16_sse2;
-#endif
 		sconf->scan_unrolling = 128;
 	}
 
