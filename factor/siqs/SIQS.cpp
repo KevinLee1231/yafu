@@ -1634,82 +1634,34 @@ static void nextRoots_32k_knl_pipeline(static_conf_t* sconf,
 siqs_kernels siqs_select_kernels(const int has_avx512f, const int has_avx512bw,
     const int has_avx2, const int has_bmi2, const int has_sse41)
 {
-    /* 最低一档：只要求 SSE2，任何 x86-64 都成立 */
-    siqs_kernels k = {
-        &firstRoots_32k,                       // firstRoots
-        &nextRoots_32k,                        // nextRoots
-        &testfirstRoots_32k,                   // testRoots
-        &tdiv_medprimes_32k,                   // tdiv_med
-        &tdiv_LP_sse2,                         // tdiv_LP
-        &resieve_medprimes_32k,                 // resieve_med
-        &med_sieveblock_32k,                   // med_sieve
-        &lp_sieveblock,                        // lp_sieveblock
+	/* 只保留 AVX-512：标量、SSE4.1 和"只有 AVX-512F 没有 BW"的回退实现都已
+	 * 删除，这里没有可退的第二档。运行时若真的没有 AVX-512F，内核照旧会被
+	 * 选中（编译器不知道运行机器），但那条路径上的代码已经不存在了——这台
+	 * 项目只在支持 AVX-512F+BW 的机器上跑。 */
+	siqs_kernels k = {
+		&firstRoots_32k,                       // firstRoots
+		&nextRoots_32k_knl_pipeline,           // nextRoots
+		&testfirstRoots_32k,                   // testRoots
+		&tdiv_medprimes_32k_avx2,              // tdiv_med
+		&tdiv_LP_avx512,                       // tdiv_LP
+		&resieve_medprimes_32k_avx512bw,        // resieve_med
+		&med_sieveblock_32k_avx512bw,           // med_sieve
+		&lp_sieveblock_avx512bw,                // lp_sieveblock
 
-        &check_relations_siqs_4_sse2,           // scan4_sse2
-        &check_relations_siqs_4_avx2,           // scan4_avx2
-        &check_relations_siqs_8_sse2,           // scan8_sse2
-        &check_relations_siqs_8_avx2,           // scan8_avx2
-        &check_relations_siqs_16_sse2,          // scan16_sse2
-        &check_relations_siqs_16_avx2,          // scan16_avx2
-        &check_relations_siqs_16_avx512,        // scan16_avx512
+		&check_relations_siqs_4_sse2,           // scan4_sse2
+		&check_relations_siqs_4_avx2,           // scan4_avx2
+		&check_relations_siqs_8_sse2,           // scan8_sse2
+		&check_relations_siqs_8_avx2,           // scan8_avx2
+		&check_relations_siqs_16_sse2,          // scan16_sse2
+		&check_relations_siqs_16_avx2,          // scan16_avx2
+		&check_relations_siqs_16_avx512,        // scan16_avx512
 
-        siqs_isa::generic,
-        "generic"
-    };
+		siqs_isa::avx512,
+		has_avx512f && has_avx512bw ? "avx-512" : "avx-512 (partial)"
+	};
 
-#if defined(USE_AVX512F)
-    if (has_avx512f)
-    {
-        /* AVX-512 的根更新是四步流水线，见 nextRoots_32k_knl_pipeline */
-        k.nextRoots = &nextRoots_32k_knl_pipeline;
-        k.tdiv_med = &tdiv_medprimes_32k_avx2;
-        k.tdiv_LP = &tdiv_LP_avx512;
-        k.isa = siqs_isa::avx512;
-        k.isa_name = "avx-512";
-
-#  if defined(USE_AVX512BW)
-        if (has_avx512bw)
-        {
-            k.resieve_med = &resieve_medprimes_32k_avx512bw;
-            k.med_sieve = &med_sieveblock_32k_avx512bw;
-            k.lp_sieveblock = &lp_sieveblock_avx512bw;
-        }
-        else
-#  endif
-        {
-            k.resieve_med = &resieve_medprimes_32k_avx2;
-            k.lp_sieveblock = &lp_sieveblock_avx512f;
-            k.med_sieve = &med_sieveblock_32k_avx2;
-        }
-        return k;
-    }
-#endif
-
-#if defined(USE_AVX2)
-    if (has_avx2)
-    {
-        k.resieve_med = &resieve_medprimes_32k_avx2;
-        k.tdiv_med = &tdiv_medprimes_32k_avx2;
-        k.tdiv_LP = &tdiv_LP_avx2;
-        k.med_sieve = &med_sieveblock_32k_avx2;
-        k.nextRoots = has_bmi2 ? &nextRoots_32k_avx2_intrin : &nextRoots_32k_avx2;
-        k.isa = siqs_isa::avx2;
-        k.isa_name = has_bmi2 ? "avx2+bmi2" : "avx2";
-        return k;
-    }
-#endif
-
-    if (has_sse41)
-    {
-        k.nextRoots = &nextRoots_32k_sse41;
-        k.med_sieve = &med_sieveblock_32k_sse41;
-        k.isa = siqs_isa::sse41;
-        k.isa_name = "sse4.1";
-    }
-
-    (void)has_avx512bw;
-    (void)has_bmi2;
-    return k;
+	(void)has_avx512f; (void)has_avx2; (void)has_bmi2; (void)has_sse41;
+	return k;
 }
 
 void* process_poly(void* vptr)
@@ -3860,11 +3812,6 @@ int siqs_static_init(static_conf_t* sconf, int is_tiny)
     if (obj->VFLAG > 1)
         printf("siqs kernels: %s\n", g_kernels.isa_name);
 
-#if defined( __amd64__ ) && defined(USE_AVX512F) && !defined(TRY_COMPRESS_SORT_LARGEP)
-    // amd eypc (zen4) was slower when using the avx512 variants of these
-    g_kernels.lp_sieveblock = lp_sieveblock;
-    g_kernels.tdiv_LP = tdiv_LP_avx2;
-#endif
 
 	sconf->qs_blocksize = 32768;
 	sconf->qs_blockbits = 15;

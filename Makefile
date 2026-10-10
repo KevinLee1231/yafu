@@ -868,33 +868,21 @@ YAFU_SIQS_SRCS = \
     factor/siqs/siqs_aux.cpp \
     factor/pmpqs/pmpqs.cpp \
     factor/siqs/SIQS.cpp \
-    factor/siqs/med_sieve_32k.cpp \
     factor/siqs/poly_roots_32k.cpp \
     factor/siqs/cofactorize_siqs.cpp
 
-ifeq ($(USE_SSE41),1)
+# SIQS 的 ISA 变体：只保留 AVX-512 这条路径。标量 / SSE4.1 的实现已经
+# 删掉（运行时不可达），avx2 那几份文件里只剩 AVX-512 流水线要用的那几个
+# 函数（nextRoots_32k_avx2_small / tdiv_medprimes_32k_avx2 /
+# med_sieveblock_32k_avx512bw / resieve_medprimes_32k_avx512bw）。
+ifeq ($(USE_AVX512),1)
     YAFU_SIQS_SRCS += \
-        factor/siqs/update_poly_roots_32k_sse4.1.cpp \
-        factor/siqs/med_sieve_32k_sse4.1.cpp
-endif
-
-ifeq ($(USE_AVX2),1)
-    YAFU_SIQS_SRCS += \
-        factor/siqs/tdiv_med_32k_avx2.cpp \
+        factor/siqs/update_poly_roots_32k_knl.cpp \
         factor/siqs/update_poly_roots_32k_avx2.cpp \
+        factor/siqs/tdiv_med_32k_avx2.cpp \
         factor/siqs/med_sieve_32k_avx2.cpp \
         factor/siqs/tdiv_resieve_32k_avx2.cpp
 endif
-
-ifeq ($(USE_AVX512),1)
-    YAFU_SIQS_SRCS += factor/siqs/update_poly_roots_32k_knl.cpp
-endif
-
-# Always-included generic SIQS files (appended after any ISA variants)
-YAFU_SIQS_SRCS += \
-    factor/siqs/update_poly_roots_32k.cpp \
-    factor/siqs/tdiv_med_32k.cpp \
-    factor/siqs/tdiv_resieve_32k.cpp
 
 
 # -----------------------------------------------------------------------------
