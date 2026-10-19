@@ -1638,7 +1638,8 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
 								tid, bestscore);
 
 							// restart this thread running a test sieve to a temp data file
-							strncpy(tmpoutfile, t->outfilename, 79);
+							snprintf(tmpoutfile, sizeof(tmpoutfile), "%s",
+								t->outfilename);
 							sprintf(t->outfilename, "poly_test_sieve.%d.dat", tid);
 
 							t->job.poly = NULL;			// NULL poly will get initialized by copy_job

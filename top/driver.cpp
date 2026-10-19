@@ -190,7 +190,8 @@ int main(int argc, char *argv[])
     // we need to have the cpu id string before calling apply_tuneinfo so that
     // any tune_info lines are applied correctly.
     ytools_get_computer_info(&comp_info, options->vproc);
-    strncpy(yafu_obj.CPU_ID_STR, comp_info.idstr, 255);
+    snprintf(yafu_obj.CPU_ID_STR, sizeof(yafu_obj.CPU_ID_STR), "%s",
+        comp_info.idstr);
 
 	// a factorization object that gets passed around to any factorization routine
 	// called out in the input expression.  if no factorization routine is specified,
@@ -205,7 +206,10 @@ int main(int argc, char *argv[])
     }
 
     fobj->MEAS_CPU_FREQUENCY = 42;  // not used anymore
-    strcpy(fobj->CPU_ID_STR, comp_info.idstr);
+    /* fobj->CPU_ID_STR 只有 80 字节，而 idstr 最多 255 字节 ——
+       以前这里用 strcpy，是堆溢出。 */
+    snprintf(fobj->CPU_ID_STR, sizeof(fobj->CPU_ID_STR), "%s",
+        comp_info.idstr);
     
     fobj->NUM_WITNESSES = yafu_obj.NUM_WITNESSES = options->num_prp_witnesses;
     fobj->cache_size1 = fobj->L1CACHE = comp_info.L1cache;

@@ -537,7 +537,7 @@ void applyOpt(std::string_view opt, char* arg, options_t* options)
         printf("attempting to parse user rng seed from %s\n", arg);
         options->rand_seed = parse_uint(arg, opt, UINT64_MAX);
         //sscanf(arg, "%" PRIu64"", &options->rand_seed);
-        printf("read: % "PRIu64"\n", options->rand_seed);
+        printf("read: %"PRIu64"\n", options->rand_seed);
     }
     else if (opt == OptionArray[17])
     {
@@ -900,7 +900,8 @@ void applyOpt(std::string_view opt, char* arg, options_t* options)
         // argument "nt"
         if (arg == NULL)
         {
-            printf("expected argument for option %s\n", opt);
+            printf("expected argument for option %.*s\n",
+                (int)opt.size(), opt.data());
             exit(1);
         }
         else if (strlen(arg) < MAXARGLEN)
@@ -1362,7 +1363,7 @@ void applyOpt(std::string_view opt, char* arg, options_t* options)
     {
         int i;
 
-        printf("invalid option %s\n", opt);
+        printf("invalid option %.*s\n", (int)opt.size(), opt.data());
         printf("supported options are: ");
         for (i = 0; i < NUMOPTIONS; i++)
         {
@@ -1589,7 +1590,8 @@ int processOpts(int argc, char** argv, options_t* options)
     // on the command line filled in.  Return the number of options
     // processed.
     int i, j, k = 0, valid, longswitch = 0;
-    char optbuf[MAXOPTIONLEN];
+    /* 加上 NUL 的一位：strncpy 拷满 MAXOPTIONLEN 时不会补 NUL。 */
+    char optbuf[MAXOPTIONLEN + 1];
     int numOpt = 0;
 
     //argument loop
@@ -1664,7 +1666,8 @@ int processOpts(int argc, char** argv, options_t* options)
                 if (strncmp(options->LongOptionAliases[j], &argv[i][2], MAXOPTIONLEN) == 0)
                 {
                     valid = 1;
-                    strncpy(optbuf, options->OptionArray[j], MAXOPTIONLEN);
+                    snprintf(optbuf, sizeof(optbuf), "%s",
+                        options->OptionArray[j]);
                     break;
                 }
             }
@@ -1676,7 +1679,7 @@ int processOpts(int argc, char** argv, options_t* options)
                 if (strncmp(options->OptionArray[j], &argv[i][1], MAXOPTIONLEN) == 0)
                 {
                     valid = 1;
-                    strncpy(optbuf, &argv[i][1], MAXOPTIONLEN);
+                    snprintf(optbuf, sizeof(optbuf), "%s", &argv[i][1]);
                     break;
                 }
             }

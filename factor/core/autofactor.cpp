@@ -2044,6 +2044,53 @@ int check_for_exit_on_factor(fact_obj_t* fobj)
 	return 0;
 }
 
+/* 从保存文件或作业文件的第一行里读出待分解的数。
+ *
+ * 两种文件的首行格式不一样：siqs 的保存文件是 "N <十六进制>"，nfs 的作业
+ * 文件是 "n: <十进制>"。所以取第一个冒号或空白之后的内容，剩下的交给
+ * mpz_set_str 按 0 进制自动判断。
+ *
+ * 以前这里是 fgets 之后直接 tmpstr + 2 就拿去解析：fgets 的返回值没检查，
+ * 文件为空时读的是未初始化的栈内容；mpz_set_str 的返回值也没检查，解析
+ * 失败时 mpz 里是未定义的值，后面却拿它跟输入比大小。解析不出来就当没有
+ * ��存文件。
+ */
+static int read_saved_number(FILE *f, mpz_t out)
+{
+	char line[GSTR_MAXSIZE];
+	char *start;
+	size_t len;
+
+	if (fgets(line, sizeof(line), f) == NULL)
+		return 0;
+
+	/* 跳过 "N " / "n: " 这样的前缀 */
+	start = line;
+	while (*start != '\0' && *start != ':' && *start != ' ' && *start != '\t')
+		start++;
+	if (*start == '\0')
+		return 0;
+	start++;
+	while (*start == ' ' || *start == '\t')
+		start++;
+
+	/* 去掉行尾的空白 */
+	len = strlen(start);
+	while (len > 0 && (start[len - 1] == '\n' || start[len - 1] == '\r' ||
+					   start[len - 1] == ' ' || start[len - 1] == '\t'))
+		start[--len] = '\0';
+	if (len == 0)
+		return 0;
+
+	/* auto detect the base */
+	if (mpz_set_str(out, start, 0) != 0)
+	{
+		mpz_set_ui(out, 0);
+		return 0;
+	}
+	return 1;
+}
+
 void factor(fact_obj_t *fobj)
 {
 	//run a varity of factoring algorithms on b.
@@ -2060,7 +2107,6 @@ void factor(fact_obj_t *fobj)
 	int user_defined_pp1_b2 = fobj->pp1_obj.stg2_is_default;
 	int user_defined_pm1_b2 = fobj->pm1_obj.stg2_is_default;
 	FILE *data;
-	char tmpstr[GSTR_MAXSIZE];
 	int quit_after_sieve_method = 0;
     double initial_work = fobj->autofact_obj.initial_work;
 	int override_fact_state = 0;
@@ -2221,7 +2267,6 @@ void factor(fact_obj_t *fobj)
 
 	if (data != NULL)
 	{	
-		char *substr;
 		mpz_t tmpz;
 		mpz_t g;
 
@@ -2229,11 +2274,8 @@ void factor(fact_obj_t *fobj)
 		mpz_init(tmpz);
 		mpz_init(g);
 
-		fgets(tmpstr,1024,data);
-		substr = tmpstr + 2;
-		mpz_set_str(tmpz, substr, 0);	//auto detect the base
-
-		if (resume_check_input_match(tmpz, b, g, fobj->VFLAG))
+		if (read_saved_number(data, tmpz) &&
+			resume_check_input_match(tmpz, b, g, fobj->VFLAG))
 		{
 			if (fobj->VFLAG > 0)
 				printf("fac: found siqs savefile, resuming siqs\n");
@@ -2263,7 +2305,6 @@ void factor(fact_obj_t *fobj)
 
 	if (data != NULL)
 	{	
-		char *substr;
 		mpz_t tmpz;
 		mpz_t g;
 
@@ -2271,12 +2312,8 @@ void factor(fact_obj_t *fobj)
 		mpz_init(tmpz);
 		mpz_init(g);
 
-		// may not be sufficient, in extreme cases...
-		fgets(tmpstr,1024,data);
-		substr = tmpstr + 2;
-		mpz_set_str(tmpz, substr, 0);	//auto detect the base
-
-		if (resume_check_input_match(tmpz, b, g, fobj->VFLAG))
+		if (read_saved_number(data, tmpz) &&
+			resume_check_input_match(tmpz, b, g, fobj->VFLAG))
 		{
             if (fobj->VFLAG > 0)
                 printf("fac: found nfs job file, resuming nfs\n");

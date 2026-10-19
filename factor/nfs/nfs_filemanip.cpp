@@ -806,7 +806,9 @@ double find_best_msieve_poly(fact_obj_t *fobj, nfs_job_t *job,
 			if (fobj->VFLAG > 0)
 				printf("best poly: \n%s",line);
 
-			strncpy(polyscore, line, 256);
+			/* line 可能比 polyscore 长，strncpy 拷满时不给 NUL，
+			   后面 fprintf("%s", polyscore) 就会读过界。 */
+			snprintf(polyscore, sizeof(polyscore), "%s", line);
 
             if (fobj->LOGFLAG)
             {
