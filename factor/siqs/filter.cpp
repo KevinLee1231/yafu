@@ -699,7 +699,12 @@ int restart_siqs(static_conf_t *sconf, dynamic_conf_t *dconf)
 	int i,j;
 	char *str, *substr;
 	FILE *data;
-	uint32_t lp[MAXLP], pmax = sconf->large_prime_max / sconf->large_mult;
+	/* large_mult 合法地可以为 0（SIQS 把它当成 TLP 的 LPB），所以这里
+	   不能无条件相除。 */
+	uint32_t lp[MAXLP];
+	uint32_t pmax = (sconf->large_mult == 0)
+		? sconf->large_prime_max
+		: (sconf->large_prime_max / sconf->large_mult);
     fact_obj_t*fobj = sconf->obj;
 
 	str = (char *)malloc(GSTR_MAXSIZE*sizeof(char));
