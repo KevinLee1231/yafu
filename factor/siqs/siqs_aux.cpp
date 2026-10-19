@@ -269,7 +269,7 @@ uint32_t make_fb_siqs(static_conf_t *sconf)
 #define NUM_PARAM_ROWS 31
 void get_params(static_conf_t *sconf)
 {
-	int bits,i;
+	int bits,i,last;
 	double scale;
 	fb_list *fb = sconf->factor_base;
 
@@ -508,6 +508,22 @@ void get_params(static_conf_t *sconf)
 
 	bits = sconf->obj->bits;
 
+	/* 找出最后一行真正填了数据的。
+	 *
+	 * NUM_PARAM_ROWS 是 31，但 USE_AVX512F 那张表（和默认那张）只填了 30 行，
+	 * 末行是零初始化的 {0,0,0,0,0,0,0}。下面两个循环的匹配条件要拿
+	 * param_table[i+1][0] 当区间上界，"超出表尾就外推"那段也要拿
+	 * param_table[NUM_PARAM_ROWS-1] 当有效行 —— 拿零行算出来的斜率是
+	 * (0-496628)/(0-410) = 1211，而正确的是 (496628-413857)/(410-400)
+	 * = 8277。因子基会因此小六到七倍，large_mult 还被设成 0。
+	 */
+	last = 0;
+	for (i = 0; i < NUM_PARAM_ROWS; i++)
+	{
+		if (param_table[i][0] > 0)
+			last = i;
+	}
+
 	fb->B = 0;
 	if (bits <= param_table[0][0])
 	{
@@ -518,7 +534,7 @@ void get_params(static_conf_t *sconf)
 	}
 	else if (bits <= 1000)       // up to 100 digits, above that we use TLP
 	{
-        for (i = 0; i < NUM_PARAM_ROWS - 1; i++)
+        for (i = 0; i < last; i++)
         {
             if (bits > param_table[i][0] && bits <= param_table[i + 1][0])
             {
@@ -536,7 +552,7 @@ void get_params(static_conf_t *sconf)
     {
         // this can still be overridden with forceDLP.
         sconf->obj->qs_obj.gbl_force_TLP = 1;
-        for (i = 21; i < NUM_PARAM_ROWS - 1; i++)
+        for (i = 21; i < last; i++)
         {
             if ((bits > param_table[i][0]) && (bits <= param_table[i + 1][0]))
             {
@@ -564,17 +580,17 @@ void get_params(static_conf_t *sconf)
 		//off the end of the table, extrapolate based on the slope of 
 		//the last two
 
-		scale = (double)(param_table[NUM_PARAM_ROWS-1][1] - param_table[NUM_PARAM_ROWS-2][1]) /
-			(double)(param_table[NUM_PARAM_ROWS-1][0] - param_table[NUM_PARAM_ROWS-2][0]);
-		fb->B = (uint32_t)(((double)bits - param_table[NUM_PARAM_ROWS-1][0]) * 
-			scale + param_table[NUM_PARAM_ROWS-1][1]);
-		sconf->large_mult = param_table[NUM_PARAM_ROWS-1][2];	//reuse last one
+		scale = (double)(param_table[last][1] - param_table[last-1][1]) /
+			(double)(param_table[last][0] - param_table[last-1][0]);
+		fb->B = (uint32_t)(((double)bits - param_table[last][0]) *
+			scale + param_table[last][1]);
+		sconf->large_mult = param_table[last][2];	//reuse last one
 
-		scale = (double)(param_table[NUM_PARAM_ROWS-1][3] - param_table[NUM_PARAM_ROWS-2][3]) /
-			(double)(param_table[NUM_PARAM_ROWS-1][0] - param_table[NUM_PARAM_ROWS-2][0]);
-		//sconf->num_blocks = param_table[NUM_PARAM_ROWS-1][3];	//reuse last one
-		sconf->num_blocks = (uint32_t)(((double)bits - param_table[NUM_PARAM_ROWS-1][0]) * 
-			scale + param_table[NUM_PARAM_ROWS-1][3]);
+		scale = (double)(param_table[last][3] - param_table[last-1][3]) /
+			(double)(param_table[last][0] - param_table[last-1][0]);
+		//sconf->num_blocks = param_table[last][3];	//reuse last one
+		sconf->num_blocks = (uint32_t)(((double)bits - param_table[last][0]) *
+			scale + param_table[last][3]);
 
 	}
 

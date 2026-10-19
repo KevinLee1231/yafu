@@ -165,6 +165,7 @@ double ytools_difftime(struct timeval* start, struct timeval* end);
     {
         uint32_t L1cache;
         uint32_t L2cache;
+        int nprocs;            /* ���线上的逻辑核心数 */
 
         char sysname[256];
         int sysname_sz;
@@ -228,7 +229,10 @@ double ytools_difftime(struct timeval* start, struct timeval* end);
     extern void ytools_get_cache_sizes(uint32_t* level1_size_out, uint32_t* level2_size_out);
     extern void ytools_get_computer_info(info_t* info, int do_print);
     extern void ytools_get_cache_sizes(uint32_t* level1_cache, uint32_t* level2_cache);
-    extern int ytools_extended_cpuid(char* idstr, int* cachelinesize, char* bSSE41Extensions,
+    /* 探测在线的逻辑核心数。探测不到时返回 1。 */
+extern int ytools_get_nprocs(void);
+
+extern int ytools_extended_cpuid(char* idstr, int* cachelinesize, char* bSSE41Extensions,
         char* BMI1, char* AVX, char* AVX2, char* BMI2, char* AVX512F, char* AVX512BW, char* AVX512ER,
         char* AVX512PF, char* AVX512CD, char* AVX512VL, char* AVX512IFMA, char* AVX512DQ, int do_print);
 
@@ -275,7 +279,7 @@ double ytools_difftime(struct timeval* start, struct timeval* end);
 // logging and file i/o
 // ============================================================================
 
-    extern void logprint(FILE* infile, char* args, ...);
-    extern void logprint_oc(const char* name, const char* method, char* args, ...);
+    extern void logprint(FILE* infile, const char* args, ...);
+    extern void logprint_oc(const char* name, const char* method, const char* args, ...);
     extern char* get_full_line(char* line, int* sz, FILE* fid);
 #endif /* _YTOOLS_UTIL_H_ */

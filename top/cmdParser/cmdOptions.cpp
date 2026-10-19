@@ -1421,7 +1421,9 @@ options_t* initOpt(void)
     options->num_tune_info = 0;
     options->tune_info = (char**)xmalloc(1 * sizeof(char*));
     options->rand_seed = 0;
-    options->threads = 1;
+    /* 默认用全部核心。命令行 -threads 与 yafu.ini 里的 threads= 会在后面
+       覆盖它（启动顺序是 ini 先、命令行后）。 */
+    options->threads = (uint32_t)ytools_get_nprocs();
     options->verbosity = 0;
     options->vproc = 0;
     strcpy(options->expr, "");
@@ -1476,7 +1478,9 @@ options_t* initOpt(void)
     options->np1 = 0;
     options->nps = 0;
     options->npr = 0;
-    options->lathreads = 1;
+    /* 线性代数（msieve 的 Lanczos）本身是多线程的，默认也用全部核心。
+       矩阵不够大时线程数会被矩阵切分限制，不会白起线程。 */
+    options->lathreads = (uint32_t)ytools_get_nprocs();
     options->filt_bump = 5;
     options->force_gnfs = 0;
     options->snfs_testsieve_threshold = 160;

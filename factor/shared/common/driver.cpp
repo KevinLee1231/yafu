@@ -328,7 +328,7 @@ void add_next_factor(msieve_obj *obj, mp_t *n,
 }
 
 /*--------------------------------------------------------------------*/
-void logprintf(msieve_obj *obj, char *fmt, ...) {
+void logprintf(msieve_obj *obj, const char *fmt, ...) {
 
 	va_list ap;
 
