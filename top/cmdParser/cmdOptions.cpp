@@ -1818,6 +1818,18 @@ void printUsage(options_t* options)
 // this function should not need to be changed:
 // parse options from a .ini (or other) file.
 // ========================================================================
+/* 这个名字是第几个选项；不认识返回 -1。 */
+static int option_index(const char* key)
+{
+    int i;
+    for (i = 0; i < NUMOPTIONS; i++)
+    {
+        if (strcmp(OptionArray[i], key) == 0)
+            return i;
+    }
+    return -1;
+}
+
 int readINI(const char* filename, options_t* options)
 {
     FILE* doc;
@@ -1836,6 +1848,8 @@ int readINI(const char* filename, options_t* options)
 
     while (fgets(str, sizeof(str), doc) != NULL)
     {
+        int opt_index;
+
         if (strchr(str, '\n') == NULL && !feof(doc))
         {
             int next = fgetc(doc);
@@ -1865,6 +1879,24 @@ int readINI(const char* filename, options_t* options)
             while (isspace((unsigned char)*value))
                 value++;
         }
+
+        /* ini 是手改的配置文件，一个拼错的键、漏了等号、或者一行太长，
+           都不该让整个工具起不来。命令行的处理不一样：给错选项就该退出，
+           所以在这里先把有问题的行挑出来。 */
+        opt_index = option_index(key);
+        if (opt_index < 0)
+        {
+            fprintf(stderr, "warning: ignoring unknown option '%s' in %s\n",
+                key, filename);
+            continue;
+        }
+        if (value != NULL && strlen(value) >= MAXARGLEN && opt_index != 68)
+        {
+            fprintf(stderr, "warning: argument of option '%s' in %s is too "
+                "long, ignoring\n", key, filename);
+            continue;
+        }
+
         applyOpt(key, value, options);
     }
     if (ferror(doc))
