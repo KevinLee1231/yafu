@@ -2,7 +2,7 @@
 # config.mk — yafu 本地构建配置
 #
 # 目标机器: Kali Linux (WSL2) / AMD Ryzen AI 7 H 350 (Zen 5, 6 核)
-# 更新日期: 2026-10-03
+# 更新日期: 2026-10-19
 #
 # 本文件按需覆盖 Makefile 的默认值；删掉整段就走 Makefile 的自动探测。
 #
@@ -21,8 +21,9 @@
 
 
 # --- ISA 档位 ---------------------------------------------------------------
-# 这里只选 yafu 自带的 SIMD 内核走哪一档，-march 由 Makefile 按档位自动搭配
-# （AVX512 -> skylake-avx512，AVX512IFMA -> icelake-client）。
+# AVX-512 现在是必备项：SIQS 只保留 AVX-512 的内核，格点筛的排线内核也以
+# AVX-512 为主。Makefile 默认就开着 USE_AVX512，所以这里只负责把本机提到
+# 最高的一档：Zen 5 支持 AVX-512 IFMA。
 #
 # 关键结论: 不要用 USE_NATIVE。本机实测 USE_NATIVE=1 会产出筛法失效的二进制
 # —— 能编译、能跑小整数，但 SIQS 几乎筛不出关系（表现为极慢而非报错）。

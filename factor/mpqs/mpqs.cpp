@@ -113,10 +113,14 @@ uint32 factor_mpqs(msieve_obj *obj, mp_t *n,
 		return 0;
 	}
 
-	solve_linear_system(obj, fb_size, &bitfield, 
+	auto linear = solve_linear_system(obj, fb_size, &bitfield, 
 			relation_list, cycle_list, &num_cycles);
 
-	if (bitfield != NULL && num_cycles > 0) {
+	if (!linear) {
+		/* 矩阵列溢出之类的失败：说明原因，跳过找因子，让调用方继续。 */
+		logprintf(obj, "linear algebra failed: %s\n", linear.error().c_str());
+	}
+	else if (bitfield != NULL && num_cycles > 0) {
 		factor_found = find_factors(obj, n, factor_base, fb_size, 
 					cycle_list, num_cycles, 
 					relation_list, bitfield, 

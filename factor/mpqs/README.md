@@ -41,5 +41,9 @@ $$Q(x) = A\bigl(A x^2 + 2 B x + C\bigr)$$
 **失败不再杀进程。** 原来 `poly.cpp` 与 `sieve.cpp` 里有四处 `exit(-1)`：
 多项式选不出、因子位数凑不齐、两处倒数表越界。这些表示"这个输入 msieve 处理不了"，不是"程序不能继续"。挂到计算器上时，`mpqs(19 位输入)` 会把整个 yafu 杀掉，交互会话随之消失。现在 `poly_init` 与 `do_sieving` 返回 `int`，`factor_mpqs` 现有的空指针检查正好接住，命令会打印一行说明并让计算器继续。
 
+线性代数那一侧同样处理过：`gf2.cpp` 原来在矩阵列溢出时 `exit(EXIT_FAILURE)`，
+现在 `solve_linear_system` 与 `build_matrix` 返回 `std::expected<void, std::string>`，
+原因由 `factor_mpqs` 记一行日志后继续，交互会话不受影响。
+
 **性能现状。** 本项目 vendored 的 `sieve_core.cpp` 只编了 generic SSE2 的
-32 KB 与 64 KB 两个变体，msieve 上游的 AVX2/AVX512 筛法内核没有一起带进来。加上参数表在这个尺寸区间插值出的筛法区间偏小，21 位以上的输入在本机筛不完。`gf2.cpp` 里还有一处 `exit(EXIT_FAILURE)`（矩阵列溢出）没改，它要连带改 `solve_linear_system` 的签名，触发条件也与上面几处不同。
+32 KB 与 64 KB 两个变体，msieve 上游的 AVX2/AVX512 筛法内核没有一起带进来。加上参数表在这个尺寸区间插值出的筛法区间偏小，21 位以上的输入在本机筛不完。

@@ -20,6 +20,8 @@ $Id: mpqs.h 23 2009-07-20 02:59:07Z jasonp_sf $
    factorization. */
 
 #include <ms_common.h>
+#include <expected>
+#include <string>
 
 /*------------------- SIEVE RELATED DECLARATIONS ---------------------*/
 /* There's a limit to how many factors can contribute to
@@ -375,7 +377,10 @@ void qs_free_relation_list(relation_t *list, uint32 num_relations);
 		the only guarantee is that its final value is at least 
 		fb_size + NUM_EXTRA_RELATIONS */
 
-void solve_linear_system(msieve_obj *obj, uint32 fb_size, 
+/* 矩阵列溢出这类情况原来直接 exit(EXIT_FAILURE)，整个进程当场消失：
+   挂到计算器上时，一个算不了��输入会把交互会话一起带走。现在用
+   std::expected 把原因交回调用方，由调用方决定是放弃还是继续。 */
+std::expected<void, std::string> solve_linear_system(msieve_obj *obj, uint32 fb_size, 
 		    uint64 **bitfield, 
 		    relation_t *relation_list, 
 		    la_col_t *cycle_list,

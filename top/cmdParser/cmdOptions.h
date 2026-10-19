@@ -32,6 +32,7 @@ SOFTWARE.
 #define CMD_PARSE_H
 
 #include <stdint.h>
+#include <string_view>
 
     // the number of recognized command line options
 #define NUMOPTIONS 133
@@ -223,7 +224,7 @@ typedef struct
 } options_t;
 
 extern options_t* initOpt(void);
-extern void applyOpt(char* opt, char* arg, options_t* options);
+extern void applyOpt(std::string_view opt, char* arg, options_t* options);
 extern int processOpts(int argc, char** argv, options_t* options);
 extern int readINI(const char* filename, options_t* options);
 #endif /* #ifndef CMD_PARSE_H */

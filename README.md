@@ -62,15 +62,20 @@ make test-standalone      # 独立编译的 NFS 与 lasieve 回归
 
 ### 指令集档位
 
+**AVX-512 是必备项，不是可选档位。** SIQS 的内核只保留 AVX-512 这一条路径
+（标量与 SSE4.1 的实现已删），格点筛的排线内核也以 AVX-512 为主。所以默认就是
+最高性能的那份构建，配置里不写任何 ISA 开关也能编出来。
+
 ```bash
-make yafu USE_AVX2=1          # 通用 x86-64 / Haswell 及更新
-make yafu USE_AVX512=1        # Skylake-X、Cascade Lake、Zen 4
-make yafu USE_AVX512IFMA=1    # Ice Lake 及更新，ECM 内核最快
-make yafu CC=clang            # 换编译器
-make yafu DEBUG=1             # 调试构建
+make yafu                      # 默认：AVX-512 F/BW
+make yafu USE_AVX512IFMA=1     # AVX-512 + IFMA，Ice Lake 及更新，ECM 内核最快
+make yafu CC=clang             # 换编译器
+make yafu DEBUG=1              # 调试构建
 ```
 
-**不要用 `USE_NATIVE=1`。** 本机实测它在 Zen 5 上会产出筛法失效的二进制：能编译、能跑小整数，但 SIQS 几乎筛不出关系（表现为极慢而不是报错）。根因是 `-march=native` 本身，与 AVX-512 无关 —— 选上面任一档位即可，Makefile 会自动搭配对应的 `-march`。完整的横向实测数据见 `config.mk` 里的注释。
+显式写 `USE_AVX512=0` 会被 Makefile 直接拦下并说明原因——那样的构建链接不过。
+
+**不要用 `USE_NATIVE=1`。** 本机实测它在 Zen 5 上会产出筛法失效的二进制：能编译、能跑小整数，但 SIQS 几乎筛不出关系（表现为极慢而不是报错）。根因是 `-march=native` 本身，与 AVX-512 无关。完整的横向实测数据见 `config.mk` 里的注释。
 
 编译器或编译选项变化会自动触发重编，不需要手工删旧的目标文件。
 
@@ -116,9 +121,40 @@ make yafu DEBUG=1             # 调试构建
 
 ---
 
+## 代码约定
+
+树里全是 `.cpp`，统一用 C++26（Makefile 带上 `-std=c++26`）。几条约定：
+
+**错误用 `std::expected` 往上带，不要 `exit`。** 计算器是一个长驻的交互会话，
+任何一处 `exit(-1)` 都会把用户的会话连同正在跑的任务一起带走。失败要返回给
+调用方，由调用方决定是放弃还是继续：
+
+```c++
+std::expected<void, std::string> solve_linear_system(...);
+```
+
+`factor/nfs/gnfs/poly/` 用的是 `std::expected<void, poly_search_error>` 加一个
+错误枚举；`factor/mpqs/` 用的是 `std::expected<void, std::string>`。两种都在用，
+新代码跟所在模块保持一致即可。
+
+**字符串比较用 `std::string_view`。** 命令行选项解析（`top/cmdParser/cmdOptions.cpp`）
+里选项名一律是 `std::string_view`，比较写成 `opt == OptionArray[i]`，不要退回
+`strcmp`。
+
+**每层一个 `include/`。** 方法私有的头文件放在该方法的 `include/` 下，被多个
+方法共用的放 `factor/shared/`，靠 Makefile 的 `-I` 解析，不要依赖"编译器先找
+包含者所在目录"。
+
+**行尾一律 LF。** `.gitattributes` 里写死了 `* text=auto eol=lf`，读写时用
+二进制模式，别让工具做行尾转换。
+
+**AVX-512 是必备项。** 只有这一条 SIMD 路径，新代码不要再引入标量回退分支。
+
+---
+
 ## 持续集成
 
-**GitHub Actions** 只在 Linux 上构建和测试：每次推送编译完整指令集矩阵（`generic`、`sse41`、`avx2`、`avx512`、`avx512ifma`），运行命令行回归脚本，并编译运行分层测试程序。`avx512` 档位只编译不运行 —— 托管的 runner 执行不了 AVX-512。打标签发布时产物会附到 release 页面。
+**GitHub Actions** 只在 Linux 上构建和测试：每次推送编译两个指令集档位（`avx512`、`avx512ifma`），在 `avx512` 档位上运行命令行回归脚本与分层测试程序（`avx512ifma` 只编译不运行 —— 托管 runner 的 CPU 未必有 IFMA）。打标签发布时产物会附到 release 页面。
 
 ---
 

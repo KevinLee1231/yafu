@@ -14,12 +14,14 @@ $Id: gf2.c 1031 2020-07-08 15:00:59Z brgladman $
 
 #include <ms_common.h>
 #include "mpqs.h"
+#include <expected>
+#include <string>
 
-static void build_matrix(uint32 ncols, la_col_t *cols, 
-		    	relation_t *relation_list);
+static std::expected<void, std::string> build_matrix(uint32 ncols, la_col_t *cols, 
+			   relation_t *relation_list);
 
 /*------------------------------------------------------------------*/
-void solve_linear_system(msieve_obj *obj, uint32 fb_size, 
+std::expected<void, std::string> solve_linear_system(msieve_obj *obj, uint32 fb_size, 
 		    uint64 **bitfield, relation_t *relation_list, 
 		    la_col_t *cycle_list, uint32 *num_cycles) {
 
@@ -38,7 +40,9 @@ void solve_linear_system(msieve_obj *obj, uint32 fb_size,
 	/* convert the list of relations from the sieving 
 	   stage into a matrix. */
 
-	build_matrix(ncols, cols, relation_list);
+	auto built = build_matrix(ncols, cols, relation_list);
+	if (!built)
+		return built;
 	count_matrix_nonzero(obj, fb_size, 0, ncols, cols);
 
 	/* reduce the matrix dimensions to ignore almost empty rows */
@@ -48,7 +52,7 @@ void solve_linear_system(msieve_obj *obj, uint32 fb_size,
 	if (ncols == 0) {
 		logprintf(obj, "matrix is corrupt; skipping linear algebra\n");
 		*num_cycles = 0;
-		return;
+		return {};
 	}
 
 	/* solve the linear system */
@@ -59,10 +63,11 @@ void solve_linear_system(msieve_obj *obj, uint32 fb_size,
 	
 	if (num_deps == 0) {
 		free(dependencies);
-		return;
+		return {};
 	}
 
 	*bitfield = dependencies;
+	return {};
 }
 
 /*------------------------------------------------------------------*/
@@ -141,7 +146,7 @@ static uint32 qs_merge_relations(uint32 *merge_array,
 }
 
 /*------------------------------------------------------------------*/
-static void build_matrix(uint32 ncols, la_col_t *cols, 
+static std::expected<void, std::string> build_matrix(uint32 ncols, la_col_t *cols, 
 			   relation_t *relation_list) {
 
 	/* Convert lists of relations from the sieving stage
@@ -171,8 +176,7 @@ static void build_matrix(uint32 ncols, la_col_t *cols,
 		for (j = 0; j < col->cycle.num_relations; j++) {
 			relation_t *r = relation_list + col->cycle.list[j];
 			if (UINT32_MAX - max_weight < r->num_factors) {
-				fprintf(stderr, "matrix column is too large\n");
-				exit(EXIT_FAILURE);
+				return std::unexpected(std::string("matrix column is too large"));
 			}
 			max_weight += r->num_factors;
 		}
@@ -192,4 +196,5 @@ static void build_matrix(uint32 ncols, la_col_t *cols,
 		free(accum);
 		free(buf);
 	}
+	return {};
 }

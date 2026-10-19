@@ -29,7 +29,7 @@
 #
 # Feature flags (pass on command line or set in config.mk):
 #   OMP=1          OpenMP threading
-#   ECM=1          Link GMP-ECM, enable ECM factorisation
+#   (GMP-ECM is required and always linked; ECM_PREFIX points at it)
 #   BATCH_CUDA=1   GPU cofactorisation for NFS/SIQS  (requires CUDA)
 #   CUDA_POLY=1    GPU NFS polynomial selection       (requires CUDA)
 #   MPI=1          MPI parallel processing
@@ -48,7 +48,8 @@
 #   PROFILE=1      gprof profiling
 #   OPT_DEBUG=1    Optimisation debug output
 #   TIMING=1       QS timing instrumentation
-#   FORCE_GENERIC=1  Disable all SIMD paths
+#   FORCE_GENERIC=1  Use portable C instead of the x86-64 assembly helpers
+#                    (does not change the SIMD tier)
 #   STATIC=1       Static link (experimental, Linux)
 # =============================================================================
 
@@ -450,24 +451,32 @@ endif
 
 
 # -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# --- AVX-512 is the default target, and the only supported one ---------------
+#
+# 本项目只在支持 AVX-512 的机器上跑：SIQS 的内核只留了 AVX-512 这一条路径
+# （标量与 SSE4.1 的实现已删），lasieve 的排线内核也以 AVX-512 为主。所以
+# AVX-512 是必备项而不是可选档位——配置里不写任何 ISA 开关，编出来的也是
+# 最高性能的那份二进制。
+#
+# 放在 USE_NATIVE 探测之前，USE_NATIVE=1 就没有机会把它降级回去。
+ifeq ($(USE_AVX512),)
+    USE_AVX512 := 1
+endif
+#
 # 9. ISA / MICRO-ARCHITECTURE FLAGS
 #    Enabling a higher level automatically enables the levels below it.
 # -----------------------------------------------------------------------------
 
 # --- USE_NATIVE: auto-detect ISA from the build CPU --------------------------
 # 通用构建必须在探测和级联启用指令集之前清除配置中的特定指令集选项。
-ifeq ($(FORCE_GENERIC),1)
-    override USE_NATIVE :=
-    override USE_SSE41 :=
-    override USE_AVX2 :=
-    override USE_BMI2 :=
-    override USE_AVX512 :=
-    override USE_AVX512IFMA :=
-    override USE_AVX512PF :=
-    override ICELAKE :=
-    override SKYLAKEX :=
-    override KNL :=
-endif
+# --- USE_NATIVE: auto-detect ISA from the build CPU --------------------------
+#
+# AVX-512 下面是那个默认值的说明与判定，先读那段。
+#
+# FORCE_GENERIC 现在只做一件事：让 qs_impl.h / lanczos.h / pmpqs.cpp 里那几处
+# x86-64 汇编辅助例程改用可移植 C 实现（见下面 CFLAGS 里的 -DFORCE_GENERIC）。
+# 它不再关闭 SIMD 档位——AVX-512 是必备项，见上面的说明。
 #
 # Queries the compiler for the preprocessor macros it defines when targeting
 # the native CPU (-march=native -dM -E).  This approach works identically
@@ -566,6 +575,20 @@ ifeq ($(USE_BMI2),1)
 endif
 ifeq ($(USE_AVX2),1)
     USE_SSE41  := 1
+endif
+
+# --- AVX-512 is required -----------------------------------------------------
+#
+# 关掉 AVX-512 会编出一个链接不过、或者跑起来是错的二进制。宁可在这里停住
+# 并把原因说清楚，也不要让人拿到一个"构建成功"的坏产物。
+#
+# info / help / clean 不需要能编，所以放行。
+ifneq ($(USE_AVX512),1)
+    ifeq (,$(filter %info %help %clean,$(MAKECMDGOALS)))
+        $(error USE_AVX512=$(USE_AVX512) is not supported. This tree keeps only \
+the AVX-512 SIQS kernels and an AVX-512 lattice siever; a build without it \
+does not link. Build with AVX-512, or drop USE_AVX512=0 from config.mk.)
+    endif
 endif
 
 # --- SSE 4.1 -----------------------------------------------------------------
@@ -875,14 +898,15 @@ YAFU_SIQS_SRCS = \
 # 删掉（运行时不可达），avx2 那几份文件里只剩 AVX-512 流水线要用的那几个
 # 函数（nextRoots_32k_avx2_small / tdiv_medprimes_32k_avx2 /
 # med_sieveblock_32k_avx512bw / resieve_medprimes_32k_avx512bw）。
-ifeq ($(USE_AVX512),1)
-    YAFU_SIQS_SRCS += \
-        factor/siqs/update_poly_roots_32k_knl.cpp \
-        factor/siqs/update_poly_roots_32k_avx2.cpp \
-        factor/siqs/tdiv_med_32k_avx2.cpp \
-        factor/siqs/med_sieve_32k_avx2.cpp \
-        factor/siqs/tdiv_resieve_32k_avx2.cpp
-endif
+#
+# 这些文件无条件参与编译：AVX-512 是必备项（见上），按 USE_AVX512 分支只会
+# 产出一个链接不过的二进制。
+YAFU_SIQS_SRCS += \
+    factor/siqs/update_poly_roots_32k_knl.cpp \
+    factor/siqs/update_poly_roots_32k_avx2.cpp \
+    factor/siqs/tdiv_med_32k_avx2.cpp \
+    factor/siqs/med_sieve_32k_avx2.cpp \
+    factor/siqs/tdiv_resieve_32k_avx2.cpp
 
 
 # -----------------------------------------------------------------------------
@@ -1367,6 +1391,12 @@ lasieve-clean:
 
 # 编译器或选项变化时重建对象；内容不变则保留文件时间，避免无效重编译。
 BUILD_CONFIG := $(DEPS_DIR)/build-config
+
+# build/.deps/ 必须先存在。$(BUILD_CONFIG) 以它为 order-only 前置，而全部依赖
+# 文件都写在它下面；树里没有 build/ 目录时（全新检出，或 make clean 之后）
+# 这条规则是唯一能让构建起跑的东西。
+$(DEPS_DIR)/:
+	$(MKDIR) $@
 shell_quote = '$(subst ','"'"',$(1))'
 .PHONY: _force_build_config
 _force_build_config:
@@ -1540,7 +1570,7 @@ help:
 	@echo ""
 	@echo "  Targets:"
 	@echo "    make yafu            build the main yafu binary -> $(BUILD_DIR)/yafu"
-	@echo "    make all             build all four targets above"
+	@echo "    make all             build yafu (same as 'make yafu')"
 	@echo "    make test            build the test suite -> $(BUILD_DIR)/yafu_test"
 	@echo "    make test-run        build and run the test suite"
 	@echo "    make test-clean      remove test build artefacts"
@@ -1568,17 +1598,17 @@ help:
 	@echo "  Build type:"
 	@echo "    make DEBUG=1         debug build (-O0 -g)"
 	@echo ""
-	@echo "  ISA / micro-architecture (enabling a higher level implies lower ones):"
+	@echo "  ISA / micro-architecture. AVX-512 is required, not optional:"
 	@echo "    make USE_NATIVE=1       Auto-detect ISA from build CPU + -march=native"
 	@echo "                            Works with gcc, clang, and icc on Linux."
 	@echo "                            Not for cross-compilation or CI."
-	@echo "    make USE_SSE41=1        SSE 4.1"
-	@echo "    make USE_AVX2=1         AVX2  (implies SSE 4.1)"
+	@echo "    make USE_SSE41=1        SSE 4.1 (already on with AVX-512)"
+	@echo "    make USE_AVX2=1         AVX2  (implies SSE 4.1; already on with AVX-512)"
 	@echo "    make USE_BMI2=1         BMI / BMI2"
-	@echo "    make USE_AVX512=1       AVX-512 F/BW  (implies AVX2, BMI2)"
+	@echo "    make USE_AVX512=1       AVX-512 F/BW  (implies AVX2, BMI2) -- on by default"
 	@echo "                            Also enables AVX512_ALL=1 for lasieve"
 	@echo "                            Works on: Skylake-X, Ice Lake, Zen 4, etc."
-	@echo "    make USE_AVX512IFMA=1   AVX-512 IFMA  (implies USE_AVX512)"
+	@echo "    make USE_AVX512IFMA=1   AVX-512 IFMA  (implies USE_AVX512) -- best ECM speed"
 	@echo "                            Ice Lake and later"
 	@echo "    make USE_AVX512PF=1     AVX-512 PF    (implies USE_AVX512)"
 	@echo "                            Xeon Phi / Knights Landing only"
@@ -1590,7 +1620,7 @@ help:
 	@echo ""
 	@echo "  Optional features:"
 	@echo "    make OMP=1           OpenMP threading"
-	@echo "    make ECM=1           GMP-ECM support"
+	@echo "    ECM_PREFIX=<dir>     GMP-ECM install prefix (ECM is required)"
 	@echo "    make BATCH_CUDA=1    GPU cofactorisation (NFS/SIQS)"
 	@echo "    make CUDA_POLY=1     GPU NFS polynomial selection"
 	@echo "    make MPI=1           MPI parallel processing"
@@ -1598,7 +1628,7 @@ help:
 	@echo "    make SMALLINT=1      small SIQS intervals"
 	@echo "    make PROFILE=1       gprof profiling"
 	@echo "    make TIMING=1        QS timing instrumentation"
-	@echo "    make FORCE_GENERIC=1 disable all SIMD paths"
+	@echo "    make FORCE_GENERIC=1   use portable C instead of the x86-64 assembly helpers"
 	@echo "    make STATIC=1        static link (experimental, Linux)"
 	@echo ""
 	@echo "  Tip: set frequently-used flags in config.mk instead of typing"

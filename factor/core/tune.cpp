@@ -28,11 +28,11 @@ double best_fit(double *x, double *y, int numpts,
 // 逗号当上界，字段一长就写穿栈。
 #define TUNE_FIELD_MAX 80
 
-void update_INI(double mult, double exponent, double mult2, 
+bool update_INI(double mult, double exponent, double mult2, 
     double exponent2, double xover,
 	double b1slope, double b1intercept, double size_exp, 
 	double cpu_freq, char *cpu_str);
-void make_job_file(int *sieverI, uint32_t *startq, uint32_t *qrange,
+bool make_job_file(int *sieverI, uint32_t *startq, uint32_t *qrange,
 	char *inputstr, int inputnum, fact_obj_t *fobj);
 
 //----------------------- TUNE ENTRY POINT ------------------------------------//
@@ -237,7 +237,14 @@ void factor_tune(fact_obj_t *inobj)
 		MySleep(100);
 
 		// make a job file for each input
-		make_job_file(&sieverI, &startq, &qrange, nfslist[i], i, inobj);
+		if (!make_job_file(&sieverI, &startq, &qrange, nfslist[i], i, inobj))
+		{
+			/* 作业文件写不出来就没法继续测了。调参结果不完整，写回
+			   yafu.ini 只会留下半截系数，所以直接收工，不动 INI。 */
+			printf("tuning aborted: could not write the job file\n");
+			mpz_clear(n);
+			return;
+		}
 
 		// measure how long it takes to generate the afb... for fun.		
 		gettimeofday(&start, NULL);
@@ -443,8 +450,9 @@ tune_ecm:
 done:
 
 	//write the coefficients to the .ini file
-	update_INI(pow(BASE_e, b), a, pow(BASE_e, b2), a2, xover,
-		a3, b3, avg_exp, inobj->MEAS_CPU_FREQUENCY, inobj->CPU_ID_STR);
+	if (!update_INI(pow(BASE_e, b), a, pow(BASE_e, b2), a2, xover,
+		a3, b3, avg_exp, inobj->MEAS_CPU_FREQUENCY, inobj->CPU_ID_STR))
+		printf("could not update yafu.ini with the measured coefficients\n");
 
 
 	//free_factobj(&fobj);
@@ -454,7 +462,7 @@ done:
 }
 
 
-void make_job_file(int *sieverI, uint32_t *startq, uint32_t *qrange, char *inputstr, int inputnum, fact_obj_t *fobj)
+bool make_job_file(int *sieverI, uint32_t *startq, uint32_t *qrange, char *inputstr, int inputnum, fact_obj_t *fobj)
 {
 	FILE *out;
 
@@ -463,7 +471,7 @@ void make_job_file(int *sieverI, uint32_t *startq, uint32_t *qrange, char *input
 	{
 		printf("fopen error: %s\n", strerror(errno));
 		printf("could not open tune.job for writing!\n");
-		exit(1);
+		return false;
 	}
 
 	printf("nfs: commencing job file construction for c%d\n",(int)strlen(inputstr));
@@ -613,18 +621,19 @@ void make_job_file(int *sieverI, uint32_t *startq, uint32_t *qrange, char *input
 		break;
 	default:
 		printf("unknown input in gnfs tuning\n");
-		exit(-1);
+		fclose(out);
+		return false;
 
 	}
 
 	
 	fclose(out);
 
-	return;
+	return true;
 }
 
 
-void update_INI(double mult, double exponent, double mult2, 
+bool update_INI(double mult, double exponent, double mult2, 
     double exponent2, double xover, 
 	double b1slope, double b1intercept, double size_exp,
 	double cpu_freq, char* cpu_str)
@@ -647,7 +656,7 @@ void update_INI(double mult, double exponent, double mult2,
 		if (in == NULL)
 		{
 			printf("could not open yafu.ini for writing either - bailing\n");
-			exit(1);
+			return false;
 		}
 		in = freopen("yafu.ini", "r", in);
 	}
@@ -656,7 +665,7 @@ void update_INI(double mult, double exponent, double mult2,
 	if (out == NULL)
 	{
 		printf("could not open _tmp.ini for writing!");
-		exit(-1);
+		return false;
 	}
 
 	while (fgets(str,GSTR_MAXSIZE,in) != NULL)
@@ -784,7 +793,7 @@ printf("Adding tune_info entry for LINUX64 - %s\n", cpu_str);
 	remove("yafu.ini");
 	rename("_tmp.ini", "yafu.ini");
 
-	return;
+	return true;
 }
 
 double best_fit(double *x, double *y, int numpts, 

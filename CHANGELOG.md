@@ -19,6 +19,72 @@
 
 ---
 
+## 3.0.0
+
+### AVX-512 成为必备项，不再有"通用档位"
+
+SIQS 在上一轮收敛到只剩 AVX-512 一条内核路径之后，标量与 SSE4.1 的实现已经
+删掉，但构建系统还留着 `generic` / `sse41` / `avx2` 三档。这三档现在会编出
+一个链接不过的二进制：`siqs_select_kernels` 里引用的
+`tdiv_medprimes_32k_avx2`、`resieve_medprimes_32k_avx512bw`、
+`med_sieveblock_32k_avx512bw`、`lp_sieveblock_avx512bw`、
+`check_relations_siqs_*_avx2`、`check_relations_siqs_16_avx512` 与
+`nextRoots_32k_knl_*` 这些符号都只在 `USE_AVX512=1` 时才进编译，链接器会报
+十六个 undefined reference。
+
+本项目是自用的，只在本机（Zen 5）跑，不打算为跑不起来的机器保留降级路径。
+所以：
+
+- `USE_AVX512` 变成默认开启，并且是必备项——显式写 `USE_AVX512=0` 会被
+  Makefile 直接拦下并说明原因，而不是让人拿到一个"构建成功"的坏产物。
+- SIQS 那几个 ISA 源文件无条件参与编译，不再按 `USE_AVX512` 分支。
+- `FORCE_GENERIC` 的含义收窄：它本来是"关掉全部 SIMD 路径"，现在只做一件事
+  ——让 `qs_impl.h` / `lanczos.h` / `pmpqs.cpp` 里那几处 x86-64 汇编辅助例程
+  改用可移植 C 实现。它不再动指令集档位。
+- CI 矩阵从五档收敛到两档（`avx512`、`avx512ifma`），回归改在 `avx512`
+  档位上跑（它对 CPU 的要求最低，托管 runner 一定支持）；`avx512ifma` 只编译
+  不运行——runner 的 CPU 未必有 IFMA，跑起来会直接 illegal instruction。
+- CI 的触发条件加上 `wsl-zen5-build-fixes` 分支。之前这个分支上的构建问题
+  一直没人发现，就是因为工作流只在 push 到 master 或给 master 提 PR 时触发。
+
+### 修掉全新检出编不出来
+
+`Makefile` 里 `$(BUILD_CONFIG)` 以 `build/.deps/` 为 order-only 前置，但全树
+没有为这个目录写规则。`build/.deps/` 存在时 make 认为前置已满足，于是一直
+没人发现；树里没有 `build/` 目录时（全新检出，或者 `make clean` 之后），
+构建会在第一条命令就停住：
+
+```
+make: *** 没有规则可制作目标“build/.deps/”，由“build/.deps/build-config” 需求。 停止。
+```
+
+补上目录规则即可。
+
+### C++26 落地：三条实际用起来的地方
+
+树里早就是全 `.cpp` 加 `-std=c++26` 了，这一轮是把新特性真正用起来：
+
+- **`std::expected` 用于错误传播。** `factor/mpqs/` 的线性代数原来在矩阵列
+  溢出时直接 `exit(EXIT_FAILURE)`，整个进程当场消失；`solve_linear_system` 与
+  `build_matrix` 现在返回 `std::expected<void, std::string>`，原因交回调用方，
+  由 `factor_mpqs` 记一行日志后继续。`factor/core/tune.cpp` 的 `update_INI` 与
+  `make_job_file` 同样改成返回 `bool`，失败时打印原因而不是把交互会话带走。
+  方向与 `factor/nfs/gnfs/poly/` 里已有的 `poly_search_error` 一致。
+- **`std::string_view` 用于命令行选项解析。** `top/cmdParser/cmdOptions.cpp`
+  里 133 处 `strcmp(opt, OptionArray[i]) == 0` 变成 `opt == OptionArray[i]`，
+  选项名与参数解析的辅助函数签名一起改成 `std::string_view`。
+- **C++26 已经是编译标准**，`-std=c++26` 由 Makefile 统一带上。
+
+### 清理与修正
+
+- 删掉源码树里 121 个构建迁到 `build/` 之前留下的旧 `.o`（都在 `.gitignore`
+  里，`make clean` 也会扫，但它们一直在那儿）。
+- `build/factor/siqs/` 里 6 个源文件已删的孤儿 `.o`（make 不会自动清理）。
+- `top/docfile.txt` 里的版本号从 `3.0-beta` 改成实际版本号——它一直是上游
+  文档里的残留，和 `yafu.h` 的 `YAFU_VERSION_STRING` 对不上。
+
+---
+
 ## 2.0.0
 
 ### 修掉 `-e` 段错误与 `-obase` 完全不可用

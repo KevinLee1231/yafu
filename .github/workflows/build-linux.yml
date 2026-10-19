@@ -10,19 +10,23 @@
 #
 # GMP-ECM: Built from source and cached.
 #          libecm-dev on Ubuntu is often an older version, so building from
-#          source ensures consistency between Linux and Windows builds.
+#          source keeps the ECM backend consistent with the local build.
 #
-# The binary is linked with the -static option below.
-# They are uploaded alongside the Windows .exe files on each release.
+# The binary is linked with the -static option below, and is uploaded to the
+# GitHub Release page on version tags.
+#
+# ISA:  the tree keeps only the AVX-512 kernels (SIQS and the lattice siever),
+#        so the matrix has two entries: AVX-512 F/BW, and AVX-512 + IFMA.
+#        There is no generic/SSE4.1/AVX2 tier — see the Makefile.
 
 name: Build YAFU Linux (Ubuntu)
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, wsl-zen5-build-fixes ]
     tags:     [ 'v*' ]
   pull_request:
-    branches: [ master ]
+    branches: [ master, wsl-zen5-build-fixes ]
   workflow_dispatch:
 
 env:
@@ -44,29 +48,15 @@ jobs:
       matrix:
         include:
 
-          # Any x86-64 CPU — widest compatibility
-          - target:        generic
-            make_flags:    "ECM=1"
-            artifact_name: yafu-linux-generic
-
-          # SSE 4.1 — Intel Core 2 / Penryn (2008) and newer
-          - target:        sse41
-            make_flags:    "ECM=1 USE_SSE41=1"
-            artifact_name: yafu-linux-sse41
-
-          # AVX2 + BMI2 — Haswell (2013) and newer, recommended for most users
-          - target:        avx2
-            make_flags:    "ECM=1 USE_AVX2=1 USE_BMI2=1"
-            artifact_name: yafu-linux-avx2
-
-          # AVX-512 F/BW — Skylake-X, Cascade Lake, Zen 4
+          # AVX-512 F/BW — Skylake-X, Cascade Lake, Zen 4/5. The tier the
+          # regression suite runs on: it is the least demanding one.
           - target:        avx512
-            make_flags:    "ECM=1 USE_AVX512=1"
+            make_flags:    "USE_AVX512=1"
             artifact_name: yafu-linux-avx512
 
           # AVX-512 + IFMA — Ice Lake and later, best ECM performance
           - target:        avx512ifma
-            make_flags:    "ECM=1 USE_AVX512IFMA=1"
+            make_flags:    "USE_AVX512IFMA=1"
             artifact_name: yafu-linux-avx512ifma
 
     steps:
@@ -162,9 +152,11 @@ jobs:
           path: ${{ matrix.artifact_name }}
           retention-days: 30
 
-      # AVX-512 产物只编译；其余配置运行回归，失败时令整个任务失败。
+      # 回归跑在 AVX-512 F/BW 档位上：它对 CPU 的要求最低，托管 runner 一定
+      # 支持。IFMA 档位只编译不运行——runner 的 CPU 未必有 IFMA，跑起来会
+      # 直接 illegal instruction。
       - name: Regression tests (${{ matrix.target }})
-        if: ${{ !contains(matrix.target, 'avx512') }}
+        if: ${{ matrix.target == 'avx512' }}
         run: |
           sh test/test_cli.sh ./${{ matrix.artifact_name }}
           make test-full \
