@@ -10,7 +10,9 @@
 | `factor_common.cpp` | 试除、余因子提取、跨方法共享的公共步骤 |
 | `tune.cpp` | 读取 `yafu.ini` 里的交叉点参数，并自带的 `tune` 命令实测 |
 | `prime_sieve.cpp` | 给试除用的素数表 |
-| `gpu_cofactorization.cpp` | 把余因子分解整批丢给 GPU（CUDA）。OpenCL 的内核源 `opencl_tinyecm.cl`、`opencl_intrinsics.cl` 还在树里，但驱动端已不参与构建 |
+| `gpu_cofactorization.cpp` | 把余因子分解整批丢给 GPU（CUDA） |
+| `gpu_cofactorization_cl.cpp` | 同一件事的 OpenCL 后端。`make WITH_OPENCL=1` 启用，不需要 CUDA 工具链 |
+| `opencl_tinyecm.cl`、`opencl_intrinsics.cl` | GPU 上的 tinyECM 内核。CUDA 与 OpenCL 两边共用，由驱动在运行时编译 |
 | `cuda_tinyecm.cu`、`opencl_tinyecm.cl` | GPU 上的 tinyECM 内核 |
 
 

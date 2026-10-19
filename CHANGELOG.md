@@ -60,6 +60,30 @@ make: *** 没有规则可制作目标“build/.deps/”，由“build/.deps/buil
 
 补上目录规则即可。
 
+### 把上游的 OpenCL 后端移植到新的目录布局
+
+上游把 GPU 余因子分解的 OpenCL 后端做成了可以脱离 CUDA 工具链单独构建
+（`WITH_OPENCL=1`），还配了内核级的测试。这些在旧目录布局里是
+`common/ocl_xface.c`、`factor/gpu_cofactorization_cl.c` 与
+`test/layer2/test_ocl_ecm.c`，rebase 之后要把它们按新布局搬到：
+
+| 上游 | 本仓库 |
+| --- | --- |
+| `common/ocl_xface.c` | `factor/shared/common/ocl_xface.cpp` |
+| `factor/gpu_cofactorization_cl.c` | `factor/core/gpu_cofactorization_cl.cpp` |
+| `factor/gpu_cofactorization_cl.h` | `factor/core/include/gpu_cofactorization_cl.h` |
+| `test/layer2/test_ocl_ecm.c` | `test/layer2/test_ocl_ecm.cpp` |
+
+三份 C 代码原样搬过来就都能按 C++26 编过，只有内核测试里的缓冲区要改：
+裸指针加手动 `free` 换成 `std::vector`，省掉 malloc 返回值的类型转换，也
+不用再手工释放。
+
+`WITH_OPENCL` 这个开关本身也照上游的做法接进 Makefile：与 `BATCH_CUDA`、
+`CUDA_POLY` 互斥（两套后端定义同样的 `gpu_*` 符号），机器上没有 CUDA 工具链
+时 `BATCH_CUDA=1` 自动回退到 OpenCL，两者都没有就只报个警。
+
+内核源在目录重排时搬到了 `factor/core/` 下，驱动里写死的路径也跟着改了。
+
 ### C++26 落地：三条实际用起来的地方
 
 树里早就是全 `.cpp` 加 `-std=c++26` 了，这一轮是把新特性真正用起来：

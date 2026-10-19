@@ -73,6 +73,34 @@ layer 文件导出一个 `tk_module`，由 `test_main.cpp` 汇总。加一个模
 `--bench` 下跑，不影响成败。RNG 由 `--seed` 决定且每个测试一条独立流，失败能
 从打印出的种子复现。
 
+## OpenCL 内核测试
+
+`layer2/test_ocl_ecm.cpp` 在 GPU 上跑生产用的 OpenCL 内核
+（`factor/core/opencl_tinyecm.cl`），把内核报出的每个因子都对着已知结构的
+输入核对：
+
+```
+gbl_ecm     64 位 ECM，半素数 61..62 位
+gbl_ecm96   96 位 ECM，半素数约 82..87 位（30..34 位的 p）
+gbl_pm196   96 位 P-1，p-1 由 500 以内的互异素数构成
+```
+
+每个输入分三类：pass（报出真因子）、miss（没报出因子——ECM 是概率性的，
+少量 miss 允许，不算失败）、hard（报出的数不整除输入——那才是真 bug）。
+任何一个内核出现 hard 失败，或者 miss 率超过预算，这一项就失败。
+
+没有 OpenCL GPU 时测试打印一条说明然后通过，所以带 `WITH_OPENCL=1` 编出来的
+测试在没有 GPU 的机器上也能跑。
+
+```
+make WITH_OPENCL=1 test
+./build/yafu_test --module ocl_ecm -v
+```
+
+- `YAFU_OCL_PLATFORM=<子串>` 按名字选平台；
+  `YAFU_OCL_KERNEL_DIR=<目录>` 指向 `.cl` 文件所在目录（不��仓库根运行时用）。
+- 第一次跑要编译内核，某些驱动上要几十秒（之后的运行由驱动缓存）。
+
 ## 退出码
 
 各脚本统一成这样：

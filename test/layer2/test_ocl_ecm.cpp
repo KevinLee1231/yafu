@@ -35,6 +35,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <vector>
 
 #ifndef CL_TARGET_OPENCL_VERSION
 #define CL_TARGET_OPENCL_VERSION 200
@@ -206,9 +207,9 @@ static void report(tk_ctx *tk, const char *name, long pass, long miss, long hard
 static void t_ocl_ecm64(tk_ctx *tk)
 {
     const int N = OCL_NTRIALS_64;
-    uint64_t *n, *one, *rsq, *f;
-    uint32_t *rho, *sg;
-    char *found;
+    std::vector<uint64_t> n(N), one(N), rsq(N), f(N);
+    std::vector<uint32_t> rho(N), sg(N);
+    std::vector<char> found(N, 0);
     mpz_t z, r, m;
     cl_mem dn, drho, done, drsq, dsg, dfo;
     long pass = 0, miss = 0, hard = 0;
@@ -217,9 +218,6 @@ static void t_ocl_ecm64(tk_ctx *tk)
     int i, c;
 
     if (!ocl_setup(tk)) return;
-    n = malloc(8 * (size_t)N); one = malloc(8 * (size_t)N); rsq = malloc(8 * (size_t)N);
-    f = calloc((size_t)N, 8); rho = malloc(4 * (size_t)N); sg = malloc(4 * (size_t)N);
-    found = calloc((size_t)N, 1);
     mpz_init(z); mpz_init(r); mpz_init(m);
     for (i = 0; i < N; i++) {
         uint64_t p, q;
@@ -233,9 +231,9 @@ static void t_ocl_ecm64(tk_ctx *tk)
         { size_t cnt = 0; mpz_export(&rsq[i], &cnt, -1, 8, 0, 0, r); }
         sg[i] = (uint32_t)tk_rng_u64(rng);
     }
-    dn = mkbuf(8 * (size_t)N, n);    drho = mkbuf(4 * (size_t)N, rho);
-    done = mkbuf(8 * (size_t)N, one); drsq = mkbuf(8 * (size_t)N, rsq);
-    dsg = mkbuf(4 * (size_t)N, sg);  dfo = mkbuf(8 * (size_t)N, f);
+    dn = mkbuf(8 * (size_t)N, n.data());    drho = mkbuf(4 * (size_t)N, rho.data());
+    done = mkbuf(8 * (size_t)N, one.data()); drsq = mkbuf(8 * (size_t)N, rsq.data());
+    dsg = mkbuf(4 * (size_t)N, sg.data());  dfo = mkbuf(8 * (size_t)N, f.data());
     TK_REQUIRE(tk, dn && drho && done && drsq && dsg && dfo, "buffer allocation failed");
 
     for (c = 0; c < OCL_CURVES_64; c++) {
@@ -244,7 +242,7 @@ static void t_ocl_ecm64(tk_ctx *tk)
         SETARG(G.k_ecm, 3, done); SETARG(G.k_ecm, 4, drsq); SETARG(G.k_ecm, 5, dsg);
         SETARG(G.k_ecm, 6, dfo);  SETARG(G.k_ecm, 7, stg1); SETARG(G.k_ecm, 8, curve);
         TK_REQUIRE(tk, run1d(G.k_ecm, (size_t)N) == 0, "gbl_ecm launch failed");
-        TK_REQUIRE(tk, clEnqueueReadBuffer(G.q, dfo, CL_TRUE, 0, 8 * (size_t)N, f, 0, NULL, NULL)
+        TK_REQUIRE(tk, clEnqueueReadBuffer(G.q, dfo, CL_TRUE, 0, 8 * (size_t)N, f.data(), 0, NULL, NULL)
                        == CL_SUCCESS, "read-back failed");
         for (i = 0; i < N; i++) {
             if (found[i]) continue;
@@ -262,7 +260,6 @@ static void t_ocl_ecm64(tk_ctx *tk)
     clReleaseMemObject(dn); clReleaseMemObject(drho); clReleaseMemObject(done);
     clReleaseMemObject(drsq); clReleaseMemObject(dsg); clReleaseMemObject(dfo);
     mpz_clear(z); mpz_clear(r); mpz_clear(m);
-    free(n); free(one); free(rsq); free(f); free(rho); free(sg); free(found);
 }
 
 /* ================================================================== *
@@ -271,8 +268,10 @@ static void t_ocl_ecm64(tk_ctx *tk)
 static void run96(tk_ctx *tk, int pm1)
 {
     const int N = OCL_NTRIALS_96;
-    uint32_t *n, *one, *rsq, *f, *rho, *sg;
-    char *found;
+    std::vector<uint32_t> n(3 * (size_t)N), one(3 * (size_t)N),
+                          rsq(3 * (size_t)N), f(3 * (size_t)N);
+    std::vector<uint32_t> rho(N), sg(N);
+    std::vector<char> found(N, 0);
     mpz_t zn, zp, zq, zr, zf;
     cl_mem dn, drho, done, drsq, dsg, dfo;
     long pass = 0, miss = 0, hard = 0;
@@ -281,9 +280,6 @@ static void run96(tk_ctx *tk, int pm1)
     int i, c, ncur = pm1 ? 1 : OCL_CURVES_96;
 
     if (!ocl_setup(tk)) return;
-    n = calloc(3 * (size_t)N, 4); one = calloc(3 * (size_t)N, 4); rsq = calloc(3 * (size_t)N, 4);
-    f = calloc(3 * (size_t)N, 4); rho = calloc((size_t)N, 4); sg = calloc((size_t)N, 4);
-    found = calloc((size_t)N, 1);
     mpz_inits(zn, zp, zq, zr, zf, NULL);
 
     for (i = 0; i < N; i++) {
@@ -314,9 +310,9 @@ static void run96(tk_ctx *tk, int pm1)
         to_w96(&rsq[3 * i], zr);                      /* 2^192 mod n */
         sg[i] = (uint32_t)tk_rng_u64(rng);
     }
-    dn = mkbuf(12 * (size_t)N, n);   drho = mkbuf(4 * (size_t)N, rho);
-    done = mkbuf(12 * (size_t)N, one); drsq = mkbuf(12 * (size_t)N, rsq);
-    dsg = mkbuf(4 * (size_t)N, sg);  dfo = mkbuf(12 * (size_t)N, f);
+    dn = mkbuf(12 * (size_t)N, n.data());   drho = mkbuf(4 * (size_t)N, rho.data());
+    done = mkbuf(12 * (size_t)N, one.data()); drsq = mkbuf(12 * (size_t)N, rsq.data());
+    dsg = mkbuf(4 * (size_t)N, sg.data());  dfo = mkbuf(12 * (size_t)N, f.data());
     TK_REQUIRE(tk, dn && drho && done && drsq && dsg && dfo, "buffer allocation failed");
 
     for (c = 0; c < ncur; c++) {
@@ -328,7 +324,7 @@ static void run96(tk_ctx *tk, int pm1)
         SETARG(k, a, dfo); a++;  SETARG(k, a, b1); a++;  SETARG(k, a, b2); a++;
         if (!pm1) { SETARG(k, a, curve); a++; }
         TK_REQUIRE(tk, run1d(k, (size_t)N) == 0, "96-bit kernel launch failed");
-        TK_REQUIRE(tk, clEnqueueReadBuffer(G.q, dfo, CL_TRUE, 0, 12 * (size_t)N, f, 0, NULL, NULL)
+        TK_REQUIRE(tk, clEnqueueReadBuffer(G.q, dfo, CL_TRUE, 0, 12 * (size_t)N, f.data(), 0, NULL, NULL)
                        == CL_SUCCESS, "read-back failed");
         for (i = 0; i < N; i++) {
             if (found[i]) continue;
@@ -347,7 +343,6 @@ static void run96(tk_ctx *tk, int pm1)
     clReleaseMemObject(dn); clReleaseMemObject(drho); clReleaseMemObject(done);
     clReleaseMemObject(drsq); clReleaseMemObject(dsg); clReleaseMemObject(dfo);
     mpz_clears(zn, zp, zq, zr, zf, NULL);
-    free(n); free(one); free(rsq); free(f); free(rho); free(sg); free(found);
 }
 
 static void t_ocl_ecm96(tk_ctx *tk) { run96(tk, 0); }
