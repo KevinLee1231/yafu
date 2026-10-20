@@ -19,6 +19,105 @@
 
 ---
 
+## 3.0.1
+
+这一轮是把源码从头到尾读了一遍，逐个模块找算法错误和工程瑕疵。修完的东西
+分成三类：真的算错、真的越界、真的编不过。
+
+### 命令行选项表整体错位，四十多个选项的参数语义全错
+
+`top/cmdParser/cmdOptions.cpp` 里有三张靠下标对齐的表：选项名 `OptionArray`、
+说明 `OptionHelp`、以及"这个选项要不要参数" `needsArg`。C++ 化那轮把
+`ggnfs_dir`（指向外部格点筛可执行文件的目录，格点筛并进 yafu 之后就不需要了）
+从 `OptionArray` 里删掉了，但另外两张表里对应的那一项忘了删，于是从第 30 项
+起整体错开一位，四十多个选项的 `needsArg` 全部对上了别的选项。
+
+后果分两种：
+
+- 该收参数的被当成开关。`yafu -max_siqs 5 ...` 会走到
+  `parse_int(NULL)`，打印 "invalid or out-of-range argument for option
+  max_siqs" 然后直接退出进程。`-op`、`-o`、`-work`、`-lathreads`、
+  `-nfs_params`、`-analysis`、`-nfs-stage1-args` 等同理。
+- 不该收参数的反而把命令行里下一个参数吞掉。`-keep_afb 12345` 会把
+  12345 当成 keep_afb 的值，真正的输入表达式就没了。
+
+上一轮修过其中两个（`-e` 与 `-obase`），办法是手工改表里的值绕过错位，
+并在表头写了注释提醒。现在改成把三张表对齐（`needsArg` 按选项名重新取值），
+并加了一条防回归的检查：`test/layer3/test_options.cpp` 里的
+`t_needsarg_consistent` 逐个选项在子进程里用空参数调一次 `applyOpt`，
+表和分支对不上就会失败。
+
+### Layer 0-3 的集成测试从来没被编译过
+
+`make test-full`（含 SIQS 集成与计算器的那一套）一直是坏的，只是没人发现：
+
+- 它用 `$(CC) $(CFLAGS)` 去编 `.cpp` 源文件（C 编译器 + C11 档位）。
+- 新加的 `test/layer3/test_ecm_review.cpp` 里还有三处 C 风格的隐式指针转换，
+  C++ 下直接编译失败。
+- 链接时没有带上格点筛的目标文件，`lasieve_run` 十六个 undefined reference。
+
+于是包含 SIQS 集成用例的那部分一直是不执行的，`make test-all` 里也没有
+它。现在改用 `$(CXX) $(CXXFLAGS)`、补上 `$(LASIEVE_FILES)`、修掉那三处转换，
+并把这一套作为 `full` 纳入 `make test-all`。它第一次真正跑起来就抓到两个
+问题：默认线程数改成核心数之后 `test_options` 还在断言 1；以及上面那个选项
+表错位。
+
+### 真的算错的地方
+
+- `factor/nfs/gnfs/poly/poly_skew.cpp` 的 `find_poly_core` 成功路径没有
+  `return`。返回类型是 `std::expected<void, poly_search_error>`，不返回值是
+  未定义行为：调用方读的是 `!search`，`has_value` 是垃圾值。
+- `factor/ecm/microecm.cpp` 的二阶段曲线表：`B1` 不是受支持取值时
+  `barray` / `numb` 整个没初始化，后面的循环拿栈上的垃圾值当上限，
+  再拿 `barray` 越界读。
+- `factor/trialdiv/trialdiv.cpp` 的 `spfermat`：算出一对近平方因子时直接
+  `return 0`，把已经算出来的因子丢掉了。真正的因子是 `gcd(n, a + b)`，
+  和主循环末尾用的是同一套算法。
+
+### 越界
+
+- `factor/shared/ysieve/count.cpp` 的孪生素数边界检查：判据拿块下标去比字节数
+  `numlinebytes`，量纲差 8 倍，条件恒真，最后一个块会读到 `lines[0][numlinebytes]`。
+  行缓冲是按 `numlinebytes` 精确分配的（`xmalloc_align` 在长度是 64 倍数时
+  不留富余），所以这是实打实的越界读。
+
+顺带澄清一处看着像越界、其实不是的：`applyOpt` 开头就有通用检查
+`strlen(arg) >= MAXARGLEN` 就报错退出，所以传进各分支的参数最长 255 个字符，
+`strcpy` 进 `char[MAXARGLEN]` 恰好放得下。分支里那些"太长就忽略"的检查
+（`cuda_sieve`、`nfs_stage1_args` 等）因此都走不到，是上游的既有写法，
+这轮没有动它们。
+
+但表错位时 `nfs_stage1_args` 的 needsArg 是 0，"参数必填"那道检查就不触发，
+NULL 传进 `strcpy` 直接段错误 —— 这条是表错位的后果，表对齐之后自然消失。
+
+### 让 C++26 真正成立
+
+- 320 处字符串字面量与 `PRIu64` 之类宏连写（`"..."PRIu64`）。C++11 起这是
+  ill-formed，GCC 报了 217 次 `-Wliteral-suffix`；全部补上空格。
+- 25 处格式串与实参类型不匹配（`%d` 配 `uint64_t`、`%u` 配 `size_t`…）。
+- 对 `volatile` 计数器做 `++`：C++20 起废弃，C++26 直接删除。改成读-改-写。
+- `#pragma ivdep` / `#pragma vector aligned` / `#pragma novector` 是 MSVC 的写法，
+  GCC 每次编译都要抱怨。改成 `#pragma GCC ivdep` / `#pragma GCC novector`，
+  MSVC 专用的那两条用 `#ifdef _MSC_VER` 圈起来。
+- `always_inline` 少了 `inline`，GCC 会警告函数可能没法内联。
+- `CXXFLAGS` 里留着 `-Wstrict-prototypes`（只对 C 有意义），每个 C++ 文件
+  都要报一次 "valid for C/ObjC but not for C++"。
+
+### 清理
+
+- `new_poly.cpp` 的 `new_poly_a_test`：`break` 之后还有一段永远到不了的
+  "丢弃重来"逻辑，以及一个只写不读的 `min_ratio`。
+- 四处没人跳过去的死标签；`soe.cpp` 拼 CPU 特性串的 `sprintf`/`strncpy`
+  换成有界的 `snprintf`。
+- `test/run_all.sh` 报失败时打印的退出码一直是 0：`if` 语句没有 `else`
+  分支时 `$?` 取到的是 `if` 本身而不是那条命令。改成在 `else` 分支里取。
+- 计算器的 `expansion` 命令印"找到 N 对孪生素数 < 10^10"，但孪生那一步
+  筛到的是 10^9 —— 10^10 是下一步筛素数的上界。改成印实际筛到的范围。
+
+整树的编译告警从四千多条降到五百多条，剩下的都是转换类与未使用变量，
+不涉及正确性。
+---
+
 ## 3.0.0
 
 ### AVX-512 成为必备项，不再有"通用档位"
