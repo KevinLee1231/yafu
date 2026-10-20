@@ -53,6 +53,10 @@ int MR_2sprp_128x1(uint64_t* n);
 // A lucas PRP with Selfridge parameters on 1 128-bit input (two 64-bit words) (in-progress)
 int selfridge_prp_128x1(uint64_t* n);
 
+// a Lucas PRP test with p == 1 on 1 128-bit input (two 64-bit words).
+// q 是 Selfridge 的 (1-d)/4，不是任意参数；别的 p 请用 mpz_lucas_prp。
+int lucas_prp_128x1(uint64_t* n, long int q);
+
 // a BPSW test on 1 128-bit input (two 64-bit words) (in-progress)
 int bpsw_prp_128x1(uint64_t* n);
 

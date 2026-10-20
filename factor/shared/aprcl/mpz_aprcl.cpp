@@ -2079,6 +2079,16 @@ void JacobiSum(int mode, int P, int PL, int Q)
     if(jpqs[a].p == myP && jpqs[a].q == Q)
       break;
 
+  /* 表里没有这一项时，a 停在哨兵项上，它的 index 是 0，
+     于是 sls[0..PL-1] 会把别的 q 的 J 值当成本次要用的值，
+     算出一个错的答案而且不报错。这种情况只能是表和代码对不上，
+     所以在这里直接停下并说清楚是哪一项缺了。 */
+  if (a == JPQSMAX)
+  {
+    fprintf(stderr, "APR-CL: no J(%d,%d) in the Jacobi sum table\n", myP, Q);
+    abort();
+  }
+
   for (I = 0; I < PL; I++)
     mpz_set_si(aiJ0[I], sls[jpqs[a].index+I]);
 }

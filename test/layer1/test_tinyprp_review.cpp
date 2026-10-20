@@ -240,10 +240,130 @@ static void t_prp104_mixed_lanes(tk_ctx *tk)
 }
 #endif
 
+
+/* ---------- 随机对拍：与 GMP 参考实现逐个比对 ---------- */
+
+static void random_odd_u128(tk_rng *rng, uint64_t out[2], int bits)
+{
+    uint64_t hi, lo;
+
+    if (bits <= 64) {
+        lo = tk_rng_nbits(rng, bits);
+        hi = 0;
+    } else {
+        hi = tk_rng_nbits(rng, bits - 64);
+        lo = tk_rng_u64(rng);
+    }
+    lo |= 1;                       /* 素性测试只对奇数有意义 */
+    if ((hi == 0) && (lo == 1)) lo = 3;
+    out[0] = lo;
+    out[1] = hi;
+}
+
+static void t_random_64bit_mr(tk_ctx *tk)
+{
+    tk_rng *rng = tk_rng_of(tk);
+    mpz_t n;
+    int i;
+
+    mpz_init(n);
+    for (i = 0; i < 2000; i++) {
+        uint64_t value = tk_rng_nbits(rng, 64) | 1ULL;
+        if (value < 3) value = 3;
+        mpz_set_ui(n, value);
+        TK_CHECKF(tk, MR_2sprp_64x1(value) == reference_mr2(n),
+            "64-bit MR mismatch at %llu", (unsigned long long)value);
+    }
+    mpz_clear(n);
+}
+
+static void t_random_128bit_prp(tk_ctx *tk)
+{
+    tk_rng *rng = tk_rng_of(tk);
+    mpz_t n;
+    uint64_t words[2];
+    int i;
+
+    mpz_init(n);
+    for (i = 0; i < 1000; i++) {
+        random_odd_u128(rng, words, 128);
+        u128_to_mpz(n, words);
+        TK_CHECKF(tk, fermat_prp_128x1(words) == reference_fermat2(n),
+            "128-bit Fermat mismatch at iteration %d", i);
+        TK_CHECKF(tk, MR_2sprp_128x1(words) == reference_mr2(n),
+            "128-bit MR mismatch at iteration %d", i);
+        TK_CHECKF(tk, (selfridge_prp_128x1(words) > 0) ==
+            (mpz_selfridge_prp(n) > PRP_COMPOSITE),
+            "128-bit Selfridge mismatch at iteration %d", i);
+        TK_CHECKF(tk, (bpsw_prp_128x1(words) > 0) ==
+            (mpz_bpsw_prp(n) > PRP_COMPOSITE),
+            "128-bit BPSW mismatch at iteration %d", i);
+    }
+    mpz_clear(n);
+}
+
+static void t_random_128bit_lucas(tk_ctx *tk)
+{
+    tk_rng *rng = tk_rng_of(tk);
+    mpz_t n;
+    uint64_t words[2];
+    int i;
+
+    mpz_init(n);
+    for (i = 0; i < 1000; i++) {
+        long k = (long)tk_rng_range(rng, 64);
+        /* Selfridge 的 d 序列：5, -7, 9, -11, 13, ... */
+        long d = (k % 2 == 0) ? (4 * k + 5) : -(4 * k + 7);
+        long q = (1 - d) / 4;
+        int expected;
+
+        random_odd_u128(rng, words, 128);
+        u128_to_mpz(n, words);
+        expected = (mpz_lucas_prp(n, 1, q) == PRP_PRP);
+        TK_CHECKF(tk, (lucas_prp_128x1(words, q) > 0) == expected,
+            "128-bit Lucas mismatch at iteration %d, d = %ld", i, d);
+    }
+    mpz_clear(n);
+}
+
+#ifdef USE_AVX512F
+static void t_random_104bit_avx512(tk_ctx *tk)
+{
+    tk_rng *rng = tk_rng_of(tk);
+    uint64_t packed[16];
+    uint64_t words[8][2];
+    mpz_t values[8];
+    int i, j;
+
+    for (j = 0; j < 8; j++) mpz_init(values[j]);
+    for (i = 0; i < 400; i++) {
+        uint8_t mask;
+
+        memset(packed, 0, sizeof(packed));
+        for (j = 0; j < 8; j++) {
+            int bits = 54 + (int)tk_rng_range(rng, 51);   /* 54..104 位 */
+            random_odd_u128(rng, words[j], bits);
+            u128_to_mpz(values[j], words[j]);
+            set_u104_lane(packed, j, values[j]);
+        }
+        mask = MR_2sprp_104x8(packed);
+        for (j = 0; j < 8; j++) {
+            TK_CHECKF(tk, ((mask >> j) & 1U) == (unsigned)MR_2sprp_128x1(words[j]),
+                "AVX512 104-bit MR lane %d mismatch at iteration %d", j, i);
+        }
+    }
+    for (j = 0; j < 8; j++) mpz_clear(values[j]);
+}
+#endif
+
 static const tk_test tests[] = {
 	{"scalar_boundaries", t_scalar_boundaries, "fast tinyprp-review"},
 	{"modexp_boundaries", t_modexp_boundaries, "fast tinyprp-review"},
+	{"random_64bit_mr", t_random_64bit_mr, "fast tinyprp-review"},
+	{"random_128bit_prp", t_random_128bit_prp, "fast tinyprp-review"},
+	{"random_128bit_lucas", t_random_128bit_lucas, "fast tinyprp-review"},
 #ifdef USE_AVX512F
+	{"random_104bit_avx512", t_random_104bit_avx512, "fast tinyprp-review"},
 	{"mr52_mixed_lanes", t_mr52_mixed_lanes, "fast tinyprp-review"},
 	{"prp104_mixed_lanes", t_prp104_mixed_lanes, "fast tinyprp-review"}
 #endif

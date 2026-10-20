@@ -232,7 +232,6 @@ double ytools_difftime(struct timeval* start, struct timeval* end);
     extern enum cpu_type ytools_get_cpu_type(void);
     extern void ytools_get_cache_sizes(uint32_t* level1_size_out, uint32_t* level2_size_out);
     extern void ytools_get_computer_info(info_t* info, int do_print);
-    extern void ytools_get_cache_sizes(uint32_t* level1_cache, uint32_t* level2_cache);
     /* 探测在线的逻辑核心数。探测不到时返回 1。 */
 extern int ytools_get_nprocs(void);
 

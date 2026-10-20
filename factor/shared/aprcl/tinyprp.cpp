@@ -101,14 +101,6 @@ int fermat_prp_64x1(uint64_t n)
 	// - Fermat primality check:
 	//   (2^(n-1) == 1) mod n
 	return (int)(result == unityval);
-	// 
-	// - Euler's criterion 2^(n>>1) == legendre_symbol(2,n) (https://en.wikipedia.org/wiki/Euler%27s_criterion)
-	// - Euler primality check:
-	//   (2^(n>>1) == 1) mod n
-	//   (2^(n>>1) == n-1) mod n
-	uint64_t legendre = ((n >> 1) ^ (n >> 2)) & 1;	// shortcut calculation of legendre symbol
-	uint64_t m1 = submod(n, unityval, n);
-	return ((result == (legendre ? m1 : unityval)));
 }
 
 int MR_2sprp_64x1(uint64_t n)
@@ -620,12 +612,16 @@ void my_gcd128(uint64_t* u, uint64_t* v, uint64_t* w)
  * A "Lucas pseudoprime" with parameters (P,Q) is a composite n with D=P^2-4Q,
  * (n,2QD)=1 such that U_(n-(D/n)) == 0 mod n [(D/n) is the Jacobi symbol]
  * *******************************************************************************/
-int lucas_prp_128x1(uint64_t* n, long int p, long int q)
+/* Lucas 自测，p 固定为 1。
+   下面的推导把 vh 的初值写成 1，vl 里的 p*ql 也直接简化成 ql，
+   所以只有 p == 1 时这个实现才成立。别的 p 请走 mpz_lucas_prp。 */
+int lucas_prp_128x1(uint64_t* n, long int q)
 {
 	uint64_t res[2];
 	uint64_t index[2];
 	uint128_t n128 = ((uint128_t)n[1] << 64) | (uint128_t)n[0];
 	int s = 0, j = 0;
+	long int p = 1;
 	long int d = p * p - 4 * q;
 	int sd = d < 0 ? 1 : 0;
 	int sq = q < 0 ? 1 : 0;
@@ -662,20 +658,27 @@ int lucas_prp_128x1(uint64_t* n, long int p, long int q)
 	index[1] = n[1];
 	if (sd)	d *= -1;
 
-	if (jacobi_128(d, n128) < 0)
+	/* (D/n) == 0 表示 D 与 n 不互素，这时 index 保持 n，
+	   与 mpz_lucas_prp 的做法一致；早先这里无条件减 1，
+	   同一个数在两套实现里会得到不同的下标。 */
 	{
-		uint64_t c = (n[0] == 0xffffffffffffffffull) ? 1 : 0;
-		index[0] += 1;
-		index[1] += c;
-	}
-	else
-	{
-		uint64_t c = (n[0] == 0) ? 1 : 0;
-		index[0] -= 1;
-		index[1] -= c;
+		int jac = jacobi_128(d, n128);
+
+		if (jac < 0)
+		{
+			uint64_t c = (n[0] == 0xffffffffffffffffull) ? 1 : 0;
+			index[0] += 1;
+			index[1] += c;
+		}
+		else if (jac > 0)
+		{
+			uint64_t c = (n[0] == 0) ? 1 : 0;
+			index[0] -= 1;
+			index[1] -= c;
+		}
 	}
 
-	uint64_t uh[2], vl[2], vh[2], ql[2], qh[2], mp[2], mq[2], tmp[2];
+	uint64_t uh[2], vl[2], vh[2], ql[2], qh[2], mq[2];
 	uint64_t rho = prp_multiplicative_inverse(n[0]);
 	uint64_t one[2] = { 1ULL, 0ULL };
 
@@ -699,16 +702,12 @@ int lucas_prp_128x1(uint64_t* n, long int p, long int q)
 	vh[0] = one[0]; // p is always 1. p;
 	ql[0] = one[0];
 	qh[0] = one[0];
-	tmp[0] = 0;
-	mp[0] = vh[0];
 
 	uh[1] = one[1];
 	vl[1] = one[1];
 	vh[1] = one[1];
 	ql[1] = one[1];
 	qh[1] = one[1];
-	tmp[1] = 0;
-	mp[1] = vh[1];
 
 	mq[0] = q;
 	mq[1] = 0;
@@ -792,7 +791,7 @@ int lucas_prp_128x1(uint64_t* n, long int p, long int q)
 			//mpz_sub(vl, vl, tmp);
 			//mpz_mod(vl, vl, n);
 			mulmod128n(vl, vh, vl, n, rho);
-			//mulmod128n(ql, mp, tmp, n, rho);
+			/* p 固定为 1，所以 p*ql 就是 ql */
 			submod128(vl, ql, vl, n);
 
 			/* vh = vh*vh - 2*qh (mod n) */
@@ -862,7 +861,7 @@ int lucas_prp_128x1(uint64_t* n, long int p, long int q)
 	//mpz_mul_si(tmp, ql, p);
 	//mpz_sub(vl, vl, tmp);
 	mulmod128n(vh, vl, vl, n, rho);
-	//mulmod128n(ql, mp, tmp, n, rho);
+	/* p 固定为 1，所以 p*ql 就是 ql */
 	submod128(vl, ql, vl, n);
 
 	/* ql = ql*qh */
@@ -924,7 +923,7 @@ int selfridge_prp_128x1(uint64_t* n)
 	mpz_mul_2exp(gn, gn, 32);
 	mpz_add_ui(gn, gn, n[0] & 0xffffffff);
 
-	long int d = 5, p = 1, q = 0;
+	long int d = 5, q = 0;
 	int max_d = 1000000;
 	int jacobi = 0;
 	uint128_t n128;
@@ -999,7 +998,7 @@ int selfridge_prp_128x1(uint64_t* n)
 
 	q = (1 - d) / 4;
 
-	result = lucas_prp_128x1(n, p, q);
+	result = lucas_prp_128x1(n, q);
 
 	mpz_clear(gn);
 	return result;
@@ -2849,7 +2848,7 @@ uint8_t lucas_104x8(uint64_t* n, long *p, long *q)
 		unpack_104_lane(n, i, value);
 		if (p[i] == 1)
 		{
-			passed = lucas_prp_128x1(value, p[i], q[i]) > 0;
+			passed = lucas_prp_128x1(value, q[i]) > 0;
 		}
 		else
 		{
