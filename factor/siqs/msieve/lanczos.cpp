@@ -54,21 +54,31 @@ int shift_right(uint32_t *a, int sz_a, int x)
     uint32_t mask, carry, nextcarry;
 
     x = x % 32;
-    mask = (1 << x) - 1;
     // for each digit, remember the lowest x bits using the mask, then shift.
     // the lowest x bits becomes the highest x bits for the next digit
-    y = 32 - x;
-    carry = 0;
-    for (i = sz_a - 1; i >= 0; --i)
-    {
-        nextcarry = (a[i] & mask) << y;
-        a[i] = (a[i] >> x) | carry;
-        carry = nextcarry;
+    if (x) {
+        mask = (1u << x) - 1;
+        y = 32 - x;
+        carry = 0;
+        for (i = sz_a - 1; i >= 0; --i)
+        {
+            nextcarry = (a[i] & mask) << y;
+            a[i] = (a[i] >> x) | carry;
+            carry = nextcarry;
+        }
     }
 
-    for (i = 0; i < sz_a; i++)
-    {
-        a[i] = a[i + wordshift];
+    /* 字移位：只搬还在范围内的字，剩下的清零。
+       原来这里是 a[i] = a[i + wordshift] 扫满 sz_a，会读到末尾之后一个字。 */
+    if (wordshift) {
+        for (i = 0; i + wordshift < sz_a; i++)
+        {
+            a[i] = a[i + wordshift];
+        }
+        for (; i < sz_a; i++)
+        {
+            a[i] = 0;
+        }
     }
     sz_a -= wordshift;
 

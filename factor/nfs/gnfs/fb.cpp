@@ -55,7 +55,7 @@ static int32 read_factor_base_side(FILE *fp, char *buf, size_t buf_size,
 }
 
 /*------------------------------------------------------------------*/
-void create_factor_base(msieve_obj *obj, 
+int create_factor_base(msieve_obj *obj, 
 			factor_base_t *fb, 
 			uint32 report_progress) {
 
@@ -152,7 +152,7 @@ void create_factor_base(msieve_obj *obj,
 		free(afb->entries);
 		rfb->entries = NULL;
 		afb->entries = NULL;
-		exit(-1);
+		return -1;
 	}
 	rfb->entries = (fb_entry_t *)xrealloc(rfb->entries,
 				num_found_r * sizeof(fb_entry_t));
@@ -174,6 +174,7 @@ void create_factor_base(msieve_obj *obj,
 		logprintf(obj, "%u algebraic roots (max prime = %u)\n",
 					afb->num_entries, afb->max_prime);
 	}
+	return 0;
 }
 
 /*------------------------------------------------------------------*/
@@ -208,7 +209,7 @@ int32 read_factor_base(msieve_obj *obj, mpz_t n,
 	if (read_poly(obj, n, &fb->rfb.poly, 
 				&fb->afb.poly, &params->skewness)) {
 		printf("error reading NFS polynomials\n");
-		exit(-1);
+		return -1;
 	}
 
 	/* Look for lines that start with 'F' or 'S' and
@@ -283,7 +284,7 @@ int32 read_factor_base(msieve_obj *obj, mpz_t n,
 					sizeof(fb_entry_t));
 	if (fb->rfb.entries == NULL || fb->afb.entries == NULL) {
 		printf("error: failed to allocate factor base arrays\n");
-		exit(-1);
+		return -1;
 	}
 	rewind(fp);
 	buf[0] = '\0';
@@ -324,10 +325,11 @@ cleanup:
 		free_factor_base(fb);
 	fclose(fp);
 	return status;
+	return 0;
 }
 
 /*------------------------------------------------------------------*/
-void write_factor_base(msieve_obj *obj, mpz_t n,
+int write_factor_base(msieve_obj *obj, mpz_t n,
 			sieve_param_t *params,
 			factor_base_t *fb) {
 	
@@ -339,13 +341,17 @@ void write_factor_base(msieve_obj *obj, mpz_t n,
 	FILE *fp;
 	fb_side_t *side;
 
-	write_poly(obj, n, &fb->rfb.poly, &fb->afb.poly, params->skewness);
+	if (write_poly(obj, n, &fb->rfb.poly, &fb->afb.poly,
+			params->skewness)) {
+		logprintf(obj, "error: could not write the NFS polynomials\n");
+		return -1;
+	}
 
 	fp = fopen(obj->nfs_fbfile_name, "a");
 	if (fp == NULL) {
 		printf("error; cannot open factor base file '%s'\n",
 					obj->nfs_fbfile_name);
-		exit(-1);
+		return -1;
 	}
 	fprintf(fp, "\n");
 	fprintf(fp, "FRNUM %u\n", fb->rfb.num_entries);
@@ -384,4 +390,5 @@ void write_factor_base(msieve_obj *obj, mpz_t n,
 	}
 
 	fclose(fp);
+	return 0;
 }

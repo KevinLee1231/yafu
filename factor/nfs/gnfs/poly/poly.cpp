@@ -79,7 +79,8 @@ int32 read_poly(msieve_obj *obj, mpz_t n,
 			fclose(fp);
 			logprintf(obj, "warning: polynomial degree exceeds "
 					"%d\n", MAX_POLY_DEGREE);
-			exit(-1);
+			status = -1;
+			goto finished;
 		}
 
 		if (buf[0] == 'R')
@@ -114,12 +115,14 @@ int32 read_poly(msieve_obj *obj, mpz_t n,
 
 	if (rat_poly->degree == 0 || alg_poly->degree == 0) {
 		logprintf(obj, "error: polynomial is missing or corrupt\n");
-		exit(-1);
+		status = -1;
+		goto finished;
 	}
 	if (rat_poly->degree != 1) {
 		logprintf(obj, "error: no support for nonlinear "
 				"rational polynomials\n");
-		exit(-1);
+		status = -1;
+		goto finished;
 	}
 	
 	/* plug the rational polynomial coefficients into the 
@@ -156,18 +159,22 @@ int32 read_poly(msieve_obj *obj, mpz_t n,
 	if (mpz_cmp_ui(val, 0) != 0) {
 		logprintf(obj, "error: NFS input does not match polynomials\n");
 		logprintf(obj, "check that input doesn't have small factors\n");
-		exit(-1);
+		status = -1;
+		goto finished;
 	}
 
 finished:
 	mpz_clear(read_n);
 	mpz_clear(val);
 	mpz_clear(rpow);
-	return 0;
+	/* 原来这里无条件 return 0，上面设的 status = -1 就被吞掉了 ——
+	   "NFS input not found in factor base file" 这种错会被当成读成功，
+	   调用方拿着度数 0 的空多项式继续往下走。 */
+	return status;
 }
 
 /*------------------------------------------------------------------*/
-void write_poly(msieve_obj *obj, mpz_t n,
+int write_poly(msieve_obj *obj, mpz_t n,
 	       mpz_poly_t *rat_poly,
 	       mpz_poly_t *alg_poly,
 	       double skewness) {
@@ -181,7 +188,7 @@ void write_poly(msieve_obj *obj, mpz_t n,
 	if (fp == NULL) {
 		printf("error; cannot open factor base file '%s'\n",
 					obj->nfs_fbfile_name);
-		exit(-1);
+		return -1;
 	}
 
 	gmp_fprintf(fp, "N %Zd\n", n);
@@ -193,6 +200,7 @@ void write_poly(msieve_obj *obj, mpz_t n,
 	for (i = 0; i <= alg_poly->degree; i++)
 		gmp_fprintf(fp, "A%u %Zd\n", i, alg_poly->coeff[i]);
 	fclose(fp);
+	return 0;
 }
 
 /*------------------------------------------------------------------*/
@@ -231,9 +239,14 @@ int32 find_poly(msieve_obj *obj, mpz_t n) {
 
 	logprintf(obj, "polynomial selection complete\n");
 	if (config.heap[0]->rpoly.degree > 0) {
-		write_poly(obj, n, &config.heap[0]->rpoly,
+		if (write_poly(obj, n, &config.heap[0]->rpoly,
 				&config.heap[0]->apoly,
-				config.heap[0]->skewness);
+				config.heap[0]->skewness)) {
+			logprintf(obj, "error: could not write the NFS "
+					"polynomials\n");
+			poly_config_free(&config);
+			return 1;
+		}
 	}
 	poly_config_free(&config);
 

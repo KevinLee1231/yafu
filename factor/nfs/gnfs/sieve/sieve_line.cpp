@@ -207,8 +207,16 @@ uint32 do_line_sieving(msieve_obj *obj, sieve_param_t *params, mpz_t n,
 	/* generate or read the factor base */
 
 	if (read_factor_base(obj, n, params, &fb)) {
-		create_factor_base(obj, &fb, 1);
-		write_factor_base(obj, n, params, &fb);
+		if (create_factor_base(obj, &fb, 1)) {
+			logprintf(obj, "error: could not create the NFS "
+					"factor base\n");
+			return 0;
+		}
+		if (write_factor_base(obj, n, params, &fb)) {
+			logprintf(obj, "error: could not write the NFS "
+					"factor base file\n");
+			return 0;
+		}
 	}
 
 	/* initialize sieve struct */

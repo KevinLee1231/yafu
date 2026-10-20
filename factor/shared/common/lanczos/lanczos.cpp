@@ -75,6 +75,36 @@ BIT3(56), BIT3(57), BIT3(58), BIT3(59), BIT3(60), BIT3(61), BIT3(62), BIT3(63),
 };
 
 /*-------------------------------------------------------------------*/
+/* a >>= x，a 的有效长度是 sz_a（按 32 位字计）。
+ *
+ * 原来这里用 mp_rshift，而 mp_t 的 val 固定 MAX_MP_WORDS(32) 个字，
+ * 移位同样受这个上界限制。改成直接操作动态数组。
+ * 返回移动之后的有效长度。 */
+static uint32 shift_right_words(uint32 *a, uint32 sz_a, uint32 x)
+{
+	uint32 wordshift = x / 32;
+	uint32 bitshift = x % 32;
+	uint32 i, carry = 0;
+
+	if (bitshift) {
+		uint32 mask = (1u << bitshift) - 1;
+		uint32 y = 32 - bitshift;
+
+		for (i = sz_a; i-- > 0; ) {
+			uint32 nextcarry = (a[i] & mask) << y;
+			a[i] = (a[i] >> bitshift) | carry;
+			carry = nextcarry;
+		}
+	}
+	if (wordshift) {
+		for (i = 0; i + wordshift < sz_a; i++)
+			a[i] = a[i + wordshift];
+		for (; i < sz_a; i++)
+			a[i] = 0;
+	}
+	return sz_a - wordshift;
+}
+
 static uint32 form_post_lanczos_matrix(msieve_obj *obj, uint32 *nrows, 
 				uint32 *dense_rows_out, 
 				uint32 ncols, la_col_t *cols,
@@ -87,7 +117,8 @@ static uint32 form_post_lanczos_matrix(msieve_obj *obj, uint32 *nrows,
 	uint32 new_dense_row_words;
 	uint32 final_dense_row_words;
 	v_t *submatrix;
-	mp_t tmp;
+	uint32 *tmp;
+	uint32 tmp_alloc = 1024;
 
 	/* if the matrix is going to have cache blocking applied,
 	   proceed but do not form a post-Lanczos matrix if one
@@ -122,7 +153,7 @@ static uint32 form_post_lanczos_matrix(msieve_obj *obj, uint32 *nrows,
 	}
 
 	dense_row_words = (num_dense_rows + 31) / 32;
-	mp_clear(&tmp);
+	tmp = (uint32 *)xmalloc(tmp_alloc * sizeof(uint32));
 
 	/* we will be removing the first POST_LANCZOS_ROWS rows
 	   from the matrix entirely, and packing together the
@@ -145,8 +176,15 @@ static uint32 form_post_lanczos_matrix(msieve_obj *obj, uint32 *nrows,
 		   stored in packed format. Start with the rows
 		   that are already packed */
 
+		/* tmp 的长度由 new_dense_row_words 决定，它可能超过
+		   MAX_MP_WORDS，所以按需增长。 */
+		while (new_dense_row_words >= tmp_alloc) {
+			tmp_alloc *= 2;
+			tmp = (uint32 *)xrealloc(tmp, tmp_alloc * sizeof(uint32));
+		}
+
 		for (j = 0; j < dense_row_words; j++)
-			tmp.val[j] = curr_row[curr_weight + j];
+			tmp[j] = curr_row[curr_weight + j];
 
 		/* add in the rows from the sparse part of the matrix.
 		   Entries from these rows are either added to the
@@ -156,25 +194,24 @@ static uint32 form_post_lanczos_matrix(msieve_obj *obj, uint32 *nrows,
 		   reflect the removed rows */
 
 		for (; j < new_dense_row_words; j++)
-			tmp.val[j] = 0;
+			tmp[j] = 0;
 
 		for (j = k = 0; j < curr_weight; j++) {
 			uint32 curr_index = curr_row[j];
 
 			if (curr_index < new_dense_rows)
-				tmp.val[curr_index / 32] |= 
+				tmp[curr_index / 32] |=
 						(uint32)1 << (curr_index % 32);
 			else
 				curr_row[k++] = curr_index - POST_LANCZOS_ROWS;
 		}
 
-		tmp.nwords = new_dense_row_words;
 #if POST_LANCZOS_ROWS > 0
 		/* remove the first POST_LANCZOS_ROWS bits from
 		   the bitfield */
 		for (j = 0; j < (POST_LANCZOS_ROWS + 63) / 64; j++) {
-			submatrix[i].w[j] = ((uint64)tmp.val[2*j] |
-						(uint64)tmp.val[2*j+1] << 32);
+			submatrix[i].w[j] = ((uint64)tmp[2*j] |
+						(uint64)tmp[2*j+1] << 32);
 		}
 #endif
 
@@ -185,8 +222,9 @@ static uint32 form_post_lanczos_matrix(msieve_obj *obj, uint32 *nrows,
 			cols[i].data = (uint32 *)xrealloc(curr_row, (k + 
 						final_dense_row_words) * 
 						sizeof(uint32));
-			mp_rshift(&tmp, POST_LANCZOS_ROWS, &tmp);
-			memcpy(cols[i].data + k, tmp.val, 
+			shift_right_words(tmp, new_dense_row_words,
+					POST_LANCZOS_ROWS);
+			memcpy(cols[i].data + k, tmp, 
 						final_dense_row_words * 
 						sizeof(uint32));
 		}
@@ -195,6 +233,8 @@ static uint32 form_post_lanczos_matrix(msieve_obj *obj, uint32 *nrows,
 			cols[i].data = NULL;
 		}
 	}
+
+	free(tmp);
 
 	*nrows -= POST_LANCZOS_ROWS;
 	*dense_rows_out = new_dense_rows - POST_LANCZOS_ROWS;

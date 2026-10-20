@@ -159,7 +159,7 @@ typedef struct {
    maximum size primes filled in, fill in the rest of
    the entries in fb */
 
-void create_factor_base(msieve_obj *obj, 
+int create_factor_base(msieve_obj *obj, 
 			factor_base_t *fb, 
 			uint32_t report_progress);
 
@@ -168,7 +168,7 @@ void create_factor_base(msieve_obj *obj,
 int32_t read_factor_base(msieve_obj *obj, mpz_t n,
 		     sieve_param_t *params, factor_base_t *fb);
 
-void write_factor_base(msieve_obj *obj, mpz_t n,
+int write_factor_base(msieve_obj *obj, mpz_t n,
 			sieve_param_t *params, factor_base_t *fb);
 
 void free_factor_base(factor_base_t *fb);
@@ -193,7 +193,7 @@ int32_t read_poly(msieve_obj *obj, mpz_t n,
    to a new factor base file. Skewness is ignored
    if < 0 */
 
-void write_poly(msieve_obj *obj, mpz_t n,
+int write_poly(msieve_obj *obj, mpz_t n,
 	       mpz_poly_t *rat_poly,
 	       mpz_poly_t *alg_poly,
 	       double skewness);
