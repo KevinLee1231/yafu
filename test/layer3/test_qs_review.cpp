@@ -2,12 +2,21 @@
  Layer 3 -- targeted regressions for shared QS support code.
 ----------------------------------------------------------------------*/
 #include "testkit.h"
+/* nfs_impl.h 要先整体解析：它自己的 include 顺序在 nfs.cpp 里是能编过的。
+   若先 include 别的头（thread.h 等）把 util.h 拉进来，HAS_SSE2 会先被定义
+   （无值），factor.h 里的 "int HAS_SSE2;" 就成了 "int ;"。 */
+#include "nfs_impl.h"
+#include "qs_impl.h"
 #include "thread.h"
 #include "pmpqs.h"
 
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+uint32_t parse_job_file(fact_obj_t *fobj, nfs_job_t *job);
+void fill_job_file(fact_obj_t *fobj, nfs_job_t *job, uint32_t missing_params);
 
 typedef struct {
     volatile int worker_init;
@@ -223,9 +232,288 @@ static void t_bitonic_arbitrary_lengths(tk_ctx *tk)
 }
 #endif
 
+
+/* 块大小 qrange 的落盘与读回。
+ *
+ * 已筛区间是按这个大小划的，所以续算必须沿用同一个值。写进 .job 文件，
+ * 读的时候取第一处 —— 续算时追加的那一行不会覆盖原来的。 */
+static void t_nfs_qrange_roundtrip(tk_ctx *tk)
+{
+    fact_obj_t fobj;
+    nfs_job_t job;
+    char path[512];
+    char line[512];
+    FILE *fp;
+
+    memset(&fobj, 0, sizeof(fobj));
+    memset(&job, 0, sizeof(job));
+    snprintf(fobj.nfs_obj.job_infile, sizeof(fobj.nfs_obj.job_infile),
+        "yafu_test_qrange.job");
+    snprintf(fobj.flogname, sizeof(fobj.flogname), "yafu_test_qrange.log");
+
+    /* 文件里有 qrange，读回来应当就是它 */
+    fp = fopen(fobj.nfs_obj.job_infile, "w");
+    TK_REQUIRE(tk, fp != NULL, "cannot create %s", fobj.nfs_obj.job_infile);
+    fputs("qrange: 12345\n", fp);
+    fclose(fp);
+
+    parse_job_file(&fobj, &job);
+    TK_EQ_U64(tk, job.qrange, 12345);
+
+    /* fill_job_file 应当把 qrange 写进去（是追加写，所以逐行找） */
+    {
+        int found = 0;
+
+        job.qrange = 999;
+        fill_job_file(&fobj, &job, 0);
+        fp = fopen(fobj.nfs_obj.job_infile, "r");
+        TK_REQUIRE(tk, fp != NULL, "cannot reopen %s", fobj.nfs_obj.job_infile);
+        while (fgets(line, sizeof(line), fp) != NULL) {
+            if (strstr(line, "qrange: 999") != NULL)
+                found = 1;
+        }
+        fclose(fp);
+        TK_CHECK(tk, found);
+    }
+
+    /* 追加写的约定：同一文件里多行同一个关键字时，最后一行生效
+       （lpbr/alim 等都是这样）。续算时 nfs.cpp 用文件里的值覆盖查表值，
+       追加的那一行因此始终是同一个值。 */
+    memset(&job, 0, sizeof(job));
+    parse_job_file(&fobj, &job);
+    TK_EQ_U64(tk, job.qrange, 999);
+
+    /* 往返一致：写进去什么，读回来就是什么 */
+    job.qrange = 4096;
+    fill_job_file(&fobj, &job, 0);
+    memset(&job, 0, sizeof(job));
+    parse_job_file(&fobj, &job);
+    TK_EQ_U64(tk, job.qrange, 4096);
+
+    remove(fobj.nfs_obj.job_infile);
+    remove(fobj.flogname);
+}
+
+
+/* SIQS 的 B 值序列。
+ *
+ * b 值一共有 1<<(s-1) 个（Gray 码的总数），相邻两步的差是
+ * ±Bl[ctz(i)]。这里检查整条序列，特别是最后一个槽 —— 早先
+ * generate_bpolys 的循环只填了 curr_b[0..maxB-2]，最后一个槽一直是
+ * 未初始化的内存，而数据文件里的 B-poly 索引可以合法地等于 maxB-1。 */
+static void t_siqs_bpoly_sequence(tk_ctx *tk)
+{
+    const int s = 4;
+    const int maxB = 1 << (s - 1);
+    siqs_poly *poly;
+    dynamic_conf_t *dconf;
+    static_conf_t *sconf;
+    mpz_t diff, absdiff;
+    int j;
+
+    poly = (siqs_poly *)malloc(sizeof(*poly));
+    dconf = (dynamic_conf_t *)malloc(sizeof(*dconf));
+    sconf = (static_conf_t *)malloc(sizeof(*sconf));
+    TK_REQUIRE(tk, poly && dconf && sconf, "out of memory");
+
+    memset(poly, 0, sizeof(*poly));
+    memset(dconf, 0, sizeof(*dconf));
+    memset(sconf, 0, sizeof(*sconf));
+
+    poly->s = s;
+    poly->gray = (char *)malloc((size_t)maxB);
+    poly->nu = (char *)malloc((size_t)maxB);
+    TK_REQUIRE(tk, poly->gray && poly->nu, "out of memory");
+    mpz_init(poly->mpz_poly_a);
+    mpz_init(poly->mpz_poly_b);
+    mpz_init(poly->mpz_poly_c);
+    mpz_set_ui(poly->mpz_poly_b, 100);
+    get_gray_code(poly);
+
+    dconf->curr_poly = poly;
+    dconf->Bl = (mpz_t *)malloc(sizeof(mpz_t) * (size_t)s);
+    TK_REQUIRE(tk, dconf->Bl != NULL, "out of memory");
+    for (j = 0; j < s; j++) {
+        mpz_init(dconf->Bl[j]);
+        mpz_set_ui(dconf->Bl[j], (unsigned)(j + 1) * 10);
+    }
+    dconf->numB = 0;
+
+    mpz_init(sconf->n);
+    mpz_set_ui(sconf->n, 1000000);
+    sconf->knmod8 = 0;                 /* 不做 b 的奇偶修正 */
+    sconf->curr_b = (mpz_t *)malloc(sizeof(mpz_t) * (size_t)maxB);
+    TK_REQUIRE(tk, sconf->curr_b != NULL, "out of memory");
+    for (j = 0; j < maxB; j++)
+        mpz_init(sconf->curr_b[j]);
+    sconf->bpoly_alloc = (uint32_t)maxB;
+
+    generate_bpolys(sconf, dconf, maxB);
+
+    /* 第一个就是初始 b */
+    TK_EQ_U64(tk, mpz_get_ui(sconf->curr_b[0]), 100);
+
+    /* 相邻两步的差是 ±Bl[ctz(i)] */
+    mpz_init(diff);
+    mpz_init(absdiff);
+    for (j = 1; j < maxB; j++) {
+        unsigned v = (unsigned)j;
+        int ctz = 0;
+
+        while ((v & 1) == 0) {
+            ctz++;
+            v >>= 1;
+        }
+        mpz_sub(diff, sconf->curr_b[j], sconf->curr_b[j - 1]);
+        mpz_abs(absdiff, diff);
+        TK_CHECKF(tk, mpz_cmp(absdiff, dconf->Bl[ctz]) == 0,
+            "B value step %d: difference is not +-Bl[%d]", j, ctz);
+    }
+    mpz_clear(diff);
+    mpz_clear(absdiff);
+
+    for (j = 0; j < maxB; j++)
+        mpz_clear(sconf->curr_b[j]);
+    free(sconf->curr_b);
+    mpz_clear(sconf->n);
+    for (j = 0; j < s; j++)
+        mpz_clear(dconf->Bl[j]);
+    free(dconf->Bl);
+    mpz_clear(poly->mpz_poly_a);
+    mpz_clear(poly->mpz_poly_b);
+    mpz_clear(poly->mpz_poly_c);
+    free(poly->gray);
+    free(poly->nu);
+    free(poly);
+    free(dconf);
+    free(sconf);
+}
+
+
+/* 按需生成与一次性生成必须逐值一致。
+ *
+ * generate_bpolys 一次把 maxB 个 'b' 值都算出来，ensure_bpoly 按需算到
+ * 指定的序号。后者是前者的增量版本，两者给出的序列必须完全一样 ——
+ * 否则筛法用的 'b' 值会跟原来不同，关系就全错了。 */
+static void t_siqs_lazy_bpoly_matches(tk_ctx *tk)
+{
+    const int s = 5;
+    const int maxB = 1 << (s - 1);
+    siqs_poly *poly;
+    dynamic_conf_t *dconf;
+    static_conf_t *sconf;
+    mpz_t *all;
+    int j;
+
+    poly = (siqs_poly *)malloc(sizeof(*poly));
+    dconf = (dynamic_conf_t *)malloc(sizeof(*dconf));
+    sconf = (static_conf_t *)malloc(sizeof(*sconf));
+    TK_REQUIRE(tk, poly && dconf && sconf, "out of memory");
+
+    memset(poly, 0, sizeof(*poly));
+    memset(dconf, 0, sizeof(*dconf));
+    memset(sconf, 0, sizeof(*sconf));
+
+    poly->s = s;
+    poly->gray = (char *)malloc((size_t)(1 << (MAX_A_FACTORS - 1)));
+    poly->nu = (char *)malloc((size_t)(1 << (MAX_A_FACTORS - 1)));
+    TK_REQUIRE(tk, poly->gray && poly->nu, "out of memory");
+    mpz_init(poly->mpz_poly_a);
+    mpz_init(poly->mpz_poly_b);
+    mpz_init(poly->mpz_poly_c);
+    mpz_set_ui(poly->mpz_poly_a, 3);
+    mpz_set_ui(poly->mpz_poly_b, 100);
+    get_gray_code(poly);
+
+    dconf->curr_poly = poly;
+    dconf->Bl = (mpz_t *)malloc(sizeof(mpz_t) * (size_t)s);
+    TK_REQUIRE(tk, dconf->Bl != NULL, "out of memory");
+    for (j = 0; j < s; j++) {
+        mpz_init(dconf->Bl[j]);
+        mpz_set_ui(dconf->Bl[j], (unsigned)(j + 1) * 10);
+    }
+    dconf->numB = 0;
+
+    mpz_init(sconf->n);
+    mpz_set_ui(sconf->n, 1000000);
+    sconf->knmod8 = 0;                 /* 不做 b 的奇偶修正 */
+    sconf->curr_b = (mpz_t *)malloc(sizeof(mpz_t) * (size_t)maxB);
+    TK_REQUIRE(tk, sconf->curr_b != NULL, "out of memory");
+    for (j = 0; j < maxB; j++)
+        mpz_init(sconf->curr_b[j]);
+    sconf->bpoly_alloc = (uint32_t)maxB;
+
+    /* 路径一：一次性生成 */
+    all = (mpz_t *)malloc(sizeof(mpz_t) * (size_t)maxB);
+    TK_REQUIRE(tk, all != NULL, "out of memory");
+    for (j = 0; j < maxB; j++)
+        mpz_init(all[j]);
+    sconf->curr_b = all;
+    generate_bpolys(sconf, dconf, maxB);
+    /* generate_bpolys 填的是 curr_b[0..maxB-1] */
+
+    /* 路径二：按需生成（乱序访问，验证它能补算到任意序号） */
+    sconf->curr_b = (mpz_t *)malloc(sizeof(mpz_t) * (size_t)maxB);
+    TK_REQUIRE(tk, sconf->curr_b != NULL, "out of memory");
+    for (j = 0; j < maxB; j++)
+        mpz_init(sconf->curr_b[j]);
+    /* 路径一的 nextB 改过 poly->mpz_poly_b，重置回初值 */
+    mpz_set_ui(poly->mpz_poly_b, 100);
+
+    sconf->bpoly_gray = poly->gray;
+    sconf->bpoly_nu = poly->nu;
+    sconf->bpoly_Bl = dconf->Bl;
+    mpz_init(sconf->bpoly_a);
+    mpz_init(sconf->bpoly_b);
+    mpz_set(sconf->bpoly_a, poly->mpz_poly_a);
+    mpz_set(sconf->bpoly_b, poly->mpz_poly_b);
+    sconf->bpoly_next = 0;
+    sconf->bpoly_numB = 1;
+    sconf->bpoly_inited = 1;
+
+    {
+        /* 乱序访问，验证按需生成能补算到任意序号 */
+        static const int order[] = {5, 0, 3, 1, 7, 2, 6, 4,
+                                   9, 8, 11, 10, 13, 12, 15, 14};
+        int k;
+
+        for (k = 0; k < maxB; k++) {
+            int idx = order[k];
+
+            ensure_bpoly(sconf, (uint32_t)idx);
+            TK_CHECKF(tk, mpz_cmp(sconf->curr_b[idx], all[idx]) == 0,
+                "lazy B value %d differs from the eagerly generated one", idx);
+        }
+    }
+
+    for (j = 0; j < maxB; j++) {
+        mpz_clear(sconf->curr_b[j]);
+        mpz_clear(all[j]);
+    }
+    free(sconf->curr_b);
+    free(all);
+    mpz_clear(sconf->bpoly_a);
+    mpz_clear(sconf->bpoly_b);
+    mpz_clear(sconf->n);
+    for (j = 0; j < s; j++)
+        mpz_clear(dconf->Bl[j]);
+    free(dconf->Bl);
+    mpz_clear(poly->mpz_poly_a);
+    mpz_clear(poly->mpz_poly_b);
+    mpz_clear(poly->mpz_poly_c);
+    free(poly->gray);
+    free(poly->nu);
+    free(poly);
+    free(dconf);
+    free(sconf);
+}
+
 static const tk_test tk__qs_review_tests[] = {
     { "threadpool_lifecycle", t_threadpool_lifecycle, "fast threads qs" },
     { "pmpqs_boundaries", t_pmpqs_boundaries, "fast mpqs qs" },
+    { "nfs_qrange_roundtrip", t_nfs_qrange_roundtrip, "fast nfs qs" },
+    { "siqs_bpoly_sequence", t_siqs_bpoly_sequence, "fast siqs qs" },
+    { "siqs_lazy_bpoly_matches", t_siqs_lazy_bpoly_matches, "fast siqs qs" },
 #if defined(USE_AVX512F)
     { "bitonic_arbitrary_lengths", t_bitonic_arbitrary_lengths,
       "fast avx512 qs" },

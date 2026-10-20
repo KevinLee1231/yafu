@@ -104,8 +104,6 @@ uint32_t process_poly_a(static_conf_t *sconf)
 
 	// then compute all the Bl's
 	// the first 'b' poly comes with computeBl
-    // TODO: 超大输入下这里很不成比例 —— 大部分 B 值一个关系都没有，
-    // 却照样每个都算一遍 Bl。正常用 siqs 的规模碰不到这种输入，先记着。
 	computeBl(sconf, dconf, 0);
 
 	// compute how many 'b' values we can get from this 'a'
@@ -139,9 +137,34 @@ uint32_t process_poly_a(static_conf_t *sconf)
     }
 	sconf->bpoly_alloc = maxB;
 
-	//generate all the b polys
-	//printf("generating %d b polys\n", maxB);
-	generate_bpolys(sconf, dconf, maxB);
+	/* 'b' 值按需生成：同一个 A 的关系在数据文件里是连续的，B 索引递增，
+	 * 所以用到第几个就算到第几个。一个 A 有 2^(s-1) 个 'b' 值，实际有
+	 * 关系引用的只有几个，全算一遍是白做的。
+	 *
+	 * 按需生成要用到当前 A 的 gray/nu/Bl 与 a/b，dconf 返回前就会把它们
+	 * 释放掉，所以在这里转移给 sconf（上一个 A 的那份在这里交出去）。 */
+	if (sconf->bpoly_inited)
+	{
+		free(sconf->bpoly_gray);
+		free(sconf->bpoly_nu);
+		for (j = 0; j < MAX_A_FACTORS; j++)
+			mpz_clear(sconf->bpoly_Bl[j]);
+		free(sconf->bpoly_Bl);
+	}
+	else
+	{
+		mpz_init(sconf->bpoly_a);
+		mpz_init(sconf->bpoly_b);
+		sconf->bpoly_inited = 1;
+	}
+	sconf->bpoly_gray = dconf->curr_poly->gray;
+	sconf->bpoly_nu = dconf->curr_poly->nu;
+	sconf->bpoly_Bl = dconf->Bl;
+	mpz_set(sconf->bpoly_a, dconf->curr_poly->mpz_poly_a);
+	mpz_set(sconf->bpoly_b, dconf->curr_poly->mpz_poly_b);
+	sconf->bpoly_next = 0;
+	/* Gray 码表的下标从 1 开始用（gray[0]/nu[0] 不参与） */
+	sconf->bpoly_numB = 1;
 
 	// we'll need to remember some things about the current poly,
 	// so copy those over to sconf first...
@@ -152,19 +175,13 @@ uint32_t process_poly_a(static_conf_t *sconf)
 	sconf->curr_poly->s = dconf->curr_poly->s;
 
 	// then free the temp dynamic struct
-	free(dconf->curr_poly->gray);
-	free(dconf->curr_poly->nu);
+	// gray/nu/Bl 不在这里释放 —— 它们已经转移给 sconf（按需生成 'b' 值
+	// 要用），下一个 A 接手时再释放。
 	free(dconf->curr_poly->qlisort);
 	mpz_clear(dconf->curr_poly->mpz_poly_a);
 	mpz_clear(dconf->curr_poly->mpz_poly_b);
 	mpz_clear(dconf->curr_poly->mpz_poly_c);
 	free(dconf->curr_poly);
-
-    for (i = 0; i < MAX_A_FACTORS; i++)
-    {
-        mpz_clear(dconf->Bl[i]);
-    }
-	free(dconf->Bl);
 
 	// workspace bigints
 	mpz_clear(dconf->gmptmp1);
@@ -216,6 +233,42 @@ int get_a_offsets(fb_list *fb, siqs_poly *poly, mpz_t tmp)
 	return 0;
 }
 
+/* 保证第 index 个 'b' 值已经算好。
+ *
+ * 同一个 A 的关系在数据文件里是连续的，B 索引也就递增，所以按需顺序
+ * 生成即可。这里不走 nextB（它要 dynamic_conf_t），只做 nextB 里
+ * needC == 0 的那一部分：翻 Gray 码的一位，再按 knmod8 修正奇偶。 */
+void ensure_bpoly(static_conf_t *sconf, uint32_t index)
+{
+	while (sconf->bpoly_next <= index)
+	{
+		mpz_set(sconf->curr_b[sconf->bpoly_next], sconf->bpoly_b);
+		sconf->bpoly_next++;
+
+		/* gray[]/nu[] 的长度是 1<<(s-1)，也就是 B 值的总数。
+		 * 最后一个 B 值之后没有下一个了，不能再往前走一步 ——
+		 * 原来 generate_bpolys 的循环到 numB == maxB 就停，
+		 * 用的是 gray[maxB-1]。 */
+		if (sconf->bpoly_next >= (uint32_t)sconf->bpoly_alloc)
+			break;
+
+		if (sconf->bpoly_gray[sconf->bpoly_numB] < 0)
+			mpz_sub(sconf->bpoly_b, sconf->bpoly_b,
+					sconf->bpoly_Bl[sconf->bpoly_nu[sconf->bpoly_numB] - 1]);
+		else
+			mpz_add(sconf->bpoly_b, sconf->bpoly_b,
+					sconf->bpoly_Bl[sconf->bpoly_nu[sconf->bpoly_numB] - 1]);
+
+		if (sconf->knmod8 == 1)
+		{
+			if (mpz_tstbit(sconf->bpoly_b, 0) == 0)
+				mpz_add(sconf->bpoly_b, sconf->bpoly_b, sconf->bpoly_a);
+		}
+
+		sconf->bpoly_numB++;
+	}
+}
+
 void generate_bpolys(static_conf_t *sconf, dynamic_conf_t *dconf, int maxB)
 {
 	// given poly, which contains the first value of poly_b, and
@@ -234,6 +287,11 @@ void generate_bpolys(static_conf_t *sconf, dynamic_conf_t *dconf, int maxB)
 		nextB(dconf, sconf, 0);
 	}
 
+	// 循环结束时 b 已经走到第 maxB 个（b_{maxB-1}），上面那次 nextB 的
+	// 结果还没存 —— 存进去。否则引用最后一个 B 值的关系（数据文件里的
+	// B-poly 索引可以合法地等于 maxB-1）读到的是未初始化的内存。
+	mpz_set(sconf->curr_b[maxB - 1], dconf->curr_poly->mpz_poly_b);
+
 	return;
 }
 
@@ -243,6 +301,9 @@ int td_and_merge_relation(fb_list *fb, mpz_t n,
 {
     int i, j, k, err_code = 0;
     mpz_t Q;
+
+    /* 'b' 值按需生成：用到的那个先算出来 */
+    ensure_bpoly(sconf, rel->poly_idx);
     mpz_init(Q);
 
 #define APPEND_OUT_FACTOR(value) \
@@ -447,6 +508,9 @@ int process_rel(char *substr, fb_list *fb, mpz_t n,
 		return 1;
 	}
     substr = nextstr;
+
+    /* 'b' 值按需生成 */
+    ensure_bpoly(sconf, this_id);
 
     if (this_offset & 0x80000000)
     {

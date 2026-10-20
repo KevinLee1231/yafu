@@ -514,6 +514,17 @@ typedef struct {
     mpz_t curr_a;	  			// the current 'a' value in filtering
     mpz_t* curr_b;				// list of all the 'b' values for that 'a' 
     uint32_t bpoly_alloc;			// size of allocated curr_b
+    uint32_t bpoly_next;			// 下一个要算的 'b' 值的序号（按需生成用）
+    int bpoly_numB;				// nextB 用的步数索引（按需生成用）
+    /* 按需生成 'b' 值要用到当前 A 的这些状态。process_poly_a 原来在
+     * 返回前把它们连同 dconf 一起释放掉了（那是"一次性生成全部"的
+     * 做法所依赖的），现在转移给 sconf，由下一个 A 接手时再释放。 */
+    char* bpoly_gray;				// Gray 码的符号表
+    char* bpoly_nu;				// Gray 码用的 Bl 下标表
+    mpz_t* bpoly_Bl;				// 当前 A 的 Bl 数组
+    mpz_t bpoly_a;				// 当前 A 的 a 多项式
+    mpz_t bpoly_b;				// 当前 A 的 b 多项式
+    int bpoly_inited;				// 上面几个 mpz_t 是否已初始化
     siqs_r* relation_list;		// list of relations	
     qs_la_col_t* cycle_list;	// cycles derived from relations
     siqs_poly* curr_poly;		// current poly during filtering
@@ -906,6 +917,8 @@ void batch_roots(int* rootupdates, int* firstroots1, int* firstroots2,
 uint32_t process_poly_a(static_conf_t* sconf);
 int get_a_offsets(fb_list* fb, siqs_poly* poly, mpz_t tmp);
 void generate_bpolys(static_conf_t* sconf, dynamic_conf_t* dconf, int maxB);
+/* 按需生成第 index 个 'b' 值（与 generate_bpolys 的结果一致） */
+void ensure_bpoly(static_conf_t* sconf, uint32_t index);
 int process_rel(char* substr, fb_list* fb, mpz_t n,
     static_conf_t* sconf, fact_obj_t* obj, siqs_r* rel);
 int restart_siqs(static_conf_t* sconf, dynamic_conf_t* dconf);

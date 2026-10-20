@@ -738,6 +738,15 @@ void SIQS(fact_obj_t *fobj)
 	// initialize the data objects both shared (static) and 
 	// per-thread (dynamic)
 	static_conf = (static_conf_t *)malloc(sizeof(static_conf_t));
+	/* malloc 不清零，这几个字段必须显式初始化：按需生成 'b' 值的
+	 * 状态，bpoly_inited 若是垃圾值，第一次 process_poly_a 就会去
+	 * free 一个垃圾指针。 */
+	static_conf->bpoly_next = 0;
+	static_conf->bpoly_numB = 0;
+	static_conf->bpoly_gray = NULL;
+	static_conf->bpoly_nu = NULL;
+	static_conf->bpoly_Bl = NULL;
+	static_conf->bpoly_inited = 0;
 	static_conf->obj = fobj;
 
 	thread_data = (thread_sievedata_t *)malloc(fobj->THREADS * sizeof(thread_sievedata_t));
