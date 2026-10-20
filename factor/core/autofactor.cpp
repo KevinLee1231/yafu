@@ -2053,7 +2053,7 @@ int check_for_exit_on_factor(fact_obj_t* fobj)
  * 以前这里是 fgets 之后直接 tmpstr + 2 就拿去解析：fgets 的返回值没检查，
  * 文件为空时读的是未初始化的栈内容；mpz_set_str 的返回值也没检查，解析
  * 失败时 mpz 里是未定义的值，后面却拿它跟输入比大小。解析不出来就当没有
- * ��存文件。
+ * 缓存文件。
  */
 static int read_saved_number(FILE *f, mpz_t out)
 {

@@ -1,6 +1,6 @@
 /* (Copyright (C) 2002 Jens Franke, T.Kleinjung，gnfs4linux，GPL)。
  *
- * 六个入口，都�� 16 位 SIMD 上的定点算术：更新下一段多项式的起点。整段没有
+ * 六个入口，都是 16 位 SIMD 上的定点算术：更新下一段多项式的起点。整段没有
  * 一条读 x86 标志位 —— 循环末尾的 jnz 只数迭代次数，所以逐条 intrinsics 翻译
  * 即可，不需要任何标量回退。
  *

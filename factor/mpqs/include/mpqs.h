@@ -378,7 +378,7 @@ void qs_free_relation_list(relation_t *list, uint32 num_relations);
 		fb_size + NUM_EXTRA_RELATIONS */
 
 /* 矩阵列溢出这类情况原来直接 exit(EXIT_FAILURE)，整个进程当场消失：
-   挂到计算器上时，一个算不了��输入会把交互会话一起带走。现在用
+   挂到计算器上时，一个算不了的输入会把交互会话一起带走。现在用
    std::expected 把原因交回调用方，由调用方决定是放弃还是继续。 */
 std::expected<void, std::string> solve_linear_system(msieve_obj *obj, uint32 fb_size, 
 		    uint64 **bitfield, 

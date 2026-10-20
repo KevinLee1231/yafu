@@ -169,7 +169,7 @@ double ytools_difftime(struct timeval* start, struct timeval* end);
     {
         uint32_t L1cache;
         uint32_t L2cache;
-        int nprocs;            /* ���线上的逻辑核心数 */
+        int nprocs;            /* 在线上的逻辑处理器数（sysconf(_SC_NPROCESSORS_ONLN)） */
 
         char sysname[256];
         int sysname_sz;

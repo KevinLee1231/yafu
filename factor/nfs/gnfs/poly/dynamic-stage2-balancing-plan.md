@@ -182,8 +182,9 @@ even though the *task* came from the shared queue.
 
 ---
 
-> 这一节逐条对着当前代码核过一遍（2026-10-20）。状态只有四种：
+> 这一节逐条对着当前代码核过一遍（2026-10-20）。状态有五种：
 > **已落地**（代码里已经是这样做的）、**选型变了**（代码里换成了另一种做法）、
+> **不适用**（对应的功能不该启用，这件事本身没有值可定）、
 > **确实待定**（代码里需要运行时决定，或有多个候选没定下来）、
 > **功能不存在**（代码里没有这个东西）。
 >
@@ -202,11 +203,27 @@ even though the *task* came from the shared queue.
    声明在 `factor/shared/include/util.h:135`）。`read_clock()` 现在只剩
    `mpqs.h` 的 TIME1/TIME2 宏在用。
 
-2. **Pick `QCHUNK_DIVISOR` / `QCHUNK_MAX`** — **确实待定**：硬编码成
-   `#define STAGE1_QCHUNK_DIVISOR 20` 与 `STAGE1_QCHUNK_MAX 2000000`
-   （`stage1.cpp:629-630`），没有命令行开关，也没做过基准。这两个常量目前
-   只被 `if (0)` 关着的分块实现引用（`stage1.cpp:764,769`），不影响运行；
-   真要启用分块，得先定这两个值。
+2. **Pick `QCHUNK_DIVISOR` / `QCHUNK_MAX`** — **不适用（分块不该
+   启用）**：硬编码成 `#define STAGE1_QCHUNK_DIVISOR 20` 与
+   `#define STAGE1_QCHUNK_MAX 2000000`（`stage1.cpp:629-630`），没有命令行开关。
+   这两个常量只被 `if (0)` 关着的分块实现引用（`stage1.cpp:739-741`），
+   不影响运行；分块本身在 CPU 引擎上不该启用，三条依据：
+   - **分块唯一买到的东西，整窗调用已经做到了。** CPU 引擎的 specialq
+     实现（`stage1_sieve_cpu.cpp:1349-1365`）在内层每 16384 个 q-root
+     查一次墙钟并对照 `task->coeff_deadline`，超时 `goto finished`。
+     分块不替代这个检查，只是在块边界再加一次更粗的检查。
+   - **实测（2026-10-20，100 位半素数，`a_d=1000`，`p[1000,2400]`，
+     `q[1000,1e8]`，`cpu_gerbicz` 引擎）：`coeff_deadline=10` 时，
+     不分块 10.28 秒停、分块 10.27 秒停** —— 及时性上没有区别。
+   - **分块是纯开销。** `STAGE1_QCHUNK_DIVISOR = 20` 意味着把 1 次
+     specialq 调用变成 20 次，而每次都要重建全部 p 的等差数列
+     （`stage1_sieve_cpu.cpp:1235-1242`：p_packed_reset + sieve_fb_reset
+     + 遍历 sieve_fb_next）—— 这部分与 q 窗口大小无关。
+     同一输入不限 deadline 的总耗时（两轮）：不分块 95.94 / 95.77 秒、
+     分块 97.70 / 98.14 秒，命中数四轮都是 51388，分块慢 1.9%。
+
+   结论：这两个常量不需要"定值"，因为分块整体不启用。它们保持现在的
+   硬编码即可，改动它们不会影响任何运行路径。
 
 3. **Pick `STAGE2_HIGH_WATERMARK`** — **功能不存在**：树里没有水位线，
    也没有 `poly_stats_backlog()`；backlog 只是统计字段（`hits` /

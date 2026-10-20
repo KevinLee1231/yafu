@@ -946,7 +946,7 @@ void prac_good(monty128_t *mdata, tinyecm_work *work, tinyecm_pt *P, uint64_t c,
 {
 	uint64_t d, e, r;
 	double cmin, cost, v;
-	/* i 只在下���的循环里被赋值，而那个循环在退化情况下一次都不会命中
+	/* i 只在下面的循环里被赋值，而那个循环在退化情况下一次都不会命中
 	   （lucas_cost 返回的正好是 ADD*c，等于初值 cmin，条件不成立），
 	   于是 i 会是栈上的垃圾值，val[i] 就越界读了。默认取 val[0] ——
 	   黄金比，注释里写的那个默认值。 */

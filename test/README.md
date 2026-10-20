@@ -99,7 +99,7 @@ make WITH_OPENCL=1 test
 ```
 
 - `YAFU_OCL_PLATFORM=<子串>` 按名字选平台；
-  `YAFU_OCL_KERNEL_DIR=<目录>` 指向 `.cl` 文件所在目录（不��仓库根运行时用）。
+  `YAFU_OCL_KERNEL_DIR=<目录>` 指向 `.cl` 文件所在目录（不在仓库根运行时用）。
 - 第一次跑要编译内核，某些驱动上要几十秒（之后的运行由驱动缓存）。
 
 ## 退出码

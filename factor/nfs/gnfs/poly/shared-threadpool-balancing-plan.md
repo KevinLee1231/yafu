@@ -195,8 +195,9 @@ engines were never pool workers under this design in the first place.
 
 ---
 
-> 这一节逐条对着当前代码核过一遍（2026-10-20）。状态只有四种：
+> 这一节逐条对着当前代码核过一遍（2026-10-20）。状态有五种：
 > **已落地**（代码里已经是这样做的）、**选型变了**（代码里换成了另一种做法）、
+> **不适用**（对应的功能不该启用，这件事本身没有值可定）、
 > **确实待定**（代码里需要运行时决定，或有多个候选没定下来）、
 > **功能不存在**（代码里没有这个东西）。
 >
@@ -220,9 +221,12 @@ engines were never pool workers under this design in the first place.
    （`stage1_engine.cpp:177-186`）。
 
 3. Pick chunk-size tunables analogous to Option A's `QCHUNK_DIVISOR`/
-   `QCHUNK_MAX` — **确实待定**：同一组硬编码（20 / 2000000，
-   `stage1.cpp:629-630`），没有命令行参数，只被关着的 `if (0)` 块引用，
-   未做基准。
+   `QCHUNK_MAX` — **不适用（分块不该启用）**：同一组硬编码（20 / 2000000，
+   `stage1.cpp:629-630`），没有命令行参数，只被关着的 `if (0)` 块引用。
+   分块唯一买到的东西（deadline 在块边界及时生效）在整窗调用下已经由
+   引擎内层的 16384 粒度检查做到（`stage1_sieve_cpu.cpp:1349-1365`），
+   而分块要多付 19 次 p 等差数列重建 —— 实测慢 1.9%。
+   详见 `dynamic-stage2-balancing-plan.md` 同一节。
 
 4. Decide whether "clear the stage-1 lane" on early abort should also try
    to interrupt an in-flight chunk — **选型变了**：代码会打断，而且比"块边界"

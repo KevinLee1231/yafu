@@ -66,7 +66,6 @@ http://www.gnu.org/licenses/ or write to the Free Software Foundation, Inc.,
 void vec_add(vec_monty_t *mdata, ecm_work *work, ecm_pt *Pin, ecm_pt *Pout);
 void vec_duplicate(vec_monty_t *mdata, ecm_work *work, vec_bignum_t *insum, vec_bignum_t *indiff, ecm_pt *P);
 void next_pt_vec(vec_monty_t *mdata, ecm_work *work, ecm_pt *P, uint64_t c);
-void euclid(vec_monty_t *mdata, ecm_work *work, ecm_pt *P, uint64_t c);
 void vec_prac(vec_monty_t *mdata, ecm_work *work, ecm_pt *P, uint64_t c);
 void vec_build_one_curve(thread_data_t *tdata, mpz_t X, mpz_t Z, mpz_t A, uint64_t sigma);
 void vec_ecm_stage1(vec_monty_t *mdata, ecm_work *work, ecm_pt *P, 
@@ -697,101 +696,6 @@ double vec_getEcost(uint64_t d, uint64_t e)
 	return (doub + add) * 2 * 0.75 + add * 4 + doub * 3;
 }
 
-int * getEseq(uint64_t d, uint64_t e)
-{
-	uint64_t target = e;
-	int doub = 0, add = 0;
-	int seqLen = 64;
-	int *seq = (int *)malloc(seqLen * sizeof(int));
-	int it = 1;
-	seq[0] = 0;
-
-	d = e - d;
-
-	while (d > 0)
-	{
-		if ((e / 2) < d)
-		{
-#ifdef DEBUG
-			printf("[3]: d = %u\n", e - d);
-#endif
-			seq[it] = 3;
-			d = e - d;
-		}
-		else if ((d < (e / 4)) && ((e & 1) == 0))
-		{
-#ifdef DEBUG
-			printf("[1]: d = %u, e = %u\n", d, e);
-			printf("[1]: d = %u, e = %u\n", d, e - d);
-#endif
-			e = e / 2;
-			doub++;
-			add++;
-			seq[it] = 1;
-		}
-		else
-		{
-#ifdef DEBUG
-			printf("[2]: d = %u, e = %u\n", d, e);
-#endif
-			e = e - d;
-			add++;
-			seq[it] = 2;
-		}
-
-		it++;
-		if (it > seqLen)
-		{
-			seqLen *= 2;
-			seq = (int *)realloc(seq, seqLen * sizeof(int));
-		}
-	}
-
-	// reverse the sequence so it's constructive starting from 0,1
-	seqLen = it;
-	for (it = 0; it < seqLen / 2; it++)
-	{
-		uint32_t tmp = seq[it];
-		seq[it] = seq[seqLen - it - 1];
-		seq[seqLen - it - 1] = tmp;
-	}
-
-	// for fun.
-#ifdef DEBUG
-	if (1)
-#else
-	if (0)
-#endif
-	{
-		uint32_t d = 0;
-		uint32_t x = 1;
-		it = 0;
-
-		printf("target is %" PRIu64 ", sequence length is %u\n", target, seqLen);
-		while (seq[it] != 0)
-		{
-			if (seq[it] == 1)
-			{
-				printf("[1]: double to get %u and add %d to get %u\n", x * 2, x - d, x + x - d);
-				x *= 2;
-			}
-			else if (seq[it] == 2)
-			{
-				x += d;
-				printf("[2]: add %d to get %u\n", d, x);
-			}
-			else if (seq[it] == 3)
-			{
-				d = x - d;
-				printf("[3]: d is now %u\n", d);
-			}
-			it++;
-		}
-	}
-
-	return seq;
-}
-
 #define ADD 5.5     // accounts for sqr ~= 0.75 mul
 #define DUP 4.5     // accounts for sqr ~= 0.75 mul
 
@@ -1359,254 +1263,6 @@ void vec_prac(vec_monty_t *mdata, ecm_work *work, ecm_pt *P, uint64_t c)
 
 	return;
 
-}
-
-void euclid(vec_monty_t *mdata, ecm_work *work, ecm_pt *P, uint64_t c)
-{
-	uint64_t startd;
-	uint64_t numd = 10;
-	uint64_t bestd = 0;
-	int *seq;
-	double best;
-	double cost;
-	int i;
-	uint64_t d, x;
-	vec_bignum_t *x1, *z1, *x2, *z2, *x3, *z3, *x4, *z4, *s1, *s2, *d1, *d2;
-	base_t *sw_x, *sw_z;
-
-	if (c == 1)
-	{
-		return;
-	}
-	
-	// thank you gmp-ecm
-	static double val[10] =
-	{ 0.61803398874989485, 0.72360679774997897, 0.58017872829546410,
-	  0.63283980608870629, 0.61242994950949500, 0.62018198080741576,
-	  0.61721461653440386, 0.61834711965622806, 0.61791440652881789,
-	  0.61807966846989581 };
-
-	i = 0;
-	best = 999999.0;
-
-	//while (numd > 0)
-	while (i < numd)
-	{
-		//uint64_t d = startd - i;
-		uint64_t d = (uint64_t)((double)c * val[i]);
-		uint64_t e = c;
-
-		if (spGCD(d, e) != 1)
-		{
-			i++;
-			continue;
-		}
-
-		cost = vec_getEcost(d, e);
-		if (cost < best)
-		{
-			best = cost;
-			bestd = d;
-		}
-		i++;
-		numd--;
-	}
-
-	if ((c & 1) == 0)
-	{
-		printf("input should not be even\n");
-	}
-
-	seq = getEseq(bestd, c);
-
-	// now follow the sequence
-	x1 = work->pt1.X;
-	z1 = work->pt1.Z;
-	x2 = work->pt2.X;
-	z2 = work->pt2.Z;
-	x3 = work->pt3.X;
-	z3 = work->pt3.Z;
-	x4 = work->pt4.X;
-	z4 = work->pt4.Z;
-	s1 = work->sum1;
-	s2 = work->sum2;
-	d1 = work->diff1;
-	d2 = work->diff2;
-
-	// the first one is always a doubling
-	// point1 is [1]P
-	vecCopy(P->X, x1);
-	vecCopy(P->Z, z1);
-	vecCopy(P->X, x3);
-	vecCopy(P->Z, z3);
-	vecsubmod_ptr(P->X, P->Z, d1, mdata);
-	vecaddmod_ptr(P->X, P->Z, s1, mdata);
-
-	d = 1;
-	x = 2;
-
-	// point2 is [2]P
-	vec_duplicate(mdata, work, s1, d1, &work->pt2);
-
-#ifdef DEBUG
-	printf("target is %" PRIu64"\n", c);
-	printf("pt1 holds [1]P\n");
-	print_vechex(work->pt1.X->data, 0, NWORDS, "");
-	print_vechex(work->pt1.Z->data, 0, NWORDS, "");
-	printf("pt2 holds [2]P\n");
-	print_vechex(work->pt2.X->data, 0, NWORDS, "");
-	print_vechex(work->pt2.Z->data, 0, NWORDS, "");
-#endif
-
-	if (c == 2)
-	{
-		free(seq);
-		vecCopy(x2, P->X);
-		vecCopy(z2, P->Z);
-		return;
-	}
-	
-	startd = 0;
-	i = 2;
-	while (seq[i])
-	{
-		// both add and dup require the sum and difference 
-		// of the X and Z coords of the two points we are tracking.
-		vecaddsubmod_ptr(x2, z2, s2, d2, mdata);
-		vecaddsubmod_ptr(x1, z1, s1, d1, mdata);
-
-		if (seq[i] == 1)
-		{
-			// add point1 to point2, store in point1
-			// double point2
-			vec_add(mdata, work, &work->pt3, &work->pt1);
-			vec_duplicate(mdata, work, s2, d2, &work->pt2);
-
-			if (seq[i + 1] == 3)
-			{
-				d = x + d;
-				x *= 2;
-				i++;
-			}
-			else if (seq[i + 1] == 2)
-			{
-				d = x - d;
-				x *= 2;
-
-				// swap the "initial" point held in pt3 with the 
-				// output point held in pt1
-				sw_x = x3->data;
-				sw_z = z3->data;
-				x3->data = x1->data;
-				z3->data = z1->data;
-				x1->data = sw_x;
-				z1->data = sw_z;
-			}
-			else
-			{
-				d = x + d;
-				x *= 2;
-			}
-
-#ifdef DEBUG
-			printf("[1]: pt1 holds [%d]P = ", d);
-			print_vechex(work->pt1.X->data, 0, NWORDS, "");
-			print_vechex(work->pt1.Z->data, 0, NWORDS, "");
-			printf("[1]: pt2 holds [%d]P = ", x);
-			print_vechex(work->pt2.X->data, 0, NWORDS, "");
-			print_vechex(work->pt2.Z->data, 0, NWORDS, "");
-#endif
-
-		}
-		else if(seq[i] == 2)
-		{
-			// add point1 (implicit in add/sub inputs) to point2, store in point2.
-			// what is now in point 2 will either be copied to 
-			// the new initial point (pt3) or to point 1.
-			vecCopy(x2, x4);
-			vecCopy(z2, z4);
-			
-#ifdef DEBUG
-			printf("[2]: tmp holds [%d]P = ", x);
-			print_vechex(work->pt4.X->data, 0, NWORDS, "");
-			print_vechex(work->pt4.Z->data, 0, NWORDS, "");
-#endif
-
-			vec_add(mdata, work, &work->pt3, &work->pt2);
-			x = x + d;
-
-#ifdef DEBUG
-			printf("[2]: pt2 holds [%d]P = ", x);
-			print_vechex(work->pt2.X->data, 0, NWORDS, "");
-			print_vechex(work->pt2.Z->data, 0, NWORDS, "");
-#endif
-
-			if (seq[i + 1] == 2)
-			{
-				vecCopy(x4, x3);
-				vecCopy(z4, z3);
-
-#ifdef DEBUG
-				printf("no swap\n");
-				printf("[2]: pt3 holds [%d]P = ", x - d);
-				print_vechex(work->pt3.X->data, 0, NWORDS, "");
-				print_vechex(work->pt3.Z->data, 0, NWORDS, "");
-				printf("[2]: pt1 holds [%d]P = ", d);
-				print_vechex(work->pt1.X->data, 0, NWORDS, "");
-				print_vechex(work->pt1.Z->data, 0, NWORDS, "");
-#endif
-				
-				
-			}
-			else
-			{
-				// change point1
-				vecCopy(x1, x3);
-				vecCopy(z1, z3);
-				vecCopy(x4, x1);
-				vecCopy(z4, z1);
-
-#ifdef DEBUG
-				printf("next is a swap\n");
-				printf("[2]: pt3 holds [%d]P = ", d);
-				print_vechex(work->pt3.X->data, 0, NWORDS, "");
-				print_vechex(work->pt3.Z->data, 0, NWORDS, "");
-				printf("[2]: pt1 holds [%d]P = ", x - d);
-				print_vechex(work->pt1.X->data, 0, NWORDS, "");
-				print_vechex(work->pt1.Z->data, 0, NWORDS, "");
-#endif
-
-				d = x - d;
-
-				if (seq[i + 1] == 3)
-					i++;
-			}
-
-		}
-
-		i++;
-
-#ifdef DEBUG
-		printf("==================\n");
-#endif
-	}
-
-	if (x != c)
-	{
-		printf("expected %" PRIu64", euclid returned %" PRIu64"\n", c, x);
-		exit(1);
-	}
-
-	// copy out answer
-	vecCopy(x2, P->X);
-	vecCopy(z2, P->Z);
-
-#ifdef DEBUG
-	//exit(1);
-#endif
-
-	free(seq);
-	return;
 }
 
 void next_pt_vec(vec_monty_t *mdata, ecm_work *work, ecm_pt *P, uint64_t c)
@@ -2319,21 +1975,41 @@ void vececm(thread_data_t* tdata)
                 /* stage 2 分段处理素数：每换一段区间，stage2_pair() 就把
                  * 2*L 个 Pa 重算一遍，并对它们重新批量求一次逆。
                  *
-                 * 按现在的划分，这笔开销没法省掉，原因在两边的粒度：
+                 * 这笔开销在 CPU 引擎上省不掉，结论是"分块不该启用"。
+                 * 三条依据都是代码里写死的常数与结构：
                  *
-                 *   - 段是按素数个数切的，一次 PRIME_RANGE = 1e8 个素数
-                 *     （avx_ecm_main.cpp:594）。B2 通常是 1e4~1e5 量级，
-                 *     所以段循环（avxecm.cpp:2332 的 for）通常只跑一轮 ——
-                 *     根本没有"新的一段"。
-                 *   - 就算 B2 大到有好多段，一段覆盖的 a 跨度是
-                 *     (B2-B1)/(2*w)，而 Pa 表覆盖的 a 跨度只有 2*L = 4*U
-                 *     （U 的候选是 1..16，avx_ecm_main.cpp:1145）。两者差
-                 *     好几个数量级，新的一段的 Pa 与上一段没有交集。
+                 * 1) 分块唯一买到的是"deadline 能在块边界生效"。但这件事
+                 *    在整窗调用下已经做到了：CPU 引擎的 specialq 实现
+                 *    （stage1_sieve_cpu.cpp:1349-1365）在内层每 16384 个
+                 *    q-root 就查一次墙钟并对照 task->coeff_deadline，超时
+                 *    就 goto finished。分块并不替代这个检查，只是在块边界
+                 *    上再加一次更粗的检查。
+                 * 2) 分块把 1 次 specialq 调用变成 STAGE1_QCHUNK_DIVISOR
+                 *    = 20 次，而每次 specialq 都要重建全部 p 的等差数列
+                 *    （stage1_sieve_cpu.cpp:1235-1242：p_packed_reset +
+                 *    sieve_fb_reset + 遍历 sieve_fb_next）—— 这部分与 q
+                 *    窗口大小无关，是纯开销。
+                 * 3) 分块代码本身被 if (0) 关着（stage1.cpp:739-741），
+                 *    活跃路径是 else 分支的整窗调用（stage1.cpp:799-814）。
                  *
-                 * 要让"新的一段接着上一段继续"成立，段的划分就得改成按
-                 * a 范围、且每段的跨度小于 2*L。那样段数会多出好几个数量级，
-                 * 而每段都要重跑一次 pair()（Q 队列的进出），净收益要实测
-                 * 才知道。 */
+                 * 实测（2026-10-20，100 位半素数，a_d=1000，
+                 * p[1000,2400]，q[1000,1e8]，cpu_gerbicz 引擎）：
+                 *   - coeff_deadline=10：不分块 10.28 秒停，分块 10.27 秒停
+                 *     —— 及时性上没有区别，说明第 1 条依据成立。
+                 *   - 不限 deadline 的总耗时（两轮）：不分块 95.94 / 95.77 秒、
+                 *     分块 97.70 / 98.14 秒，命中数四轮都是 51388 —— 分块慢
+                 *     1.9%，多付的正是第 2 条那 19 次 p 数列重建。
+                 *
+                 * 另：段是按素数个数切的（一次 PRIME_RANGE = 1e8 个素数，
+                 * avx_ecm_main.cpp:594），B2 通常 1e4~1e5 量级，段循环
+                 * （avxecm.cpp:1970）通常只跑一轮 —— 根本没有"新的一段"。
+                 * 就算 B2 大到有好多段，一段覆盖的 a 跨度是 (B2-B1)/(2*w)，
+                 * 而 Pa 表覆盖的 a 跨度只有 2*L = 4*U（U 的候选 1..16，
+                 * avx_ecm_main.cpp:1145），两者差好几个数量级，新旧段的
+                 * Pa 没有交集。
+                 *
+                 * GPU 引擎本来就保持整窗调用（stage1.cpp:757-760）—— 它的
+                 * deadline 检查在设备侧，分块对它没有意义。 */
 
                 if ((p >= rangemax) ||
                     (rangemax < MIN(STAGE2_MAX, p + (uint64_t)PRIME_RANGE)))
