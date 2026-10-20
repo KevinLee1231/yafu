@@ -182,37 +182,76 @@ even though the *task* came from the shared queue.
 
 ---
 
+> 这一节逐条对着当前代码核过一遍（2026-10-20）。状态只有四种：
+> **已落地**（代码里已经是这样做的）、**选型变了**（代码里换成了另一种做法）、
+> **确实待定**（代码里需要运行时决定，或有多个候选没定下来）、
+> **功能不存在**（代码里没有这个东西）。
+>
+> 有一件事影响下面好几条：**分块（chunking）的那套实现目前在树里是被
+> `if (0)` 关着的**（`factor/nfs/gnfs/poly/stage1/stage1.cpp:740` 那一整块）。
+> 运行时走的是 `:799-814` 的整窗一次性调用，真正生效的 deadline 强制在
+> 引擎内层循环里（`stage1_sieve_cpu.cpp:1349-1365`，每 16384 个 q-root
+> 查一次墙钟）。所以凡是以"分块"为前提的条目，分块尺寸那两个常量
+> （`STAGE1_QCHUNK_DIVISOR` / `STAGE1_QCHUNK_MAX`）目前不影响运行。
+
 ## TODO / open items
 
 1. **Confirm the actual msieve timing call** to replace the placeholder
-   `read_clock()` in the chunk loop (likely in `factor/shared/common/util.c`).
-2. **Pick `QCHUNK_DIVISOR` / `QCHUNK_MAX`** — needs benchmarking; too fine
-   over-slices small windows, too coarse defeats the checkpoint's purpose.
-3. **Pick `STAGE2_HIGH_WATERMARK`** — threshold on `poly_stats_backlog()` that
-   triggers borrowing.
-4. **Verify `stage1_engine_cell_fits` is safe to call per-chunk** — confirm
-   its cost is negligible and its clamp behavior is correct when applied
-   repeatedly to sub-windows rather than once for the whole range.
-5. **Add `cpu_bound` to all four engine vtables** (`cpu_gerbicz`,
-   `cpu_hashtable` → true; `gpu_cubsort`, `gpu_gerbicz` → false).
-6. **`best_saved_combined_e` semantics** (carried over from
-   `parallel_stage2.md`'s own verify list, item 3) — if it's a save-gate
-   rather than a stat, per-worker copies (now including borrower slots) mean
-   more independent local-bests; decide whether to leave as-is or move under
-   the shared lock.
-7. **Write/port the `s2_pattern_test.c`-style standalone concurrency test**
-   for the borrowing path specifically: producer threads intermixing chunk
-   work and borrowed stage-2 tasks, dedicated consumers running concurrently,
-   verifying no bundle-index collisions and no interleaved `.p` file writes.
-8. **Decide dedicated-pool floor for multi-threaded runs** — keep
-   `num_stage2_dedicated` small (e.g. 1–2) so the queue never fully starves
-   during a moment when every producer happens to be mid-chunk and hasn't
-   reached a checkpoint yet. (At `-t 1` this floor is forced to 0 regardless
-   — see §2.)
+   `read_clock()` in the chunk loop — **已落地**：用的是 `get_wall_time()`
+   （`CLOCK_MONOTONIC` 墙钟，秒为单位的 double，`factor/shared/common/util.cpp:98-104`，
+   声明在 `factor/shared/include/util.h:135`）。`read_clock()` 现在只剩
+   `mpqs.h` 的 TIME1/TIME2 宏在用。
+
+2. **Pick `QCHUNK_DIVISOR` / `QCHUNK_MAX`** — **确实待定**：硬编码成
+   `#define STAGE1_QCHUNK_DIVISOR 20` 与 `STAGE1_QCHUNK_MAX 2000000`
+   （`stage1.cpp:629-630`），没有命令行开关，也没做过基准。这两个常量目前
+   只被 `if (0)` 关着的分块实现引用（`stage1.cpp:764,769`），不影响运行；
+   真要启用分块，得先定这两个值。
+
+3. **Pick `STAGE2_HIGH_WATERMARK`** — **功能不存在**：树里没有水位线，
+   也没有 `poly_stats_backlog()`；backlog 只是统计字段（`hits` /
+   `stage2_done`，`factor/nfs/gnfs/poly/include/poly_stats.h:35-38`），
+   深度只在打印行里临时算一下（`poly_stats.cpp:60`）。整套"借用"机制
+   （`threadpool_try_run_task`、backlog 阈值、专用池下限）在代码里零残留，
+   不是待定，是从未实现，且已被 v2 方案的设计取代。
+
+4. **Verify `stage1_engine_cell_fits` is safe to call per-chunk** —
+   **已落地**：代码里没有每块调用它 —— 每个 `a_d` 在进循环前调一次
+   （`stage1.cpp:805` 是生效分支，`:746` 是关着的分块分支）。它的钳制只把
+   `*special_q_max` 压到引擎的绝对上限（`stage1_engine.cpp:177-186`），
+   与块大小无关，所以放在循环外是对的。
+
+5. **Add `cpu_bound` to all four engine vtables** — **选型变了**：vtable
+   里没有 `cpu_bound` 字段（`stage1_engine.h:42-63`）。CPU/GPU 分流用既有的
+   `envelope.is_gpu`（`stage1_engine.h:34`，表项在 `stage1_engine.cpp:50,61,72,83`，
+   使用点 `stage1.cpp:208`）。文档二与文档三都明确写了"不再需要 `cpu_bound`"。
+
+6. **`best_saved_combined_e` semantics** — **已落地**：它是统计量，不是门槛。
+   真正的门槛是 `min_e_bernstein` 与 `min_e`（`stage2/optimize.cpp:1250,1256`）；
+   `best_saved_combined_e` 只在过了门槛之后更新，而且是每个 bundle 私有的
+   副本（副本来源 `stage2/stage2.cpp:254-255`、`poly_skew.cpp:157`）。
+   共享的"最好成绩"另存在 stats 的 `best_e`，持锁更新
+   （`poly_stats.cpp:192-199`）。
+
+7. **Write/port the `s2_pattern_test.c`-style standalone concurrency test** —
+   **功能不存在**：那个文件在 `e341861` 被删掉了，树里没有替代品，
+   Makefile 与 `test/` 都不引用它。
+
+8. **Decide dedicated-pool floor for multi-threaded runs** —
+   **选型变了**：`num_stage2_dedicated` 这个概念不存在。stage-2 池的大小是
+   `MAX(1, num_stage2_workers)`，后者来自 `stage2_threads=`，再被抬到
+   `MAX(num_s2, obj->num_threads)`（`stage1.cpp:590-591`、
+   `poly_skew.cpp:487-492`）。CPU 路径根本不用这个池（stage-2 内联执行，
+   `stage1.cpp:230-241`），这个池只服务 GPU；`-t 1` 时池是 1 个线程而不是 0。
+
 9. **Verify the synchronous fallback in `handle_collision` doesn't re-enter
-   any lock the caller already holds** — `stage1_hit_run` ultimately reaches
-   `rootopt_callback`, which takes `file_lock`; confirm `handle_collision`'s
-   call stack holds no conflicting lock when this inline path fires.
-10. **Test `-t 1` end-to-end** — confirm no thread-count regression and no
-    stall, ideally as part of the same standalone concurrency test in item 7
-    (add a dedicated single-thread case).
+   any lock the caller already holds** — **已落地**：CPU 路径是直接内联调用
+   `d->poly->callback(...)`（`stage1.cpp:233-240`），不是"非阻塞提交失败后
+   回退"。它会去拿 `file_lock`（`poly_skew.cpp:59-60,73-74`）与 stats 锁
+   （`poly_stats.cpp:190,209`）。两个调用方引擎（CPU、hashtable）整文件
+   没有任何 mutex 调用，所以调用栈上不存在冲突锁。
+
+10. **Test `-t 1` end-to-end** — **功能不存在**：`test/` 下唯一涉及线程池的
+    是通用生命周期测试（init/add/drain/free 计数，
+    `test/layer3/test_qs_review.cpp:64-93`），不覆盖 stage-1/stage-2 配平，
+    也没有单线程端到端用例。

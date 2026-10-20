@@ -128,15 +128,17 @@ typedef struct {
     void   *sieve_q_fb;
     double  cumulative_elapsed;
     void   *hw_thread_data;
-    stage2_worker_t stage2_local;   /* NEW: permanent per-producer-thread
-                                        sizeopt/rootopt state, CPU path only */
 } stage1_sieve_thread_data_t;
 ```
 
-Populated once per producer thread, at the same point `sieve_fb_init` sets
-up `sieve_p_fb`/`sieve_q_fb`. `handle_collision` (§3) reads it directly as
-`d->threads[threadid].stage2_local` — no new index space, no ambiguity with
-the GPU consumer array.
+（这四���就是现在的全部字段 —— 计划里"给每个生产者线程加一个
+`stage2_local`"的做法没有被采纳。）
+
+CPU 路径改为复用共享的 `d->stage2_workers[threadid].sizeopt_data`：
+`stage2_workers[]` 原本是按 GPU 消费者索引的，现在把数组撑到不小于
+生产者线程数（`num_s2 = MAX(num_s2, obj->num_threads)`，
+`factor/nfs/gnfs/poly/poly_skew.cpp:490-492`），CPU 线程按自己的
+threadid 取同一块空间。下标不越界由这个抬高保证。
 
 ## 4. Deadline: wall-clock, computed once per `a_d`
 
@@ -256,10 +258,9 @@ test (§10, item 3).
   submits to `d->stage2_threadpool`.
 
 ### `stage1.h` — `stage1_sieve_thread_data_t`
-- Add a `stage2_worker_t stage2_local` field (§3a) — permanent per-producer-
-  thread sizeopt/rootopt state, populated once alongside the existing
-  `sieve_p_fb`/`sieve_q_fb` setup in `search_coeff_core`. Kept distinct from
-  `stage2_workers[]`, which remains GPU-consumer-indexed and untouched.
+- 不加字段。CPU 路径的 sizeopt/rootopt 状态复用 `stage2_workers[]` 里按
+  threadid 取的那一份（`factor/nfs/gnfs/poly/stage1/stage1.cpp:233-235`），
+  数组大小由 `poly_skew.cpp:490-492` 抬到不小于线程数来保证不越界。
 
 ### `poly_skew.c`
 - `build_stage2_workers()` / `stage2_workers[]` retained but now only
@@ -272,33 +273,62 @@ test (§10, item 3).
 
 ---
 
+> 这一节逐条对着当前代码核过一遍（2026-10-20）。状态只有四种：
+> **已落地**（代码里已经是这样做的）、**选型变了**（代码里换成了另一种做法）、
+> **确实待定**（代码里需要运行时决定，或有多个候选没定下来）、
+> **功能不存在**（代码里没有这个东西）。
+>
+> 有一件事影响下面好几条：**分块（chunking）的那套实现目前在树里是被
+> `if (0)` 关着的**（`factor/nfs/gnfs/poly/stage1/stage1.cpp:740` 那一整块）。
+> 运行时走的是 `:799-814` 的整窗一次性调用，真正生效的 deadline 强制在
+> 引擎内层循环里（`stage1_sieve_cpu.cpp:1349-1365`，每 16384 个 q-root
+> 查一次墙钟）。所以凡是以"分块"为前提的条目，分块尺寸那两个常量
+> （`STAGE1_QCHUNK_DIVISOR` / `STAGE1_QCHUNK_MAX`）目前不影响运行。
+
 ## TODO / open items
 
-1. Pick `q_chunk_size` — needs benchmarking; tension between deadline
-   granularity and per-chunk call overhead (carried over from both prior
-   plans' chunk-size TODO).
-2. ~~Confirm `find_next_ad`'s locking~~ — **resolved**: `search_coeffs` is a
-   single-threaded external loop calling `find_next_ad` itself; worker
-   threads never call it. No locking concern, no change needed here.
-3. Benchmark whether losing cross-thread stage-2 work-stealing (§9) has any
-   measurable throughput cost vs. Option A/B in practice — if collision
-   bursts per `a_d` are typically small relative to total `a_d` count per
-   thread, this is likely negligible.
+1. Pick `q_chunk_size` — **确实待定**：硬编码成
+   `STAGE1_QCHUNK_DIVISOR 20` / `STAGE1_QCHUNK_MAX 2000000`
+   （`stage1.cpp:629-630`），只在 `if (0)` 关着的分块实现里用
+   （`stage1.cpp:763-769`）；代码里没有 `q_chunk_size` 这个名字。
+   分块实现当前没有启用，运行时走整窗路径（`stage1.cpp:799-814`），
+   真正生效的 deadline 强制在引擎内层（`stage1_sieve_cpu.cpp:1349-1365`）。
+
+2. ~~Confirm `find_next_ad`'s locking~~ — **已落地**：`find_next_ad` 定义在
+   `stage1.cpp:364`，只被 `search_coeffs` 里的驱动线程调用
+   （`stage1.cpp:966,1094,1112`）；工作线程只走
+   `task_data_run → search_coeff_core`（`stage1.cpp:860-865`），从不调用它。
+   没有加锁的必要，也没改。
+
+3. Benchmark whether losing cross-thread stage-2 work-stealing has any
+   measurable throughput cost — **选型变了**：问题本身消解了。最终设计里
+   不存在跨线程的 stage-2 偷取 —— 每个生产者线程内联处理自己的命中
+   （`stage1.cpp:230-241`），只有 GPU 路径才走池（`stage1.cpp:208-228`），
+   没有可比的代价。
+
 4. ~~Decide where `sizeopt_data`/`rootopt_data` allocation lives~~ —
-   **resolved**: new `stage2_worker_t stage2_local` field on
-   `stage1_sieve_thread_data_t` (§3a), populated once per producer thread.
-   Kept separate from the GPU-consumer-indexed `stage2_workers[]` array to
-   avoid conflating the two index spaces.
-5. `handle_collision`'s CPU/GPU branch — confirm `envelope.is_gpu` is
-   sufficient to decide the dispatch path, or whether a cleaner flag should
-   be added to the vtable for "dispatch mode" (inline vs. pooled) instead
-   of overloading a device-residency flag for a control-flow decision.
-6. Standalone test: verify deadline enforcement actually terminates a
-   long-running `a_d` at each chunk boundary, and that inline stage-2 +
-   chunking produces identical `.p` output (same hits, same saved
-   polynomials) as today's unchunked path, just with different timing.
-7. Confirm early-abort's best-E check frequency (per-chunk vs. per-`a_d`)
-   — per-chunk gives faster abort response but adds a mutex read to the
-   hot loop; likely fine given it's already an uncontended read of a
-   stats-mutex-guarded value, but worth confirming against `poly_stats.c`'s
-   actual locking granularity.
+   **已落地**（本节原先写的做法与代码不符，已按代码改正）：并没有新增
+   `stage2_worker_t stage2_local` 字段。`stage1_sieve_thread_data_t` 仍是原来
+   那四项（`stage1.h:219-225`）；CPU 路径改为复用共享的
+   `d->stage2_workers[threadid].sizeopt_data`（`stage1.cpp:233-235`），
+   靠把数组撑到不小于线程数来保证下标不越界
+   （`num_s2 = MAX(num_s2, obj->num_threads)`，`poly_skew.cpp:490-492`；
+   数组构建 `poly_skew.cpp:139-194`）。
+
+5. `handle_collision`'s CPU/GPU branch — **已落地**：`envelope.is_gpu` 够用，
+   代码就是用它分流的（GPU 提交 `stage1.cpp:208`，CPU 内联 `:230-241`），
+   vtable 没有新增"dispatch mode"字段（`stage1_engine.h:42-63`）。
+
+6. Standalone test: verify deadline enforcement terminates a long-running
+   `a_d`, and that inline stage-2 + chunking produces identical `.p` output —
+   **功能不存在**：没有这样的测试。分块代码被 `if (0)` 关闭
+   （`stage1.cpp:740`），运行期不存在"块边界终止"行为；实际生效的 deadline
+   终止在 CPU 引擎内层（`stage1_sieve_cpu.cpp:1349-1365`），也没有 `.p`
+   输出比对的用例。
+
+7. Confirm early-abort's best-E check frequency — **已落地**：实际是每保存
+   一个多项式检查一次，位置在 `poly_stats_add_rootopt`（持 stats 锁，与漏斗
+   计数器同一把锁，`poly_stats.cpp:187-210`，检查在 `:203-206`）—— 既不是
+   每块也不是每 `a_d`；没有往热循环里新增无锁读。超阈值只置
+   `MSIEVE_FLAG_STOP_SIEVING`，引擎无锁读该标志
+   （`stage1_sieve_cpu.cpp:1349`）。

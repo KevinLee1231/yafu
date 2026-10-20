@@ -195,22 +195,47 @@ engines were never pool workers under this design in the first place.
 
 ---
 
+> 这一节逐条对着当前代码核过一遍（2026-10-20）。状态只有四种：
+> **已落地**（代码里已经是这样做的）、**选型变了**（代码里换成了另一种做法）、
+> **确实待定**（代码里需要运行时决定，或有多个候选没定下来）、
+> **功能不存在**（代码里没有这个东西）。
+>
+> 有一件事影响下面好几条：**分块（chunking）的那套实现目前在树里是被
+> `if (0)` 关着的**（`factor/nfs/gnfs/poly/stage1/stage1.cpp:740` 那一整块）。
+> 运行时走的是 `:799-814` 的整窗一次性调用，真正生效的 deadline 强制在
+> 引擎内层循环里（`stage1_sieve_cpu.cpp:1349-1365`，每 16384 个 q-root
+> 查一次墙钟）。所以凡是以"分块"为前提的条目，分块尺寸那两个常量
+> （`STAGE1_QCHUNK_DIVISOR` / `STAGE1_QCHUNK_MAX`）目前不影响运行。
+
 ## TODO / open items
 
-1. Priority queue implementation — two lanes (separate lists + condvars) vs.
-   one list with a priority field and a single condvar.
-2. Confirm `stage1_engine_cell_fits` is safe/cheap to call per-chunk rather
-   than once per full window (carried over from Option A's equivalent item).
+1. Priority queue implementation — **功能不存在**：从未实现。代码保留的是
+   msieve 原生的两个独立线程池（stage-1 池 `stage1.cpp:583-585`、
+   stage-2 池 `:590-591`），单 FIFO 队列（`factor/shared/common/thread.cpp:526`），
+   没有优先级字段也没有双 lane。这个设计已被 v2 方案取代。
+
+2. Confirm `stage1_engine_cell_fits` is safe/cheap to call per-chunk —
+   **已落地**：与文档一第 4 条同一结论 —— 每个 `a_d` 只调一次，放在循环外
+   （`stage1.cpp:805`）；钳制只针对引擎绝对上限，与块大小无关
+   （`stage1_engine.cpp:177-186`）。
+
 3. Pick chunk-size tunables analogous to Option A's `QCHUNK_DIVISOR`/
-   `QCHUNK_MAX` — needs benchmarking; same tradeoff (too fine over-slices,
-   too coarse defeats checkpointing).
-4. Decide whether "clear the stage-1 lane" on early abort should also try to
-   interrupt an in-flight chunk mid-`specialq()`, or just prevent its
-   continuation from being re-queued (current lean: the latter — simpler,
-   and the in-flight chunk finishes quickly anyway since it's bounded by
-   chunk size).
-5. Standalone concurrency test: sustained stage-2 volume with stage-2-lane
-   priority, confirm bundle pool never exceeds `N` concurrent uses, confirm
-   `-t 1` degenerates correctly, confirm early-abort drain behavior.
-6. Wire `get_wall_time()` into msieve's build (confirm `clock_gettime`
-   availability/portability matches existing YAFU platform support matrix).
+   `QCHUNK_MAX` — **确实待定**：同一组硬编码（20 / 2000000，
+   `stage1.cpp:629-630`），没有命令行参数，只被关着的 `if (0)` 块引用，
+   未做基准。
+
+4. Decide whether "clear the stage-1 lane" on early abort should also try
+   to interrupt an in-flight chunk — **选型变了**：代码会打断，而且比"块边界"
+   更细：`MSIEVE_FLAG_STOP_SIEVING` 由引擎内层循环检查 —— CPU 引擎每
+   16384 个 q-root 查一次并 `goto finished`（`stage1_sieve_cpu.cpp:1349-1365`），
+   hashtable 引擎每块查一次并 break
+   （`stage1_sieve_cpu_hashtable.cpp:559-564,667-672`）。
+
+5. Standalone concurrency test — **功能不存在**：同文档一第 7 条 ——
+   原 `s2_pattern_test.c` 已在 `e341861` 删除，树内无替代。
+
+6. Wire `get_wall_time()` into msieve's build — **已落地**：`get_wall_time()`
+   已在 `util.cpp` 里与 `get_cpu_time()` 并存（`factor/shared/common/util.cpp:98-104`，
+   用 `clock_gettime(CLOCK_MONOTONIC, ...)`），头文件 `util.h:135` 已声明，
+   stage-1 侧多处调用（`stage1.cpp:766,781,878,897`、
+   `stage1_sieve_cpu.cpp:1211,1361`）。

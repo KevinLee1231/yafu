@@ -399,6 +399,157 @@ factorization"；ECM 的 Suyama 参数化那条要排除的特殊值是 d == -1/
 比 -1/8 —— 撞上的概率极低，而且撞上之后是跳过这条曲线还是直接报错
 退出还没定下来，所以那条仍然留着。
 
+### 续算时用的块大小没有落进文件，续算会用新的设置去解释旧的区间
+
+`factor/nfs/nfs_sieving.cpp` 里那条"续算时用到的参数调整没有写进文件"的
+标注，落到实处是一处会算错的东西：筛法块大小 `job->qrange` 根本没进过
+任何文件。
+
+已筛区间（`.ranges`）是按上次的块大小划的，续算时读回来的是每一段的
+实际长度；而 `job->qrange` 来自本次 `get_ggnfs_params()` 的查表（或命令行
+的 `-rangeq`），`sort_completed_ranges()` 直接拿它当"这一段多长"用。两边
+对不上就会重复筛掉一段，或者跳过一段。
+
+现在把 `qrange` 写进 `.job` 文件（yafu 自己写自己读的关键字，sieve 那边
+不认它，不影响它读同一个文件），续算时用它覆盖查表值 —— 续算必须沿用
+上次的设置，这与文件里其它参数（lpbr/alim/...）的既有约定一致。读的时候
+取文件里最后一个 `qrange:`（`.job` 是追加写的，后面覆盖前面，与
+`parse_job_file` 读其它关键字的约定一样），而追加的那一行始终是同一个值，
+所以反复续算不会把参数改掉。
+
+`test/layer3/test_qs_review.cpp` 加了一条回归，覆盖写入与读回。
+
+### SIQS 的最后一个 B 值一直没有被赋值
+
+`factor/siqs/filter.cpp` 的 `generate_bpolys()`：
+
+```c
+for ( ; numB < maxB; numB++)
+{
+    mpz_set(sconf->curr_b[numB - 1], dconf->curr_poly->mpz_poly_b);
+    dconf->numB = numB;
+    nextB(dconf, sconf, 0);
+}
+```
+
+B 值一共有 `1<<(s-1)` 个（Gray 码的总数），循环填的是 `curr_b[0..maxB-2]`，
+**最后一个槽 `curr_b[maxB-1]` 从未被赋值**。而数据文件里的 B-poly 索引
+可以合法地等于 `maxB-1`（边界检查只挡 `this_id >= bpoly_alloc`），那条
+关系读到的是 malloc 出来的未初始化内存，算出来的 Q 是垃圾。
+
+现在循环结束后把最后一步的结果补存进去。`test/layer3/test_qs_review.cpp`
+加了一条回归，检查整条 B 值序列 —— 相邻两步的差必须是 `±Bl[ctz(i)]`。
+
+### B 值改成按需生成
+
+同一个 A 多项式有 `1<<(s-1)` 个 B 值，但实际有关系引用的只有几个
+（一个 A 产生的关系数通常是个位数）。原来在 `process_poly_a()` 里把全部
+都算一遍，每个一次大整数拷贝加一次加减 —— A 多项式多的时候这笔开销很大。
+
+同一个 A 的关系在数据文件里是连续的（读到新的 A 才会调
+`process_poly_a`），B 索引也就递增，所以按需顺序生成即可，不需要随机
+跳转。`process_poly_a()` 返回前会释放掉 `dconf` 的 gray/nu/Bl 并清掉
+poly 的 a/b —— 那是"一次性生成全部"所依赖的做法；现在把这些状态转移给
+`sconf`，由下一个 A 接手时再释放。
+
+回归里加了一条对比：按需生成（乱序访问）与一次性生成必须逐值一致。
+
+### APR-CL 查表失败不再静默算错，Lucas 自测的下标与 mpz 版对齐
+
+`factor/shared/aprcl/mpz_aprcl.cpp`（以及 msieve 那份 32 位的
+`mpz_aprcl32.cpp`）里的 `JacobiSum` 是这样找 J(p,q) 的：
+
+```c
+for(a = 0; a < JPQSMAX; a++)
+    if(jpqs[a].p == myP && jpqs[a].q == Q)
+      break;
+```
+
+表里没有这一项时，`a` 停在哨兵项上，而哨兵项的 `index` 是 0，于是
+`sls[jpqs[a].index + I]` 读到的是别的 q 的 J 值 —— 算出一个错的答案，
+而且全程不报错。现在查不到就报出缺的是哪一项并停下。
+
+顺便把这份表本身核了一遍：`sls` 与 `jpqs` 两张表的长度、每条记录占的字数
+（`PL = (P-1)·P^(K-1)`，K 是 p 在 q-1 里的幂次）、实际会发生的每一次查表，
+三者完全闭合：3493 次查询正好对应 3493 条记录，没有缺失、没有越界、没有
+用不到的冗余条目。`aiJS` 之类工作数组的下标上界（`PK = P·PM`，最大 32）
+也正好等于 `PWmax`。
+
+`factor/shared/aprcl/tinyprp.cpp` 的 `lucas_prp_128x1` 与
+`factor/shared/aprcl/mpz_aprcl.cpp` 的 `mpz_lucas_prp` 算的是同一个东西
+（Lucas 序列的 U_(n-(D/n))），但在下标上不一致：`(D/n) == 0`（D 与 n 不互素）
+时，前者无条件把下标减 1，后者保持下标为 n。同一个数在两套实现里会得到
+不同的下标，进而得到不同的结论。现在按 `mpz_lucas_prp` 的做法对齐。
+
+这个函数还把 p 写死成 1（`vh` 的初值就是 1，`vl` 里的 `p*ql` 也直接简化成
+`ql`），却接受任意 p。现在签名里去掉了 p，只保留 q，需要别的 p 请走
+`mpz_lucas_prp`。它全树没有调用点，连同定义一起删掉了。
+
+### 随机对拍：tinyprp 的标量与 AVX512 路径对 GMP 参考实现
+
+`test/layer1/test_tinyprp_review.cpp` 新增四个测试：
+
+* `random_64bit_mr`：2000 个随机 64 位奇数，`MR_2sprp_64x1` 对 GMP。
+* `random_128bit_prp`：1000 个随机 128 位奇数，Fermat / Miller-Rabin /
+  Selfridge / BPSW 四种对 GMP。
+* `random_128bit_lucas`：1000 个随机 128 位奇数配上 Selfridge 的 d 序列，
+  Lucas 自测对 `mpz_lucas_prp`。
+* `random_104bit_avx512`：400 组 × 8 路的 104 位数，AVX512 的
+  `MR_2sprp_104x8` 对标量的 `MR_2sprp_128x1`。
+
+### CADO 的输出重定向不再走 shell 语法
+
+`factor/nfs/nfs.cpp` 里调用 `convert_poly` 用的是
+`system("... < in.poly > nfs.fb")`。`<` 输入重定向 cmd.exe 不支持，路径里
+带空格时 sh 与 cmd 的引号规则也不同。
+
+现在重定向在进程里做（新增 `ytools_run_redirected()`，用 `dup2` 换文件
+描述符），命令里只留可执行文件路径与参数。本项目只面向 Linux，所以这个
+辅助函数只有 POSIX 一支。
+
+### mpqs3 的平方根逆元不再每次分解重算
+
+`factor/nfs/lasieve/mpqs3.cpp` 的 `mpqs3_SI_init()` 里，每一项都要算一次
+`s^{-1} mod p`（s 是该素数的平方根）。这两者都是因子基的常量 —— 因子基在
+一次分解内不变 —— 所以现在在 `mpqs3_generate_FB()` 里一次算好存进
+`mpqs3_FB_sq_inv[]`，`SI_init` 直接取。
+
+同一处还有一句"逐项做模逆，整批一起算更快"：那一处不成立。每一项的模数
+p（`mpqs3_Adiv[i]`）互不相同，而"一次求逆推出多个"的批量法要求所有元素
+在同一个模数下。同一文件里 `SI_inv_table` 那种批量写法适用于"同一个 p 下
+的多个元素"，不能套到这里。注释改成了这个说法。
+
+### 计划文档里的待决问题逐条对过代码
+
+`factor/nfs/gnfs/poly/` 下的三份计划文档（`dynamic-stage2-balancing-plan.md`、
+`shared-threadpool-balancing-plan.md`、`shared-threadpool-balancing-plan_v2.md`）
+文末各有一节 "TODO / open items"，共 23 条。逐条对着代码核过之后，每条
+标了状态（已落地 / 选型变了 / 确实待定 / 功能不存在）并写清代码里的实际
+做法与证据位置。
+
+顺带发现：分块（chunking）的那套实现目前在树里是被 `if (0)` 关着的
+（`factor/nfs/gnfs/poly/stage1/stage1.cpp:740` 那一整块），运行时走的是
+`:799-814` 的整窗一次性调用，真正生效的 deadline 强制在引擎内层循环里
+（`stage1_sieve_cpu.cpp:1349-1365`）。所以以"分块"为前提的几条，分块尺寸
+那两个常量目前不影响运行。
+
+文档三里"给每个生产者线程加一个 `stage2_local` 字段"那条标成了 resolved，
+但代码里根本没有这个字段 —— CPU 路径复用的是共享的
+`d->stage2_workers[threadid].sizeopt_data`，靠把数组撑到不小于线程数来
+保证下标不越界。正文也一并改了。
+
+### 剩下的 TODO 标记
+
+代码里还剩三处：
+
+- `factor/ecm/avxecm.cpp`：stage 2 分段筛素数时，每段都把 2L 个 Pa 重算
+  一遍并重新批量求一次逆。
+- `factor/nfs/nfs.cpp`：输入有三个以上因子时，只分解出第一个，剩下的作为
+  合数因子报出。
+- `factor/nfs/lasieve/kernels/include/mpqs-config.h`：mpqs3 的参数表要靠
+  基准测试来调。
+
+
 ### 线程池：回调表换成 C++26 的 std::inplace_vector，并禁止拷贝
 
 `factor/shared/ytools/include/threadpool.h` 的工作函数表原来是一个
