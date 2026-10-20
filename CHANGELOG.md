@@ -117,6 +117,166 @@ NULL 传进 `strcpy` 直接段错误 —— 这条是表错位的后果，表对
 
 整树的编译告警从四千多条降到五百多条，剩下的都是转换类与未使用变量，
 不涉及正确性。
+
+### 进位/借位的约定反了，可移植分支算出来的和与进位是错的
+
+这是这一轮最实的一个 bug。同一个宏名 `_addcarry_u64` / `_subborrow_u64`，在
+不同文件里约定的返回值和出参含义是相反的：
+
+    MSVC 的 _addcarry_u64(c_in, a, b, out)   返回进位，out 写和
+    GCC 的 __builtin_addcll(a, b, c_in, out) 返回和，out 写进位
+
+`arith.cpp`、`monty.h`、`microecm.cpp`、`micropm1.cpp` 四处各抄了一份
+GCC 的 builtin 宏（源码里都留着 "these defines should be shared" 的 TODO），
+而它们的调用点 —— spAdd/spAdd3/spSub/spSub3、uecm_submod、upm1_submod、
+mulredc 系列 —— 全是按 MSVC 约定写的。x86-64 汇编分支和 lasieve 的内核走的是
+原生内建，一直是对的，所以错只出现在可移植分支（非 x86-64，或
+-DASM_ARITH_DEBUG）上：
+
+  * spAdd/spAdd3/spSub/spSub3 的"和"与"进位"整个反了；
+  * uecm_submod / upm1_submod 判的是"差是不是非零"而不是"有没有借位"，
+    借位时把 0 或 1 当成差再加 n，结果完全不对。
+
+这两处各配了一条回归：`test/layer0/test_mp_arith.cpp` 的 `sp_addsub` 按
+"和/进位"的定义核对 spAdd/spSub/spAdd3/spSub3；`test/layer3/test_ecm_review.cpp`
+的 `uecm_modarith` 按定义核对 (a-b) mod n 与 (a+b) mod n（为此把
+uecm_submod / uecm_addmod 从 microecm.h 里导出来 —— 它们本来就是 inline 的
+非 static 函数，只是没在头文件里声明）。旧写法在 10 个用例里错 5 个，
+新写法全对。
+
+现在把进位/借位从 `mp_platform.h` 里拆成独立的 `carry_intrin.h`（`mp_platform.h`
+里还有 `_umul128` / `_udiv128` / `_reset_lsb` / `_lead_zcnt64` 那一组，和
+`arith.h`、`arith.cpp` 自己定义的正面冲突，不能被那几个文件连带引入），
+四份重复的宏删掉，统一用 `mp_addcarry_u64` / `mp_subborrow_u64` /
+`mp_subborrow_u32` —— 约定一律是"返回进位/借位，out 写和/差"，实现按
+"原生内建 → clang builtin → 可移植 C"分三档，跨平台都靠它。调用点只换名字，
+形状不变。
+
+顺带修掉可移植分支的 spAdd3：它把第一步的进位又塞进了第二步的进位输入，
+等于加了两遍。`0xFFFFFFFFFFFFFFFF + 1 + 1` 的低位正确值是 1，代码算出 2。
+x86-64 汇编分支一直是对的，把两条分支的结果放在一起比才看得出来。
+
+`test/layer0/test_mp_arith.cpp` 里加了 `sp_addsub` 一条回归，直接按"和/进位"
+的定义核对数值。
+
+### 线程池的回调改成 C++26 的 std::copyable_function
+
+`factor/shared/ytools/threadpool.h` 里的回调是"函数指针存成 void*、调用时再转
+回来"：函数指针与 void* 之间的转换在标准里只是有条件支持，而且编译器查不出
+签名写错 —— `ecm_start_fcn` / `ecm_stop_fcn` 实际上是 `void(tpool_t*)`，被
+声明成 `void(void*)` 一直没人发现。
+
+C++26 的 `std::copyable_function`（P2943，GCC 16.2 已有）替掉它：签名不对
+直接编不过，带捕获的 lambda 也能注册。`tpool_t` 因此含非平凡成员，`malloc`/
+`free` 不再合法，改成 `new[]`/`delete[]`，并把释放收进 `tpool_free()`，
+免得各调用点自己写错。树里 24 处 `(void*)&func` 强转全部去掉。
+
+### C++26 契约
+
+新增 `factor/shared/include/yafu_contracts.h` 与违约处理函数
+（`handle_contract_violation` 报出条件原文与源码位置后终止）。挑的三处都是
+"违约即越界/静默算错"的地方，正好是前几轮精读实际抓到过的 bug：
+
+  * `lanczos.cpp` 的 `shift_right_words`：位移超过字数时返回值
+    `sz_a - wordshift` 会下溢成巨大的无符号数；
+  * `siqs_aux.cpp` 的 `get_params`：参数表少填一行时外推斜率算成 1211/位
+    （正确 8277/位），因子基小六到七倍 —— 现在断言表里最后两行是真数据；
+  * `gnfs/gf2.cpp` 的 `build_matrix_core`：稠密行字宽超过 32 时
+    `dense_rows[]` 越界写（`num_dense_rows` 在 1009..1024 时正好落在这个
+    缺口里）。
+
+契约检查的开销实测是 1.01 倍（GCC 生成一条冷路径分支），热路径上也吃得消。
+
+### 第三方代码（lasieve / ECM 副本）里同样要修
+
+`factor/nfs/lasieve/` 下的 `ecm.cpp` / `pm1.cpp` / `microecm.cpp` /
+`micropm1.cpp` / `tinyecm.cpp` 是 `factor/ecm/` 那几份的改版副本（加了命名
+空间包装与自己的 include），不是同一份文件 —— 修一处不会自动落到另一处。
+这一轮在这两份上都找到了问题：
+
+- 两份 `microecm.cpp` 的 `uecm_stage2`：stg1_max 不在预置表里时
+  `barray` / `numb` 整个没初始化，后面的循环拿栈上的垃圾值当上限，再拿
+  barray 越界读。
+- 两份 `tinyecm.cpp` 的 `prac_good`：`v = val[i]` 里的 i 只在下面这个循环
+  里被赋值，而循环在退化情况下一次都不会命中 ——
+  `lucas_cost` 返回的正好是 `ADD * n`，而初值 `cmin` 就是 `ADD * c`，
+  两者相等，`cost < cmin` 不成立。于是 i 是栈上的垃圾值，val 只有 NV(10)
+  个元素，`val[i]` 越界读。c == 1 时就是这个退化情况（r = round(0.618) = 1
+  >= n = 1）。改成 `int i = 0`，取 val[0]（黄金比，注释里写的默认值）。
+
+### resieve 的越界读
+
+`factor/siqs/tdiv_resieve_32k_avx2.cpp`：resieve 按块处理素数（8/16/32 个
+一起），循环条件只看块的起点，所以最后一块可能越过 med_B。越界位置上的素数
+没初始化过，比较结果是垃圾，可能凑出假命中。
+
+- AVX512 路径是"先读 `fbc->prime[buffer[i]]` 再说值不对" —— 读本身就越界
+  （`comp_sieve_p->prime` 只按 med_B 个元素分配）。
+- AVX512 路径一旦遇到假下标就 `break`，后面所有的除法全放弃了；AVX2 那条
+  路径用的是 `continue`。两条路径行为不一致。
+
+改成：先验下标在界内，再取素数；AVX512 路径也改成 `continue`。
+
+### 剩下的 TODO 标记逐个看过
+
+全树 28 处 TODO/FIXME/XXX，处理完剩 11 处：
+
+- 过期的、描述与代码不符的，删掉（`monty.cpp` 与 `lasieve/tinyecm.cpp` 里
+  "implement portable u128 x u128 modular multiplication" —— 实现就在下面；
+  `limb1.h` 与 `monty.h` 里 "need something portable" —— 可移植实现也在下面；
+  `lasieve/mpqs3.cpp` 里 "replace 1024" —— 早就是命名常量了）。
+- 确实还没做的事，保留，但把"要做什么、为什么、代价在哪"写清楚，别让下一个人
+  再猜一遍。
+- `lasieve/gnfs-lasieve4e.cpp` 里那个 `Schlendrian("XXX\n")` 换成能定位的
+  报错（原来真触发了也只知道一个 XXX）。
+
+另外 `factor/shared/arith/fftmul.cpp` 有三处"假定 mp_limb_t 是 64 位"，
+现在改成编译期的 `static_assert`：32 位 GMP 的 limb 是 32 位，算法会算错，
+不如在编译期就拦下来。
+
+`factor/shared/aprcl/tinyprp.cpp` 的计时器也整理了：原来 Apple 分支里三句
+`return` 连着写，只有第一句（`val * 32`）能执行，后面两句是死的，而那句
+`* 32` 本身就是个猜测。现在 aarch64 直接用 `cntvct_el0` 的计数值，其它平台
+用 `steady_clock` 的纳秒计 —— 顺带去掉了那句会让非 x86-64、非 aarch64
+平台根本编不过这个文件的 `#error "unsupported _rdtsc implementation"`。
+
+### lasieve 里的 C++26 已经删除的写法
+
+`factor/nfs/lasieve/gnfs-lasieve4e.cpp`：
+
+- 对 volatile 计数器做 `++`（两处），以及把 volatile 赋值的值当条件用
+  （一处）：C++20 起废弃，C++26 直接删除。改成读-改-写 / 拆成两条语句。
+- `case 'n'` 落到 `case 'N'` 是有意的，加上 `[[fallthrough]]` 把意图写明。
+- `fprintf(g_ofile, "")` 是句空操作，删掉。
+
+连同整树一起，把 6 处字符串字面量与格式宏连写（lasieve 用的是自己的
+`UL_FMTSTR`）补上了空格 —— C++11 起 `"..."MACRO` 是 ill-formed 的。
+
+### 第三方副本里还有两处同类缺陷，以及构建系统的一个洞
+
+* 两份 `tinyecm.cpp`（`factor/ecm/` 与 `factor/nfs/lasieve/`）的
+  `ecm_stage2` / `ecm_stage2_x8` 里，`stg1_max` 不在预置表里时
+  `barray` / `numb` 整个没初始化，后面的循环拿栈上的垃圾值当上限，再拿
+  barray 越界读。和 microecm 那份同一个毛病。
+* `factor/nfs/lasieve/` 子工程（含它的 `kernels/`）的编译规则**只依赖 .cpp，
+  不依赖任何头文件**。改了 `include/if.h` 之类的头不会重编，于是陈旧的目标
+  文件与新的声明对不上 —— 链接时报 undefined reference（mangled 名字带参数
+  类型，签名一改就找不到定义了）。这次改 `complain` 等函数的签名时就撞上了。
+  现在把两个头文件目录都算进依赖。
+* `complain` / `Schlendrian` / `logbook` / `errprintf` 的格式串参数声明成
+  `char*`，而 C++ 里把字符串常量传给 `char*` 是被禁止的（`-Wwrite-strings`），
+  整棵 lasieve 有两百多条这样的告警。这四个函数只读格式串，改成
+  `const char*` 既是正确的签名，也把这批告警一次清掉。
+
+顺带收敛了三处重复的宏定义：`factor/shared/include/util.h` 里 `INLINE` 被
+无条件定义了两次（先是 `inline`，紧接着是空定义 —— 后一条总是赢，第一条是
+死代码，条件在改写过程中丢了），`factor/shared/ytools/include/ytools.h` 里
+还有第三份，于是两个头都进来时 GCC 报 "INLINE redefined"。`INLINE` 用在 109
+处，全是头文件里的 `static INLINE 函数定义`，三种写法语义一样，取 `inline`
+即可。`_POSIX_C_SOURCE` 同理，加了 `#ifndef` 守卫。
+
+`factor/mpqs/poly.cpp` 里两处 switch 是有意的贯穿，加上 `[[fallthrough]]`
+把意图写明。
 ---
 
 ## 3.0.0
