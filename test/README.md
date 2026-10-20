@@ -23,6 +23,7 @@ sh test/run_all.sh cli     # 只跑名字里含 cli 的套件
 | `build` | 编译 yafu | `make yafu` |
 | `unit` | 分层单元测试，全部 | `./build/yafu_test` |
 | `unit_fast` | 只跑标了 `fast` 的 | `./build/yafu_test --tag fast` |
+| `full` | 第 0-3 层，含 SIQS 集成与计算器 | `make test-full` 后跑 `build/yafu_test_full` |
 | `cli` | 命令行 / 管道 / 批处理 / 计算器 | `test/test_cli.sh` |
 | `nfs` | NFS 文件拆分与批量因子树（独立编译） | `test/test_nfs.sh` |
 | `lasieve` | 筛法器六个 I 值、并发隔离、stat/test 链接 | `test/test_lasieve.sh` |

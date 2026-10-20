@@ -103,7 +103,7 @@ static void check_offsets_case(tk_ctx *tk, int sieve_range, uint64_t blocks)
     uint32_t sieve_p[1] = {1009};
     int roots[1] = {1};
     uint32_t rclass[1] = {1};
-    uint64_t *pbounds = calloc((size_t)blocks, sizeof(*pbounds));
+    uint64_t *pbounds = static_cast<uint64_t*>(calloc((size_t)blocks, sizeof(*pbounds)));
     uint32_t offsets[1] = {0};
     uint64_t i;
 
@@ -204,7 +204,7 @@ static void t_large_offset_range(tk_ctx *tk)
 {
     const uint64_t width = 1000100;
     soe_staticdata_t *sdata = soe_init(-1, 1, 32);
-    unsigned char *composite = calloc((size_t)width + 1, 1);
+    unsigned char *composite = static_cast<unsigned char*>(calloc((size_t)width + 1, 1));
     uint64_t count = 0, expected = 0, i;
     uint64_t *values;
     uint32_t j;
@@ -262,7 +262,7 @@ static void t_threadpool_bounds(tk_ctx *tk)
     TK_REQUIRE(tk, pool != NULL, "tpool_setup returned NULL");
     TK_CHECK(tk, pool[0].num_threads == 1);
     for (i = 0; i < 17; i++)
-        tpool_add_work_fcn(pool, dummy_work);
+        tpool_add_work_fcn(pool, reinterpret_cast<void*>(dummy_work));
     TK_CHECK(tk, pool[0].num_work_fcn == 16);
     free(pool);
 }

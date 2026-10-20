@@ -47,8 +47,11 @@ run_suite()
     if "$@" > "$work/$_name.log" 2>&1; then
         printf '通过\n'
         return 0
+    else
+        # 退出码要在 else 分支里取：if 语句本身没有 else 分支时 $? 是 0，
+        # 报出来的"退出码 0"会让人以为套件其实跑成功了。
+        _rc=$?
     fi
-    _rc=$?
     printf '失败 (退出码 %d)\n' "$_rc"
     printf '      日志: %s\n' "$work/$_name.log"
     sed 's/^/        /' "$work/$_name.log" | tail -12
@@ -69,6 +72,14 @@ suites_unit()
 suites_unit_fast()
 {
     ./build/yafu_test --tag fast
+}
+
+suites_full()
+{
+    make -j"$(nproc 2>/dev/null || echo 4)" test-full
+    # 这个二进制会在当前目录落下 siqs.dat / factor.log 之类的产物，
+    # 换到临时目录里跑，别污染仓库。
+    ( cd "$work" && "$repo_root/build/yafu_test_full" )
 }
 
 suites_cli()
@@ -92,7 +103,7 @@ suites_harness()
     sh test/harness_selftest.sh "$0"
 }
 
-ALL_NAMES="build unit unit_fast cli nfs lasieve harness"
+ALL_NAMES="build unit unit_fast full cli nfs lasieve harness"
 
 # ---------------------------------------------------------------- 选择套件
 if [ $# -gt 0 ]; then
@@ -126,6 +137,7 @@ for n in $names; do
         build)     desc="编译 yafu"                        ; cmd=suites_build ;;
         unit)      desc="分层单元测试（算术/素性/ECM/选项）" ; cmd=suites_unit ;;
         unit_fast) desc="分层单元测试 --tag fast"           ; cmd=suites_unit_fast ;;
+        full)      desc="Layer 0-3 集成测试（含 SIQS 集成）"  ; cmd=suites_full ;;
         cli)       desc="命令行 / 管道 / 批处理回归"         ; cmd=suites_cli ;;
         nfs)       desc="NFS 文件拆分与批量因子树（独立编译）"; cmd=suites_nfs ;;
         lasieve)   desc="筛法器独立回归（六个 I 值 + stat/test）"; cmd=suites_lasieve ;;

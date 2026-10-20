@@ -1363,11 +1363,11 @@ $(BUILD_DIR)/libmsieve.a: $(MSIEVE_COMMON_OBJS) $(QS_OBJS) $(NFS_OBJS)
 	ar r  $@ $(MSIEVE_COMMON_OBJS) $(QS_OBJS) $(NFS_OBJS)
 	ranlib $@
 
-test-full: _dep_status $(ARCHIVES) $(TEST_FRONTEND_OBJS)
+test-full: _dep_status $(ARCHIVES) $(TEST_FRONTEND_OBJS) | lasieve-force
 	$(MKDIR) $(dir $(TEST_FULL_BIN))
-	$(CC) $(CFLAGS) -DTK_WITH_LAYER3 -I$(TEST_DIR) \
+	$(CXX) $(CXXFLAGS) -DTK_WITH_LAYER3 -I$(TEST_DIR) \
 	    $(TEST_SRCS) $(TEST_L3_SRCS) $(TEST_FRONTEND_OBJS) -o $(TEST_FULL_BIN) \
-	    $(ARCHIVES) $(LIBS)
+	    $(ARCHIVES) $(LASIEVE_FILES) $(LIBS)
 	@echo "built $(TEST_FULL_BIN) -- Layers 0-3 (incl. SIQS integration)"
 
 test-full-run: test-full
@@ -1390,7 +1390,7 @@ test-standalone:
 # -----------------------------------------------------------------------------
 .PHONY: test-all
 test-all: $(YAFU_BIN) test
-	CC="$(CC)" CXX="$(CXX)" YAFU="$(YAFU_BIN)" sh $(TEST_DIR)/run_all.sh unit cli nfs lasieve harness
+	CC="$(CC)" CXX="$(CXX)" YAFU="$(YAFU_BIN)" sh $(TEST_DIR)/run_all.sh unit full cli nfs lasieve harness
 
 .PHONY: test-harness
 test-harness:
@@ -1404,13 +1404,13 @@ test-sanitize:
 
 # 只为本次回归涉及的源码和测试启用运行时检查，不覆盖常规对象文件。
 .PHONY: test-calc-sanitize
-test-calc-sanitize: _dep_status $(ARCHIVES) $(TEST_FRONTEND_OBJS)
+test-calc-sanitize: _dep_status $(ARCHIVES) $(TEST_FRONTEND_OBJS) | lasieve-force
 	$(MKDIR) $(dir $(TEST_SAN_BIN))
-	$(CC) $(CFLAGS) -O1 -fsanitize=address,undefined -fno-omit-frame-pointer \
+	$(CXX) $(CXXFLAGS) -O1 -fsanitize=address,undefined -fno-omit-frame-pointer \
 	    -DTK_WITH_LAYER3 -I$(TEST_DIR) $(TEST_SRCS) $(TEST_L3_SRCS) \
 	    top/cmdParser/calc.cpp factor/core/factor_common.cpp \
 	    $(filter-out $(BUILD_DIR)/top/cmdParser/calc$(OBJ_EXT),$(TEST_FRONTEND_OBJS)) \
-	    -o $(TEST_SAN_BIN) $(ARCHIVES) $(LIBS)
+	    -o $(TEST_SAN_BIN) $(ARCHIVES) $(LASIEVE_FILES) $(LIBS)
 	./$(TEST_SAN_BIN) calc
 
 
@@ -1472,7 +1472,9 @@ CXX ?= g++
 # (2579 sites), so they carry over unchanged.  What it does not buy: `int a[n]` as
 # a *parameter* is still C-only and has to become `int a[]` or a reference to
 # array; a substitution reference keeps the stem where patsubst would not.
-CXXFLAGS := $(filter-out -std=gnu11,$(CFLAGS)) -std=c++26
+# -Wstrict-prototypes 只对 C 有意义，留在 C++ 编译里每个文件都会报一次
+# “command-line option is valid for C/ObjC but not for C++”。
+CXXFLAGS := $(filter-out -std=gnu11 -Wstrict-prototypes,$(CFLAGS)) -std=c++26
 # 与 USER_CFLAGS 对应的 C++ 覆盖入口，供 test-standalone 传下去。
 USER_CXXFLAGS ?= $(filter-out -std=gnu11 -std=c++26,$(CFLAGS))
 
