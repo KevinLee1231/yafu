@@ -511,10 +511,10 @@ MP_FORCE_INLINE uint64_t sqrredc63(uint64_t x, uint64_t n, uint64_t nhat)
 
 #else // (!GCC_ASM64X && !__MINGW64__) || ASM_ARITH_DEBUG
 
-// TODO: need something portable to replace 64-bit assembler versions
-// of modular multiplication.  This is getting closer, but for now these things
-// are spread out locally where they are needed instead of being gathered here,
-// apologies for the uglyness.
+/* 可移植的模乘实现就在下面（mulredc / mulredc63 / mulredc60 / submod /
+   addmod），用 _umul128 与进位/借位原语拼出来。
+   还没做完的是树里其它部分：不少地方仍然假定 64 位 x86-64，非 x86-64 上
+   剩下的汇编路径还得逐个换成可移植写法。 */
 
 
 MP_FORCE_INLINE uint64_t mulredc(uint64_t x, uint64_t y, uint64_t n, uint64_t nhat)
@@ -523,8 +523,8 @@ MP_FORCE_INLINE uint64_t mulredc(uint64_t x, uint64_t y, uint64_t n, uint64_t nh
     tl = _umul128(x, y, &th);
     u = tl * nhat;
     al = _umul128(u, n, &ah);
-    tl = _addcarry_u64(0, al, tl, &al);
-    th = _addcarry_u64((uint8_t)tl, th, ah, &x);
+    tl = mp_addcarry_u64(0, al, tl, &al);
+    th = mp_addcarry_u64((uint8_t)tl, th, ah, &x);
     if (th || (x >= n)) x -= n;
     return x;
 }
@@ -535,8 +535,8 @@ MP_FORCE_INLINE uint64_t mulredc63(uint64_t x, uint64_t y, uint64_t n, uint64_t 
     tl = _umul128(x, y, &th);
     u = tl * nhat;
     al = _umul128(u, n, &ah);
-    tl = _addcarry_u64(0, al, tl, &al);
-    th = _addcarry_u64((uint8_t)tl, th, ah, &x);
+    tl = mp_addcarry_u64(0, al, tl, &al);
+    th = mp_addcarry_u64((uint8_t)tl, th, ah, &x);
     return x;
 }
 
@@ -546,8 +546,8 @@ MP_FORCE_INLINE uint64_t sqrredc(uint64_t x, uint64_t n, uint64_t nhat)
     tl = _umul128(x, x, &th);
     u = tl * nhat;
     al = _umul128(u, n, &ah);
-    tl = _addcarry_u64(0, al, tl, &al);
-    th = _addcarry_u64((uint8_t)tl, th, ah, &x);
+    tl = mp_addcarry_u64(0, al, tl, &al);
+    th = mp_addcarry_u64((uint8_t)tl, th, ah, &x);
     if (th || (x >= n)) x -= n;
     return x;
 }
@@ -558,15 +558,15 @@ MP_FORCE_INLINE uint64_t sqrredc63(uint64_t x, uint64_t n, uint64_t nhat)
     tl = _umul128(x, x, &th);
     u = tl * nhat;
     al = _umul128(u, n, &ah);
-    tl = _addcarry_u64(0, al, tl, &al);
-    th = _addcarry_u64((uint8_t)tl, th, ah, &x);
+    tl = mp_addcarry_u64(0, al, tl, &al);
+    th = mp_addcarry_u64((uint8_t)tl, th, ah, &x);
     return x;
 }
 
 MP_FORCE_INLINE uint64_t submod(uint64_t a, uint64_t b, uint64_t n)
 {
     uint64_t r0;
-    if (_subborrow_u64(0, a, b, &r0))
+    if (mp_subborrow_u64(0, a, b, &r0))
         r0 += n;
     return r0;
 }
@@ -574,7 +574,7 @@ MP_FORCE_INLINE uint64_t submod(uint64_t a, uint64_t b, uint64_t n)
 MP_FORCE_INLINE uint32_t submod32(uint32_t a, uint32_t b, uint32_t n)
 {
     uint32_t r0;
-    if (_subborrow_u32(0, a, b, &r0))
+    if (mp_subborrow_u32(0, a, b, &r0))
         r0 += n;
     return r0;
 }
@@ -599,8 +599,8 @@ MP_FORCE_INLINE uint64_t sqrredc60(uint64_t x, uint64_t n, uint64_t nhat)
     tl = _umul128(x, x, &th);
     u = tl * nhat;
     al = _umul128(u, n, &ah);
-    c = _addcarry_u64(0, al, tl, &al);
-    _addcarry_u64(c, th, ah, &x);
+    c = mp_addcarry_u64(0, al, tl, &al);
+    mp_addcarry_u64(c, th, ah, &x);
     return x;
 }
 
@@ -613,8 +613,8 @@ MP_FORCE_INLINE uint64_t mulredc60(uint64_t x, uint64_t y, uint64_t n, uint64_t 
     tl = _umul128(x, y, &th);
     u = tl * nhat;
     al = _umul128(u, n, &ah);
-    c = _addcarry_u64(0, al, tl, &al);
-    _addcarry_u64(c, th, ah, &x);
+    c = mp_addcarry_u64(0, al, tl, &al);
+    mp_addcarry_u64(c, th, ah, &x);
     return x;
 }
 

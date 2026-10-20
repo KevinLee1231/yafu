@@ -61,6 +61,7 @@ file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 #ifndef __aarch64__
 #include <immintrin.h>
+#include "carry_intrin.h"
 #endif
 
 // Using the inline asm in this file can increase performance by ~20-25%
@@ -298,6 +299,18 @@ static uint32_t uecm_lcg_rand_32B(uint32_t lower, uint32_t upper, uint64_t *ploc
 __inline uint64_t uecm_submod(uint64_t a, uint64_t b, uint64_t n);
 __inline uint64_t uecm_addmod(uint64_t a, uint64_t b, uint64_t n);
 
+/* 给测试链的对外入口：上面那两个是 always_inline 的，编译器在 TU 内没有
+   外部引用时可以不生成符号。 */
+uint64_t uecm_submod_pub(uint64_t a, uint64_t b, uint64_t n)
+{
+    return uecm_submod(a, b, n);
+}
+
+uint64_t uecm_addmod_pub(uint64_t x, uint64_t y, uint64_t n)
+{
+    return uecm_addmod(x, y, n);
+}
+
 #if defined(MICRO_ECM_ALT_MULREDC_USE_INLINE_ASM_X86)
 
 MICRO_ECM_FORCE_INLINE uint64_t uecm_submod(uint64_t a, uint64_t b, uint64_t n)
@@ -329,20 +342,11 @@ MICRO_ECM_FORCE_INLINE uint64_t uecm_addmod(uint64_t x, uint64_t y, uint64_t n)
 
 #else
 
-// TODO: these defines should be shared with other files that use _addcarry_u64/_subborrow_u64
-// unsigned char _addcarry_u64 (unsigned char c_in, unsigned __int64 a, unsigned __int64 b, unsigned __int64 *out)
-// unsigned char _subborrow_u64 (unsigned char c_in, unsigned __int64 a, unsigned __int64 b, unsigned __int64 *out)
-//
-// unsigned long long int __builtin_addcll (unsigned long long int a, unsigned long long int b, unsigned long long int carry_in, unsigned long long int *carry_out)
-// unsigned long long int __builtin_subcll (unsigned long long int a, unsigned long long int b, unsigned long long int carry_in, unsigned long long int *carry_out)
-#define rettype uint64_t
-//#define _addcarry_u64(c_in, a, b, c_out)  __builtin_addcll(a, b, c_in, c_out)
-#define _subborrow_u64(c_in, a, b, c_out) __builtin_subcll(a, b, c_in, c_out)
 
 MICRO_ECM_FORCE_INLINE uint64_t uecm_submod(uint64_t a, uint64_t b, uint64_t n)
 {
     uint64_t r0;
-    if (_subborrow_u64(0, a, b, &r0))
+    if (mp_subborrow_u64(0, a, b, &r0))
         r0 += n;
     return r0;
 }
@@ -727,7 +731,7 @@ static uint64_t uecm_multiplicative_inverse52(uint64_t a)
 MICRO_ECM_FORCE_INLINE uint64_t uecm_submod52(uint64_t a, uint64_t b, uint64_t n)
 {
     uint64_t r0;
-    if (_subborrow_u64(0, a, b, (unsigned long long *)(&r0)))
+    if (mp_subborrow_u64(0, a, b, &r0))
         r0 += n;
     return r0;
 }

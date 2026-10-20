@@ -2400,7 +2400,10 @@ static uint64_t uecm_stage2(uecm_pt *P, uint64_t rho, uint64_t n, uint32_t stg1_
     uecm_pt Pd1;
     uecm_pt *Pd = &Pd1;
     const uint8_t *barray = 0;
-    int numb;
+    /* stg1_max 不在预置表里时 barray / numb 整个没初始化，后面的循环会拿
+     * 栈上的垃圾值当上限，再拿 barray 越界读。给个确定的初值，循环自然
+     * 不执行。 */
+    int numb = 0;
 
 #ifdef MICRO_ECM_VERBOSE_PRINTF
     ptadds = 0;

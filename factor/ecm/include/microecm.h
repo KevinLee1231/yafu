@@ -77,6 +77,14 @@ extern "C" {
 // *pran, since that would restart the sequence.
 
 uint64_t getfactor_uecm(uint64_t q64, int is_arbitrary, uint64_t *pran);
+/* mod n 的减法与加法。可移植分支上这两个曾经用 GCC 的 __builtin_subcll /
+   __builtin_addcll 宏（返回的是差/和，借位/进位写在 out 里），而调用点按
+   MSVC 的约定写（返回借位/进位，out 写差/和），结果整个错。统一之后给
+   它们各开一个对外入口，好让测试能直接核对语义 ——
+   microecm.cpp 里那两个是 always_inline 的，编译器在 TU 内没有外部引用时
+   可以不生成符号，测试链不到，所以这里用普通函数包一层。 */
+uint64_t uecm_submod_pub(uint64_t a, uint64_t b, uint64_t n);
+uint64_t uecm_addmod_pub(uint64_t x, uint64_t y, uint64_t n);
 void getfactor_uecm_x8_list(uint64_t* q64, uint64_t* f64, uint32_t num_in, uint64_t* pran);
 uint64_t getfactor_upm1(uint64_t q64, uint32_t b1);
 int prp_uecm(uint64_t n);

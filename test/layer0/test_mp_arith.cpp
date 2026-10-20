@@ -12,6 +12,7 @@
 ----------------------------------------------------------------------*/
 #include "testkit.h"
 #include "mp_platform.h"
+#include "arith.h"
 
 /* ---- portable reference oracles (deliberately intrinsic-free) ---- */
 
@@ -204,11 +205,60 @@ static void t_subborrow(tk_ctx *tk)
     }
 }
 
+/* spAdd/spSub/spAdd3/spSub3 是 arith.cpp 里对进位/借位原语的封装。
+   可移植分支上 spAdd3 曾把第一步的进位又加进了低位（等于加了两遍），
+   x86-64 汇编分支一直是对的 —— 两条分支的结果差 1，只有把结果按定义
+   核对才看得出来。 */
+static void t_sp_addsub(tk_ctx *tk)
+{
+    uint64_t sum = 0, carry = 0, sub = 0, borrow = 0;
+
+    /* u + v */
+    spAdd(0xFFFFFFFFFFFFFFFFULL, 1, &sum, &carry);
+    TK_EQ_U64(tk, sum, 0);
+    TK_EQ_U64(tk, carry, 1);
+
+    spAdd(0x0123456789ABCDEFULL, 0xFEDCBA9876543210ULL, &sum, &carry);
+    TK_EQ_U64(tk, sum, 0xFFFFFFFFFFFFFFFFULL);
+    TK_EQ_U64(tk, carry, 0);
+
+    /* u - v */
+    spSub(0, 1, &sub, &borrow);
+    TK_EQ_U64(tk, sub, 0xFFFFFFFFFFFFFFFFULL);
+    TK_EQ_U64(tk, borrow, 1);
+
+    spSub(9, 4, &sub, &borrow);
+    TK_EQ_U64(tk, sub, 5);
+    TK_EQ_U64(tk, borrow, 0);
+
+    /* u + v + w：第一步的进位是另一个 2^64，不能再进低位加一次。
+       0xFFFFFFFFFFFFFFFF + 1 + 1 的低位是 1，不是 2。 */
+    spAdd3(0xFFFFFFFFFFFFFFFFULL, 1, 1, &sum, &carry);
+    TK_EQ_U64(tk, sum, 1);
+    TK_EQ_U64(tk, carry, 1);
+
+    spAdd3(0x8000000000000000ULL, 0x8000000000000000ULL, 0x8000000000000000ULL,
+           &sum, &carry);
+    TK_EQ_U64(tk, sum, 0x8000000000000000ULL);
+    TK_EQ_U64(tk, carry, 1);
+
+    /* u - v - w */
+    spSub3(0, 1, 1, &sub, &borrow);
+    TK_EQ_U64(tk, sub, 0xFFFFFFFFFFFFFFFEULL);
+    TK_EQ_U64(tk, borrow, 1);
+
+    spSub3(0x8000000000000000ULL, 0x8000000000000000ULL, 0x8000000000000000ULL,
+           &sub, &borrow);
+    TK_EQ_U64(tk, sub, 0x8000000000000000ULL);
+    TK_EQ_U64(tk, borrow, 1);
+}
+
 static const tk_test tk__mp_arith_tests[] = {
     { "umul128",   t_umul128,   "fast primitives arith" },
     { "udiv128",   t_udiv128,   "fast primitives arith" },
     { "addcarry",  t_addcarry,  "fast primitives arith" },
-    { "subborrow", t_subborrow, "fast primitives arith" }
+    { "subborrow", t_subborrow, "fast primitives arith" },
+    { "sp_addsub", t_sp_addsub, "fast primitives arith" }
 };
 
 const tk_module tk_module_mp_arith = {

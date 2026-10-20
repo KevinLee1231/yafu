@@ -23,6 +23,7 @@ thanks to their kind donation of code to the public domain.
 #include "common.h"
 #include <math.h>
 #include "mpz_aprcl.h"
+#include "carry_intrin.h"
 
 
 
@@ -493,43 +494,36 @@ void spMultiply(uint64_t u, uint64_t v, uint64_t* product, uint64_t* carry)
     return;
 }
 
-// TODO: these defines should be shared with other files that use _addcarry_u64/_subborrow_u64
-// unsigned char _addcarry_u64 (unsigned char c_in, unsigned __int64 a, unsigned __int64 b, unsigned __int64 *out)
-// unsigned char _subborrow_u64 (unsigned char c_in, unsigned __int64 a, unsigned __int64 b, unsigned __int64 *out)
-//
-// unsigned long long int __builtin_addcll (unsigned long long int a, unsigned long long int b, unsigned long long int carry_in, unsigned long long int *carry_out)
-// unsigned long long int __builtin_subcll (unsigned long long int a, unsigned long long int b, unsigned long long int carry_in, unsigned long long int *carry_out)
-#define rettype uint64_t
-#define _addcarry_u64(c_in, a, b, c_out)  __builtin_addcll(a, b, c_in, c_out)
-#define _subborrow_u64(c_in, a, b, c_out) __builtin_subcll(a, b, c_in, c_out)
 
 void spAdd(uint64_t u, uint64_t v, uint64_t* sum, uint64_t* carry)
 {
-    *carry = _addcarry_u64(0, u, v, sum);
+    *carry = mp_addcarry_u64(0, u, v, sum);
     return;
 }
 
 void spAdd3(uint64_t u, uint64_t v, uint64_t w, uint64_t* sum, uint64_t* carry)
 {
-    rettype c;
-    *carry = _addcarry_u64(0, u, v, sum);
-    c = _addcarry_u64(*carry, *sum, w, sum);
+    mp_carry_t c;
+    *carry = mp_addcarry_u64(0, u, v, sum);
+    /* 第二步只算 *sum + w。第一步的进位是另一个 2^64，单独加到高位上，
+       不能再塞进低位的进位输入里 —— 塞进去等于把它算两遍。 */
+    c = mp_addcarry_u64(0, *sum, w, sum);
     *carry += c;
     return;
 }
 
 void spSub3(uint64_t u, uint64_t v, uint64_t w, uint64_t* sub, uint64_t* borrow)
 {
-    rettype b;
-    *borrow = _subborrow_u64(0, u, v, sub);
-    b = _subborrow_u64(0, *sub, w, sub);
+    mp_carry_t b;
+    *borrow = mp_subborrow_u64(0, u, v, sub);
+    b = mp_subborrow_u64(0, *sub, w, sub);
     *borrow += b;
     return;
 }
 
 void spSub(uint64_t u, uint64_t v, uint64_t* sub, uint64_t* borrow)
 {
-    *borrow = _subborrow_u64(0, u, v, sub);
+    *borrow = mp_subborrow_u64(0, u, v, sub);
     return;
 }
 

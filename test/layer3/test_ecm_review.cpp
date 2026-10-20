@@ -6,6 +6,7 @@
 #include "ytools.h"
 #include "yafu_ecm.h"
 #include "tinyecm.h"
+#include "microecm.h"
 #ifdef USE_AVX512F
 #include "avx_ecm.h"
 #endif
@@ -258,13 +259,13 @@ static void dummy_work(void *arg)
 static void t_threadpool_bounds(tk_ctx *tk)
 {
     int i;
-    tpool_t *pool = tpool_setup(0, NULL, NULL, NULL, NULL, NULL);
+    tpool_t *pool = tpool_setup(0, nullptr, nullptr, nullptr, nullptr, nullptr);
     TK_REQUIRE(tk, pool != NULL, "tpool_setup returned NULL");
     TK_CHECK(tk, pool[0].num_threads == 1);
     for (i = 0; i < 17; i++)
-        tpool_add_work_fcn(pool, reinterpret_cast<void*>(dummy_work));
+        tpool_add_work_fcn(pool, dummy_work);
     TK_CHECK(tk, pool[0].num_work_fcn == 16);
-    free(pool);
+    tpool_free(pool);
 }
 
 static void t_ecm_level_bounds(tk_ctx *tk)
@@ -347,6 +348,31 @@ static void t_vec_shift52(tk_ctx *tk)
 }
 #endif
 
+/* uecm_submod / uecm_addmod：按定义核对 (a-b) mod n 与 (a+b) mod n。
+   可移植分支上这两个曾经把"差是不是非零"当成"有没有借位"，10 个用例里
+   错 5 个；统一约定之后这里逐个核对。 */
+static void t_uecm_modarith(tk_ctx *tk)
+{
+    /* 前提：0 <= a,b < n（模加减的入参本来就在 [0,n) 里）。 */
+    static const uint64_t cases[][3] = {
+        {5, 3, 7}, {3, 5, 7}, {0, 1, 7}, {1, 0, 7},
+        {0xFFFFFFFFFFFFFFC4ULL, 1, 0xFFFFFFFFFFFFFFC5ULL},
+        {0x8000000000000000ULL, 1, 0xFFFFFFFFFFFFFFFFULL},
+        {12345678901234567890ULL, 9876543210987654321ULL, 0xFFFFFFFFFFFFFFFFULL},
+        {0xFFFFFFFFFFFFFFFEULL, 0xFFFFFFFFFFFFFFFDULL, 0xFFFFFFFFFFFFFFFFULL},
+        {7, 7, 13}, {1, 12, 13},
+    };
+    size_t i;
+    for (i = 0; i < sizeof(cases) / sizeof(cases[0]); i++)
+    {
+        uint64_t a = cases[i][0], b = cases[i][1], n = cases[i][2];
+        uint64_t want_sub = (a >= b) ? (a - b) : (a + n - b);
+        uint64_t want_add = (a >= n - b) ? (a - (n - b)) : (a + b);
+        TK_EQ_U64(tk, uecm_submod_pub(a, b, n), want_sub);
+        TK_EQ_U64(tk, uecm_addmod_pub(a, b, n), want_add);
+    }
+}
+
 static const tk_test tests[] = {
     {"queue_stack", t_queue_stack, "fast ecm-queue"},
     {"full_line", t_full_line, "fast ecm-line"},
@@ -357,6 +383,7 @@ static const tk_test tests[] = {
     {"small_prime_range", t_small_prime_range, "fast ecm-small-range"},
     {"large_offset_range", t_large_offset_range, "fast ecm-large-offset"},
     {"threadpool_bounds", t_threadpool_bounds, "fast ecm-threadpool"},
+    {"uecm_modarith", t_uecm_modarith, "fast ecm-mod-arith"},
     {"ecm_level_bounds", t_ecm_level_bounds, "fast ecm-levels"},
     {"tinyecm_custom_bound", t_tinyecm_custom_bound, "fast ecm-custom-bound"},
 #ifdef USE_AVX512F

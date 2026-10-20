@@ -946,7 +946,11 @@ void prac_good(monty128_t *mdata, tinyecm_work *work, tinyecm_pt *P, uint64_t c,
 {
 	uint64_t d, e, r;
 	double cmin, cost, v;
-	int i;
+	/* i 只在下���的循环里被赋值，而那个循环在退化情况下一次都不会命中
+	   （lucas_cost 返回的正好是 ADD*c，等于初值 cmin，条件不成立），
+	   于是 i 会是栈上的垃圾值，val[i] 就越界读了。默认取 val[0] ——
+	   黄金比，注释里写的那个默认值。 */
+	int i = 0;
 	uint64_t *s1, *s2, *d1, *d2;
 	uint32_t *sw_x, *sw_z;
 	int shift = 0;
@@ -1976,7 +1980,10 @@ void ecm_stage2(tinyecm_pt* P, monty128_t* mdata, tinyecm_work* work )
 	tinyecm_pt Pd1;
 	tinyecm_pt* Pd = &Pd1;
 	const uint8_t* barray = 0;
-	int numb;
+	/* stg1_max 不在预置表里时 barray / numb 整个没初始化，后面的循环会拿
+	 * 栈上的垃圾值当上限，再拿 barray 越界读。给个确定的初值，循环自然
+	 * 不执行。 */
+	int numb = 0;
 	uint32_t stg1_max = work->stg1_max;
 
 #ifdef MICRO_ECM_VERBOSE_PRINTF
@@ -4095,7 +4102,10 @@ void ecm_stage2_x8(tecm_pt_x8* P, monty104_x8_t* mdata, tinyecm_work_x8* work)
 	ALIGNED_MEM tecm_pt_x8 Pd1;
 	tecm_pt_x8* Pd = &Pd1;
 	const uint8_t* barray = 0;
-	int numb;
+	/* stg1_max 不在预置表里时 barray / numb 整个没初始化，后面的循环会拿
+	 * 栈上的垃圾值当上限，再拿 barray 越界读。给个确定的初值，循环自然
+	 * 不执行。 */
+	int numb = 0;
 	uint32_t stg1_max = work->stg1_max;
 	vec_u104_t* N = &mdata->n;
 	vec_u104_t* rho = &mdata->rho;
