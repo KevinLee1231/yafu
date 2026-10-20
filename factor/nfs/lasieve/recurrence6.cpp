@@ -914,7 +914,11 @@ done:
                     t = _mm512_mask_mov_epi64(t, m, zero);
 
                     for (;;) {
-                        __m512i k;
+                        /* k 是下面 merge 指令的 src：非 mask 位置会保留
+                           它的原值。它原来从未初始化过 —— 读未初始化的
+                           __m512i 是未定义行为。实际结果不受影响（那些位置
+                           最终不会被用到），但这里必须给个确定值。 */
+                        __m512i k = _mm512_setzero_si512();
                         __mmask8 bA = _mm512_cmplt_epu64_mask(b, vA);
 
                         //if (b < A) {
@@ -1161,7 +1165,8 @@ done:
                 t = _mm512_mask_mov_epi32(t, m, zero);
 
                 for (;;) {
-                    __m512i k;
+                    /* 同上：k 是 merge 的 src，原来未初始化。 */
+                    __m512i k = _mm512_setzero_si512();
                     __mmask16 bA = _mm512_cmplt_epu32_mask(b, vA);
 
                     //if (b < A) {
