@@ -288,7 +288,8 @@ static void build_factor_base(mp_t *n,
 	mp_mul_1(n, *out_multiplier, n);
 
 	fb_array = (fb_t *)xmalloc(fb_size * sizeof(fb_t));
-	modsqrt_array = (uint32 *)xmalloc(fb_size * sizeof(uint32));
+	/* xcalloc：nmodp == 0 的素数不会走到下面的赋值，那一格必须先是 0 */
+	modsqrt_array = (uint32 *)xcalloc(fb_size, sizeof(uint32));
 	fbptr = fb_array + MIN_FB_OFFSET;
 	fbptr->prime = 2;
 	fbptr++;
@@ -311,11 +312,14 @@ static void build_factor_base(mp_t *n,
 			fbptr->logprime = (uint8)(log((double)prime) / 
 							M_LN2 + .5);
 
-			/* find x such that x^2 mod prime = n mod prime */
-
-			if (nmodp != 0) {
-				modsqrt_array[j] = mp_modsqrt_1(nmodp, prime);
-			}
+			/* find x such that x^2 mod prime = n mod prime
+			 *
+			 * prime | n 时模平方根是 0（两个根重合），
+			 * 这时也要把 0 写进去，不能留着未初始化的内存：
+			 * 筛法会拿这个值去算两个根，垃圾值会造出
+			 * 不整除的"关系"，把后面的真关系一起拖掉。 */
+			modsqrt_array[j] = (nmodp == 0) ? 0 :
+					mp_modsqrt_1(nmodp, prime);
 			fbptr++;
 			j++;
 		}

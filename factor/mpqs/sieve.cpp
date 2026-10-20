@@ -400,6 +400,15 @@ if (sieve_block_size == 32768) {
 	   derived from it */
 
 	if (poly_init(&conf, num_sieve_blocks * sieve_block_size / 2) != 0) {
+		/* 走到这里 packed_fb 和 buckets 已经分配了，得一起放掉 */
+		if (conf.buckets != NULL) {
+			if (fb_size > conf.sieve_large_fb_start) {
+				for (i = 0; i < conf.poly_block * num_sieve_blocks; i++)
+					free(conf.buckets[i].list);
+			}
+			free(conf.buckets);
+		}
+		free(conf.packed_fb);
 		aligned_free(conf.sieve_array);
 		return -1;
 	}

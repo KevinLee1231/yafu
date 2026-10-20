@@ -415,6 +415,28 @@ static void read_poly_a(sieve_conf_t *conf,
 }
 
 /*--------------------------------------------------------------------*/
+/* 只读调用方查表用这个。查不到就返回 NULL，绝不写 table/hashtable。
+ *
+ * get_table_entry 的 new_entry_offset == 0 曾经被只读调用方当作"查不到"
+ * 的哨兵，但它照样执行了 miss 分支：把 table[0]（cycle_table_size = 1
+ * 预留的哨兵槽）当成新顶点覆盖，并且 hashtable[first_offset] = 0 让整条
+ * 桶链从查找结构里消失。SIQS 那边（factor/siqs/filter.cpp）已经换成了
+ * lookup_table_entry，这里照着改。 */
+static cycle_t *lookup_table_entry(cycle_t *table, uint32 *hashtable,
+				uint32 prime) {
+	uint32 offset = hashtable[HASH(prime)];
+
+	while (offset != 0) {
+		cycle_t *entry = table + offset;
+		if (entry->prime == prime)
+			return entry;
+		offset = entry->next;
+	}
+
+	return NULL;
+}
+
+/*--------------------------------------------------------------------*/
 static cycle_t *get_table_entry(cycle_t *table, uint32 *hashtable,
 				uint32 prime, uint32 new_entry_offset) {
 
@@ -661,8 +683,16 @@ static uint32 purge_singletons(msieve_obj *obj, relation_t *list,
 
 			for (k = 0; k < 2; k++) {
 				prime = r->large_prime[k];
-				entry = get_table_entry(table, hashtable,
-							prime, 0);
+				entry = lookup_table_entry(table, hashtable,
+							prime);
+
+				/* 图里没有这个素数，就没法判断这条关系是不是
+				   单例。保守起见把它留下，不去动图。 */
+
+				if (entry == NULL) {
+					k = 2;
+					break;
+				}
 
 				/* if the relation is due to be removed,
 				   decrement the count of its other
@@ -671,9 +701,13 @@ static uint32 purge_singletons(msieve_obj *obj, relation_t *list,
 
 				if (entry->count < 2) {
 					prime = r->large_prime[k ^ 1];
-					entry = get_table_entry(table, 
+					entry = lookup_table_entry(table, 
 								hashtable, 
-								prime, 0);
+								prime);
+					if (entry == NULL) {
+						k = 2;
+						break;
+					}
 					entry->count--;
 					break;
 				}
@@ -1131,10 +1165,15 @@ void qs_filter_relations(sieve_conf_t *conf) {
 			/* retrieve the cycle_t entries associated
 			   with the large primes in relation r. */
 
-			entry1 = get_table_entry(table, hashtable, 
-						rtmp.large_prime[0], 0);
-			entry2 = get_table_entry(table, hashtable, 
-						rtmp.large_prime[1], 0);
+			entry1 = lookup_table_entry(table, hashtable, 
+						rtmp.large_prime[0]);
+			entry2 = lookup_table_entry(table, hashtable, 
+						rtmp.large_prime[1]);
+
+			/* 素数不在图里，这条关系没法处理，留在原处 */
+
+			if (entry1 == NULL || entry2 == NULL)
+				continue;
 
 			/* if both vertices do not point to other
 			   vertices, then neither prime has been added

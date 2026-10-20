@@ -325,9 +325,21 @@ void filter_purge_lp_singletons(msieve_obj *obj,
 		uint32 *ideal_list = tmp.ideal_list;
 
 		relation_num[i] = i;
-		fread(&tmp, sizeof(uint32), header_words, in_fp);
-		fread(ideal_list, sizeof(uint32), 
-			(size_t)tmp.ideal_count, in_fp);
+		if (fread(&tmp, sizeof(uint32), header_words, in_fp) != header_words) {
+			logprintf(obj, "error: .lp file truncated\n");
+			exit(-1);
+		}
+		/* ideal_count 是文件里的一个字节，短读时它会留着上一轮的值，
+		   拿它当长度会写穿 ideal_list。先夹到缓冲区大小以内。 */
+			if (tmp.ideal_count > TEMP_FACTOR_LIST_SIZE) {
+				logprintf(obj, "error: .lp file has bad ideal count\n");
+				exit(-1);
+			}
+		if (fread(ideal_list, sizeof(uint32), 
+			(size_t)tmp.ideal_count, in_fp) != (size_t)tmp.ideal_count) {
+			logprintf(obj, "error: .lp file truncated\n");
+			exit(-1);
+		}
 
 		for (j = 0; j < tmp.ideal_count; j++)
 			counts[ideal_list[j]]++;
@@ -347,9 +359,19 @@ void filter_purge_lp_singletons(msieve_obj *obj,
 
 			uint32 *ideal_list = tmp.ideal_list;
 
-			fread(&tmp, sizeof(uint32), header_words, in_fp);
-			fread(ideal_list, sizeof(uint32), 
-					(size_t)tmp.ideal_count, in_fp);
+			if (fread(&tmp, sizeof(uint32), header_words, in_fp) != header_words) {
+				logprintf(obj, "error: .lp file truncated\n");
+				exit(-1);
+			}
+			if (tmp.ideal_count > TEMP_FACTOR_LIST_SIZE) {
+				logprintf(obj, "error: .lp file has bad ideal count\n");
+				exit(-1);
+			}
+			if (fread(ideal_list, sizeof(uint32), 
+					(size_t)tmp.ideal_count, in_fp) != (size_t)tmp.ideal_count) {
+				logprintf(obj, "error: .lp file truncated\n");
+				exit(-1);
+			}
 
 			if (i == relation_num[k]) {
 				for (m = 0; m < tmp.ideal_count; m++) {
@@ -398,9 +420,19 @@ void filter_purge_lp_singletons(msieve_obj *obj,
 
 		uint32 *ideal_list = tmp.ideal_list;
 
-		fread(&tmp, sizeof(uint32), header_words, in_fp);
-		fread(ideal_list, sizeof(uint32), 
-				(size_t)tmp.ideal_count, in_fp);
+		if (fread(&tmp, sizeof(uint32), header_words, in_fp) != header_words) {
+			logprintf(obj, "error: .lp file truncated\n");
+			exit(-1);
+		}
+			if (tmp.ideal_count > TEMP_FACTOR_LIST_SIZE) {
+				logprintf(obj, "error: .lp file has bad ideal count\n");
+				exit(-1);
+			}
+		if (fread(ideal_list, sizeof(uint32), 
+				(size_t)tmp.ideal_count, in_fp) != (size_t)tmp.ideal_count) {
+			logprintf(obj, "error: .lp file truncated\n");
+			exit(-1);
+		}
 
 		if (i == relation_num[j]) {
 			for (k = 0; k < tmp.ideal_count; k++)

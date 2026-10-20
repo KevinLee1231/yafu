@@ -176,6 +176,10 @@ static std::expected<void, std::string> build_matrix(uint32 ncols, la_col_t *col
 		for (j = 0; j < col->cycle.num_relations; j++) {
 			relation_t *r = relation_list + col->cycle.list[j];
 			if (UINT32_MAX - max_weight < r->num_factors) {
+				/* 前 i 列的 col->data 已经分配了，出错返回前
+				   得把它们放掉 */
+				for (j = 0; j < i; j++)
+					free(cols[j].data);
 				return std::unexpected(std::string("matrix column is too large"));
 			}
 			max_weight += r->num_factors;

@@ -425,8 +425,11 @@ static void file_cache_get_next(msieve_obj *obj, FILE *fp,
 
 	num = f->cache[f->read_ptr];
 
-	/* 这一列自称的条目数必须真的在缓存里。 */
-	if (num > MAX_COL_IDEALS ||
+	/* 这一列自称的条目数必须真的在缓存里，而且加上稠密行的字宽之后
+	 * 还得放得进目标缓冲区 tmp_col[MAX_COL_IDEALS]。原始 msieve 这里写的是
+	 * `num + dense_row_words > MAX_COL_IDEALS`，改写时只剩下了下面那半句，
+	 * 于是 num 取到 MAX_COL_IDEALS 时，拷贝长度会超出目标缓冲区。 */
+	if ((uint64)num + dense_row_words > MAX_COL_IDEALS ||
 	    (uint64)num + dense_row_words + 1 > f->num_valid - f->read_ptr) {
 		logprintf(obj, "error: matrix file truncated; "
 				"column claims %u entries\n", num);
