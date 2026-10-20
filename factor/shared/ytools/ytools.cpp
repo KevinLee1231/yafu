@@ -23,6 +23,7 @@ SOFTWARE.
 ----------------------------------------------------------------------*/
 
 #include "ytools.h"
+#include "yafu_contracts.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1874,4 +1875,20 @@ void CombinationRepetition(int arr[], int n, int r)
     free(chosen);
 }
 
-
+#if defined(__cpp_contracts)
+/* C++26 契约违约时的处理函数。
+ *
+ * 标准要求程序自己提供它（实现可以不提供默认版本）。这里把违约的条件原文和
+ * 源码位置打出来再终止 —— 契约的价值就在这：以前这类错误是静悄悄的越界或
+ * 算错，现在是一句能定位到行的报错。
+ */
+void handle_contract_violation(const std::contracts::contract_violation& v)
+{
+    const std::source_location loc = v.location();
+    fprintf(stderr, "contract violation: %s at %s:%d:%d\n",
+        v.comment() ? v.comment() : "(no comment)",
+        loc.file_name(), (int)loc.line(), (int)loc.column());
+    fflush(stderr);
+    abort();
+}
+#endif

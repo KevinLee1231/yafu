@@ -13,6 +13,7 @@ $Id: lanczos.c 1051 2024-05-07 14:42:24Z vegamink $
 --------------------------------------------------------------------*/
 
 #include "ms_lanczos.h"
+#include "yafu_contracts.h"
 
 #define DEFAULT_DUMP_INTERVAL 2000
 
@@ -80,7 +81,10 @@ BIT3(56), BIT3(57), BIT3(58), BIT3(59), BIT3(60), BIT3(61), BIT3(62), BIT3(63),
  * 原来这里用 mp_rshift，而 mp_t 的 val 固定 MAX_MP_WORDS(32) 个字，
  * 移位同样受这个上界限制。改成直接操作动态数组。
  * 返回移动之后的有效长度。 */
+/* 位移量不能超过总字数：否则返回值 sz_a - wordshift 会下溢成巨大的
+   无符号数，调用方拿它当个数用。 */
 static uint32 shift_right_words(uint32 *a, uint32 sz_a, uint32 x)
+    pre((x / 32) <= sz_a)
 {
 	uint32 wordshift = x / 32;
 	uint32 bitshift = x % 32;

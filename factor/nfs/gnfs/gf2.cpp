@@ -13,6 +13,7 @@ $Id: gf2.c 1025 2018-08-19 02:20:28Z jasonp_sf $
 --------------------------------------------------------------------*/
 
 #include <ms_common.h>
+#include "yafu_contracts.h"
 #include "gnfs.h"
 
 /* the number of quadratic characters for each
@@ -374,11 +375,14 @@ static uint32 combine_relations(la_col_t *col, relation_t *rlist,
 /*------------------------------------------------------------------*/
 #define MAX_DENSE_ROW_WORDS 32
 
+/* 稠密行的字宽不能超过 MAX_DENSE_ROW_WORDS，否则 dense_rows[] 越界写。
+   num_dense_rows 在 1009..1024 时正好落在这个缺口里（32 字 = 1024 行）。 */
 static void build_matrix_core(msieve_obj *obj, la_col_t *cycle_list, 
 			uint32 num_cycles, relation_t *rlist, 
 			uint32 num_relations, uint32 num_dense_rows, 
 			ideal_t *small_ideals, uint32 num_small_ideals, 
-			uint32 qcb_size, FILE *matrix_fp) {
+			uint32 qcb_size, FILE *matrix_fp)
+    pre(((num_dense_rows + 31) / 32) <= MAX_DENSE_ROW_WORDS) {
 
 	uint32 i, j, k;
 	hashtable_t unique_ideals;

@@ -19,6 +19,7 @@ code to the public domain.
 ----------------------------------------------------------------------*/
 
 #include "qs_impl.h"
+#include "yafu_contracts.h"
 #include "soe.h"
 #include "ytools.h"
 #include "gmp_xface.h"
@@ -577,8 +578,15 @@ void get_params(static_conf_t *sconf)
 
 	if (fb->B == 0)
 	{
-		//off the end of the table, extrapolate based on the slope of 
+		//off the end of the table, extrapolate based on the slope of
 		//the last two
+
+		/* 外推要用表里最后两行的真实数据。表尾那行如果是零初始化的，
+		   斜率就变成 (0-496628)/(0-410) = 1211 每位（正确是 8277），
+		   因子基小六到七倍，large_mult 还会被设成 0。表有问题就当场
+		   报错，别拿一个错的因子基去筛。 */
+		contract_assert(param_table[last][0] > 0);
+		contract_assert(param_table[last - 1][0] > 0);
 
 		scale = (double)(param_table[last][1] - param_table[last-1][1]) /
 			(double)(param_table[last][0] - param_table[last-1][0]);
