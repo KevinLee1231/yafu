@@ -192,6 +192,8 @@ int poly_init(sieve_conf_t *conf, uint32 sieve_size) {
 			default: 
 				conf->factor_bits[3]--;
 				conf->factor_bits[2]--;
+				/* 有意贯穿到 case 9 */
+				[[fallthrough]];
 			case 9:  
 				conf->factor_bits[1]--;
 			}
@@ -202,6 +204,8 @@ int poly_init(sieve_conf_t *conf, uint32 sieve_size) {
 			default: 
 				conf->factor_bits[num_factors-4]--;
 				conf->factor_bits[num_factors-3]--;
+				/* 有意贯穿到 case 9 */
+				[[fallthrough]];
 			case 9:
 				conf->factor_bits[num_factors-2]--;
 			}

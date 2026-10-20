@@ -16,7 +16,9 @@ $Id: util.h 1005 2016-11-11 15:43:21Z jasonp_sf $
 #define _MS_UTIL_H_
 
 /* system-specific stuff ---------------------------------------*/
+#ifndef _POSIX_C_SOURCE
 #define _POSIX_C_SOURCE 200112L
+#endif
 	#include <fcntl.h>
 	#include <unistd.h>
 	#include <errno.h>
@@ -70,9 +72,17 @@ double msieve_difftime(struct timeval* start, struct timeval* end);
 #define MIN(a,b) ((a) < (b)? (a) : (b))
 #define MAX(a,b) ((a) > (b)? (a) : (b))
 
+/* INLINE 用在头文件里的 static 函数定义上（C++ 里 static inline 与
+   static 等价），取 inline 即可。原来这里被无条件定义了两次 —— 后一条
+   空定义总是赢，第一条是死代码，条件在改写时丢了。外面再套一层
+   #ifndef，是为了不和 ytools.h 那份重复定义撞车。 */
+#ifndef INLINE
+#if defined(__GNUC__) || defined(__clang__) || defined(_MSC_VER)
 	#define INLINE inline
-
+#else
 	#define INLINE /* nothing */
+#endif
+#endif
 
 #if defined(__GNUC__) && __GNUC__ >= 3
 	#define PREFETCH(addr) __builtin_prefetch(addr) 

@@ -42,9 +42,13 @@ SOFTWARE.
 // useful definitions
 // ============================================================================
 
+#ifndef INLINE
 #define INLINE __inline
+#endif
 
+#ifndef PREFETCH
 #define PREFETCH(addr) __builtin_prefetch(addr)
+#endif
 
 #define MIN(a,b) ((a) < (b)? (a) : (b))
 #define MAX(a,b) ((a) > (b)? (a) : (b))
