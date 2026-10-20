@@ -538,16 +538,88 @@ p（`mpqs3_Adiv[i]`）互不相同，而"一次求逆推出多个"的批量法�
 `d->stage2_workers[threadid].sizeopt_data`，靠把数组撑到不小于线程数来
 保证下标不越界。正文也一并改了。
 
-### 剩下的 TODO 标记
+### NFS 的平方根分解：没有合数剩余时才停
 
-代码里还剩三处：
+`factor/nfs/gnfs/sqrt/sqrt.cpp` 的 `nfs_find_factors()` 在找到一个因子之后，
+判据是"剩下的合数不到 85 位（`SMALL_COMPOSITE_CUTOFF_BITS`）就停"。
 
-- `factor/ecm/avxecm.cpp`：stage 2 分段筛素数时，每段都把 2L 个 Pa 重算
-  一遍并重新批量求一次逆。
-- `factor/nfs/nfs.cpp`：输入有三个以上因子时，只分解出第一个，剩下的作为
-  合数因子报出。
-- `factor/nfs/lasieve/kernels/include/mpqs-config.h`：mpqs3 的参数表要靠
-  基准测试来调。
+85 位以内完全可能是两个 42 位素数的乘积 —— 那种余数交给 yafu 的 rho 要
+2^21 次迭代才拆得开，而 NFS 用后面的依赖只要几秒。原来那句注释自己也写了
+"其实应该停得更早（70-80 位）"，但为了不让 MPQS 跑掉已收集的 NFS 关系
+才保持在 85 位。
+
+现在判据改成"因子表里没有合数了"（`composite_bits == 0`）才停 —— 也就是
+整个输入被完全分解为止。两因子的情况完全不受影响：找到唯一那个因子之后
+剩下的都是素数，`composite_bits` 本来就是 0，行为一字未变。
+
+依赖用完时循环自然结束，剩下的合数仍然由 yafu 的 rho 接手，不会分解不掉。
+
+实测下来，yafu 的实际使用里 NFS 的这一段很少被走到 —— 三个素因子的输入
+（75 / 104 / 134 / 164 位各造了一个）分别被 rho、SIQS、SIQS+ECM 在
+0.03~0.2 秒内就分解完了，根本没进到 NFS。NFS 的多因子场景要等到因子
+大到 rho 与 ECM 都啃不动、而总位数又还没大到 SIQS 划算的那个窗口。
+
+### stage 2 配对那处的"接着上一段继续"为什么没有可实现的形态
+
+`factor/ecm/avxecm.cpp` 里那条"让素数区间与配对生成器对上，新的一段能接着
+上一段继续"的标注，按现在的划分是没有可实现的形态的，原因在两边的粒度：
+
+* 段是按素数个数切的，一次 `PRIME_RANGE = 1e8` 个素数
+  （`avx_ecm_main.cpp:594`）。B2 通常是 1e4~1e5 量级，所以段循环
+  （`avxecm.cpp:2332` 的 `for`）通常只跑一轮 —— 根本没有"新的一段"。
+* 就算 B2 大到有好多段，一段覆盖的 a 跨度是 `(B2-B1)/(2*w)`，而 Pa 表
+  覆盖的 a 跨度只有 `2*L = 4*U`（U 的候选是 1..16，
+  `avx_ecm_main.cpp:1145`）。两者差好几个数量级，新的一段的 Pa 与上一段
+  没有交集。
+
+要让"新的一段接着上一段继续"成立，段的划分就得改成按 a 范围、且每段的
+跨度小于 `2*L`。那样段数会多出好几个数量级，而每段都要重跑一次 `pair()`
+（Q 队列的进出），净收益要实测才知道。注释改成了上面这段话，把数字都摆
+出来。
+
+### mpqs3 的参数表：各列的含义与影响范围
+
+`factor/nfs/lasieve/kernels/include/mpqs-config.h` 的 `mpqs3_param[15][7]`，
+原先只有一句"optimize parameters"。现在写清：
+
+* 15 行按分解复杂度分档（`mpqs3_choose_parameter()` 把 complexity 夹到
+  `[91,148]` 再按 4 一档映射到行号，`mpqs3.cpp:739-747`）。
+* 7 列依次是：因子基素数上限、筛法起始下标、每个多项式用的 A 因子个数、
+  A 因子总池大小、筛选的对数界、试除起始下标、筛长度（读入处
+  `mpqs3.cpp:754-765`）。
+* 这张表只被 mpqs3 自己读。lasieve 主流程里大于 96 位的余因子走的是旧的
+  `mpqs_factor` —— `mpqs3_factor()` 那一句被 `#if 0` 关着
+  （`factor/nfs/lasieve/gnfs-lasieve4e.cpp:6505-6511`），所以这里的取值
+  目前只影响 `mpqs3test` / `mpqs3stat` 这两个独立目标。要调参得先决定
+  mpqs3 是否启用；启用之后用这两个目标测。
+
+### 剩下的 TODO 标记：清零
+
+上一轮结束时，代码里还剩 12 处 TODO / FIXME / XXX 标记。这一轮逐处处理
+完，代码里一处不剩；`factor/nfs/gnfs/poly/` 下三份计划文档里的 23 条
+"open items" 也逐条对着代码核过，每条落了状态。
+
+12 处的去处：
+
+- `factor/shared/aprcl/mpz_aprcl.cpp` 与 `mpz_aprcl32.cpp`（各一处）：
+  `JacobiSum` 查表失败时静默算出错误的答案，现在报出缺的是哪一项并停下。
+- `factor/shared/aprcl/tinyprp.cpp`：Lucas 自测的下标与 mpz 版对齐；
+  只支持 p == 1 却接受任意 p 的那个函数全树没有调用点，连定义一起删掉。
+- `factor/shared/cub/cub/util_debug.cuh`：不是待办，是 clang 当 CUDA
+  主机编译器时用的变参转发，措辞改成说明。
+- `factor/ecm/avxecm.cpp`（两处）：Suyama 的 d == -1/8 那条随死函数一起
+  消失；stage 2 配对接续那条按现在的段划分没有可实现的形态，把数字与
+  原因写进了注释。
+- `factor/nfs/nfs.cpp`（两处）：CADO 的输出重定向不再走 shell 语法；
+  多因子的输入改成"没有合数剩余时才停"（见
+  `factor/nfs/gnfs/sqrt/sqrt.cpp`）。
+- `factor/nfs/nfs_sieving.cpp`：续算时用的块大小落进 `.job` 文件。
+- `factor/nfs/lasieve/mpqs3.cpp`：平方根的逆元在生成因子基时一次算好；
+  "批量模逆"那条不成立（各项的模数互不相同），注释改准确。
+- `factor/nfs/lasieve/kernels/include/mpqs-config.h`：把 15 行的分档
+  规则、7 列的含义与影响范围写进表头注释。
+- `factor/siqs/filter.cpp`：最后一个 B 值从未被赋值（真 bug），以及 B 值
+  改成按需生成。
 
 
 ### 线程池：回调表换成 C++26 的 std::inplace_vector，并禁止拷贝
