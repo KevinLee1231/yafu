@@ -862,10 +862,10 @@ void nfs_sieve_start(void* vptr)
 		// todo: need to free this at the end of sieving.
 		job->rb = (relation_batch_t*)xmalloc(sizeof(relation_batch_t));
 
-		logprint_oc(fobj->flogname, "a", "initializing relation batch from %u to %"PRIu64"\n", 2, 1ULL << max_prime);
+		logprint_oc(fobj->flogname, "a", "initializing relation batch from %u to %" PRIu64"\n", 2, 1ULL << max_prime);
 
 		char fname[80];
-		snprintf(fname, sizeof(fname), "bgcd_lpb%"PRIu64, max_prime);
+		snprintf(fname, sizeof(fname), "bgcd_lpb%" PRIu64, max_prime);
 		FILE* fid = fopen(fname, "rb");
 		int compute_pproduct = 1;
 
@@ -884,11 +884,11 @@ void nfs_sieve_start(void* vptr)
 
 			if (fobj->VFLAG >= 0)
 			{
-				printf("nfs: loaded prime product from file %s: product has %"PRIu64" bits\n",
+				printf("nfs: loaded prime product from file %s: product has %" PRIu64" bits\n",
 					fname, (uint64_t)mpz_sizeinbase(job->rb->prime_product, 2));
 			}
 
-			logprint_oc(fobj->flogname, "a", "initializing relation batch from %u to %"PRIu64"\n", 
+			logprint_oc(fobj->flogname, "a", "initializing relation batch from %u to %" PRIu64"\n", 
 				2, 1ULL << max_prime);
 
 			fclose(fid);
@@ -2109,7 +2109,7 @@ uint32_t process_batch(nfs_threaddata_t* thread_data, mpz_ptr prime_prod, char *
 
 		//a = strtoll(thistok, &nexttok, 10);
 		//b = strtoul(nexttok + 1, &nexttok, 10);
-		if (sscanf(thistok, "%"PRId64",%u%n", &a, &b, &consumed) != 2 ||
+		if (sscanf(thistok, "%" PRId64",%u%n", &a, &b, &consumed) != 2 ||
 			thistok[consumed] != '\0')
 		{
 			printf("could not read relation %u, invalid a/b pair in file %s\n",
@@ -2245,11 +2245,11 @@ uint32_t process_batch(nfs_threaddata_t* thread_data, mpz_ptr prime_prod, char *
 
 				uint32_t* f = rb->factors + rb->relations[i].factor_list_word;
 
-				fprintf(fout, "%"PRId64",%u:", rb->relations[i].a, rb->relations[i].b);
+				fprintf(fout, "%" PRId64",%u:", rb->relations[i].a, rb->relations[i].b);
 				for (j = 0; j < 3; j++)
 				{
 					if (rb->relations[i].lp_r[j] > 1)
-						fprintf(fout, "%"PRIx64",", rb->relations[i].lp_r[j]);
+						fprintf(fout, "%" PRIx64",", rb->relations[i].lp_r[j]);
 				}
 				for (k = 0; k < rb->relations[i].num_factors_r - 1; k++)
 				{
@@ -2259,7 +2259,7 @@ uint32_t process_batch(nfs_threaddata_t* thread_data, mpz_ptr prime_prod, char *
 				for (j = 0; j < 3; j++)
 				{
 					if (rb->relations[i].lp_a[j] > 1)
-						fprintf(fout, "%"PRIx64",", rb->relations[i].lp_a[j]);
+						fprintf(fout, "%" PRIx64",", rb->relations[i].lp_a[j]);
 				}
 
 				f = rb->factors + rb->relations[i].factor_list_word + rb->relations[i].num_factors_r;
@@ -2552,7 +2552,7 @@ void do_sieving_nfs(fact_obj_t *fobj, nfs_job_t *job)
 		// todo: need to free this at the end of sieving.
 		job->rb = (relation_batch_t*)xmalloc(sizeof(relation_batch_t));
 
-		logprint_oc(fobj->flogname, "a", "initializing relation batch from %u to %"PRIu64"\n", 2, 1ULL << max_prime);
+		logprint_oc(fobj->flogname, "a", "initializing relation batch from %u to %" PRIu64"\n", 2, 1ULL << max_prime);
 
 		relation_batch_init(stdout, job->rb, min_prime, 1ULL << max_prime,
 			1ull << job->lpbr, 1ull << job->lpba, NULL, 1);

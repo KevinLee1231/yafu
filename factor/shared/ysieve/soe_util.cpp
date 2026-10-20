@@ -96,7 +96,7 @@ uint64_t mpz_estimate_primes_in_range(mpz_t lowlimit, mpz_t highlimit)
     // now we just use a big fudge factor to the estimate.
     est = (isfinite(hi_est) && isfinite(lo_est) && (hi_est > lo_est)) ?
 		(uint64_t)((hi_est - lo_est) * 4) : 0;
-    //printf("estimate = %"PRIu64"\n", est);
+    //printf("estimate = %" PRIu64"\n", est);
 
     if (est == 0)
     {
@@ -105,7 +105,7 @@ uint64_t mpz_estimate_primes_in_range(mpz_t lowlimit, mpz_t highlimit)
         mpz_sub(d, highlimit, lowlimit);
         est = MAX(gmp2uint64(d) / 2, 1);
         mpz_clear(d);
-        //printf("fallback estimate = %"PRIu64"\n", est);
+        //printf("fallback estimate = %" PRIu64"\n", est);
     }
     return est;
 }
@@ -637,7 +637,7 @@ int check_input(uint64_t highlimit, uint64_t lowlimit, uint32_t num_sp, uint32_t
 
         if (sdata->VFLAG > 2)
         {
-            printf("checking if provided primes > sqrt(%"PRIu64") = %"PRIu64"\n",
+            printf("checking if provided primes > sqrt(%" PRIu64") = %" PRIu64"\n",
                 highlimit, sdata->pbound);
         }
 
@@ -700,7 +700,7 @@ int check_input(uint64_t highlimit, uint64_t lowlimit, uint32_t num_sp, uint32_t
 
         //if (sdata->VFLAG > 2)
         //{
-        //    printf("after vector padding, prime bound is now %"PRIu64" and maxp is %u\n",
+        //    printf("after vector padding, prime bound is now %" PRIu64" and maxp is %u\n",
         //        sdata->pboundi, sieve_p[sdata->pboundi - 1]);
         //}
 
@@ -741,7 +741,7 @@ int check_input(uint64_t highlimit, uint64_t lowlimit, uint32_t num_sp, uint32_t
 
         if (sdata->VFLAG > 2)
         {
-            printf("after vector padding, prime bound is now %"PRIu64" and maxp is %u\n",
+            printf("after vector padding, prime bound is now %" PRIu64" and maxp is %u\n",
                 sdata->pboundi, sieve_p[sdata->pboundi - 1]);
         }
 #endif
@@ -1473,7 +1473,7 @@ void trim_line(soe_staticdata_t *sdata, int current_line)
     //for (i = 0; i < (numlinebytes >> 5); i+=2)
     uint64_t numchunks = (sdata->orig_hlimit - lowlimit) / (512 * prodN) + 1;
 
-    //printf("Warren's algorithm processing through flag %"PRIu64", integer %"PRIu64"\n",
+    //printf("Warren's algorithm processing through flag %" PRIu64", integer %" PRIu64"\n",
     //	numchunks * 512, numchunks * 512 * prodN + sdata->rclass[current_line]);
 
     // zero out full bytes between the last chunk and the original
@@ -1481,7 +1481,7 @@ void trim_line(soe_staticdata_t *sdata, int current_line)
     uint64_t num = lowlimit + numchunks * 512 * prodN + sdata->rclass[current_line] - 8 * prodN;
     uint32_t i = numchunks * 512 / 8 - 1;
 
-    //printf("zeroing flag bytes from %"PRIu64" (index %"PRIu64")", num + 8 * prodN, i + 1);
+    //printf("zeroing flag bytes from %" PRIu64" (index %" PRIu64")", num + 8 * prodN, i + 1);
     while (num > sdata->orig_hlimit)
     {
         flagblock[i] = 0;
@@ -1490,13 +1490,13 @@ void trim_line(soe_staticdata_t *sdata, int current_line)
     }
     i++;
     num += 8 * prodN;
-    //printf("to %"PRIu64" (index %"PRIu64")\n", num, i);
+    //printf("to %" PRIu64" (index %" PRIu64")\n", num, i);
 
     // zero out individual bits between the last chunk and the original
     // range limit.
     i *= 8;
 
-    //printf("zeroing flag bits from %"PRIu64" (index %"PRIu64")", num, i);
+    //printf("zeroing flag bits from %" PRIu64" (index %" PRIu64")", num, i);
 
     while (num > sdata->orig_hlimit)
     {
@@ -1505,7 +1505,7 @@ void trim_line(soe_staticdata_t *sdata, int current_line)
         i--;
     }
 
-    //printf("to %"PRIu64" (index %"PRIu64")\n", num, i);
+    //printf("to %" PRIu64" (index %" PRIu64")\n", num, i);
 
     int done = 0;
     int ix, kx;

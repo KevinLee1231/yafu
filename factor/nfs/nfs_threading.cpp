@@ -140,7 +140,13 @@ void *nfs_worker_thread_main(void *thread_data) {
 			// this tells the master that my results should be collected
 			// and I should be dispatched another polynomial
 			pthread_mutex_lock(t->queue_lock);
-			t->thread_queue[(*(t->threads_waiting))++] = t->tindex;
+			/* threads_waiting 是 volatile 计数器。C++20 起对 volatile 做 ++/-- 被
+			 * 废弃，C++26 直接删除；用读-改-写代替，语义一样。 */
+			{
+				int slot = *(t->threads_waiting);
+				*(t->threads_waiting) = slot + 1;
+				t->thread_queue[slot] = t->tindex;
+			}
 			pthread_cond_signal(t->queue_cond);
 			pthread_mutex_unlock(t->queue_lock);
 		}

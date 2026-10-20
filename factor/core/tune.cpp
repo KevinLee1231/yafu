@@ -343,7 +343,6 @@ void factor_tune(fact_obj_t *inobj)
 
 	goto done;
 
-tune_ecm:
 
 	{
 		// for each of the ecm inputs

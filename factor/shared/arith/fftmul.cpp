@@ -128,7 +128,7 @@ double* fastparse_balanced(mpz_t a, int b, int fftlen)
 		int y = j & 63;
 		int64_t q = (n[x] >> y) & mask;
 
-		//printf("in loop: j,x,y,s = %d,%d,%d,%d, q = %"PRIx64"\n", j, x, y, s, q);
+		//printf("in loop: j,x,y,s = %d,%d,%d,%d, q = %" PRIx64"\n", j, x, y, s, q);
 
 		if ((y + b) > 64)
 			q += n[x + 1] << (64 - y);
@@ -168,7 +168,7 @@ double* fastparse_balanced(mpz_t a, int b, int fftlen)
 
 	int64_t q = ((n[x] >> y) + carry) & mask;
 
-	//printf("q = %"PRIx64"\n", q);
+	//printf("q = %" PRIx64"\n", q);
 
 	if ((q == 0) && carry)
 	{

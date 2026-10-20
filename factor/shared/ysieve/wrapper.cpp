@@ -487,7 +487,7 @@ uint64_t *soe_wrapper(soe_staticdata_t* sdata, uint64_t lowlimit, uint64_t highl
 						}
 						else
 						{
-							printf("out of bounds prime %"PRIu64" found in list\n", primes[i]);
+							printf("out of bounds prime %" PRIu64" found in list\n", primes[i]);
 						}
 					}
 				}
@@ -527,7 +527,7 @@ uint64_t *sieve_to_depth(soe_staticdata_t* sdata,
 	mpz_t tmpz;
 	mpz_t offset;
 
-	printf("sizeof(long int) = %"PRIu64", sizeof(long) = %"PRIu64"\n",
+	printf("sizeof(long int) = %" PRIu64", sizeof(long) = %" PRIu64"\n",
 		sizeof(long int), sizeof(long));
 
 	if ((mpz_sgn(lowlimit) < 0) || (mpz_cmp(highlimit, lowlimit) <= 0))
@@ -557,12 +557,12 @@ uint64_t *sieve_to_depth(soe_staticdata_t* sdata,
 		if (sdata->analysis == 1)
 		{
 			gmp_printf("commencing big prime finding from %Zd over range ", offset);
-			printf("%"PRIu64"\n", range);
+			printf("%" PRIu64"\n", range);
 		}
 		else if (sdata->analysis == 2)
 		{
 			gmp_printf("commencing big twin-prime finding from %Zd over range ", offset);
-			printf("%"PRIu64"\n", range);
+			printf("%" PRIu64"\n", range);
 		}
 	}
 
@@ -886,7 +886,7 @@ uint64_t *sieve_to_depth(soe_staticdata_t* sdata,
 
 					if (sdata->VFLAG > 2)
 					{
-						printf("thread %d computing PRPs from %"PRIu64" to %"PRIu64"\n",
+						printf("thread %d computing PRPs from %" PRIu64" to %" PRIu64"\n",
 							(int)j, t->startid, t->stopid);
 						fflush(stdout);
 					}

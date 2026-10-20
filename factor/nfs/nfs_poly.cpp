@@ -774,7 +774,6 @@ int snfs_choose_poly(fact_obj_t* fobj, nfs_job_t* job, snfs_t* polyin, int optim
 	// also create a .fb file
 	ggnfs_to_msieve(fobj, job);
 
-cleanup:
     for (i = 0; i < npoly; i++)
     {
         snfs_clear(&polys[i]);

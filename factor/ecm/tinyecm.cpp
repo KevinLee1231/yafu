@@ -427,7 +427,7 @@ void lucas_opt(uint32_t B1, int num)
 
 	while (q < 1000)
 	{
-		printf("now optimizing prime %"PRIu64"\n", q);
+		printf("now optimizing prime %" PRIu64"\n", q);
 		for (d = 0, cmin = ADD * (double)q; d < (num + NV); d++)
 		{
 			cost = lucas_cost(q, val[d]);
@@ -439,7 +439,7 @@ void lucas_opt(uint32_t B1, int num)
 			}
 		}
 
-		printf("minimum prac cost of prime %"PRIu64" is %1.6f at index %d, val %1.18f\n",
+		printf("minimum prac cost of prime %" PRIu64" is %1.6f at index %d, val %1.18f\n",
 			q, cmin, best_index, val[best_index]);
 
 		pcost[i] = cmin;
@@ -479,7 +479,7 @@ void lucas_opt(uint32_t B1, int num)
 		while ((e & 1) == 0)
 			e /= 2;
 
-		//printf("now optimizing composite %"PRIu64"\n", e);
+		//printf("now optimizing composite %" PRIu64"\n", e);
 		for (d = 0, cmin = ADD * (double)e; d < (num + NV); d++)
 		{
 			cost = lucas_cost(e, val[d]);
@@ -509,10 +509,10 @@ void lucas_opt(uint32_t B1, int num)
 
 		if (fcost > cmin)
 		{
-			printf("minimum prac cost of %"PRIu64" is %1.1f at index %d, "
+			printf("minimum prac cost of %" PRIu64" is %1.1f at index %d, "
 				"val %1.18f, factor cost of [", e, cmin, best_index, val[best_index]);
 			for (i = 0; i < j; i++)
-				printf("%"PRIu64",", f[i]);
+				printf("%" PRIu64",", f[i]);
 			printf("\b] is %1.1f\n", fcost);
 			fflush(stdout);
 		}
@@ -524,7 +524,7 @@ void lucas_opt(uint32_t B1, int num)
 
 	while (q < B1)
 	{
-		//printf("now accumulating prime %"PRIu64", word is %"PRIu64"\n", q, c);
+		//printf("now accumulating prime %" PRIu64", word is %" PRIu64"\n", q, c);
 		if ((e * q) < B1)
 		{
 			// add another of this prime to the word
@@ -534,7 +534,7 @@ void lucas_opt(uint32_t B1, int num)
 				c *= q;
 				e *= q;
 
-				//printf("now optimizing traditional word %"PRIu64"\n", q);
+				//printf("now optimizing traditional word %" PRIu64"\n", q);
 				for (d = 0, cmin = ADD * (double)q; d < (num + NV); d++)
 				{
 					cost = lucas_cost(q, val[d]);
@@ -551,7 +551,7 @@ void lucas_opt(uint32_t B1, int num)
 			{
 				
 				// word is full, proceed to optimize
-				printf("now optimizing word %d = %"PRIu64"\n", j, c);
+				printf("now optimizing word %d = %" PRIu64"\n", j, c);
 
 				for (d = 0, cmin = ADD * (double)c; d < (num + NV); d++)
 				{
@@ -607,7 +607,7 @@ void lucas_opt(uint32_t B1, int num)
 
 	}
 
-	printf("final word %d is %"PRIu64"\n", j, c);
+	printf("final word %d is %" PRIu64"\n", j, c);
 	for (d = 0, cmin = ADD * (double)c; d < (num + NV); d++)
 	{
 		cost = lucas_cost(c, val[d]);
@@ -708,7 +708,7 @@ void lucas_opt2(uint32_t B1, int num)
 
 	while (q < 1000)
 	{
-		printf("now optimizing prime %"PRIu64"\n", q);
+		printf("now optimizing prime %" PRIu64"\n", q);
 		for (d = 0, cmin = ADD * (double)q; d < (num + NV); d++)
 		{
 			cost = lucas_cost(q, val[d]);
@@ -720,7 +720,7 @@ void lucas_opt2(uint32_t B1, int num)
 			}
 		}
 
-		printf("minimum prac cost of prime %"PRIu64" is %1.6f at index %d, val %1.18f\n",
+		printf("minimum prac cost of prime %" PRIu64" is %1.6f at index %d, val %1.18f\n",
 			q, cmin, best_index, val[best_index]);
 
 		pcost[i] = cmin;
@@ -743,9 +743,9 @@ void lucas_opt2(uint32_t B1, int num)
 					double fcost;
 					e = tecm_primes[i] * tecm_primes[j] * tecm_primes[k] * tecm_primes[l];
 
-					printf("now optimizing composite %"PRIu64" = %u * %u * %u * %u\n", 
+					printf("now optimizing composite %" PRIu64" = %u * %u * %u * %u\n", 
 						e, tecm_primes[i], tecm_primes[j], tecm_primes[k], tecm_primes[l]);
-					//printf("now optimizing composite %"PRIu64" = %u * %u * %u\n",
+					//printf("now optimizing composite %" PRIu64" = %u * %u * %u\n",
 				//		e, tecm_primes[i], tecm_primes[j], tecm_primes[k]); 
 
 					for (d = 0, cmin = ADD * (double)e; d < (num + NV); d++)
@@ -769,21 +769,21 @@ void lucas_opt2(uint32_t B1, int num)
 					{
 						FILE *fid;
 						fid = fopen("lucas_cost_comb.txt", "a");
-						printf("minimum prac cost of %"PRIu64" is %1.1f at index %d, "
+						printf("minimum prac cost of %" PRIu64" is %1.1f at index %d, "
 							"val %1.18f, factor cost of [", e, cmin, best_index, val[best_index]);
-						printf("%"PRIu64",", f[0]);
-						printf("%"PRIu64",", f[1]);
-						printf("%"PRIu64",", f[2]);
-						printf("%"PRIu64",", f[3]);
+						printf("%" PRIu64",", f[0]);
+						printf("%" PRIu64",", f[1]);
+						printf("%" PRIu64",", f[2]);
+						printf("%" PRIu64",", f[3]);
 						printf("\b] is %1.1f\n", fcost);
 						fflush(stdout);
 
-						fprintf(fid, "minimum prac cost of %"PRIu64" is %1.1f at index %d, "
+						fprintf(fid, "minimum prac cost of %" PRIu64" is %1.1f at index %d, "
 							"val %1.18f, factor cost of [", e, cmin, best_index, val[best_index]);
-						fprintf(fid, "%"PRIu64",", f[0]);
-						fprintf(fid, "%"PRIu64",", f[1]);
-						fprintf(fid, "%"PRIu64",", f[2]);
-						fprintf(fid, "%"PRIu64",", f[3]);
+						fprintf(fid, "%" PRIu64",", f[0]);
+						fprintf(fid, "%" PRIu64",", f[1]);
+						fprintf(fid, "%" PRIu64",", f[2]);
+						fprintf(fid, "%" PRIu64",", f[3]);
 						fprintf(fid, "\b] is %1.1f\n", fcost);
 						fclose(fid);
 					}
@@ -1640,7 +1640,7 @@ void tinyecm(mpz_t n, mpz_t f, uint32_t B1, uint32_t B2, uint32_t curves,
 		{
 			printf("curve parameters:\n\tsigma = %u\n", work.sigma);
 			printf("\tn = %016lx%016lx\n", work.n[1], work.n[0]);
-			printf("\tr = %016lx%016lx\n", 0, mdata.rho);
+			printf("\tr = %016" PRIx64 "%016" PRIx64 "\n", (uint64_t)0, mdata.rho);
 			printf("\tx = %016lx%016lx\n", P.X[1], P.X[0]);
 			printf("\tz = %016lx%016lx\n", P.Z[1], P.Z[0]);
 			printf("\ts = %016lx%016lx\n", work.s[1], work.s[0]);
@@ -1728,7 +1728,7 @@ void ecm_stage1_good(monty128_t *mdata, tinyecm_work *work, tinyecm_pt *P,
 
 	if (verbose == 1)
 	{
-		printf("\nStage 1 completed at prime %"PRIu64" with %u point-adds and %u point-doubles\n",
+		printf("\nStage 1 completed at prime %" PRIu64" with %u point-adds and %u point-doubles\n",
             tecm_primes[i - 1], work->stg1Add, work->stg1Doub);
 		fflush(stdout);
 	}

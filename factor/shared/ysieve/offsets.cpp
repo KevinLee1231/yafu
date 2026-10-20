@@ -145,7 +145,7 @@ void get_offsets(thread_soedata_t *thread_data)
             while ((block < sdata->blocks) &&
                 (sdata->sieve_p[i] > ddata->blk_b_sqrt))
             {
-                //printf("lblk_b = %"PRIu64", blk_b_sqrt = %"PRIu64", pbounds block %"PRIu64" = %"PRIu64" (%u)\n", 
+                //printf("lblk_b = %" PRIu64", blk_b_sqrt = %" PRIu64", pbounds block %" PRIu64" = %" PRIu64" (%u)\n", 
                 //    ddata->lblk_b, ddata->blk_b_sqrt, block, i, sdata->sieve_p[i]);
                 ddata->pbounds[block] = i;
                 block++;

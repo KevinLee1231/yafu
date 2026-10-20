@@ -1606,7 +1606,7 @@ int calc(str_t* in, meta_t* metadata)
             printf("stack contents: ");
             for (i = 0; i < stk.num; i++)
             {
-                printf("%s (%d/%d/%d) ", stk.elements[i]->s,
+                printf("%s (%d/%zu/%d) ", stk.elements[i]->s,
                     stk.elements[i]->nchars, strlen(stk.elements[i]->s),
                     stk.elements[i]->alloc);
             }
@@ -3281,11 +3281,11 @@ int feval(int funcnum, int nargs, meta_t *metadata)
 
 #define OD "d"
             
-            gmp_printf("a = %Z"OD"\n", ia);
-            gmp_printf("b = %Z"OD"\n", ib);
+            gmp_printf("a = %Z" OD"\n", ia);
+            gmp_printf("b = %Z" OD"\n", ib);
 
             printf("Splitting phase\n");
-            gmp_printf("base B=%Z"OD"\n", B);
+            gmp_printf("base B=%Z" OD"\n", B);
             mpz_mod(a0, ia, B);
             mpz_tdiv_q(ia, ia, B);
             mpz_mod(a1, ia, B);
@@ -3295,8 +3295,8 @@ int feval(int funcnum, int nargs, meta_t *metadata)
             mpz_mod(b1, ib, B);
             mpz_tdiv_q(b2, ib, B);
             
-            gmp_printf("a2 = %Z"OD"\na1 = %Z"OD"\na0 = %Z"OD"\n", a2, a1, a0);
-            gmp_printf("b2 = %Z"OD"\nb1 = %Z"OD"\nb0 = %Z"OD"\n", b2, b1, b0);
+            gmp_printf("a2 = %Z" OD"\na1 = %Z" OD"\na0 = %Z" OD"\n", a2, a1, a0);
+            gmp_printf("b2 = %Z" OD"\nb1 = %Z" OD"\nb0 = %Z" OD"\n", b2, b1, b0);
 
             mpz_t p0, p1, pm1, pm2, pinf;
             mpz_init(p0);
@@ -3322,11 +3322,11 @@ int feval(int funcnum, int nargs, meta_t *metadata)
             mpz_sub(pm2, pm2, a0);
             
             gmp_printf(
-                "p(0) = %Z"OD"\n"
-                "p(1) = %Z"OD"\n"
-                "p(-1) = % Z"OD"\n"
-                "p(-2) = %Z"OD"\n"
-                "p(inf) = %Z"OD"\n", p0, p1, pm1, pm2, pinf);
+                "p(0) = %Z" OD"\n"
+                "p(1) = %Z" OD"\n"
+                "p(-1) = % Z" OD"\n"
+                "p(-2) = %Z" OD"\n"
+                "p(inf) = %Z" OD"\n", p0, p1, pm1, pm2, pinf);
 
             printf("Evaluation phase\n");
             mpz_set(q0, b0);
@@ -3338,8 +3338,8 @@ int feval(int funcnum, int nargs, meta_t *metadata)
             mpz_mul_2exp(qm2, qm2, 1);
             mpz_sub(qm2, qm2, b0);
 
-            gmp_printf("q(0) = %Z"OD"\nq(1) = %Z"OD"\nq(-1) = %Z"OD"\n"
-                "q(-2) = %Z"OD"\nq(inf) = %Z"OD"\n", q0, q1, qm1, qm2, qinf);
+            gmp_printf("q(0) = %Z" OD"\nq(1) = %Z" OD"\nq(-1) = %Z" OD"\n"
+                "q(-2) = %Z" OD"\nq(inf) = %Z" OD"\n", q0, q1, qm1, qm2, qinf);
 
             mpz_t r0, r1, rm1, rm2, rinf;
             mpz_init(r0);
@@ -3355,8 +3355,8 @@ int feval(int funcnum, int nargs, meta_t *metadata)
             mpz_mul(rm2, pm2, qm2);
             mpz_mul(rinf, pinf, qinf);
 
-            gmp_printf("r(0) = %Z"OD"\nr(1) = %Z"OD"\nr(-1) = %Z"OD"\n"
-                "r(-2) = %Z"OD"\nr(inf) = %Z"OD"\n", r0, r1, rm1, rm2, rinf);
+            gmp_printf("r(0) = %Z" OD"\nr(1) = %Z" OD"\nr(-1) = %Z" OD"\n"
+                "r(-2) = %Z" OD"\nr(inf) = %Z" OD"\n", r0, r1, rm1, rm2, rinf);
 
 
             printf("Interpolation phase\n");
@@ -3383,8 +3383,8 @@ int feval(int funcnum, int nargs, meta_t *metadata)
             mpz_sub(i1, i1, i3);
 
 
-            gmp_printf("r0 = %Z"OD"\nr1 = %Z"OD"\nr2 = %Z"OD"\n"
-                "r3 = %Z"OD"\nr4 = %Z"OD"\n", i0, i1, i2, i3, i4);
+            gmp_printf("r0 = %Z" OD"\nr1 = %Z" OD"\nr2 = %Z" OD"\n"
+                "r3 = %Z" OD"\nr4 = %Z" OD"\n", i0, i1, i2, i3, i4);
 
             printf("Recomposition phase\n");
             mpz_t out;
@@ -3405,7 +3405,7 @@ int feval(int funcnum, int nargs, meta_t *metadata)
             mpz_add(out, out, i3);
             mpz_add(out, out, i4);
 
-            gmp_printf("result = %Z"OD"\n", out);
+            gmp_printf("result = %Z" OD"\n", out);
             mpz_set(operands[0], out);
 
             mpz_clear(ia);
@@ -3709,7 +3709,7 @@ int feval(int funcnum, int nargs, meta_t *metadata)
             {
                 s += ni[i];
             }
-            printf("final sum = %"PRIu64"\n", s);
+            printf("final sum = %" PRIu64"\n", s);
         }
 
         if (0)
@@ -3912,7 +3912,7 @@ int feval(int funcnum, int nargs, meta_t *metadata)
             {
                 s += ni[i];
             }
-            printf("final sum = %"PRIu64"\n", s);
+            printf("final sum = %" PRIu64"\n", s);
         }
 
 #endif
@@ -4088,7 +4088,10 @@ int feval(int funcnum, int nargs, meta_t *metadata)
         gettimeofday(&tstop, NULL);
         t = ytools_difftime(&tstart, &tstop);
 
-        printf("found %"PRIu64" twins < %"PRIu64", elapsed time = % 6.4f\n", num_t, limit, t);
+        /* 孪生是筛到 highz（10^9）的，原来这里印的是 limit（10^10）——
+           那是下一步筛素数用的上界，印出来会让人以为孪生也筛到了 10^10。 */
+        printf("found %" PRIu64" twins < %" PRIu64", elapsed time = % 6.4f\n",
+            num_t, mpz_get_ui(highz), t);
 
         gettimeofday(&tstart, NULL);
 
@@ -4099,7 +4102,7 @@ int feval(int funcnum, int nargs, meta_t *metadata)
         gettimeofday(&tstop, NULL);
         t = ytools_difftime(&tstart, &tstop);
 
-        printf("found %"PRIu64" primes < %"PRIu64", elapsed time = % 6.4f\n", num_p, limit, t);
+        printf("found %" PRIu64" primes < %" PRIu64", elapsed time = % 6.4f\n", num_p, limit, t);
 
         uint32_t* evens = (uint32_t*)xcalloc(limit / 32 + 1000, sizeof(uint32_t));
 
@@ -4117,7 +4120,7 @@ int feval(int funcnum, int nargs, meta_t *metadata)
                 n++;    // for the other side of the twin
                 evens[n >> 5] |= (UINT32_C(1) << (n & 31));
             }
-            printf("twin %"PRIu64"... ", twins[i]);
+            printf("twin %" PRIu64"... ", twins[i]);
 
             int done = 1;
             for (j = min_id; j < limit / 32 / 2; j++)
@@ -4126,7 +4129,7 @@ int feval(int funcnum, int nargs, meta_t *metadata)
                 {
                     done = 0;
                     min_id = j;
-                    printf("minimum n not satisfied = %"PRIu64" (%08x)\n", 
+                    printf("minimum n not satisfied = %" PRIu64" (%08x)\n", 
                         (uint64_t)j * 32 * 2, evens[j]);
                     break;
                 }

@@ -854,7 +854,7 @@ process_r:
                 f64 = getfactor_uecm(mpz_get_ui(f1r), 0, lcg_state);
                 rb->num_uecm[0]++;
 
-                printf("failed to find factor of %zu-bit f1r %"PRIu64", this should be sent to mpqs\n",
+                printf("failed to find factor of %zu-bit f1r %" PRIu64", this should be sent to mpqs\n",
                     mpz_sizeinbase(f1r, 2), mpz_get_ui(f1r));
                 rb->num_abort[5]++;
                 return;
@@ -898,7 +898,7 @@ process_r:
 
         if (f64 <= 1 || f64 > rb->lp_cutoff_r)
         {
-            if (f64 == 1) printf("failed to find factor of %zu-bit f2r %"PRIu64"\n",
+            if (f64 == 1) printf("failed to find factor of %zu-bit f2r %" PRIu64"\n",
                 mpz_sizeinbase(f2r, 2), mpz_get_ui(f2r));
             rb->num_abort[6]++;
             return;
@@ -995,7 +995,7 @@ process_r:
 
                     if (q64 <= 1 || q64 > rb->lp_cutoff_r)
                     {
-                        if (q64 == 1) printf("ecm found factor %"PRIu64" == input, residue is 1\n", f64);
+                        if (q64 == 1) printf("ecm found factor %" PRIu64" == input, residue is 1\n", f64);
                         rb->num_abort[7]++;
                         return;
                     }
@@ -1676,7 +1676,7 @@ process_a:
 
                 if (f64 == 1)
                 {
-                    printf("failed to find factor of %zu-bit f1a %"PRIu64", this should be sent to mpqs\n",
+                    printf("failed to find factor of %zu-bit f1a %" PRIu64", this should be sent to mpqs\n",
                         mpz_sizeinbase(f1a, 2), mpz_get_ui(f1a));
                     rb->num_abort_a[5]++;
                     return;
@@ -1723,7 +1723,7 @@ process_a:
         {
             if (f64 == 1)
             {
-                printf("uecm failed on %"PRIu64"\n", mpz_get_ui(f2a));
+                printf("uecm failed on %" PRIu64"\n", mpz_get_ui(f2a));
             }
             rb->num_abort_a[6]++;
             return;
@@ -2411,13 +2411,13 @@ done:
     {
 #ifdef CHECK_LARGE_PRIMES
         if (mpz_tdiv_ui(n, lp_r[i]) != 0)
-            gmp_printf("r-side large prime %"PRIu64" does not divide n = %Zd\n", lp_r[i], n);
+            gmp_printf("r-side large prime %" PRIu64" does not divide n = %Zd\n", lp_r[i], n);
 
         mpz_set_ui(f1r, lp_r[i]);
         if (mpz_probab_prime_p(f1r, 1) == 0)
-            printf("r-side large prime %"PRIu64" is composite\n", lp_r[i]);
+            printf("r-side large prime %" PRIu64" is composite\n", lp_r[i]);
         if (mpz_cmp_ui(f1r, rb->lp_cutoff_r) > 0)
-            printf("r-side large prime %"PRIu64" is too big\n", lp_r[i]);
+            printf("r-side large prime %" PRIu64" is too big\n", lp_r[i]);
 #endif
         c->lp_r[i] = lp_r[i];
     }
@@ -2442,13 +2442,13 @@ done:
     {
 #ifdef CHECK_LARGE_PRIMES
         if (mpz_tdiv_ui(n, lp_a[i]) != 0)
-            gmp_printf("a-side large prime %"PRIu64" does not divide n = %Zd\n", lp_a[i], n);
+            gmp_printf("a-side large prime %" PRIu64" does not divide n = %Zd\n", lp_a[i], n);
 
         mpz_set_ui(f1a, lp_a[i]);
         if (mpz_probab_prime_p(f1a, 1) == 0)
-            printf("a-side large prime %"PRIu64" is composite\n", lp_a[i]);
+            printf("a-side large prime %" PRIu64" is composite\n", lp_a[i]);
         if (mpz_cmp_ui(f1a, rb->lp_cutoff_a) > 0)
-            printf("a-side large prime %"PRIu64" is too big\n", lp_a[i]);
+            printf("a-side large prime %" PRIu64" is too big\n", lp_a[i]);
 #endif
         c->lp_a[i] = lp_a[i];
     }
@@ -2521,8 +2521,8 @@ void relation_batch_init(FILE* logfile, relation_batch_t* rb,
 
     rb->do_pm1 = do_pm1;
 
-    //printf("rb_init with params: min_prime = %u, max_prime = %"PRIu64", lp_cutoff_r = %"PRIu64", "
-    //    "lp_cutoff_a = %"PRIu64"\n", min_prime, max_prime, lp_cutoff_r, lp_cutoff_a);
+    //printf("rb_init with params: min_prime = %u, max_prime = %" PRIu64", lp_cutoff_r = %" PRIu64", "
+    //    "lp_cutoff_a = %" PRIu64"\n", min_prime, max_prime, lp_cutoff_r, lp_cutoff_a);
 
     if (do_prime_product)
     {
@@ -2533,7 +2533,7 @@ void relation_batch_init(FILE* logfile, relation_batch_t* rb,
         // compute the product of primes
         if (num_primes > 0)
         {
-            printf("multiplying %"PRIu64" primes from %"PRIu64" to %"PRIu64"\n",
+            printf("multiplying %" PRIu64" primes from %" PRIu64" to %" PRIu64"\n",
                 num_primes, primes[0], primes[num_primes - 1]);
             multiply_primes(0, num_primes, primes, rb->prime_product);
         }
@@ -2566,7 +2566,7 @@ void relation_batch_init(FILE* logfile, relation_batch_t* rb,
     mpz_init(rb->lp_cutoff_r2);
     mpz_set_ui(rb->lp_cutoff_r2, lp_cutoff_r);
     mpz_mul_ui(rb->lp_cutoff_r2, rb->lp_cutoff_r2, lp_cutoff_r);
-    //gmp_printf("lp_cutoff_r = %"PRIu64", lp_cutoff_r^2 = %Zd\n", rb->lp_cutoff_r, rb->lp_cutoff_r2);
+    //gmp_printf("lp_cutoff_r = %" PRIu64", lp_cutoff_r^2 = %Zd\n", rb->lp_cutoff_r, rb->lp_cutoff_r2);
     mpz_init(rb->lp_cutoff_r3);
     mpz_mul_ui(rb->lp_cutoff_r3, rb->lp_cutoff_r2, lp_cutoff_r);
 
@@ -2576,7 +2576,7 @@ void relation_batch_init(FILE* logfile, relation_batch_t* rb,
     mpz_init(rb->lp_cutoff_a2);
     mpz_set_ui(rb->lp_cutoff_a2, lp_cutoff_a);
     mpz_mul_ui(rb->lp_cutoff_a2, rb->lp_cutoff_a2, lp_cutoff_a);
-    //gmp_printf("lp_cutoff_a = %"PRIu64", lp_cutoff_a^2 = %Zd\n", rb->lp_cutoff_a, rb->lp_cutoff_a2);
+    //gmp_printf("lp_cutoff_a = %" PRIu64", lp_cutoff_a^2 = %Zd\n", rb->lp_cutoff_a, rb->lp_cutoff_a2);
     mpz_init(rb->lp_cutoff_a3);
     mpz_mul_ui(rb->lp_cutoff_a3, rb->lp_cutoff_a2, lp_cutoff_a);
 

@@ -2670,7 +2670,7 @@ int factor_tiny(mpz_t in, mpz_t* out,
 					}
 					if (!found)
 					{
-						printf("failed to split composite factor %"PRIu64" of input %"PRIu64"\n", f, n64);
+						printf("failed to split composite factor %" PRIu64" of input %" PRIu64"\n", f, n64);
 						break;
 					}
 				}
@@ -3366,12 +3366,12 @@ void write_factor_json(fact_obj_t* fobj, factor_work_t *fwork,
 
 			for (i = 0; i < fobj->ecm_obj.num_records-1; i++)
 			{
-				fprintf(fid, "\"%"PRIu64"\":%d,", 
+				fprintf(fid, "\"%" PRIu64"\":%d,", 
 					fobj->ecm_obj.curve_b1_rec[i], fobj->ecm_obj.num_rec[i]);
 			}
 			if (fobj->ecm_obj.num_records > 0)
 			{
-				fprintf(fid, "\"%"PRIu64"\":%d",
+				fprintf(fid, "\"%" PRIu64"\":%d",
 					fobj->ecm_obj.curve_b1_rec[i], fobj->ecm_obj.num_rec[i]);
 			}
 

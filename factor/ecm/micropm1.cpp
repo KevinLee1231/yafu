@@ -690,7 +690,7 @@ void upm1_generate_window_plan(uint64_t B1)
             q *= p[i];
         }
         mpz_mul_ui(e, e, q);
-        gmp_printf("e*=%"PRIu64"=%Zx\n", q, e);
+        gmp_printf("e*=%" PRIu64"=%Zx\n", q, e);
     }
 
     // now we have the exponent, generate a LR-kary windowing plan.

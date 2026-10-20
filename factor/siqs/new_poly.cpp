@@ -599,7 +599,7 @@ void new_poly_a_test(static_conf_t* sconf, dynamic_conf_t* dconf, int gen_and_te
 	uint32_t potential_a_factor = 0, found_a_factor;
 	uint32_t afact[20];
 	double target_mul = 0.92; // 2;	// note: smaller values harder to achieve
-	int too_close, min_ratio, close_range;
+	int too_close, close_range;
 	FILE* sieve_log = sconf->obj->logfile;
 	uint32_t upper_polypool_index, lower_polypool_index;
 	int VFLAG = sconf->obj->VFLAG;
@@ -632,7 +632,6 @@ void new_poly_a_test(static_conf_t* sconf, dynamic_conf_t* dconf, int gen_and_te
 		// drawn from primes > FB_max
 		too_close = spBits(sconf->pmax);
 		close_range = 5;
-		min_ratio = 1000;
 	}
 
 	//printf("pool indices are %u,%u (%u,%u)\n", lower_polypool_index, upper_polypool_index,
@@ -680,19 +679,11 @@ void new_poly_a_test(static_conf_t* sconf, dynamic_conf_t* dconf, int gen_and_te
 			j = mpz_sizeinbase(target_a, 2) - mpz_sizeinbase(poly_a, 2);
 			if (j < too_close)
 			{
+				// 已经够接近目标，最后一个因子照常从因子基里挑。
 #ifdef POLYA_DEBUG
 				printf("picking last factor\n");
 #endif
 				break;
-
-
-				// too close, we want the last factor to be between 15 and 10 bits
-#ifdef POLYA_DEBUG
-				printf("target_a too close for last factor\n");
-#endif
-				mpz_set_ui(poly_a, 1);
-				*s = 0;
-				continue;
 			}
 			else if (j < (too_close + close_range))
 			{
@@ -881,7 +872,6 @@ void new_poly_a_test(static_conf_t* sconf, dynamic_conf_t* dconf, int gen_and_te
 #endif
 	}
 
-done:
 
 
 	if (gen_and_test_only == 1)

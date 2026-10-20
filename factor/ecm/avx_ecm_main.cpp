@@ -526,7 +526,7 @@ void vec_ecm_main(fact_obj_t* fobj, uint32_t numcurves, uint64_t B1,
 
         if (sigma > 0)
         {
-            printf("starting with sigma = %"PRIu64"\n", sigma);
+            printf("starting with sigma = %" PRIu64"\n", sigma);
         }
     }
 
@@ -987,7 +987,7 @@ void vec_ecm_main(fact_obj_t* fobj, uint32_t numcurves, uint64_t B1,
                 if (fobj->LOGFLAG && (strcmp(fobj->flogname, "") != 0))
                 {
                     char* s = mpz_get_str(NULL, 10, g);
-                    logprint(flog, "prp%d = %s (curve=%d stg=%d B1=%u B2=%"PRIu64" sigma=%"PRIu64" thread=%d vecpos=%d)\n",
+                    logprint(flog, "prp%d = %s (curve=%d stg=%d B1=%u B2=%" PRIu64" sigma=%" PRIu64" thread=%d vecpos=%d)\n",
                         gmp_base10(g),
                         s,
                         fobj->factors->factors[fid].curve_num, 
@@ -1008,7 +1008,7 @@ void vec_ecm_main(fact_obj_t* fobj, uint32_t numcurves, uint64_t B1,
                 if (fobj->LOGFLAG && (strcmp(fobj->flogname, "") != 0))
                 {
                     char* s = mpz_get_str(NULL, 10, tdata[i].factors[j].factor);
-                    logprint(flog, "c%d = %s (curve=%d stg=%d B1=%u B2=%"PRIu64" sigma=%"PRIu64" thread=%d vecpos=%d)\n",
+                    logprint(flog, "c%d = %s (curve=%d stg=%d B1=%u B2=%" PRIu64" sigma=%" PRIu64" thread=%d vecpos=%d)\n",
                         gmp_base10(g),
                         s,
                         fobj->factors->factors[fid].curve_num,

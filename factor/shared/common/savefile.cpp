@@ -43,7 +43,7 @@ void savefile_init(savefile_t *s, char *savefile_name) {
 
 	s->buf = (char*)malloc((size_t)SAVEFILE_BUF_SIZE);
 	if (s->buf == NULL) {
-		printf("failed to allocate %u bytes\n", (size_t)SAVEFILE_BUF_SIZE);
+		printf("failed to allocate %zu bytes\n", (size_t)SAVEFILE_BUF_SIZE);
 		exit(-1);
 	}
 }

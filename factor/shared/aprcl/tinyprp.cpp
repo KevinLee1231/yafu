@@ -763,8 +763,8 @@ int lucas_prp_128x1(uint64_t* n, long int p, long int q)
 	s = my_ctz128(index[0], index[1]);
 	int sz = 128 - my_clz128(index[0], index[1]);
 
-	//printf("n = %016"PRIx64"%016"PRIx64", q = (%d)%d (%016"PRIx64"%016"PRIx64"), "
-	//	"1 = %016"PRIx64"%016"PRIx64", p = %d, d = %d, s = %d, sz = %d\n",
+	//printf("n = %016" PRIx64"%016" PRIx64", q = (%d)%d (%016" PRIx64"%016" PRIx64"), "
+	//	"1 = %016" PRIx64"%016" PRIx64", p = %d, d = %d, s = %d, sz = %d\n",
 	//	n[1], n[0], sq, q, mq[1], mq[0], one[1], one[0], p, d, s, sz);
 
 	for (j = sz - 1; j >= s + 1; j--)
@@ -837,9 +837,9 @@ int lucas_prp_128x1(uint64_t* n, long int p, long int q)
 	}
 
 	//printf("after loop1:\n");
-	//printf("ql = %016"PRIx64"%016"PRIx64", qh = %016"PRIx64"%016"PRIx64", "
-	//	"vl = %016"PRIx64"%016"PRIx64", vh = %016"PRIx64"%016"PRIx64", "
-	//	"uh = %016"PRIx64"%016"PRIx64"\n",
+	//printf("ql = %016" PRIx64"%016" PRIx64", qh = %016" PRIx64"%016" PRIx64", "
+	//	"vl = %016" PRIx64"%016" PRIx64", vh = %016" PRIx64"%016" PRIx64", "
+	//	"uh = %016" PRIx64"%016" PRIx64"\n",
 	//	ql[1], ql[0], qh[1], qh[0], vl[1], vl[0], vh[1], vh[0], uh[1], uh[0]);
 
 	/* ql = ql*qh */
@@ -891,9 +891,9 @@ int lucas_prp_128x1(uint64_t* n, long int p, long int q)
 	}
 
 	//printf("after loop2:\n");
-	//printf("ql = %016"PRIx64"%016"PRIx64", qh = %016"PRIx64"%016"PRIx64", "
-	//	"vl = %016"PRIx64"%016"PRIx64", vh = %016"PRIx64"%016"PRIx64", "
-	//	"uh = %016"PRIx64"%016"PRIx64"\n",
+	//printf("ql = %016" PRIx64"%016" PRIx64", qh = %016" PRIx64"%016" PRIx64", "
+	//	"vl = %016" PRIx64"%016" PRIx64", vh = %016" PRIx64"%016" PRIx64", "
+	//	"uh = %016" PRIx64"%016" PRIx64"\n",
 	//	ql[1], ql[0], qh[1], qh[0], vl[1], vl[0], vh[1], vh[0], uh[1], uh[0]);
 
 	one[0] = 1;
@@ -1181,9 +1181,9 @@ int test_tinyprp(void)
 			totalnum += num;
 		} while (totalnum < 10000); // (0);  (elapsed < (1ull << 30));
 
-		printf("%013"PRIx64"%013"PRIx64"\n", prp[1], prp[0]);
+		printf("%013" PRIx64"%013" PRIx64"\n", prp[1], prp[0]);
 
-		printf("total ticks = %"PRIu64", ticks per %d-bit input = %"PRIu64"\n",
+		printf("total ticks = %" PRIu64", ticks per %d-bit input = %" PRIu64"\n",
 			elapsed, bits, (elapsed) / (k * num));
 		printf("found %u +1 and %u -1 tests out of %u %d-bit inputs: %1.2f%%\n",
 			num1, numm1, k * num, bits, 100. * (double)numprp / (double)(k * num));
@@ -1334,9 +1334,9 @@ int test_tinyprp(void)
 			totalnum += num;
 		} while (totalnum < 10000); // (0);  (elapsed < (1ull << 30));
 
-		printf("%013"PRIx64"%013"PRIx64"\n", prp[1], prp[0]);
+		printf("%013" PRIx64"%013" PRIx64"\n", prp[1], prp[0]);
 
-		printf("total ticks = %"PRIu64", ticks per %d-bit input = %"PRIu64"\n",
+		printf("total ticks = %" PRIu64", ticks per %d-bit input = %" PRIu64"\n",
 			elapsed, bits, (elapsed) / (k * num));
 		printf("found %u +1 and %u -1 tests out of %u %d-bit inputs: %1.2f%%\n",
 			num1, numm1, k * num, bits, 100. * (double)numprp / (double)(k * num));
@@ -1447,9 +1447,9 @@ int test_tinyprp(void)
 			totalnum += num;
 		} while (totalnum < 10000); // (0);  (elapsed < (1ull << 30));
 
-		printf("%013"PRIx64"%013"PRIx64"\n", prp[1], prp[0]);
+		printf("%013" PRIx64"%013" PRIx64"\n", prp[1], prp[0]);
 
-		printf("total ticks = %"PRIu64", ticks per %d-bit input = %"PRIu64"\n",
+		printf("total ticks = %" PRIu64", ticks per %d-bit input = %" PRIu64"\n",
 			elapsed, bits, (elapsed) / (k * num));
 		printf("found %u +1 and %u -1 tests out of %u %d-bit inputs: %1.2f%%\n",
 			num1, numm1, k * num, bits, 100. * (double)numprp / (double)(k * num));
@@ -1509,7 +1509,7 @@ int test_tinyprp(void)
 
 		} while (elapsed < (1ull << 30));
 
-		printf("total ticks = %"PRIu64", ticks per %d-bit input = %"PRIu64"\n",
+		printf("total ticks = %" PRIu64", ticks per %d-bit input = %" PRIu64"\n",
 			elapsed, bits, (elapsed) / (k * num));
 		printf("found %d fermat-prp out of %u %d-bit inputs: %1.2f%%\n",
 			numprp, k * num, bits, 100. * (double)numprp / (double)(k * num));
@@ -1569,7 +1569,7 @@ int test_tinyprp(void)
 
 		} while (elapsed < (1ull << 30));
 
-		printf("total ticks = %"PRIu64", ticks per %d-bit input = %"PRIu64"\n",
+		printf("total ticks = %" PRIu64", ticks per %d-bit input = %" PRIu64"\n",
 			elapsed, bits, (elapsed) / (k * num));
 		printf("found %d MR_2sprp out of %u %d-bit inputs: %1.2f%%\n",
 			numprp, k * num, bits, 100. * (double)numprp / (double)(k * num));
@@ -1634,7 +1634,7 @@ int test_tinyprp(void)
 
 		mpz_clear(gmp_prp);
 
-		printf("total ticks = %"PRIu64", ticks per %d-bit input = %"PRIu64"\n",
+		printf("total ticks = %" PRIu64", ticks per %d-bit input = %" PRIu64"\n",
 			elapsed, bits, (elapsed) / (k * num));
 		printf("found %d mpz_probab_prime_p out of %u %d-bit inputs: %1.2f%%\n",
 			numprp, k * num, bits, 100. * (double)numprp / (double)(k * num));
@@ -1694,7 +1694,7 @@ int test_tinyprp(void)
 
 		} while (elapsed < (1ull << 30));
 
-		printf("total ticks = %"PRIu64", ticks per %d-bit input = %"PRIu64"\n",
+		printf("total ticks = %" PRIu64", ticks per %d-bit input = %" PRIu64"\n",
 			elapsed, bits, (elapsed) / (k * num));
 		printf("found %d fermat-prp out of %u %d-bit inputs: %1.2f%%\n",
 			numprp, k * num, bits, 100. * (double)numprp / (double)(k * num));
@@ -1754,7 +1754,7 @@ int test_tinyprp(void)
 
 		} while (elapsed < (1ull << 30));
 
-		printf("total ticks = %"PRIu64", ticks per %d-bit input = %"PRIu64"\n",
+		printf("total ticks = %" PRIu64", ticks per %d-bit input = %" PRIu64"\n",
 			elapsed, bits, (elapsed) / (k * num));
 		printf("found %d MR-2sprp out of %u %d-bit inputs: %1.2f%%\n",
 			numprp, k * num, bits, 100. * (double)numprp / (double)(k * num));
@@ -1821,7 +1821,7 @@ int test_tinyprp(void)
 
 		} while (elapsed < (1ull << 30));
 
-		printf("total ticks = %"PRIu64", ticks per %d-bit input = %"PRIu64"\n",
+		printf("total ticks = %" PRIu64", ticks per %d-bit input = %" PRIu64"\n",
 			elapsed, bits, (elapsed) / (k * num * 8));
 		printf("found %d fermat-prp out of %u %d-bit inputs: %1.2f%%\n",
 			numprp, k * num * 8, bits, 100. * (double)numprp / (double)(k * num * 8));
@@ -1903,7 +1903,7 @@ int test_tinyprp(void)
 			telapsed += ytools_difftime(&start, &stop);
 		} while (elapsed < (1ull << 30));
 
-		printf("total ticks = %"PRIu64", ticks per %d-bit input = %"PRIu64"\n",
+		printf("total ticks = %" PRIu64", ticks per %d-bit input = %" PRIu64"\n",
 			elapsed, bits, (elapsed) / (k * num * 8));
 		printf("found %d fermat-prp out of %u %d-bit inputs: %1.2f%%\n",
 			numprp, k * num * 8, bits, 100. * (double)numprp / (double)(k * num * 8));
@@ -1970,7 +1970,7 @@ int test_tinyprp(void)
 
 		} while (elapsed < (1ull << 30));
 
-		printf("total ticks = %"PRIu64", ticks per %d-bit input = %"PRIu64"\n",
+		printf("total ticks = %" PRIu64", ticks per %d-bit input = %" PRIu64"\n",
 			elapsed, bits, (elapsed) / (k * num * 8));
 		printf("found %d MR-2sprp out of %u %d-bit inputs: %1.2f%%\n",
 			numprp, k * num * 8, bits, 100. * (double)numprp / (double)(k * num * 8));
@@ -2052,7 +2052,7 @@ int test_tinyprp(void)
 			telapsed += ytools_difftime(&start, &stop);
 		} while (elapsed < (1ull << 30));
 
-		printf("total ticks = %"PRIu64", ticks per %d-bit input = %"PRIu64"\n",
+		printf("total ticks = %" PRIu64", ticks per %d-bit input = %" PRIu64"\n",
 			elapsed, bits, (elapsed) / (k * num * 8));
 		printf("found %d MR-2sprp out of %u %d-bit inputs: %1.2f%%\n",
 			numprp, k * num * 8, bits, 100. * (double)numprp / (double)(k * num * 8));
@@ -2204,7 +2204,7 @@ int test_tinyprp(void)
 		gettimeofday(&stop, NULL);
 		telapsed += ytools_difftime(&start, &stop);
 
-		printf("total ticks = %"PRIu64", ticks per %d-bit input = %"PRIu64"\n",
+		printf("total ticks = %" PRIu64", ticks per %d-bit input = %" PRIu64"\n",
 			elapsed, bits, (elapsed) / tested);
 		printf("found %d MR-sprp out of %u %d-bit inputs: %1.2f%%\n",
 			numprp, tested, bits, 100. * (double)numprp / (double)tested);
@@ -2359,7 +2359,7 @@ int test_tinyprp(void)
 		gettimeofday(&stop, NULL);
 		telapsed += ytools_difftime(&start, &stop);
 
-		printf("total ticks = %"PRIu64", ticks per %d-bit input = %"PRIu64"\n",
+		printf("total ticks = %" PRIu64", ticks per %d-bit input = %" PRIu64"\n",
 			elapsed, bits, (elapsed) / tested);
 		printf("found %d MR-sprp out of %u %d-bit inputs: %1.2f%%\n",
 			numprp, tested, bits, 100. * (double)numprp / (double)tested);

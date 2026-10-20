@@ -318,14 +318,14 @@ int par_shanks_loop(uint64_t* N, uint64_t* f, int num_in)
             {
                 int result;
 
-                //printf("assigning input %d = %"PRIu64" to lane %d\n", list_position, N[list_position], j);
+                //printf("assigning input %d = %" PRIu64" to lane %d\n", list_position, N[list_position], j);
                 // replace this lane.
                 mult_batch.listref[j] = list_position;
                 mult_batch.N[j] = N[list_position++];
 
                 if (mult_batch.N[j] < 3)
                 {
-                    //printf("rejecting input N = %"PRIu64"\n", mult_batch.N[j]);
+                    //printf("rejecting input N = %" PRIu64"\n", mult_batch.N[j]);
                     f[mult_batch.listref[j]] = mult_batch.N[j];
                     j--;
                     continue;
@@ -391,7 +391,7 @@ int par_shanks_loop(uint64_t* N, uint64_t* f, int num_in)
 
         //for (j = 0; j < NUM_LANES; j++)
         //{
-        //    printf("lane %d has input %"PRIu64" with multiplier %d starting on iteration %u of %u\n", 
+        //    printf("lane %d has input %" PRIu64" with multiplier %d starting on iteration %u of %u\n", 
         //        j, mult_batch.mN[j], mult_batch.mult[j], mult_batch.it[j], mult_batch.imax[j]);
         //}
 
@@ -429,7 +429,7 @@ int par_shanks_loop(uint64_t* N, uint64_t* f, int num_in)
                     get_next_multiplier(mult_batch, save_data, j);
 
 #ifdef PRINT_DEBUG
-                    printf("failed on input %"PRIu64" \n", N[mult_batch.listref[j]]);
+                    printf("failed on input %" PRIu64" \n", N[mult_batch.listref[j]]);
 #endif
                 }
                 else if (f64 > 1)
@@ -440,7 +440,7 @@ int par_shanks_loop(uint64_t* N, uint64_t* f, int num_in)
                     num_processed++;
 
 #ifdef PRINT_DEBUG
-                    printf("found factor %u of input %"PRIu64" on multiplier %u, round %u, iteration %u\n",
+                    printf("found factor %u of input %" PRIu64" on multiplier %u, round %u, iteration %u\n",
                         f64, N[mult_batch.listref[j]], mult_batch.multnum[j], mult_batch.rounds[j], mult_batch.it[j]);
 #endif
 
@@ -493,7 +493,7 @@ int par_shanks_loop(uint64_t* N, uint64_t* f, int num_in)
                                 num_processed++;
 
 #ifdef PRINT_DEBUG
-                                printf("giving up on input %"PRIu64" \n", N[mult_batch.listref[j]]);
+                                printf("giving up on input %" PRIu64" \n", N[mult_batch.listref[j]]);
 #endif
                             }
                             else
@@ -511,7 +511,7 @@ int par_shanks_loop(uint64_t* N, uint64_t* f, int num_in)
                                     num_processed++;
 
 #ifdef PRINT_DEBUG
-                                    printf("giving up on input %"PRIu64" \n", N[mult_batch.listref[j]]);
+                                    printf("giving up on input %" PRIu64" \n", N[mult_batch.listref[j]]);
 #endif
                                 }
                             }
@@ -710,7 +710,7 @@ int init_multipliers(mult_t** savedata, par_mult_t batch_data,
             if (savedata[lane][i].Qn == 0)
             {
                 // N is a perfect square - this number is factored.
-                //printf("perfect sqrt in init_multipliers with N = %"PRIu64", mN = %"PRIu64"\n",
+                //printf("perfect sqrt in init_multipliers with N = %" PRIu64", mN = %" PRIu64"\n",
                 //    N, nn64);
                 success = 1;
                 savedata[lane][i].valid = 0;
@@ -844,7 +844,7 @@ void shanks_mult_unit(uint64_t N, mult_t* mult_save, uint64_t* f)
     i = mult_save->it;
     imax = i + mult_save->imax;
 
-    //printf("scheduled to run %d iterations on input %"PRIu64"\n", imax, N);
+    //printf("scheduled to run %d iterations on input %" PRIu64"\n", imax, N);
 
     while (1)
     {
@@ -929,7 +929,7 @@ void shanks_mult_unit(uint64_t N, mult_t* mult_save, uint64_t* f)
 
         }
 
-        //printf("checking symmetry point after %d iterations on input %"PRIu64"\n", i, N);
+        //printf("checking symmetry point after %d iterations on input %" PRIu64"\n", i, N);
 
         //reduce to G0
         S = (int)sqrt(Qn);
@@ -1043,8 +1043,10 @@ void par_shanks_mult_unit(par_mult_t* mult_save)
 
     imax = MAX(imax, 128);
 
-#pragma ivdep
+#pragma GCC ivdep
+#ifdef _MSC_VER
 #pragma vector aligned
+#endif
     for (k = 0; k < NUM_LANES; k++)
     {
         mult_save->f[k] = 0;
@@ -1055,8 +1057,10 @@ void par_shanks_mult_unit(par_mult_t* mult_save)
         j = 0;
 
         //i must be even on entering the unrolled loop below
-#pragma ivdep
+#pragma GCC ivdep
+#ifdef _MSC_VER
 #pragma vector aligned
+#endif
         for (k = 0; k < NUM_LANES; k++)
         {
             if (iterations[k] & 0x1)
@@ -1119,8 +1123,10 @@ void par_shanks_mult_unit(par_mult_t* mult_save)
                 //multiplier try for awhile.  save state so we
                 //know where to start back up in the next round
 
-#pragma ivdep
+#pragma GCC ivdep
+#ifdef _MSC_VER
 #pragma vector aligned
+#endif
                 for (k = 0; k < NUM_LANES; k++)
                 {
                     //signal to do nothing but continue looking for a factor
@@ -1166,8 +1172,10 @@ void par_shanks_mult_unit(par_mult_t* mult_save)
                 return;
             }
 
-#pragma ivdep
+#pragma GCC ivdep
+#ifdef _MSC_VER
 #pragma vector aligned
+#endif
             for (k = 0; k < NUM_LANES; k++)
             {
                 t1[k] = P[k];
@@ -1216,9 +1224,13 @@ void par_shanks_mult_unit(par_mult_t* mult_save)
             //check for square Qn = S*S
             success = 0;
 
-#pragma ivdep
+#pragma GCC ivdep
+#ifdef _MSC_VER
 #pragma vector aligned
+#endif
+#ifdef _MSC_VER
 #pragma unroll
+#endif
             for (k = 0; k < NUM_LANES; k++)
             {
                 success_vec[k] = 0;
@@ -1281,8 +1293,10 @@ void par_shanks_mult_unit(par_mult_t* mult_save)
             }
 
             //odd iteration
-#pragma ivdep
+#pragma GCC ivdep
+#ifdef _MSC_VER
 #pragma vector aligned
+#endif
             for (k = 0; k < NUM_LANES; k++)
             {
                 t1[k] = P[k];
@@ -1331,8 +1345,10 @@ void par_shanks_mult_unit(par_mult_t* mult_save)
 
         // we're about to check for a factorization.  
         // save progress in case we find one and exit.
-#pragma ivdep
+#pragma GCC ivdep
+#ifdef _MSC_VER
 #pragma vector aligned
+#endif
         for (k = 0; k < NUM_LANES; k++)
         {
             //set default signal: to do nothing but continue looking for a factor
@@ -1346,7 +1362,7 @@ void par_shanks_mult_unit(par_mult_t* mult_save)
             {
                 int failsafe = 10000;
 
-                //printf("symmetry check on input %"PRIu64" in lane %d after %d iterations\n", 
+                //printf("symmetry check on input %" PRIu64" in lane %d after %d iterations\n", 
                 //    mult_save->mN[k], k, i);
 
                 // reduce to G0
@@ -1480,7 +1496,7 @@ void par_shanks_mult_unit_asm(par_mult_t* mult_save)
     //printf("scheduled to run %d iterations\n", imax);
 
     // load previous save point
-#pragma novector
+#pragma GCC novector
     for (k = 0; k < NUM_LANES; k++)
     {
         mult_save->f[k] = 0;
@@ -1494,7 +1510,7 @@ void par_shanks_mult_unit_asm(par_mult_t* mult_save)
         j = 0;
 
         //i must be even on entering the unrolled loop below
-#pragma novector
+#pragma GCC novector
         for (k = 0; k < NUM_LANES; k++)
         {
             if (iterations[k] & 0x1)
@@ -1987,7 +2003,7 @@ void par_shanks_mult_unit_asm(par_mult_t* mult_save)
             {
                 int failsafe = 10000;
 
-                //printf("symmetry check on input %"PRIu64" in lane %d after %d iterations\n", 
+                //printf("symmetry check on input %" PRIu64" in lane %d after %d iterations\n", 
                 //    mult_save->mN[k], k, i);
 
                 // reduce to G0
@@ -2663,7 +2679,7 @@ uint64_t LehmanFactor(uint64_t uN, double Tune, int DoTrialFirst, double CutFrac
         TDiv63InverseSetup(PRIMES, NUM_P);
         free(PRIMES);
         //printf("prime list generated\n");
-        //printf("PMAX = %"PRIu64", NUM_P = %"PRIu64"\n", P_MAX, NUM_P);
+        //printf("PMAX = %" PRIu64", NUM_P = %" PRIu64"\n", P_MAX, NUM_P);
 
         initialized = 1;
         //printf("sqrt tables generated\n");

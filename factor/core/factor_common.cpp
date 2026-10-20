@@ -1439,7 +1439,7 @@ void print_factor(const char* prefix, mpz_t factor, int OBASE)
     else if (OBASE == 2)
     {
         int i;
-        printf("%s%db = 0b", prefix, mpz_sizeinbase(factor, 2));
+        printf("%s%zub = 0b", prefix, mpz_sizeinbase(factor, 2));
         for (i = mpz_sizeinbase(factor, 2) - 1; i >= 0; i--)
         {
             printf("%d", mpz_tstbit(factor, i));

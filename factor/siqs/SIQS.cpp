@@ -476,7 +476,7 @@ void siqs_dispatch(void *vptr)
                 {
                     if (fobj->VFLAG > 1)
                     {
-                        printf("copying prime_product to batch buffer %d, mem use +%u bytes\n",
+                        printf("copying prime_product to batch buffer %d, mem use +%zu bytes\n",
                             static_conf->batch_buffer_id,
                             mpz_sizeinbase(static_conf->rb[0].prime_product, 2) / 8);
                     }
@@ -2574,7 +2574,7 @@ void* process_poly(void* vptr)
 					}
 					else
 					{
-						printf("tid %u: Bpoly %u of %u: buffered %u rels, checked %u (%1.2f rels/sec)\r",
+						printf("tid %u: Bpoly %u of %u: buffered %u rels, checked %" PRIu64 " (%1.2f rels/sec)\r",
                             tdata->tindex, dconf->numB, dconf->maxB, dconf->buffered_rels, dconf->num,
 							(double)dconf->buffered_rels / t_time);
 					}
@@ -2687,7 +2687,6 @@ void* process_poly(void* vptr)
 
     //exit(0);
 
-done:
 
 	gettimeofday (&stop, NULL);
     t_time = ytools_difftime(&start, &stop);
@@ -2947,7 +2946,7 @@ void print_siqs_splash(dynamic_conf_t *dconf, static_conf_t *sconf)
 
         if (sconf->obj->qs_obj.gbl_override_lpb > 0)
         {
-            printf("single large prime cutoff: %"PRIu64" (2^%d)\n",
+            printf("single large prime cutoff: %" PRIu64" (2^%d)\n",
                 sconf->large_prime_max, sconf->obj->qs_obj.gbl_override_lpb);
         }
         else if (sconf->large_mult > 1000)
@@ -2962,18 +2961,18 @@ void print_siqs_splash(dynamic_conf_t *dconf, static_conf_t *sconf)
 
             if (sconf->large_prime_max == (1 << bits))
             {
-                printf("single large prime cutoff: %"PRIu64" (2^%d)\n",
+                printf("single large prime cutoff: %" PRIu64" (2^%d)\n",
                     sconf->large_prime_max, bits);
             }
             else
             {
-                printf("single large prime cutoff: %"PRIu64"\n",
+                printf("single large prime cutoff: %" PRIu64"\n",
                     sconf->large_prime_max);
             }
         }
         else
         {
-            printf("single large prime cutoff: %"PRIu64" (%d * pmax)\n",
+            printf("single large prime cutoff: %" PRIu64" (%d * pmax)\n",
                 sconf->large_prime_max, sconf->large_mult);
         }
 
@@ -3010,7 +3009,7 @@ void print_siqs_splash(dynamic_conf_t *dconf, static_conf_t *sconf)
             printf("processing polynomials in batches of %d for %u XL primes\n",
                 dconf->poly_batchsize, sconf->factor_base->B - sconf->factor_base->x2_large_B);
 #endif
-            printf("large prime hashtables have %d bytes\n",
+            printf("large prime hashtables have %zu bytes\n",
                 dconf->buckets->list_size * BUCKET_ALLOC * sizeof(uint32_t));
         }
         printf("using %s enabled 32k sieve core\n", inst_set);
@@ -3088,7 +3087,7 @@ void print_siqs_splash(dynamic_conf_t *dconf, static_conf_t *sconf)
 			sconf->factor_base->B,sconf->pmax);
 		if (sconf->obj->qs_obj.gbl_override_lpb > 0)
 		{
-			logprint(sconf->obj->logfile, "single large prime cutoff: %"PRIu64" (2^%d)\n",
+			logprint(sconf->obj->logfile, "single large prime cutoff: %" PRIu64" (2^%d)\n",
 				sconf->large_prime_max, sconf->obj->qs_obj.gbl_override_lpb);
 		}
         else if (sconf->large_mult > 1000)
@@ -3103,12 +3102,12 @@ void print_siqs_splash(dynamic_conf_t *dconf, static_conf_t *sconf)
 
             if (sconf->large_prime_max == (1ull << bits))
             {
-                logprint(sconf->obj->logfile, "single large prime cutoff: %"PRIu64" (2^%d)\n",
+                logprint(sconf->obj->logfile, "single large prime cutoff: %" PRIu64" (2^%d)\n",
                     sconf->large_prime_max, bits);
             }
             else
             {
-                logprint(sconf->obj->logfile, "single large prime cutoff: %"PRIu64"\n",
+                logprint(sconf->obj->logfile, "single large prime cutoff: %" PRIu64"\n",
                     sconf->large_prime_max);
             }
         }
@@ -3582,7 +3581,7 @@ int siqs_dynamic_init(dynamic_conf_t *dconf, static_conf_t *sconf)
             printf("allocating space for buckets with %u blocks, %u slices, and %u polys\n",
                 sconf->num_blocks, dconf->buckets->alloc_slices, dconf->poly_batchsize);
 
-            printf("allocating %u total bytes for bucket sort\n",
+            printf("allocating %zu total bytes for bucket sort\n",
                 dconf->buckets->list_size *
                 BUCKET_ALLOC * sizeof(uint32_t));
         }
@@ -4807,7 +4806,7 @@ int update_check(static_conf_t *sconf)
 
                 printf("\nsieve time = %6.4f, relation time = %6.4f, poly_time = %6.4f\n",
                     sconf->t_time1, sconf->t_time2, sconf->t_time3);
-                printf("trial division touched %d sieve locations out of ", sconf->num);
+                printf("trial division touched %" PRIu64 " sieve locations out of ", sconf->num);
                 gmp_printf("%Zd\n", tmp1);
                 fflush(stdout);
                 fflush(stderr);
@@ -4832,7 +4831,7 @@ int update_check(static_conf_t *sconf)
 
 			printf("\nsieve time = %6.4f, relation time = %6.4f, poly_time = %6.4f\n",
 				sconf->t_time1,sconf->t_time2,sconf->t_time3);
-            printf("trial division touched %d sieve locations out of ", sconf->num);
+            printf("trial division touched %" PRIu64 " sieve locations out of ", sconf->num);
             gmp_printf("%Zd\n", tmp1);
 			fflush(stdout);
 			fflush(stderr);
@@ -5566,10 +5565,10 @@ int update_final(static_conf_t *sconf)
 		{
 			printf("\n\nsieving required %u total polynomials (%u 'A' polynomials)\n",
 				sconf->tot_poly, sconf->total_poly_a);
-            // ugh.  sending "PRIu64" to gmp_printf segfaults on mingw64/msys2 windows.  
+            // ugh.  sending " PRIu64" to gmp_printf segfaults on mingw64/msys2 windows.  
             // probably because of the size difference between "ui" (unsigned int) 
             // here in yafu-land and in gmp-land.
-            printf("trial division touched %"PRIu64" sieve locations out of ", sconf->num);
+            printf("trial division touched %" PRIu64" sieve locations out of ", sconf->num);
             gmp_printf("%Zd\n",	tmp1);
 
             if (sconf->use_dlp)
@@ -5599,7 +5598,7 @@ int update_final(static_conf_t *sconf)
                         sconf->qlp_outside_range, sconf->qlp_useful);
 			}
 
-            printf("total reports = %"PRIu64", total surviving reports = %"PRIu64"\ntotal blocks sieved = %"PRIu64", "
+            printf("total reports = %" PRIu64", total surviving reports = %" PRIu64"\ntotal blocks sieved = %" PRIu64", "
                 "avg surviving reports per block = %1.2f\n", sconf->total_reports,
                 sconf->total_surviving_reports, sconf->total_blocks,
                 (float)sconf->total_surviving_reports / (float)sconf->total_blocks);
@@ -5633,10 +5632,10 @@ int update_final(static_conf_t *sconf)
 				sconf->num, s);
             free(s);
 
-			logprint(sieve_log, "total reports = %"PRIu64", total surviving reports = %"PRIu64"\n", sconf->total_reports,
+			logprint(sieve_log, "total reports = %" PRIu64", total surviving reports = %" PRIu64"\n", sconf->total_reports,
 				sconf->total_surviving_reports);
 
-			logprint(sieve_log, "total blocks sieved = %"PRIu64", avg surviving reports per block = %1.2f\n", 
+			logprint(sieve_log, "total blocks sieved = %" PRIu64", avg surviving reports per block = %1.2f\n", 
 				sconf->total_blocks, (float)sconf->total_surviving_reports / (float)sconf->total_blocks);
 			
             if (sconf->use_dlp)
@@ -5704,7 +5703,7 @@ int update_final(static_conf_t *sconf)
 		}
 
         char* s = mpz_get_str(NULL, 10, tmp1);
-		logprint(sieve_log, "trial division touched %"PRIu64" sieve locations out of %s\n",
+		logprint(sieve_log, "trial division touched %" PRIu64" sieve locations out of %s\n",
 			sconf->num, s);
         free(s);
 		logprint(sieve_log,"==== post processing stage (msieve-1.38) ====\n");

@@ -63,7 +63,7 @@ void print_vechex(base_t* a, int v, int n, const char* pre)
         printf("%s: ", pre);
     for (i = n - 1; i >= 0; i--)
     {
-        printf("%013"PRIx64"", a[v + i * VECLEN]);
+        printf("%013" PRIx64"", a[v + i * VECLEN]);
     }
     printf("\n");
     return;
@@ -79,7 +79,7 @@ void print_regvechex(__m512i a, int v, const char* pre)
     if (pre != NULL)
         printf("%s: ", pre);
 
-    printf("%08"PRIx64"", aa[v]);
+    printf("%08" PRIx64"", aa[v]);
     if (pre != NULL)
         printf("\n");
     return;
@@ -97,7 +97,7 @@ void print_regvechexrange(__m512i a, int v1, int v2, const char* pre)
         printf("%s: ", pre);
 
     for (i = v2; i >= v1; i--)
-        printf("%08"PRIx64"", aa[i]);
+        printf("%08" PRIx64"", aa[i]);
 
     if (pre != NULL)
         printf("\n");
@@ -114,7 +114,7 @@ void print_hexbignum(vec_bignum_t* a, const char* pre)
 
     for (i = NWORDS - 1; i >= 0; i--)
     {
-        printf("%013"PRIx64"", a->data[i]);
+        printf("%013" PRIx64"", a->data[i]);
     }
     printf("\n");
     return;
@@ -154,7 +154,7 @@ void print_regvechex64(__m512i a, int v, const char* pre)
     if (pre != NULL)
         printf("%s: ", pre);
 
-    printf("%016"PRIx64"", aa[v]);
+    printf("%016" PRIx64"", aa[v]);
     if (pre != NULL)
         printf("\n");
     return;

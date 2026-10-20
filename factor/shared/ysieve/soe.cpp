@@ -224,7 +224,7 @@ void bitmap_2class_work_fcn(void *vptr)
 
     if (sdata->VFLAG > 2)
     {
-        printf("thread %d working on range %"PRIu64" - %"PRIu64"\n", tdata->tindex,
+        printf("thread %d working on range %" PRIu64" - %" PRIu64"\n", tdata->tindex,
             llimit, hlimit);
     }
 
@@ -310,7 +310,7 @@ void bitmap_8class_work_fcn(void *vptr)
 
     if (sdata->VFLAG > 2)
     {
-        printf("thread %d working on range %"PRIu64" - %"PRIu64"\n", tdata->tindex,
+        printf("thread %d working on range %" PRIu64" - %" PRIu64"\n", tdata->tindex,
             llimit, hlimit);
     }
 
@@ -407,7 +407,7 @@ void bitmap_48class_work_fcn(void *vptr)
 
     if (sdata->VFLAG > 2)
     {
-        printf("thread %d working on range %"PRIu64" - %"PRIu64"\n", tdata->tindex, llimit, hlimit);
+        printf("thread %d working on range %" PRIu64" - %" PRIu64"\n", tdata->tindex, llimit, hlimit);
     }
 
     // do bitmap sieve work
@@ -550,7 +550,6 @@ uint64_t spSOE(soe_staticdata_t *sdata, mpz_t offset,
 	{	
         char strfeatures[80];
         char strfeatures2[80];
-        int features_maxsize = 80;
 
         if (sdata->sieve_range == 0)
         {
@@ -559,7 +558,7 @@ uint64_t spSOE(soe_staticdata_t *sdata, mpz_t offset,
                 sdata->orig_llimit, sdata->orig_hlimit);
             printf("sieving range %" PRIu64 " to %" PRIu64 "\n",
                 sdata->lowlimit, *highlimit);
-            printf("using %" PRIu64 " primes, max prime = %" PRIu64 "  \n",
+            printf("using %" PRIu64 " primes, max prime = %" PRIu32 "  \n",
                 sdata->pboundi, sdata->sieve_p[sdata->pboundi - 1]);
         }
         else
@@ -585,7 +584,7 @@ uint64_t spSOE(soe_staticdata_t *sdata, mpz_t offset,
 #if defined(USE_AVX2)
         if (sdata->has_avx2)
         {
-            sprintf(strfeatures, "AVX2");
+            snprintf(strfeatures, sizeof(strfeatures), "AVX2");
         }
 #endif
 
@@ -594,12 +593,12 @@ uint64_t spSOE(soe_staticdata_t *sdata, mpz_t offset,
         {
             if (strlen(strfeatures) > 0)
             {
-                sprintf(strfeatures2, "%s, BMI2", strfeatures);
-                strncpy(strfeatures, strfeatures2, features_maxsize);
+                snprintf(strfeatures2, sizeof(strfeatures2), "%s, BMI2", strfeatures);
+                snprintf(strfeatures, sizeof(strfeatures), "%s", strfeatures2);
             }
             else
             {
-                sprintf(strfeatures, "BMI2");
+                snprintf(strfeatures, sizeof(strfeatures), "BMI2");
             }
         }
 #endif
@@ -609,12 +608,12 @@ uint64_t spSOE(soe_staticdata_t *sdata, mpz_t offset,
         {
             if (strlen(strfeatures) > 0)
             {
-                sprintf(strfeatures2, "%s, AVX512", strfeatures);
-                strncpy(strfeatures, strfeatures2, features_maxsize);
+                snprintf(strfeatures2, sizeof(strfeatures2), "%s, AVX512", strfeatures);
+                snprintf(strfeatures, sizeof(strfeatures), "%s", strfeatures2);
             }
             else
             {
-                sprintf(strfeatures, "AVX512");
+                snprintf(strfeatures, sizeof(strfeatures), "AVX512");
             }
         }
 #endif
@@ -1041,7 +1040,7 @@ void finalize_sieve(soe_staticdata_t *sdata,
 
         if (sdata->VFLAG > 2)
         {
-            printf("num_found by main sieve = %"PRIu64"\n", num_p);
+            printf("num_found by main sieve = %" PRIu64"\n", num_p);
         }
 
 		// PRIMES is already sized appropriately by the wrapper
@@ -1133,7 +1132,7 @@ void finalize_sieve(soe_staticdata_t *sdata,
 
         if (sdata->VFLAG > 2)
         {
-            printf("num_found by main sieve = %"PRIu64"\n", num_p);
+            printf("num_found by main sieve = %" PRIu64"\n", num_p);
         }
 
 		// PRIMES is already sized appropriately by the wrapper

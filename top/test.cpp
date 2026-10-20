@@ -262,7 +262,7 @@ void test_dlp_composites(void)
 	for (i = 0; i < 29; i++)
 	{
 		f64 = LehmanFactor(testLehman[i], 3.5, 0, 0.1);
-		printf("input %"PRIu64" returned factor %"PRIu64", actual factors %u and %u (%"PRIu64")\n", 
+		printf("input %" PRIu64" returned factor %" PRIu64", actual factors %u and %u (%" PRIu64")\n", 
 			testLehman[i], f64, f1[i], f2[i], (uint64_t)f1[i] * (uint64_t)f2[i]);
 		if ((f64 == f1[i]) || (f64 == f2[i]))
 		{
@@ -769,7 +769,7 @@ tinyqs_marker:
                 num = i;
                 break;
             }
-            gmp_sscanf(buf, "%Zd,%"PRIu64",%"PRIu64"", gmp_comp, &f1, &f2);
+            gmp_sscanf(buf, "%Zd,%" PRIu64",%" PRIu64"", gmp_comp, &f1, &f2);
             
             for (k = 0; k < curves; k++)
             {
