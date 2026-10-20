@@ -508,12 +508,137 @@ static void t_siqs_lazy_bpoly_matches(tk_ctx *tk)
     free(sconf);
 }
 
+/* process_rel 的截断检查。
+ *
+ * 数据文件被截断（进程被 kill）时，最后一行可能只剩半截。原来只有
+ * lp[0] 做了"没东西可解析"的检查，lp[1] 没有 —— 它会静默变成 0，
+ * 而 0 会被当成一个真的大素数加进 cycle 图，图里多出一个素数 0 的
+ * 顶点，环计数随之偏差。这次给 lp[1] 也补上了检查。
+ *
+ * 判据用哨兵值：rel->large_prime[1] 预置成 0xDEADBEEF。截断的行在
+ * 早退时不会碰它（赋值在所有截断检查之后），而没被截断的行会走到
+ * 那里写上真正的 lp[1]。所以"哨兵保持不变"就说明这行被当成损坏
+ * 数据拒掉了。
+ *
+ * 返回值区分不了"因截断被拒"和"因关系校验失败被拒"——两者都是 1，
+ * 所以不能只看返回值。
+ */
+
+#define PROC_REL_SENTINEL 0xDEADBEEFu
+
+static void t_siqs_process_rel_truncated(tk_ctx *tk)
+{
+    static_conf_t *sconf;
+    fb_list fb;
+    fb_element_siqs *fbel;
+    siqs_r rel;
+    mpz_t n;
+    siqs_poly poly;
+    int rc;
+    static const uint32_t primes[] = {2, 3, 5, 7, 11, 13, 17, 19};
+
+    memset(&fb, 0, sizeof(fb));
+    memset(&poly, 0, sizeof(poly));
+
+    /* 一个最小的因子基：小素数列表，够 process_rel 的试除循环用 */
+    fbel = (fb_element_siqs *)calloc(sizeof(fbel[0]),
+                                    sizeof(primes) / sizeof(primes[0]));
+    TK_REQUIRE(tk, fbel != NULL, "out of memory");
+    fbel->prime = (uint32_t *)calloc(sizeof(primes) / sizeof(primes[0]),
+                                     sizeof(uint32_t));
+    TK_REQUIRE(tk, fbel->prime != NULL, "out of memory");
+    memcpy(fbel->prime, primes, sizeof(primes));
+    fb.list = fbel;
+    fb.B = (uint32_t)(sizeof(primes) / sizeof(primes[0]));
+
+    sconf = (static_conf_t *)calloc(1, sizeof(static_conf_t));
+    TK_REQUIRE(tk, sconf != NULL, "out of memory");
+
+    mpz_init_set_ui(n, 1000003);
+    mpz_init_set_ui(sconf->curr_a, 2);
+    mpz_init_set_ui(poly.mpz_poly_b, 2);
+    poly.s = 1;
+    poly.qlisort = (int *)calloc(1, sizeof(int));
+    TK_REQUIRE(tk, poly.qlisort != NULL, "out of memory");
+    poly.qlisort[0] = 0;
+
+    sconf->knmod8 = 0;                 /* 不做 b 的奇偶修正 */
+    sconf->num_lp = 2;
+    sconf->factor_base = &fb;
+    sconf->curr_poly = &poly;
+    sconf->sieve_small_fb_start = 1;   /* 小素数试除从下标 1 开始 */
+    sconf->curr_b = (mpz_t *)calloc(4, sizeof(mpz_t));
+    TK_REQUIRE(tk, sconf->curr_b != NULL, "out of memory");
+    for (rc = 0; rc < 4; rc++)
+        mpz_init_set_ui(sconf->curr_b[rc], 2);
+
+    /* 1) 截断在 'L' 之前：连大素数都没有 */
+    {
+        char line[] = "10 0 2 3 L";
+        memset(&rel, 0, sizeof(rel));
+        rel.large_prime[1] = PROC_REL_SENTINEL;
+        rc = process_rel(line, &fb, n, sconf, (fact_obj_t *)NULL, &rel);
+        TK_CHECKF(tk, rc == 1, "truncated before lp[0]: expected 1, got %d", rc);
+        TK_CHECKF(tk, rel.large_prime[1] == PROC_REL_SENTINEL,
+            "truncated before lp[0] was not rejected early");
+    }
+
+    /* 2) 截断在 lp[0] 与 lp[1] 之间：只有一个大素数。
+     *    这一档是本次修复针对的 —— 旧代码会让 lp[1] 静默变成 0。 */
+    {
+        char line[] = "10 0 2 3 L 11";
+        memset(&rel, 0, sizeof(rel));
+        rel.large_prime[1] = PROC_REL_SENTINEL;
+        rc = process_rel(line, &fb, n, sconf, (fact_obj_t *)NULL, &rel);
+        TK_CHECKF(tk, rc == 1,
+            "truncated between lp[0] and lp[1]: expected 1, got %d", rc);
+        TK_CHECKF(tk, rel.large_prime[1] == PROC_REL_SENTINEL,
+            "truncated between lp[0] and lp[1] was not rejected early "
+            "(lp[1] silently became %u)", rel.large_prime[1]);
+    }
+
+    /* 3) 截断在因子列表中间 */
+    {
+        char line[] = "10 0 2";
+        memset(&rel, 0, sizeof(rel));
+        rel.large_prime[1] = PROC_REL_SENTINEL;
+        rc = process_rel(line, &fb, n, sconf, (fact_obj_t *)NULL, &rel);
+        TK_CHECKF(tk, rc == 1, "truncated in factor list: expected 1, got %d", rc);
+        TK_CHECKF(tk, rel.large_prime[1] == PROC_REL_SENTINEL,
+            "truncated factor list was not rejected early");
+    }
+
+    /* 4) 截断在偏移/因子之间：'L' 之前就没了 */
+    {
+        char line[] = "10 0";
+        memset(&rel, 0, sizeof(rel));
+        rel.large_prime[1] = PROC_REL_SENTINEL;
+        rc = process_rel(line, &fb, n, sconf, (fact_obj_t *)NULL, &rel);
+        TK_CHECKF(tk, rc == 1, "truncated after factors: expected 1, got %d", rc);
+        TK_CHECKF(tk, rel.large_prime[1] == PROC_REL_SENTINEL,
+            "truncated after factors was not rejected early");
+    }
+
+    for (rc = 0; rc < 4; rc++)
+        mpz_clear(sconf->curr_b[rc]);
+    free(sconf->curr_b);
+    free(poly.qlisort);
+    mpz_clear(poly.mpz_poly_b);
+    mpz_clear(sconf->curr_a);
+    mpz_clear(n);
+    free(fbel->prime);
+    free(fbel);
+    free(sconf);
+}
+
 static const tk_test tk__qs_review_tests[] = {
     { "threadpool_lifecycle", t_threadpool_lifecycle, "fast threads qs" },
     { "pmpqs_boundaries", t_pmpqs_boundaries, "fast mpqs qs" },
     { "nfs_qrange_roundtrip", t_nfs_qrange_roundtrip, "fast nfs qs" },
     { "siqs_bpoly_sequence", t_siqs_bpoly_sequence, "fast siqs qs" },
     { "siqs_lazy_bpoly_matches", t_siqs_lazy_bpoly_matches, "fast siqs qs" },
+    { "siqs_process_rel_truncated", t_siqs_process_rel_truncated, "fast siqs qs" },
+    { "siqs_process_rel_truncated", t_siqs_process_rel_truncated, "fast siqs qs" },
 #if defined(USE_AVX512F)
     { "bitonic_arbitrary_lengths", t_bitonic_arbitrary_lengths,
       "fast avx512 qs" },

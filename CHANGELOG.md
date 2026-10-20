@@ -871,6 +871,103 @@ for (;;) {
 这一点，GCC 16 直接报 `-Wuninitialized`。把 `k` 初始化成零向量即可，
 未初始化值本来就不参与任何有效结果。
 
+### 性能：先把热点量出来，再决定动哪里
+
+这一轮先量了 SIQS 路径的耗时分布（90 位半素数，6 逻辑核 / 3 物理核的机器，
+`-v` 输出的阶段计时；CPU 时间是各线程累加，墙钟 81.05 秒、CPU 337 秒）：
+
+| 阶段 | CPU 秒 | 占比 |
+| --- | --- | --- |
+| Poly update（多项式根更新） | 132.8 | 39% |
+| Med sieve | 85.6 | 25% |
+| Tdiv（试除） | 65.7 | 19% |
+| Large sieve | 53.4 | 16% |
+| Lanczos | 7.4 | 2% |
+| Sqrt | 0.2 | 0.06% |
+
+热点全在手写 AVX512 intrinsic 里（`update_poly_roots_32k_knl.cpp`、
+`med_sieve_32k_avx2.cpp`）。本来打算用 C++26 的 `std::simd` 重写，但
+GCC 16.2 还没有实现它 —— `<simd>` 头文件在，`std::simd` 实体没有
+（`__cpp_lib_simd` 未定义）。所以这条路走不通，热点的 SIMD 代码动不了。
+
+**两个看起来有希望、实测后被否掉的优化**（都先做了微基准再决定）：
+
+1. **把关系去重的排序改成"排下标 + 一次重排"**。`siqs_r` 有 836 字节
+   （`fb_offsets[200]`），而比较只用到大素数、因子数和前几个
+   `fb_offsets`；`qsort` 的交换次数约 n·log n，每次搬 836 字节，
+   40 万个关系就是 6 GB 以上的内存流量。改成排 `uint32` 下标（交换
+   4 字节）再重排，理论上能省一个数量级。
+
+   **实测反而慢 2.8 倍**（0.174 秒 -> 0.483 秒）：`std::sort` 的每次比较
+   要间接访问 `rlist`（随机访问 836 字节的元素，缓存未命中），而
+   `qsort` 直接在数组上排序。顺带量出：40 万个关系的排序本身只要
+   0.17 秒 —— **排序根本不是瓶颈**，过滤阶段的 64.8 秒在别处。
+
+2. **省掉试除的重复劳动**。内存模式下 `td_and_merge_relation` 会对每条
+   关系重新试除一遍小素数，而筛法阶段（`tdiv.cpp:1200`）已经算过并填在
+   `rel->fb_offsets` 里了。
+
+   **不成立**：`sconf->small_limit = 256`（`SIQS.cpp:3811`），所以
+   `sieve_small_fb_start` 只是小于 256 的素数个数 —— 54 个。重复的只有
+   54 次试除，不值得改。Tdiv 那 19% 是筛法阶段的大素数试除，是本质
+   工作。
+
+   顺带把一条更激进的思路也否掉了：能不能用 Q 的低 64 位做试除判断
+   （`p | Q_lo` 就能断定 `p | Q`）？不行 —— `p | Q_lo` **推不出**
+   `p | Q`（反例 Q = 2^64 + 3、p = 3 时 Q_lo = 3 但 3 不整除 Q）。
+   而 `Q mod p` 需要 Q 的全部位，`mpz_tdiv_ui` 已经是 GMP 的最优实现。
+
+**测量方法上踩的两个坑**（都记下来，免得下次再犯）：
+
+- `perf` 在这台 WSL 上采不到样本（`perf_event_paranoid=2` 且缺
+  libunwind/libdw），`gprof` 需要 `-pg` 重编译但会覆盖掉 Makefile
+  里的 SIMD 选项而编译失败。yafu 自己的阶段计时（`Med sieve time` /
+  `Poly update time` 等）反而够用。
+- **SIQS 的 savefile（`siqs.dat`）会让后续运行续算**，同一输入第二次
+  跑只要 15 秒而不是 123 秒。做基准必须每轮之前删掉它，否则数据全是
+  假的。第一版线程数测试就栽在这上面。
+
+### C++26 特性：能用哪些、还差哪些
+
+用 GCC 16.2 逐个编译探测过（每个特性单独一个小程序，能编过就算支持）：
+
+| 特性 | 状态 |
+| --- | --- |
+| `std::move_only_function`（C++26） | 可用 |
+| `std::inplace_vector` | 可用（线程池的回调表在用） |
+| `std::copyable_function` | 可用（线程池在用，18 处） |
+| `std::string_view` | 可用（28 处） |
+| `std::expected` | 可用（9 处） |
+| `std::source_location` | 可用 |
+| `std::print` / `std::stacktrace` | 可用 |
+| `std::flat_map` / `std::flat_set` | 可用 |
+| `std::span` / `std::optional` / `std::variant` | 可用 |
+| `std::unreachable` / `std::to_underlying` / `std::is_constant_evaluated` | 可用 |
+| `consteval` / `= delete("reason")` | 可用 |
+| `std::simd`（C++26） | **不可用** —— `<simd>` 头文件在，`std::simd` 实体没有 |
+| `std::function_ref`（C++26） | **不可用** |
+| `std::text_encoding`（C++26） | **不可用** |
+| `std::mdspan` / `std::generator` / `std::spanstream` / `std::ranges::to` | **不可用** |
+| `std::byteswap` / `std::bit_cast` / `std::out_ptr` | **不可用** |
+
+几个结论：
+
+- **`std::simd` 用不了**，所以手写 AVX512 intrinsic 那部分（占 SIQS 的
+  64%）没法换成可移植写法 —— 也就没法用 C++26 的方式去优化它。
+- **`std::flat_map` 没有应用点**：这棵树的自有代码里 `std::map` /
+  `std::unordered_map` 一次都没用过（全是自制的哈希表）。
+- **`std::span` 的应用点收益不大**：能改的地方都是"指针 + 长度"参数对，
+  改成 `span` 主要是接口好看，跨文件的签名改动多，收益不抵风险。
+- **`std::scoped_lock` 这类 RAII 锁值得用，但本树用的是 `pthread_mutex_t`，
+  不是 `std::mutex`**，套不上 `std::unique_lock`；要换就得把
+  `pthread_cond_t` 也换成 `std::condition_variable`，那是一次贯穿线程池
+  和 NFS 线程的改动，不该混在这一轮里做。
+
+**这一轮实际改掉的"该用 RAII 却是手写 lock/unlock"的地方**：没有。手写的
+lock/unlock 我逐处核对过加解锁配平，包括看起来最可疑的
+`nfs_stop_worker_thread`（`is_master_thread == 0` 时 start 函数故意不解锁，
+锁由主线程持有到 stop，stop 里那次 unlock 是配平的）。
+
 ### 剩下的 TODO 标记：清零
 
 上一轮结束时，代码里还剩 12 处 TODO / FIXME / XXX 标记。这一轮逐处处理
