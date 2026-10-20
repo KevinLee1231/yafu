@@ -158,6 +158,10 @@ static double mpqs3_kN_dbl, mpqs3_maxval_dbl, mpqs3_A_inv_dbl;
 static u64_t mpqs3_kN_64, mpqs3_A_inv_64;
 
 ushort mpqs3_FB[2*MPQS3_MAX_FBXSIZE], mpqs3_FB0[MPQS3_MAX_FBSIZE+2*256];
+
+/* 因子基里每个素数 p 的平方根在模 p 下的逆元。因子基在一次分解内不变，
+   所以这个值是常量，在生成因子基时一次算好。 */
+ushort mpqs3_FB_sq_inv[MPQS3_MAX_FBXSIZE];
 ushort mpqs3_FB_start[2*MPQS3_MAX_FBXSIZE], mpqs3_FBk_start[3];
 u32_t mpqs3_sievelen;
 u32_t mpqs3_FB_inv[MPQS3_MAX_FBXSIZE];
@@ -777,7 +781,7 @@ static void mpqs3_generate_FB()
   ushort *fb, p, rest, i, nfb;
 
   fb=mpqs3_FB; nfb=0; i=0; mpqs3_nFBk=0;
-  *fb++=2; *fb++=1; nfb++;
+  *fb++=2; *fb++=1; mpqs3_FB_sq_inv[nfb]=mpqs3_invert(1,2); nfb++;
   for (i=1; i<MPQS3_MAX_NPRIMES; i++) {
     p=mpqs3_prime_table[i];
     if (p>MPQS3_FB_MAXPRIME) break;
@@ -786,6 +790,7 @@ static void mpqs3_generate_FB()
       if (mpqs3_jacobi(rest,p)==1) {
         *fb++=p;
         *fb++=mpqs3_sqrt(rest,p,mpqs3_prime_sqrthelp[i]);
+        mpqs3_FB_sq_inv[nfb]=mpqs3_invert((ushort)*(fb-1),p);
         nfb++;
         if (nfb>=mpqs3_nFB) { break; }
       }
@@ -839,8 +844,8 @@ static int mpqs3_SI_init()
 //printf("%u ",mpqs3_Adiv_all[j]);
     mpqs3_Adiv_all_sqrt[j]=mpqs3_FB[2*(i+j)+1];
 
-    mpqs3_Adiv_all_sq_inv[j]=mpqs3_invert(mpqs3_Adiv_all_sqrt[j],mpqs3_Adiv_all[j]);
-/* TODO optimise: 这里每项都重算一遍模逆与平方根，批量算能省不少。 */
+    /* 平方根在模 p 下的逆元是因子基的常量，生成因子基时就算好了。 */
+    mpqs3_Adiv_all_sq_inv[j]=mpqs3_FB_sq_inv[i+j];
 {
   u32_t pp, p2, r0, rr, s, inv;
 
@@ -1356,7 +1361,11 @@ zeitA(7);
       mpqs3_sinit_tab[2*j]=mpqs3_sievelen-mpqs3_sinit_tab[2*(2*i-1-j)];
       if (j<2*i-1) mpqs3_sinit_tab[2*j+1]=mpqs3_sinit_tab[2*(2*i-2-j)+1];
     }
-/* compute B_i's */ /* TODO optimise: 逐项做模逆，整批一起算更快。 */
+/* compute B_i's
+ *
+ * 每一项的模数 p（mpqs3_Adiv[i]）互不相同，所以"一次求逆推出多个"的
+ * 批量法在这里用不上 —— 那种方法要求所有元素在同一个模数下。
+ * 这里的项数是 mpqs3_nAdiv（4~7），逐项做模逆的开销本来就小。 */
     for (i=0; i<mpqs3_nAdiv; i++) {
       p=mpqs3_Adiv[i];
       bi_64=mpqs3_A_64*mpqs3_inv_64((u64_t)p);
