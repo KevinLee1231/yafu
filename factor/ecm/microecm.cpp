@@ -2398,7 +2398,10 @@ static uint64_t uecm_stage2(uecm_pt *P, uint64_t rho, uint64_t n, uint32_t stg1_
     uecm_pt Pd1;
     uecm_pt *Pd = &Pd1;
     const uint8_t *barray = 0;
-    int numb;
+        /* B1 不是受支持的取值时没有对应的二阶段曲线表。原来的写法让 numb
+     * 保持未初始化，下面 for (i = 0; i < numb; i++) 会用栈上的垃圾值当
+     * 循环上限，再拿 barray 越界读。给个确定的初值，循环自然不执行。 */
+    int numb = 0;
 
 #ifdef MICRO_ECM_VERBOSE_PRINTF
     ptadds = 0;
@@ -2754,7 +2757,10 @@ static __m512i uecm_stage2_x8(uecm_pt_x8* P, __m512i rho, __m512i n,
     uecm_pt_x8 Pd1;
     uecm_pt_x8* Pd = &Pd1;
     const uint8_t* barray = 0;
-    int numb;
+        /* B1 不是受支持的取值时没有对应的二阶段曲线表。原来的写法让 numb
+     * 保持未初始化，下面 for (i = 0; i < numb; i++) 会用栈上的垃圾值当
+     * 循环上限，再拿 barray 越界读。给个确定的初值，循环自然不执行。 */
+    int numb = 0;
 
 #ifdef MICRO_ECM_VERBOSE_PRINTF
     ptadds = 0;

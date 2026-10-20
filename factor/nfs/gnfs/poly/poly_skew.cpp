@@ -627,4 +627,10 @@ std::expected<void, poly_search_error> find_poly_core(msieve_obj *obj, mpz_t n,
 		fclose(rootopt_callback_data.all_poly_file);
 		poly_rootopt_free(&rootopt_data);
 	}
+
+	/* 成功路径原来直接掉到函数末尾，没有 return。
+	 * 返回类型是 std::expected<void, poly_search_error>，不返回值是未定义行为：
+	 * 调用方 find_poly() 读的是 !search，结果里的 has_value 是垃圾值，
+	 * 有时会被当成"多项式选择失败"。 */
+	return {};
 }

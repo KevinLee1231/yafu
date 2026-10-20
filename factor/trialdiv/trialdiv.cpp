@@ -692,10 +692,13 @@ uint64_t spfermat(uint64_t limit, uint32_t mult, uint64_t n)
     if (sptestsqr(b2))
     {
         /* b2 = a*a - multN, so b2 == b*b means (a-b)(a+b) == multN.
-         * b is not a divisor of n -- the factor is gcd(n, a + b),
-         * which the loop below computes.  Returning b would hand
-         * the caller a number that divides nothing. */
-        return 0;
+         * b 本身不是 n 的因子，真正的因子是 gcd(n, a + b)。
+         * 原来这里直接返回 0，把这个已经算出来的因子丢掉了；下面主循环
+         * 末尾用的是同一套算法，这里照做即可。 */
+        tmp = (uint64_t)sqrt((int64_t)b2);
+        tmp = a + tmp;
+        tmp = spGCD(n, tmp);
+        return tmp;
     }
 
     // select locations where b^2 can be a square mod M from precomputed list
