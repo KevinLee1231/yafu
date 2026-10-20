@@ -1061,7 +1061,6 @@ MSIEVE_COMMON_SRCS = \
     factor/shared/common/strtoll.cpp \
     factor/shared/common/thread.cpp \
     factor/shared/common/util.cpp \
-    factor/shared/aprcl/mpz_aprcl32.cpp
 
 COMMON_GPU_SRCS = \
     factor/shared/common/lanczos/gpu/lanczos_matmul_gpu.cpp \

@@ -15,7 +15,10 @@ $Id: mp.c 976 2015-03-02 09:19:51Z brgladman $
 #include <mp.h>
 #include <ms_common.h>
 #include <ms_gmp_xface.h>
-#include <mpz_aprcl32.h>
+/* 32 位那份 mpz_aprcl32.* 已经删掉了：它与 64 位版本导出同名全局符号，
+   而两边的查表数据还不一样（aiQ/aiG 618 项 vs 530 项）。同时链接
+   的话，链接器只留一份，另一边会按错误的表长访问。这里用 64 位版。 */
+#include <mpz_aprcl.h>
 
 /* silly hack: in order to expand macros and then
    turn them into strings, you need two levels of
