@@ -512,15 +512,22 @@ uint32 nfs_find_factors(msieve_obj *obj, mpz_t n,
 						factor_list, &junk);
 
 			factor_found = 1;
-			if (composite_bits < SMALL_COMPOSITE_CUTOFF_BITS) {
+			if (composite_bits == 0) {
+				/* 因子表里没有合数了 —— 剩下的都是素数，
+				   整个输入已经被完全分解。 */
+
 				break;
 			}
 			else {
-				/* a single dependency could take hours,
-				   and if N has more than two factors then
-				   we'll need several dependencies to find
-				   them all. So at least report the smallest
-				   cofactor that we just found */
+				/* 剩下的还是合数，所以继续用后面的依赖。
+				   原来的判据是"余数小于 SMALL_COMPOSITE_CUTOFF_BITS"
+				   （85 位）就停，但 85 位以内完全可能是两个 42 位
+				   素数的乘积 —— 那种余数交给 yafu 的 rho 要 2^21
+				   次迭代才拆得开，而这里用下一个依赖只要几秒。
+				   依赖用完时循环自然结束，剩下的合数仍然由
+				   yafu 的 rho 接手，不会分解不掉。
+
+				   另外报一下刚找到的最小余因子 */
 
 				mpz_divexact(tmp2, n, tmp1);
 				gmp_sprintf(obj->mp_sprintf_buf, "%Zd",
