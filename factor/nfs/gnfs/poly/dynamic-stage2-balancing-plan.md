@@ -212,18 +212,31 @@ even though the *task* came from the shared queue.
      实现（`stage1_sieve_cpu.cpp:1349-1365`）在内层每 16384 个 q-root
      查一次墙钟并对照 `task->coeff_deadline`，超时 `goto finished`。
      分块不替代这个检查，只是在块边界再加一次更粗的检查。
-   - **实测（2026-10-20，100 位半素数，`a_d=1000`，`p[1000,2400]`，
-     `q[1000,1e8]`，`cpu_gerbicz` 引擎）：`coeff_deadline=10` 时，
-     不分块 10.28 秒停、分块 10.27 秒停** —— 及时性上没有区别。
-   - **分块是纯开销。** `STAGE1_QCHUNK_DIVISOR = 20` 意味着把 1 次
-     specialq 调用变成 20 次，而每次都要重建全部 p 的等差数列
+   - **分块那套实现本身有 bug，已修（2026-10-20）。** 三个引擎的 deadline
+     判据都以"本次 specialq 调用开始"为起点
+     （`stage1_sieve_cpu.cpp:1211`/`:1361`、hashtable `:933`、GPU `:1104`），
+     而 `coeff_deadline` 的本意是"这个 a_d 的总预算"。整窗调用时两者恰好
+     等价；分块时每块各自取起点，等于每块都拿到一份完整预算，deadline 被
+     放松到 N 倍。实测 `coeff_deadline=10` 时分块版要跑 13.5~14.0 秒
+     （不分块 10.6 秒），超 33%。修法是每次调用前把 `task->coeff_deadline`
+     刷新成"剩余预算"，字段类型从 `uint32` 改成 `double`（剩余不足 1 秒
+     时 uint32 会截成 0，而 cpu 引擎把 0 当成"不做 deadline 检查"）。
+     顺带修掉 `coeff_deadline=0`（不限时间）时只筛第一块就退出的毛病。
+     修好后（`coeff_deadline=10`，3 轮）：不分块 10.69 / 10.67 / 10.66 秒，
+     分块 10.62 / 10.71 / 10.67 秒 —— 完全持平。
+   - **修好之后分块仍然是纯开销。** `STAGE1_QCHUNK_DIVISOR = 20` 意味着
+     把 1 次 specialq 调用变成 20 次，而每次都要重建全部 p 的等差数列
      （`stage1_sieve_cpu.cpp:1235-1242`：p_packed_reset + sieve_fb_reset
      + 遍历 sieve_fb_next）—— 这部分与 q 窗口大小无关。
-     同一输入不限 deadline 的总耗时（两轮）：不分块 95.94 / 95.77 秒、
-     分块 97.70 / 98.14 秒，命中数四轮都是 51388，分块慢 1.9%。
+     直接测这段重建的耗时：p[1000,2400] 时 0.036 ms 一次（20 块多付
+     0.68 ms），p[10000,24000] degree 4 时 1.16 ms 一次（20 块多付
+     22 ms），p[100000,240000] degree 4 时 12.1 ms 一次（20 块多付
+     230 ms）。开销随 p 范围线性增长，真实大任务上 p 范围可以到 1e5
+     量级。
 
    结论：这两个常量不需要"定值"，因为分块整体不启用。它们保持现在的
-   硬编码即可，改动它们不会影响任何运行路径。
+   硬编码即可，改动它们不会影响任何运行路径。修好 deadline 语义并不
+   改变这个结论 —— 分块能买到的东西整窗调用已经有了，剩下只有开销。
 
 3. **Pick `STAGE2_HIGH_WATERMARK`** — **功能不存在**：树里没有水位线，
    也没有 `poly_stats_backlog()`；backlog 只是统计字段（`hits` /

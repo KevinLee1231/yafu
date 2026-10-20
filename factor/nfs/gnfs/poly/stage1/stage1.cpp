@@ -763,6 +763,19 @@ search_coeff_core(task_data_t * task, uint32 threadid)
 			uint64 chunk_size = MAX(1,
 				(q_max - q_min) / STAGE1_QCHUNK_DIVISOR);
 			uint64 chunk_lo = q_min;
+			/* The engines measure their deadline from the start of
+			 * their own specialq call, so each chunk has to be
+			 * handed what is left of the budget, not the whole
+			 * budget -- otherwise every chunk gets a fresh full
+			 * budget and the a_d can run for N times its
+			 * deadline. See task_data_t.coeff_deadline.
+			 *
+			 * A budget of 0 means "no limit" (the user can ask for
+			 * that with coeff_deadline=0), so in that case the
+			 * budget is left at 0 and the engines skip the check
+			 * themselves -- there is nothing to hand out and
+			 * nothing to count down. */
+			int have_deadline = (task->coeff_deadline > 0);
 			double deadline_end = get_wall_time() +
 				task->coeff_deadline;
 
@@ -772,13 +785,28 @@ search_coeff_core(task_data_t * task, uint32 threadid)
 				uint64 chunk_hi = MIN(q_max,
 					chunk_lo + chunk_size);
 
+				if (have_deadline) {
+					double remaining =
+						deadline_end - get_wall_time();
+
+					if (remaining <= 0) {
+						//logprintf(obj, "stage1: coeff_deadline "
+						//	"hit, aborting a_d early "
+						//	"(q %" PRIu64 " of %" PRIu64
+						//	")\n", chunk_lo, q_max);
+						return;
+					}
+
+					task->coeff_deadline = remaining;
+				}
+
 				v->specialq(task, threadid, chunk_lo, chunk_hi,
 					p_min, p_max);
 
 				if (d->obj->flags & MSIEVE_FLAG_STOP_SIEVING)
 					return;
 
-				if (get_wall_time() >= deadline_end) {
+				if (have_deadline && (get_wall_time() >= deadline_end)) {
 					//logprintf(obj, "stage1: coeff_deadline "
 					//	"hit, aborting a_d early "
 					//	"(q %" PRIu64 " of %" PRIu64

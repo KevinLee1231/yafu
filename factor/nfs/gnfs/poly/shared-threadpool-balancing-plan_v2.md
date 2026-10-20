@@ -294,7 +294,10 @@ test (§10, item 3).
    （`stage1.cpp:739-741`）；代码里没有 `q_chunk_size` 这个名字。
    分块唯一买到的东西（deadline 在块边界及时生效）在整窗调用下已经由
    引擎内层的 16384 粒度检查做到（`stage1_sieve_cpu.cpp:1349-1365`），
-   而分块要多付 19 次 p 等差数列重建 —— 实测慢 1.9%。
+   而分块要多付 19 次 p 等差数列重建 —— 直接测重建耗时，p[1000,2400] 时
+   0.036 ms 一次、p[100000,240000] 时 12.1 ms 一次。
+   （分块实现本身的 deadline 语义 bug 已于 2026-10-20 修好，详见
+   `dynamic-stage2-balancing-plan.md` 同一节；修好后结论不变。）
    所以两个常量不必去定。
 
 2. ~~Confirm `find_next_ad`'s locking~~ — **已落地**：`find_next_ad` 定义在

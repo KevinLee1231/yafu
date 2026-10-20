@@ -257,7 +257,16 @@ typedef struct {
 	msieve_obj *obj;
 	poly_coeff_t *c;
 	stage1_sieve_data_t *d;
-	uint32 coeff_deadline;
+	/* the time budget for this a_d, in seconds. It is a double rather
+	 * than a whole number of seconds because the chunked path refreshes
+	 * it with the *remaining* budget before each specialq call: the
+	 * engines measure their deadline from the start of their own call
+	 * (stage1_sieve_cpu.cpp:1361), so "time spent in this call" only
+	 * means "time spent on this a_d" when the budget is what is left
+	 * of the total. A whole number of seconds would round a sub-second
+	 * remainder down to 0, and the engines treat 0 as "no deadline
+	 * check at all" (stage1_sieve_cpu.cpp:1350). */
+	double coeff_deadline;
 } task_data_t;
 
 /* GPU-specific */

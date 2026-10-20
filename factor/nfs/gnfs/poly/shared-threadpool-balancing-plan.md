@@ -225,8 +225,10 @@ engines were never pool workers under this design in the first place.
    `stage1.cpp:629-630`），没有命令行参数，只被关着的 `if (0)` 块引用。
    分块唯一买到的东西（deadline 在块边界及时生效）在整窗调用下已经由
    引擎内层的 16384 粒度检查做到（`stage1_sieve_cpu.cpp:1349-1365`），
-   而分块要多付 19 次 p 等差数列重建 —— 实测慢 1.9%。
-   详见 `dynamic-stage2-balancing-plan.md` 同一节。
+   而分块要多付 19 次 p 等差数列重建 —— 直接测重建耗时，p[1000,2400] 时
+   0.036 ms 一次、p[100000,240000] 时 12.1 ms 一次。
+   （分块实现本身的 deadline 语义 bug 已于 2026-10-20 修好，详见
+   `dynamic-stage2-balancing-plan.md` 同一节；修好后结论不变。）
 
 4. Decide whether "clear the stage-1 lane" on early abort should also try
    to interrupt an in-flight chunk — **选型变了**：代码会打断，而且比"块边界"

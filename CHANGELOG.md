@@ -651,6 +651,107 @@ yafu 传给 gmp-ecm 的参数是干净的：`thread_data->params` 每线程一�
 2500 触发段错误。而真实调用里 `p_min = p_max / P_SCALE`，`P_SCALE = 2.4`，
 比值恒为 5.76 —— 离触发边界很远，真实路径不会踩到。
 
+### stage 1 的分块：deadline 语义有个真 bug，已修
+
+上一节说"分块唯一买到的东西，整窗调用已经做到了"，这话说得不完整 ——
+**分块那套实现本身是坏的**，坏在 `coeff_deadline` 的语义被悄悄放大了。
+
+**bug 在哪。** 三个引擎的 deadline 判据都以"**本次 specialq 调用开始**"
+为起点：
+
+- cpu_gerbicz：`stage1_sieve_cpu.cpp:1211` 取 `cpu_start_time`，
+  `:1361` 判 `(get_wall_time() - cpu_start_time) > task->coeff_deadline`
+- hashtable：`stage1_sieve_cpu_hashtable.cpp:933` 判
+  `msieve_difftime(&tstart, &tstop) > deadline`
+- GPU：`stage1_sieve_gpu.cpp:1104` 判 `elapsed > deadline`
+
+而 `coeff_deadline` 的本意是"**这个 a_d 的总预算**"
+（`nfs_poly.cpp` 里的 `deadline_per_coeff`）。整窗调用时一次 specialq 覆盖
+整个窗口，起点就是整窗起点，判据恰好等价于"累计耗时 > 总预算"。
+
+分块时同一个 a_d 要调 N 次 specialq，**每次各自取起点**，于是第 k 块的
+判据变成"本块花了 > 总预算"——每块都能再花满一整份预算。代数上：
+
+```
+修复前：块 k 停在 (t - tk) > B        即累计耗时 > (tk - T0) + B
+        块越靠后允许的总耗时越长，最坏 N * B
+修复后：块 k 停在 (t - tk) > (dead - tk)  即 t > dead
+        即累计耗时 > B                  与整窗调用一致
+```
+
+真正的兜底只剩块边界的 `deadline_end` 检查（`stage1.cpp` 的分块循环），
+它只在块与块之间生效，块内跑飞的部分拦不住。
+
+**实测（2026-10-20，100 位半素数，a_d=1000，p[1000,2400]，q[1000,1e8]，
+cpu_gerbicz 引擎，机器空闲）**
+
+修复前（`coeff_deadline=10`，4 轮）：
+
+| 配置 | 耗时 |
+| --- | --- |
+| 不分块 | 10.64 / 10.64 / 10.61 / 10.61 秒 |
+| 分块 块=2e6（50 块） | **13.50 / 13.87 / 13.75 / 14.02 秒** |
+| 分块 块=1e8（1 块） | 10.60 / 10.59 / 10.59 / 10.61 秒 |
+
+修复前分块比 deadline 多了 33%。块=1e8 时只有一次 specialq 调用，起点
+就是整窗起点，语义退化成正确行为，所以与不分块一致 —— 这证明差异来自
+块数，不来自别的地方。
+
+修复后（`coeff_deadline=10`，3 轮）：
+
+| 配置 | 耗时 |
+| --- | --- |
+| 不分块 | 10.69 / 10.67 / 10.66 秒 |
+| 分块 块=2e6（50 块） | 10.62 / 10.71 / 10.67 秒 |
+
+deadline 语义恢复正确，两者完全持平。
+
+**修法。** `task_data_t.coeff_deadline` 从 `uint32` 改成 `double`，
+分块循环里每次调用 specialq 之前把它刷新成"剩余预算"：
+
+```c
+double remaining = deadline_end - get_wall_time();
+if (remaining <= 0)
+    return;
+task->coeff_deadline = remaining;
+v->specialq(task, threadid, chunk_lo, chunk_hi, p_min, p_max);
+```
+
+必须是 double：剩余不足 1 秒时 `uint32` 会截成 0，而 cpu 引擎的判据第一个
+条件是 `(task->coeff_deadline && ...)`，值为 0 会让整个 deadline 检查被
+**跳过**，比原来更糟。
+
+**但结论没变：分块仍然不该启用。** 修好之后，分块在 CPU 引擎上买到的东西
+仍然只有 deadline 的及时性，而这件事整窗调用已经由引擎内层每 16384 个
+q-root 的检查做到了（`stage1_sieve_cpu.cpp:1349-1365`）。剩下的只有每次
+specialq 调用重建全部 p 的等差数列这份开销
+（`stage1_sieve_cpu.cpp:1235-1242`），与 q 窗口大小无关。
+
+**这份开销有多大，直接测 p 数列重建的耗时**（单独写了个程序复刻
+`stage1_sieve_cpu.cpp:1237-1242` 那三行，计时 20~30 轮取最优）：
+
+| p 范围 | 重建一次 | 50 块多付 49 次 | 20 块多付 19 次 |
+| --- | --- | --- | --- |
+| p[1000, 2400]（基准用的） | 0.036 ms | 1.76 ms | 0.68 ms |
+| p[1000, 10000] | 0.49 ms | 24.2 ms | 9.4 ms |
+| p[10000, 24000] degree 4 | 1.16 ms | 56.6 ms | 22.0 ms |
+| p[10000, 24000] degree 5 | 1.45 ms | 70.9 ms | 27.5 ms |
+| p[100000, 240000] degree 4 | 12.1 ms | 593 ms | 230 ms |
+| p[100000, 240000] degree 6 | 17.2 ms | 845 ms | 328 ms |
+
+开销随 p 范围线性增长：p 范围大 100 倍，重建成本也大 100 倍。真实调用
+里 `p_max = MIN(MAX_P, sqrt(p_size_max))`、`p_min = p_max / P_SCALE`
+（`stage1.cpp:672-675`），大任务上 p 范围可以到 1e5 量级，那时 50 块要多付
+半秒到近一秒。
+
+**上一版"分块慢 1.9%"的数字不可靠**：那是在有其它任务并行的机器上测的，
+100 秒级任务本身的噪声就有 ±3 秒，而真实开销是毫秒到亚秒级的。
+
+顺带修掉了分块路径在 `coeff_deadline=0`（用户显式表示"不限时间"）时的
+另一个毛病：`deadline_end` 会被算成"起点 + 0"，块边界的检查立刻成立，
+分块版只筛了第一块就退出（1/50 的窗口）。现在有预算才走剩余预算那套
+逻辑，无预算就保持 0 不变，让引擎自己按"不限"处理。
+
 ### stage 1 的分块：结论是不该启用（已实测确认）
 
 上一轮把"让素数区间与配对生成器对上，新的一段能接着上一段继续"这条留成
