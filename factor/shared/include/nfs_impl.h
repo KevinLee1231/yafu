@@ -137,13 +137,12 @@ enum param_flag_e
 enum nfs_thread_task {
     TASK_DONE,
     TASK_POLY,
-    TASK_NP1,
-    TASK_NPS,
-    TASK_NPR,
-    TASK_NP1_GPU,
-    TASK_SIEVE,
     TASK_POLY_TEST_SIEVE
 };
+/* 以前这里还有 TASK_NP1 / TASK_NPS / TASK_NPR / TASK_NP1_GPU / TASK_SIEVE
+   —— 老版本用它们给 -np1 / -nps / -npr 的分阶段派工作。现在那套做法
+   换成了 nfs_obj.nfs_phases 位标志加 special_polyfind 标志，这些取值
+   全树再也没有被赋过值，留着只会让 switch 漏分支。 */
 
 
 typedef struct

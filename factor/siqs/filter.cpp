@@ -558,6 +558,14 @@ int process_rel(char *substr, fb_list *fb, mpz_t n,
     lp[0] = this_val;
 
     this_val = strtoul(substr, &nextstr, 16);
+    /* lp[1] 与 lp[0] 一样必需（2LP 模式下它等于 lp[0]）。截断的行会让它
+       静默变成 0，而 0 会被当成一个真的大素数加进 cycle 图 —— 图里多出
+       一个素数 0 的顶点，环计数随之偏差。 */
+    if (nextstr == substr)
+    {
+		mpz_clear(Q);
+		return 1;
+    }
     substr = nextstr;
     lp[1] = this_val;
 
