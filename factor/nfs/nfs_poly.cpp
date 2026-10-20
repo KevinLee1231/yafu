@@ -1571,6 +1571,15 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
 			}
 			break;
 
+		case TASK_DONE:
+			// 这个线程已经做完了，没有状态要同步。
+			break;
+
+		default:
+			// 未知任务类型：不做任何事，但要说出来，别静默吞掉。
+			printf("nfs: thread %d finished with unknown task type %d\n",
+				tid, (int)t->task);
+			break;
 			}
 
 			// exit the loop without restarting the thread if abort is asserted.
@@ -1760,16 +1769,6 @@ void do_msieve_polyselect(fact_obj_t *fobj, msieve_obj *obj, nfs_job_t *job,
 
 		}
 
-		case TASK_DONE:
-			// 这个线程已经做完了，没有状态要同步。
-			break;
-
-		default:
-			// 未知任务类型：不做任何事，但要说出来，别静默吞掉。
-			printf("nfs: thread %d finished with unknown task type %d\n",
-				tid, (int)t->task);
-			break;
-		}
 
 		// after starting all ranges for the first time, reset this flag
         if (is_startup)
