@@ -534,11 +534,15 @@ static void t_siqs_process_rel_truncated(tk_ctx *tk)
     siqs_r rel;
     mpz_t n;
     siqs_poly poly;
+    fact_obj_t obj;
     int rc;
     static const uint32_t primes[] = {2, 3, 5, 7, 11, 13, 17, 19};
 
     memset(&fb, 0, sizeof(fb));
     memset(&poly, 0, sizeof(poly));
+    /* process_rel 走到最后会调 check_relation(..., obj->VFLAG, ...)，
+     * obj 传 NULL 就是段错误。清零的 fact_obj_t 够用。 */
+    memset(&obj, 0, sizeof(obj));
 
     /* 一个最小的因子基：小素数列表，够 process_rel 的试除循环用 */
     fbel = (fb_element_siqs *)calloc(sizeof(fbel[0]),
@@ -596,7 +600,7 @@ static void t_siqs_process_rel_truncated(tk_ctx *tk)
         char line[] = "10 0 2 3 L";
         memset(&rel, 0, sizeof(rel));
         rel.large_prime[1] = PROC_REL_SENTINEL;
-        rc = process_rel(line, &fb, n, sconf, (fact_obj_t *)NULL, &rel);
+        rc = process_rel(line, &fb, n, sconf, &obj, &rel);
         TK_CHECKF(tk, rc == 1, "truncated before lp[0]: expected 1, got %d", rc);
         TK_CHECKF(tk, rel.large_prime[1] == PROC_REL_SENTINEL,
             "truncated before lp[0] was not rejected early");
@@ -608,7 +612,7 @@ static void t_siqs_process_rel_truncated(tk_ctx *tk)
         char line[] = "10 0 2 3 L 11";
         memset(&rel, 0, sizeof(rel));
         rel.large_prime[1] = PROC_REL_SENTINEL;
-        rc = process_rel(line, &fb, n, sconf, (fact_obj_t *)NULL, &rel);
+        rc = process_rel(line, &fb, n, sconf, &obj, &rel);
         TK_CHECKF(tk, rc == 1,
             "truncated between lp[0] and lp[1]: expected 1, got %d", rc);
         TK_CHECKF(tk, rel.large_prime[1] == PROC_REL_SENTINEL,
@@ -621,7 +625,7 @@ static void t_siqs_process_rel_truncated(tk_ctx *tk)
         char line[] = "10 0 2";
         memset(&rel, 0, sizeof(rel));
         rel.large_prime[1] = PROC_REL_SENTINEL;
-        rc = process_rel(line, &fb, n, sconf, (fact_obj_t *)NULL, &rel);
+        rc = process_rel(line, &fb, n, sconf, &obj, &rel);
         TK_CHECKF(tk, rc == 1, "truncated in factor list: expected 1, got %d", rc);
         TK_CHECKF(tk, rel.large_prime[1] == PROC_REL_SENTINEL,
             "truncated factor list was not rejected early");
@@ -632,7 +636,7 @@ static void t_siqs_process_rel_truncated(tk_ctx *tk)
         char line[] = "10 0";
         memset(&rel, 0, sizeof(rel));
         rel.large_prime[1] = PROC_REL_SENTINEL;
-        rc = process_rel(line, &fb, n, sconf, (fact_obj_t *)NULL, &rel);
+        rc = process_rel(line, &fb, n, sconf, &obj, &rel);
         TK_CHECKF(tk, rc == 1, "truncated after factors: expected 1, got %d", rc);
         TK_CHECKF(tk, rel.large_prime[1] == PROC_REL_SENTINEL,
             "truncated after factors was not rejected early");
