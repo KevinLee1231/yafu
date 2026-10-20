@@ -114,9 +114,9 @@ __host__ __device__ __forceinline__ cudaError_t Debug(
             #define _CubLog(format, ...) printf("[block (%d,%d,%d), thread (%d,%d,%d)]: " format, blockIdx.z, blockIdx.y, blockIdx.x, threadIdx.z, threadIdx.y, threadIdx.x, __VA_ARGS__);
         #endif
     #else
-        // XXX shameless hack for clang around variadic printf...
-        //     Compilies w/o supplying -std=c++11 but shows warning,
-        //     so we sielence them :)
+        // clang + CUDA 下，_CubLog 的变参宏在 C++11 之前的标准档位下
+        // 编译得过但会出警告。这里用 va_printf 模板把变参转发给
+        // printf，顺手把那两个警告关掉。
         #pragma clang diagnostic ignored "-Wc++11-extensions"
         #pragma clang diagnostic ignored "-Wunnamed-type-template-args"
             template <class... Args>
