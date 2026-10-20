@@ -1125,6 +1125,7 @@ uint32_t parse_job_file(fact_obj_t *fobj, nfs_job_t *job)
 	FILE *in;
 	uint32_t missing_params = 0;
 	uint32_t lpbr = 0, lpba = 0, mfbr = 0, mfba = 0, alim = 0, rlim = 0, size = 0, siever = 0;
+	uint32_t qrange = 0;
     int y0 = 0, y1 = 0, has_m = 0;
 	char line[1024];
 	float alambda = 0.0, rlambda = 0.0, skew = 0.0;
@@ -1157,6 +1158,17 @@ uint32_t parse_job_file(fact_obj_t *fobj, nfs_job_t *job)
 		if (ptr == NULL)
 			break;
         
+		/* qrange: 筛法块大小。yafu 自己写自己读的关键字，sieve 那边
+		   不认它，所以不影响它读 .job。 */
+		substr = strstr(line, "qrange:");
+
+		if (substr != NULL)
+		{
+			qrange = strtoul(substr + 7, NULL, 10);
+			logprint(flog, "qrange: %u\n", qrange);
+			continue;
+		}
+
 		substr = strstr(line, "lpbr:");
 
 		if (substr != NULL)
@@ -1565,6 +1577,12 @@ uint32_t parse_job_file(fact_obj_t *fobj, nfs_job_t *job)
         missing_params |= PARAM_FLAG_ALAMBDA;
     }
 
+	/* 块大小：文件里有就沿用。已筛区间是按这个大小划的。 */
+    if (qrange > 0)
+	{
+		job->qrange = qrange;
+	}
+
     if (info1 == 0)
     {
         missing_params |= PARAM_FLAG_INFO1;
@@ -1630,6 +1648,23 @@ uint32_t parse_job_file(fact_obj_t *fobj, nfs_job_t *job)
 	
 void fill_job_file(fact_obj_t *fobj, nfs_job_t *job, uint32_t missing_params)
 {
+	/* 块大小无条件写进去：它不参与 missing_params 那套"缺了才补"的
+	 * 机制，但续算必须沿用它 —— 已筛区间是按这个大小划的，换了大小
+	 * 区间就对不上。写多次也没关系，读的时候取第一处。 */
+	{
+		FILE* out = fopen(fobj->nfs_obj.job_infile, "a");
+		if (out == NULL)
+		{
+			printf("nfs: couldn't fill job file, will try sieving anyway\n");
+			return;
+		}
+		/* qrange 还是 0 的阶段（多项式还没选定、参数还没查表）不写，
+		   免得在 .job 里留下一行 0 把续算时的读取挡住。 */
+		if (job->qrange > 0)
+			fprintf(out, "qrange: %u\n", job->qrange);
+		fclose(out);
+	}
+
 	if (missing_params != PARAM_FLAG_NONE)
 	{
 		//printf("Missing params: %d\n", missing_params);

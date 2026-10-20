@@ -1954,8 +1954,6 @@ int test_sieve(fact_obj_t* fobj, void* args, int njobs, int are_files)
 	// clean up memory allocated
 	if( are_files )
 	{
-        // TODO: 续算时用到的参数调整（系数范围、块大小这些）没有写进
-        // 文件，续算只能沿用本次的设置，对不上就得出错的结果。
 		for(i = 0; i < njobs; i++)
 		{
 			mpz_polys_free(jobs[i].poly);

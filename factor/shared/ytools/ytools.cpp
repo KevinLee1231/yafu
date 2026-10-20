@@ -1608,6 +1608,69 @@ void logprint(FILE* infile, const char* args, ...)
     return;
 }
 
+/*----------------------------------------------------------------------
+ytools_run_redirected
+
+在当前进程里把 stdin/stdout 换成指定文件，然后执行一条命令。
+
+不用 shell 的 < > 重定向：路径里带空格时 sh 的引号规则容易被绕晕，
+而且重定向的内容由代码决定更清楚。本项目只面向 Linux，所以只用
+dup2 替换文件描述符。
+----------------------------------------------------------------------*/
+int ytools_run_redirected(const char* cmd, const char* inPath, const char* outPath)
+{
+    if (cmd == NULL)
+        return -1;
+
+    int savedIn = -1, savedOut = -1;
+
+    if (inPath != NULL) {
+        FILE* f = fopen(inPath, "r");
+        if (f == NULL)
+            return -1;
+        savedIn = dup(STDIN_FILENO);
+        if (savedIn < 0 || dup2(fileno(f), STDIN_FILENO) < 0) {
+            fclose(f);
+            if (savedIn >= 0) close(savedIn);
+            return -1;
+        }
+        fclose(f);
+    }
+    if (outPath != NULL) {
+        FILE* f = fopen(outPath, "w");
+        if (f == NULL) {
+            if (savedIn >= 0) {
+                dup2(savedIn, STDIN_FILENO);
+                close(savedIn);
+            }
+            return -1;
+        }
+        savedOut = dup(STDOUT_FILENO);
+        if (savedOut < 0 || dup2(fileno(f), STDOUT_FILENO) < 0) {
+            fclose(f);
+            if (savedIn >= 0) {
+                dup2(savedIn, STDIN_FILENO);
+                close(savedIn);
+            }
+            if (savedOut >= 0) close(savedOut);
+            return -1;
+        }
+        fclose(f);
+    }
+
+    int rc = system(cmd);
+
+    if (savedIn >= 0) {
+        dup2(savedIn, STDIN_FILENO);
+        close(savedIn);
+    }
+    if (savedOut >= 0) {
+        dup2(savedOut, STDOUT_FILENO);
+        close(savedOut);
+    }
+    return rc;
+}
+
 void logprint_oc(const char* name, const char* method, const char* args, ...)
 {
     //print formatted string to logfile, given the file name

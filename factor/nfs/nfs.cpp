@@ -743,6 +743,7 @@ void nfs(fact_obj_t *fobj)
 
 			printf("nfs: calling cado-nfs\n");
 			char syscmd[8192];
+			char polyPath[1024];
 
 			// Specify path, param file and N
 			syscmd[0] = '\0';
@@ -879,14 +880,16 @@ void nfs(fact_obj_t *fobj)
 			checkFilePresence(buffer);
 
 			printf("nfs: calling convert_poly to create nfs.fb from c*.poly\n");
-			// TODO: Windows 上没验证过。输入输出重定向用的是 shell 语法
-			// (system())，cmd.exe 与 sh 的转义规则不同，路径里带空格时
-			// 两边都要另外加引号。
+			/* 输入输出重定向不用 shell 的 < > ：路径里带空格时引号
+			 * 规则容易被绕晕，重定向的内容由代码决定也更清楚。
+			 * 重定向在进程里做（ytools_run_redirected），命令里只留
+			 * 可执行文件路径与参数。 */
+			snprintf(polyPath, sizeof(polyPath), "./cadoWorkdir/c%d.poly", cadoPower);
 			int convert_length = snprintf(syscmd, sizeof(syscmd),
-				"%s -of msieve < ./cadoWorkdir/c%d.poly > nfs.fb",
-				fobj->nfs_obj.convert_poly_path, cadoPower);
+				"\"%s\" -of msieve",
+				fobj->nfs_obj.convert_poly_path);
 			if (convert_length < 0 || (size_t)convert_length >= sizeof(syscmd) ||
-				system(syscmd) != 0) {
+				ytools_run_redirected(syscmd, polyPath, "nfs.fb") != 0) {
 				fprintf(stderr, "nfs: convert_poly failed\n");
 				fclose(dat);
 				nfs_state = NFS_STATE_EXIT;
@@ -1418,6 +1421,7 @@ void nfs(fact_obj_t *fobj)
 				(fobj->nfs_obj.nfs_phases & NFS_PHASE_SIEVE)))
  			{				
                 uint32_t missing_params;
+                uint32_t qrange_from_file;
                 int betterskew;
 				// this if-block catches cases 1 and 3 from above
 
@@ -1433,6 +1437,12 @@ void nfs(fact_obj_t *fobj)
                 job.poly->rat.degree = 1; // maybe way off in the future this isn't true
                 
 				missing_params = parse_job_file(fobj, &job);
+
+				/* 块大小：.job 文件里记着上次用的那个（没有就是 0）。
+				 * 已筛区间是按它划的，所以续算必须沿用；
+				 * get_ggnfs_params() 会按难度查表重算，得在它之后
+				 * 恢复回来。 */
+				qrange_from_file = job.qrange;
 
 				// job.poly->side = ALGEBRAIC_SPQ;
 				// job.poly->size = (double)mpz_sizeinbase(fobj->nfs_obj.gmp_n, 10);
@@ -1462,6 +1472,12 @@ void nfs(fact_obj_t *fobj)
                 // this can also effect what side we sieve on and the
                 // siever version.
                 betterskew = get_ggnfs_params(fobj, &job);
+
+                if (qrange_from_file != 0)
+                {
+                    job.qrange = qrange_from_file;
+                }
+
                 if ((job.snfs != NULL) && betterskew)
                 {
                     missing_params |= PARAM_FLAG_IMPROVED_SKEW;
