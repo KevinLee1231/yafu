@@ -277,6 +277,157 @@ C++26 的 `std::copyable_function`（P2943，GCC 16.2 已有）替掉它：签�
 
 `factor/mpqs/poly.cpp` 里两处 switch 是有意的贯穿，加上 `[[fallthrough]]`
 把意图写明。
+
+### APR-CL 查表失败时会静默算出错误答案
+
+`factor/shared/aprcl/mpz_aprcl.cpp`（以及 msieve 那份 32 位的
+`mpz_aprcl32.cpp`）里的 `JacobiSum` 是这样找 J(p,q) 的：
+
+```c
+for(a = 0; a < JPQSMAX; a++)
+    if(jpqs[a].p == myP && jpqs[a].q == Q)
+      break;
+```
+
+表里没有这一项时，`a` 停在哨兵项上，而哨兵项的 `index` 是 0，于是
+`sls[jpqs[a].index + I]` 读到的���是别的 q 的 J 值 —— 算出一个错的答案，
+而且全程不报错。现在查不到就报出缺的是哪一项并停下。
+
+顺便把这份表本身核了一遍：`sls` 与 `jpqs` 两张表的长度、每条记录占的字数
+（`PL = (P-1)·P^(K-1)`，K 是 p 在 q-1 里的幂次）、实际会发生的每一次查表，
+三者完全闭合：3493 次查询正好对应 3493 条记录，没有缺失、没有越界、没有
+用不到的冗余条目。`aiJS` 之类工作数组的下标上界（`PK = P·PM`，最大 32）
+也正好等于 `PWmax`。
+
+### 同一段数学的两套实现给出了不同的下标
+
+`factor/shared/aprcl/tinyprp.cpp` 的 `lucas_prp_128x1` 与
+`factor/shared/aprcl/mpz_aprcl.cpp` 的 `mpz_lucas_prp` 算的是同一个东西
+（Lucas 序列的 U_(n-(D/n))），但在下标上不一致：`(D/n) == 0`（D 与 n 不互素）
+时，前者无条件把下标减 1，后者保持下标为 n。同一个数在两套实现里会得到
+不同的下标，进而得到不同的结论。现在按 `mpz_lucas_prp` 的做法对齐。
+
+这个函数还把 p 写死成 1（`vh` 的初值就是 1，`vl` 里的 `p*ql` 也直接简化成
+`ql`），却接受任意 p。现在签名里去掉了 p，只保留 q，需要别的 p 请走
+`mpz_lucas_prp`。
+
+### 线性代数读矩阵时写穿栈上的缓冲区
+
+`factor/shared/common/lanczos/lanczos_io.cpp` 的 `read_matrix` 把一列读进
+`uint32 tmp_col[MAX_COL_IDEALS]`（1000 个字）。原始 msieve 那里有一道
+`num + dense_row_words > MAX_COL_IDEALS` 的判据，改写成 C++ 时这半句丢了，
+只剩下"缓存里还剩多少字"那半句。于是某一列自称有 1000 个条目时，
+拷贝长度是 1032 个字，栈上越界写 128 字节。同一个文件的注释里还引用着
+这道已经不在的判据。现在把它补回去。
+
+### MPQS 里三处"读到了没写过的内存"
+
+* `factor/mpqs/mpqs.cpp` 构造因子基时，`modsqrt_array` 用 `xmalloc` 分配
+  （不清零）。当素数 p 整除 n 时，那个格子的模平方根不会被赋值 —— 而正确
+  的值是确定的 0（`p | n` 时两个根重合）。筛法拿这个未初始化的值去算根，
+  会造出并不整除的"关系"，把后面的真关系一起拖掉。现在该格显式写 0，
+  分配也换成 `xcalloc`。
+* `factor/mpqs/relation.cpp` 的 `get_table_entry` 被三处**只读**调用点
+  当作"查表"用，靠传 `new_entry_offset = 0` 表示"查不到"。但它照样执行
+  miss 分支：把 `table[0]`（`cycle_table_size = 1` 预留的哨兵槽）当成新
+  顶点覆盖，还让 `hashtable[first_offset] = 0` 把整条桶链从查找结构里
+  抹掉。SIQS 那边（`factor/siqs/filter.cpp`）早就为此拆出了一个只读的
+  `lookup_table_entry`，MPQS 这三处照着改。
+* `factor/shared/common/filter/singleton.cpp` 读 `.lp` 文件时有三处
+  `fread` 没检查返回值。文件被截断时 `ideal_count` 会留着上一轮的值
+  （首次是栈上的未初始化值），而它是 `uint8`，最大 255 —— 拿它当长度会
+  写穿只有 100 个字的 `ideal_list`。同一文件里的两趟版本都检查了返回值。
+  现在这三处都检查，并把计数夹到缓冲区大小以内。
+
+### lasieve 副本里的大素数：截断、无上界、丢一个、预留不足
+
+`factor/nfs/lasieve/batch_factor.cpp` 与 `factor/core/batch_factor.cpp` 是
+同一份代码的两个副本。主线那份上一轮已经修过大素数个数无上界的问题，
+lasieve 这份副本没有跟上，于是四个问题叠在一起：
+
+* **截断**：大素数存进 `uint32_t`，而 `lpb`（大素数上界）可以到 40 位
+  （`process_batch.cpp` 明确允许 `lpb <= 40`）。33~40 位的大素数被截成
+  32 位，写进关系的是一个并不整除范数的数。现在局部数组与 `cofactor_t`
+  的字段都改成 64 位。
+* **无上界**：`lp_r[num_r++] = ...` 从来没有上界检查，而数组只有
+  `MAX_LARGE_PRIMES`（4）个元素。f1r 与 f2r 的贡献可以叠加，一条路径上
+  最多能塞进 8 个以上的大素数，写到第 5 个就踩进了紧邻的 `lp_a[]`。
+  现在改用主线那份的 `LP_STORE` 宏：装不下就记下溢出，这条关系作废。
+* **丢一个**：`process_batch.cpp` 输出关系时只写 3 个大素数槽，而存储侧
+  有 4 个 —— 一侧有 4 个大素数时，第 4 个被静默丢弃，关系与范数对不上。
+  现在输出遍历全部 4 个槽（值为 1 的槽会被跳过）。
+* **预留不足**：`relation_batch_add` 给因子表预留的字数写死成
+  `2 * MAX_LARGE_PRIMES`（8 个字），而实际写进去的是两侧未因式分解余因子的
+  32 位字数，与 `MAX_LARGE_PRIMES` 无关。余因子超过 256 位时就会写穿因子表。
+  现在按真实需要的字数预留（两份副本同改）。
+
+### 错误分支上的内存没放掉
+
+* `factor/mpqs/sieve.cpp` 的 `do_sieving`：`poly_init` 失败时只放掉了
+  `sieve_array`，此前分配的 `packed_fb` 和 `buckets`（连同每个桶 1000 项的
+  列表）全泄漏。而 `factor_mpqs` 并不检查 `do_sieving` 的返回值，错误被
+  吞掉，进程继续跑。
+* `factor/mpqs/gf2.cpp` 的 `build_matrix`：某一列超出范围时直接返回错误，
+  而前 i 列的 `col->data` 已经分配了。
+
+### `-d` 配 gzip 输出会段错误
+
+lasieve 的 `-d`（批量因式分解）模式会额外写一份未压缩的原始关系。输出走
+gzip 管道时（`-o out.gz` 或默认的 `.gz` 名），走的是 `popen` 分支，
+那份 raw 文件从来没有被打开过，`g_ofile_raw` 一直是 NULL —— 而写 raw 关系
+时直接拿它当 `FILE*` 用，关系里只要有大素数就会段错误。
+
+现在管道分支也把 raw 文件开起来，名字取同一份输出的未压缩形式
+（`out.gz` → `out.raw`）。输出到 stdout（`-o -`）时没有地方放这个文件，
+直接报错说明。
+
+顺带修掉另外三处越界：
+
+- `smallsieve_auxbound[2][5]` 只有 5 个槽，填边界指针的循环在 k == 0 时
+  算出下标 5，写到了数组外面（s == 0 时踩到另一侧的上界指针）。
+- `logbook` 格式化失败后没有返回，接着拿未初始化的 `output_str` 去
+  `strlen`；格式化结果是空串时读 `output_str[-1]`，读到 malloc 块前面
+  那个字节。
+- `root_finder` / `root_finder64` 在 p == 2 的那一支不看多项式次数，
+  最坏要写 3 个根，而根缓冲区只有 `poldeg` 个元素。现在按次数裁剪，
+  缓冲区也留出了位置。
+
+顺带把两条 TODO 标注改准确：批量因式分解模式早就接到 `-d` 选项上了，
+usage 里一直写着"output raw file with cofactors > 64 bits for batch
+factorization"；ECM 的 Suyama 参数化那条要排除的特殊值是 d == -1/8，
+而 d = sigma^2 / 2^52，判断要写成 8*d + 1 == 0 (mod n)，不能拿 d 去
+比 -1/8 —— 撞上的概率极低，而且撞上之后是跳过这条曲线还是直接报错
+退出还没定下来，所以那条仍然留着。
+
+### 线程池：回调表换成 C++26 的 std::inplace_vector，并禁止拷贝
+
+`factor/shared/ytools/include/threadpool.h` 的工作函数表原来是一个
+`std::copyable_function<void(void*)> tpool_work_fcn[16]` 裸数组，外加一个
+手工维护的 `num_work_fcn` 计数器。两份状态可能对不上。现在表本身换成
+C++26 的 `std::inplace_vector`（上限 16，不需要堆分配），长度由容器自己
+记着，`num_work_fcn` 这个字段没有了 —— 18 处引用点改成问容器要。
+
+`tpool_t` 里装着 `pthread_mutex_t` 与 `pthread_cond_t`，拷贝它等于把锁也
+复制一份，两份锁互不同步，析构时还会重复解锁。现在显式删掉拷贝构造与
+拷贝赋值，并写明原因（C++26 的 `= delete("reason")`，编译器的诊断信息里
+会带这句话）。
+
+### 新的随机对拍测试
+
+`test/layer1/test_tinyprp_review.cpp` 新增四个测试，把 tinyprp 的标量与
+AVX512 路径逐个和 GMP 参考实现比对：
+
+* `random_64bit_mr`：2000 个随机 64 位奇数，`MR_2sprp_64x1` 对 GMP。
+* `random_128bit_prp`：1000 个随机 128 位奇数，Fermat / Miller-Rabin /
+  Selfridge / BPSW 四种对 GMP。
+* `random_128bit_lucas`：1000 个随机 128 位奇数配上 Selfridge 的 d 序列，
+  Lucas 自测对 `mpz_lucas_prp`。
+* `random_104bit_avx512`：400 组 × 8 路的 104 位数，AVX512 的
+  `MR_2sprp_104x8` 对标量的 `MR_2sprp_128x1`。
+
+`test/standalone/lasieve/process_batch_helpers_regression.cpp` 也补了一条：
+四个大素数槽都要写出来，值为 1 的槽跳过，64 位值按十六进制完整写出。
+
 ---
 
 ## 3.0.0
@@ -617,7 +768,7 @@ MPQS 筛的是 y(x) = (a·x + b)² − n，写成 b² − n = a·c；a 是平方
 
 ## 1.0.0
 
-建立自用基线：以当前上游 `bbuhrow/yafu` 的 `963dbe9`（合并 Gerbicz 碰撞多项式选择）为起点，完成下列整理。
+脱离上游独立维护的起点：以当前上游 `bbuhrow/yafu` 的 `963dbe9`（合并 Gerbicz 碰撞多项式选择）为起点，完成下列整理。
 
 ### 架构
 
