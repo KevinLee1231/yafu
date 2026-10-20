@@ -261,7 +261,7 @@ mpz_t factors[MAX_LPFACTORS];
 static u32_t yield= 0,raw_yield=0,n_mpqsfail[2]= {0,0},n_mpqsvain[2]= {0,0};
 static i64_t mpqs_clock= 0;
 
-// TODO: 批量因式分解这个模式还没接到选项上，只能改代码里的开关打开。
+/* 批量因式分解模式，由 -d 选项打开。 */
 static int do_batch_factor = 0;
 
 static i64_t sieve_clock= 0,sch_clock= 0,td_clock= 0,tdi_clock= 0;
@@ -496,6 +496,8 @@ void do_scheduling(struct schedule_struct*,u32_t,u32_t,u32_t);
 
 /*:55*//*58:*/
 
+/* 每一侧最多 5 个上界指针：下标 0 是这一侧的上界，1..4 是小素数分段的
+   边界。原来越界写到了 [2][5]，s == 0 时会踩到另一侧的上界指针。 */
 static u16_t*(smallsieve_aux[2]),*(smallsieve_auxbound[2][5]);
 static u16_t*(smallsieve_tinybound[2]);
 
@@ -655,6 +657,10 @@ static u32_t n_prereports= 0,n_reports= 0,n_rep1= 0,n_rep2= 0;
 static u32_t n_tdsurvivors[2]= {0,0},n_psp= 0,n_cof= 0;
 static FILE*g_ofile;
 static FILE* g_ofile_raw;
+
+/* raw 输出的基础名（不带 .raw 后缀）。输出走管道时 g_ofile_name 是命令串，
+   拼不出 raw 文件名，所以单独记一份。 */
+static char *raw_base_name = NULL;
 static char*g_ofile_name;
 static char *g_ofile_raw_name;
 
@@ -1460,6 +1466,10 @@ int main(int argc, char** argv)
                     "gzip --best --stdout > %s.lasieve-%u." UL_FMTSTR"-" UL_FMTSTR".gz" :
                     "gzip --best --stdout >> %s.lasieve-%u." UL_FMTSTR"-" UL_FMTSTR".gz",
                     las_basename, special_q_side, first_spq, last_spq);
+
+                /* raw 是同一份输出的未压缩版本，名字去掉 .gz */
+                asprintf(&raw_base_name, "%s.lasieve-%u." UL_FMTSTR"-" UL_FMTSTR,
+                    las_basename, special_q_side, first_spq, last_spq);
             }
         }
         else {
@@ -1474,10 +1484,18 @@ int main(int argc, char** argv)
             else {
                 if (fnmatch("*.gz", g_ofile_name, 0) == 0) {
                     char* on1;
+                    size_t on1_len;
 
                     zip_output = 1;
                     on1 = strdup(g_ofile_name);
                     asprintf(&g_ofile_name, "gzip --best --stdout > %s", on1);
+
+                    /* raw 是同一份输出的未压缩版本，名字去掉 .gz */
+                    on1_len = strlen(on1);
+                    if ((on1_len > 3) && (strcmp(on1 + on1_len - 3, ".gz") == 0))
+                        raw_base_name = strndup(on1, on1_len - 3);
+                    else
+                        raw_base_name = strdup(on1);
                     free(on1);
                 }
                 else zip_output = 0;
@@ -1516,8 +1534,24 @@ int main(int argc, char** argv)
             if ((g_ofile = popen(g_ofile_name, "w")) == NULL)
                 complain("Cannot exec %s for output: %m\n", g_ofile_name);
 
-            // TODO: gzip 原始输出这个模式还没接到选项上。
+            /* -d 还要额外写一份未压缩的原始关系。输出走管道时也得把这个
+               文件开起来：下面写 raw 关系时直接用 g_ofile_raw，它要是
+               NULL 就会段错误。输出到 stdout（-o -）时没有地方放这个
+               文件，只能拒绝。 */
+            if (do_batch_factor) {
+                size_t raw_name_size;
 
+                if (raw_base_name == NULL)
+                    complain("-d needs a file name for the raw output;"
+                        " it cannot be written to a pipe\n");
+
+                raw_name_size = strlen(raw_base_name) + sizeof(".raw");
+                g_ofile_raw_name = (char*)xrealloc(g_ofile_raw_name, raw_name_size);
+                snprintf(g_ofile_raw_name, raw_name_size, "%s.raw", raw_base_name);
+                g_ofile_raw = fopen(g_ofile_raw_name, "ab");
+                if (g_ofile_raw == NULL)
+                    complain("Cannot open %s for output: %m\n", g_ofile_raw_name);
+            }
         }
     done_opening_output:
         ;
@@ -1583,7 +1617,8 @@ int main(int argc, char** argv)
                     u32_t* root_buffer;
                     size_t aFB_alloc;
 
-                    root_buffer = (u32_t*)xmalloc(poldeg[side] * sizeof(*root_buffer));
+                    /* root_finder 在 p == 2 时可能写 3 个根，缓冲区留出位置 */
+                    root_buffer = (u32_t*)xmalloc((poldeg[side] + 2) * sizeof(*root_buffer));
                     aFB_alloc = 4096;
                     FB[side] = (u32_t*)xmalloc(aFB_alloc * sizeof(**FB));
                     proots[side] = (u32_t*)xmalloc(aFB_alloc * sizeof(**proots));
@@ -2049,7 +2084,8 @@ int main(int argc, char** argv)
             for (i = 0; i < rescale[side]; i++)sieve_multiplier_small[side] *= 2.;
             pp_bound = (n_I < 65536 ? n_I : 65535);
 
-            root_buffer = (u32_t*)xmalloc(poldeg[side] * sizeof(*root_buffer));
+            /* root_finder 在 p == 2 时可能写 3 个根，缓冲区留出位置 */
+            root_buffer = (u32_t*)xmalloc((poldeg[side] + 2) * sizeof(*root_buffer));
             prime = 2;
             nr = root_finder(root_buffer, poly[side], poldeg[side], prime);
 
@@ -3032,7 +3068,12 @@ ret = gethostname(hn, 99);
                                     else break;
                                 }
                             }
-                            while (k < 5)smallsieve_auxbound[s][5 - (k++)] = x;
+                            /* 5 - (k++) 在 k == 0 时算出下标 5，越过了数组。
+                               这时至少要占掉一个槽：把 k 先推进一格。 */
+                            while (k < 5) {
+                                if (k == 0) k++;
+                                smallsieve_auxbound[s][5 - (k++)] = x;
+                            }
                             for (x = (xx = smallsieve_aux1[s]); x < smallsieve_aux1_ub_odd[s]; x += 6) {
                                 if (x[0] < TINY_SIEVE_MIN) {
                                     if (x != xx) {

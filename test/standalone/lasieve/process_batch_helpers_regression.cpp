@@ -30,5 +30,27 @@ int main(void) {
     assert(strcmp(out, "11,13") == 0);
     free(out);
     mpz_clear(z);
+
+    /* 一侧最多 MAX_LARGE_PRIMES 个大素数，每一个都要写出来；
+       值 1 表示这一槽没有大素数，写出时要跳过。
+       大素数是 64 位的（lpb 最大 40 位），不能截成 32 位。 */
+    {
+        uint64_t lp[MAX_LARGE_PRIMES];
+        int i;
+
+        lp[0] = UINT64_C(0x100000001);
+        lp[1] = UINT64_C(0xdeadbeef);
+        lp[2] = 1;
+        lp[3] = 1;
+
+        out = NULL; out_size = 0; first = 1;
+        stream = open_memstream(&out, &out_size);
+        assert(stream != NULL);
+        for (i = 0; i < MAX_LARGE_PRIMES; i++)
+            write_u64_factor(stream, &first, lp[i]);
+        assert(fclose(stream) == 0);
+        assert(strcmp(out, "100000001,deadbeef") == 0);
+        free(out);
+    }
     return 0;
 }

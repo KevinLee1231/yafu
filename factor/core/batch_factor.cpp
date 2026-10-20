@@ -2659,6 +2659,7 @@ void relation_batch_add(int64_t a, uint32_t b, int32_t offset,
     uint32_t i;
     uint32_t* f;
     cofactor_t* c;
+    uint32_t words_needed = 0;
 
     /* add one relation to the batch */
     if (rb->num_relations == rb->num_relations_alloc) {
@@ -2682,8 +2683,16 @@ void relation_batch_add(int64_t a, uint32_t b, int32_t offset,
 
     /* add its small factors */
 
+    /* 真正会写进因子表的是两侧未因式分解余因子的 32 位字数，
+       跟 MAX_LARGE_PRIMES 没关系。原来按 2 * MAX_LARGE_PRIMES 预留，
+       余因子超过 256 位时就会写穿因子表。 */
+    if (mpz_cmp_si(unfactored_r_in, 0) < 0)
+        words_needed += (mpz_sizeinbase(unfactored_r_in, 2) + 31) / 32;
+    if (mpz_cmp_si(unfactored_a_in, 0) < 0)
+        words_needed += (mpz_sizeinbase(unfactored_a_in, 2) + 31) / 32;
+
     if (rb->num_factors + num_factors_r + num_factors_a +
-        2 * MAX_LARGE_PRIMES >= rb->num_factors_alloc) {
+        words_needed >= rb->num_factors_alloc) {
         rb->num_factors_alloc *= 2;
         rb->factors = (uint32_t*)xrealloc(rb->factors,
             rb->num_factors_alloc *

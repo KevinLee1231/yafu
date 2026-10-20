@@ -34,15 +34,15 @@ $Id: batch_factor.h 638 2011-09-11 15:31:19Z jasonp_sf $
 
 //typedef void (*print_relation_t)(savefile_t *savefile, int64_t a, uint32_t b,
 //			uint32_t *factors_r, uint32_t num_factors_r, 
-//			uint32_t lp_r[MAX_LARGE_PRIMES],
+//			uint64_t lp_r[MAX_LARGE_PRIMES],
 //			uint32_t *factors_a, uint32_t num_factors_a, 
-//			uint32_t lp_a[MAX_LARGE_PRIMES]);
+//			uint64_t lp_a[MAX_LARGE_PRIMES]);
 //
 //void print_relation_dummy(savefile_t *savefile, int64_t a, uint32_t b,
 //    uint32_t *factors_r, uint32_t num_factors_r,
-//    uint32_t lp_r[MAX_LARGE_PRIMES],
+//    uint64_t lp_r[MAX_LARGE_PRIMES],
 //    uint32_t *factors_a, uint32_t num_factors_a,
-//    uint32_t lp_a[MAX_LARGE_PRIMES]);
+//    uint64_t lp_a[MAX_LARGE_PRIMES]);
 
 typedef void (*print_relation_t)(void);
 
@@ -59,8 +59,8 @@ typedef struct {
 	uint32_t factor_list_word;  /* offset in an array of factors where
 				            all of the above above appear, in order */
     uint8_t success;
-    uint32_t lp_r[MAX_LARGE_PRIMES];
-	uint32_t lp_a[MAX_LARGE_PRIMES];
+    uint64_t lp_r[MAX_LARGE_PRIMES];
+	uint64_t lp_a[MAX_LARGE_PRIMES];
 } cofactor_t;
 
 /* main structure controlling batch factoring. The main goal

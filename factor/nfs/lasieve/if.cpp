@@ -146,6 +146,7 @@ void logbook(int l, const char* fmt, ...)
         if (vasprintf(&output_str, fmt, arglist) < 0) {
             va_end(arglist);
             complain("logbook: cannot format message\n");
+            return;
         }
         va_end(arglist);
         sl = strlen(output_str);
@@ -156,7 +157,10 @@ void logbook(int l, const char* fmt, ...)
         }
         fputs(output_str, stderr);
         if (logfile != NULL)fputs(output_str, logfile);
-        if (output_str[sl - 1] == '\n')used_cols = 0;
+        /* 格式化结果是空串时 sl == 0，读 output_str[-1] 会读到 malloc 块
+           前面那个字节。 */
+        if (sl == 0)used_cols = 0;
+        else if (output_str[sl - 1] == '\n')used_cols = 0;
         else used_cols += sl;
         free(output_str);
     }

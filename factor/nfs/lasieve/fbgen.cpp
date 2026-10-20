@@ -293,14 +293,19 @@ root_finder(u32_t *root_buf,mpz_t *A,u32_t adeg,u32_t p)
   }
   if(p==2) {
     u32_t i,pv;
+    u32_t roots[3];
 
     res=0;
-    if(mpz_fdiv_ui(A[0],p)==0) root_buf[res++]=0;
+    if(mpz_fdiv_ui(A[0],p)==0) roots[res++]=0;
     for(i=0,pv=0;i<=adeg;i++)
       if(mpz_fdiv_ui(A[i],p)!=0) pv^=1;
-    if(pv==0) root_buf[res++]=1;
+    if(pv==0) roots[res++]=1;
     if(mpz_fdiv_ui(A[adeg],p)==0)
-      root_buf[res++]=2;
+      roots[res++]=2;
+    /* 这一支不看多项式次数，最坏要写 3 个根，而次数为 adeg 的
+       多项式在 p == 2 时最多只有 adeg 个根。 */
+    if(res > adeg) res = adeg;
+    for(i=0;i<res;i++) root_buf[i]=roots[i];
     return res;
   }
   modulo32=p;

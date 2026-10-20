@@ -78,6 +78,18 @@ static void write_u32_factor(FILE* out, int* first, uint32_t factor)
     *first = 0;
 }
 
+/* 大素数是 64 位的：lpb 最大可以到 40 位，截成 32 位会写出一个
+   并不整除范数的因子。 */
+static void write_u64_factor(FILE* out, int* first, uint64_t factor)
+{
+    if (factor <= 1)
+        return;
+    if (!*first)
+        fputc(',', out);
+    fprintf(out, "%" PRIx64, factor);
+    *first = 0;
+}
+
 static void write_mpz_factor(FILE* out, int* first, const mpz_t factor)
 {
     if (mpz_cmp_ui(factor, 1) <= 0)
@@ -339,14 +351,14 @@ int main(int argc, char** argv)
 
                 fprintf(fout, "%" PRId64 ",%" PRIu32 ":",
                     rb.relations[i].a, rb.relations[i].b);
-                for (j = 0; j < 3; j++)
-                    write_u32_factor(fout, &first, rb.relations[i].lp_r[j]);
+                for (j = 0; j < MAX_LARGE_PRIMES; j++)
+                    write_u64_factor(fout, &first, rb.relations[i].lp_r[j]);
                 for (k = 0; k < rb.relations[i].num_factors_r; k++)
                     write_u32_factor(fout, &first, f[k]);
                 fprintf(fout, ":");
                 first = 1;
-                for (j = 0; j < 3; j++)
-                    write_u32_factor(fout, &first, rb.relations[i].lp_a[j]);
+                for (j = 0; j < MAX_LARGE_PRIMES; j++)
+                    write_u64_factor(fout, &first, rb.relations[i].lp_a[j]);
 
                 f = rb.factors + rb.relations[i].factor_list_word + rb.relations[i].num_factors_r;
                 for (k = 0; k < rb.relations[i].num_factors_a; k++)
