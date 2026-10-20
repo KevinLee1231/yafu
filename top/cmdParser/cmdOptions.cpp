@@ -123,7 +123,6 @@ char OptionHelp[NUMOPTIONS][MAXHELPLEN] = {
     "                  : Do not optimize small prime variation cutoff in SIQS",
     "                  : Verbose output of processor info",
     "                  : Do not use ECM in factor()",
-    "(String)          : Directory containing ggnfs executables",
     "(String)          : Input tuning information for SIQS/NFS crossover",
     "(Floating point)  : ECM/NFS pretesting ratio: projected-difficulty * ratio = ECM depth",
     "(Floating point)  : SIQS/NFS crossover point (decimal digits)",
@@ -240,6 +239,24 @@ char OptionHelp[NUMOPTIONS][MAXHELPLEN] = {
 // 开关，表达式被丢掉，"e" 还会一路走到 applyArg(NULL) 里 strlen(NULL) 段错误，
 // "obase" 则直接报 "invalid or out-of-range argument"。改哪个选项的 needsArg，
 // 先用下标核对 OptionArray 里的名字，别照着下面的注释数——注释与实际下标早已错开。
+// indication of whether or not an option needs a corresponding argument.
+// needs to be the same length as the above two arrays.
+// 0 = no argument
+// 1 = argument required
+// 2 = argument optional
+//
+// 这一列和 OptionArray 一一对应，全靠位置对齐，所以表里读不出对应哪个
+// 选项。三张表必须同时增删条目：历史上删掉 "ggnfs_dir" 时只删了
+// OptionArray 里的名字，OptionHelp 与 needsArg 忘了删，后面四十多个选项
+// 的 needsArg 全部对错了别的选项——"e" 和 "obase" 当时是靠手工改值绕过去的，
+// 其余的（-max_siqs、-op、-o、-work、-lathreads、-nfs_params、-analysis……）
+// 一直是不对的：该收参数的被当成开关，-max_siqs 会直接报错退出；不该收参数
+// 的反而把命令行里下一个参数吞掉。
+//
+// 改这张表时按选项名核对下标，不要照着行尾的注释数。要新增或删除选项，
+// 三张表一起改，改完跑 test/layer3/test_options.cpp 里的
+// t_needsarg_consistent：它逐个选项用空参数调一次 applyOpt，表和分支
+// 对不上就会失败。
 int needsArg[NUMOPTIONS] = {
     1,1,1,1,1,
     1,1,1,1,1,
@@ -247,27 +264,27 @@ int needsArg[NUMOPTIONS] = {
     1,1,1,1,1,
     0,0,0,0,0,
     1,0,0,0,1,
-    1,1,1,0,1,
-    1,1,1,2,0,
-    1,0,0,1,1,
-    2,2,0,1,0,
-    1,1,1,0,1,
-    0,0,0,1,1,
-    1,1,1,1,1,
-    1,0,1,1,1,
-    1,0,1,1,1,
     1,1,0,1,1,
-    1,1,1,0,0,
-    0,1,0,1,1,
-    1,0,0,1,1,  // resume, json-pretty, new cado options
-    1,0,0,1,0,   // gpucurves, cbgn, use gpu, gpu dev, prefer avxecm stg2
-    1,1,1,1,1,  // "stoplt", "stople", "stopeq", "stopgt", "stopge",
-    1,0,1,1,1,  // "stopbase", "stopprime", "siqsSSidx", "siqsSSalloc", "skipSNFScheck"
-    1,1,1,0,0,   //"obase", "minrels", "stopk", "stop_strict", "terse"
-    1,1,0,0,0,   // "max_siqs", "max_nfs", "np1", "nps", "npr"
-    1,1,1,1,1,   // "nfs_params", "poly_testsieve", "poly_percent_thresh", "td", "jsonlog"
-    0,1,0,1,0,     // forceQLP, qlp_exp, nfs_batch_3lp, soe analysis, keep_afb
-    1,1,1          // nfs_stage1_args, cuda_sieve, cuda_dev
+    1,1,2,0,1,
+    0,0,1,1,2,
+    2,0,1,0,1,
+    1,1,0,1,0,
+    0,0,1,1,1,
+    1,1,1,1,1,
+    0,0,1,1,1,
+    0,1,1,1,1,
+    1,0,1,1,1,
+    1,1,0,0,0,
+    1,0,1,1,1,
+    0,0,1,1,1,
+    0,0,1,0,1,
+    1,1,1,1,1,
+    0,1,1,0,1,
+    1,1,0,0,1,
+    1,0,0,0,1,
+    1,1,1,1,0,
+    1,0,1,0,1,
+    1,1
 };
 
 // command line option aliases, specified by '--'
@@ -537,7 +554,7 @@ void applyOpt(std::string_view opt, char* arg, options_t* options)
         printf("attempting to parse user rng seed from %s\n", arg);
         options->rand_seed = parse_uint(arg, opt, UINT64_MAX);
         //sscanf(arg, "%" PRIu64"", &options->rand_seed);
-        printf("read: %"PRIu64"\n", options->rand_seed);
+        printf("read: %" PRIu64"\n", options->rand_seed);
     }
     else if (opt == OptionArray[17])
     {

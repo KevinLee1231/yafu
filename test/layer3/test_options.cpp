@@ -2,6 +2,7 @@
 #define _POSIX_C_SOURCE 200809L
 #include "testkit.h"
 #include "cmdOptions.h"
+#include "ytools.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,7 +24,8 @@ static void free_options(options_t *options)
 static void t_defaults(tk_ctx *tk)
 {
     options_t *o = initOpt();
-    TK_EQ_U64(tk, o->threads, 1);
+    /* 默认线程数是本机在线核心数（命令行 -threads 与 ini 的 threads= 仍可覆盖） */
+    TK_EQ_U64(tk, o->threads, (uint64_t)ytools_get_nprocs());
     TK_EQ_U64(tk, o->gpucurves, 0);
     TK_EQ_U64(tk, o->use_cgbn, 0);
     TK_EQ_U64(tk, o->use_gpuecm, 0);
@@ -78,6 +80,41 @@ static void t_arguments(tk_ctx *tk)
 }
 
 #if defined(__unix__)
+/* needsArg 表一旦和选项名表错位，就会有一批选项该收参数时不要、不要时硬要。
+   逐个选项在子进程里用空参数调一次 applyOpt：needsArg 说要参数的必须报错
+   退出，其余必须正常返回。表和分支对不上，这里就会失败。 */
+static void t_needsarg_consistent(tk_ctx *tk)
+{
+    int i;
+    for (i = 0; i < NUMOPTIONS; i++)
+    {
+        const char *name = OptionArray[i];
+        pid_t child;
+        int status;
+
+        if (name == NULL || name[0] == '\0')
+            continue;
+
+        fflush(NULL);
+        child = fork();
+        TK_REQUIRE(tk, child >= 0, "fork failed");
+        if (child == 0)
+        {
+            options_t *o = initOpt();
+            applyOpt(name, NULL, o);
+            free_options(o);
+            _exit(0);
+        }
+        TK_REQUIRE(tk, waitpid(child, &status, 0) == child, "waitpid failed");
+        if (needsArg[i] == 1)
+            TK_CHECKF(tk, WIFEXITED(status) && WEXITSTATUS(status) == 1,
+                "%s 需要参数，空参数却没被拒绝", name);
+        else
+            TK_CHECKF(tk, WIFEXITED(status) && WEXITSTATUS(status) == 0,
+                "%s 不需要参数，空参数却报错退出了", name);
+    }
+}
+
 static void t_invalid(tk_ctx *tk)
 {
     const char *cases[][2] = {
@@ -143,6 +180,7 @@ static const tk_test tests[] = {
     { "numbers", t_numbers, "fast options" },
     { "arguments", t_arguments, "fast options" },
 #if defined(__unix__)
+    { "needsarg", t_needsarg_consistent, "fast options" },
     { "invalid", t_invalid, "fast options" },
     { "ini", t_ini, "fast options" },
 #endif

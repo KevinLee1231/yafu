@@ -223,6 +223,12 @@ typedef struct
 
 } options_t;
 
+/* 选项名表与 needsArg 表：下标一一对应，三张表必须同时增删条目。
+   导出给测试用（test/layer3/test_options.cpp 里的 t_needsarg_consistent），
+   逐个选项核对“表里说要不要参数”和“applyOpt 的分支实际用不用参数”是否一致。 */
+extern char OptionArray[NUMOPTIONS][MAXOPTIONLEN];
+extern int needsArg[NUMOPTIONS];
+
 extern options_t* initOpt(void);
 extern void applyOpt(std::string_view opt, char* arg, options_t* options);
 extern int processOpts(int argc, char** argv, options_t* options);
