@@ -69,8 +69,6 @@ void next_pt_vec(vec_monty_t *mdata, ecm_work *work, ecm_pt *P, uint64_t c);
 void euclid(vec_monty_t *mdata, ecm_work *work, ecm_pt *P, uint64_t c);
 void vec_prac(vec_monty_t *mdata, ecm_work *work, ecm_pt *P, uint64_t c);
 void vec_build_one_curve(thread_data_t *tdata, mpz_t X, mpz_t Z, mpz_t A, uint64_t sigma);
-void build_one_curve_param1(thread_data_t *tdata, mpz_t X, mpz_t Z, mpz_t X2, mpz_t Z2, 
-    mpz_t A, uint64_t sigma);
 void vec_ecm_stage1(vec_monty_t *mdata, ecm_work *work, ecm_pt *P, 
     uint64_t b1, uint64_t*primes, uint64_t nump, int verbose);
 int vec_ecm_stage2_init(ecm_pt *P, vec_monty_t *mdata, ecm_work *work, int verbose);
@@ -114,7 +112,6 @@ void vec_ecm_dispatch(void *vptr);
 void vec_ecm_build_curve_work_fcn(void *vptr);
 void vec_ecm_stage1_work_fcn(void *vptr);
 void vec_ecm_stage2_work_fcn(void *vptr);
-
 
 void
 mpres_get_z(mpz_t R, const mpz_t S, mpz_t modulus, vec_monty_t *mdata, uint32_t MAXBITS)
@@ -175,7 +172,6 @@ void mpres_add_ui(mpz_t R, mpz_t S, const unsigned long n, mpz_t modulus, uint32
     mpz_add(R, R, S);
     mpz_mod(R, R, modulus);
 }
-
 
 void vec_ecm_sync(void *vptr)
 {
@@ -296,7 +292,6 @@ void vec_ecm_stage2_work_fcn(void *vptr)
 
     return;
 }
-
 
 void vec_ecm_build_curve_work_fcn(void *vptr)
 {
@@ -1587,7 +1582,6 @@ void euclid(vec_monty_t *mdata, ecm_work *work, ecm_pt *P, uint64_t c)
 					i++;
 			}
 
-
 		}
 
 		i++;
@@ -1843,7 +1837,6 @@ void vececm(thread_data_t* tdata)
         one->data[i] = 1;
     }
     one->size = 1;
-
 
     rangemin = 0;
     rangemax = MIN(STAGE2_MAX + 1000, (uint64_t)PRIME_RANGE);
@@ -2526,7 +2519,6 @@ void vec_build_one_curve(thread_data_t *tdata, mpz_t X, mpz_t Z, mpz_t A, uint64
         work->sigma = sigma;
     }
 
-
 #ifdef PRINT_DEBUG
     printf("sigma = %" PRIu64"\n", work->sigma);
 #endif
@@ -2565,7 +2557,6 @@ void vec_build_one_curve(thread_data_t *tdata, mpz_t X, mpz_t Z, mpz_t A, uint64
 #ifdef PRINT_DEBUG
     gmp_printf("v^3 = %Zx\n", Z);
 #endif
-
 
     // compute parameter A
     // (v-u)
@@ -2746,170 +2737,12 @@ void vec_build_one_curve(thread_data_t *tdata, mpz_t X, mpz_t Z, mpz_t A, uint64
 
 //#define PRINT_DEBUG
 
-void build_one_curve_param1(thread_data_t *tdata, mpz_t X, mpz_t Z, 
-    mpz_t X2, mpz_t Z2, mpz_t A, uint64_t sigma)
-{
-    vec_monty_t *mdata = tdata->mdata;
-    ecm_work *work = tdata->work;
-    uint32_t tid = tdata->tid;
-    ecm_pt *P = &work->pt1;
-    int i;
-    mpz_t n, v, d, dorig;
-    uint32_t NWORDS = tdata[0].NWORDS;
-    uint32_t NBLOCKS = tdata[0].NBLOCKS;
-    uint32_t MAXBITS = tdata[0].MAXBITS;
-
-    mpz_init(n);
-    mpz_init(v);
-    mpz_init(d);
-    mpz_init(dorig);
-
-    extract_bignum_from_vec_to_mpz(n, mdata->n, 0, NWORDS);
-
-    if (sigma == 0)
-    {
-        do
-        {
-            work->sigma = spRandp(&tdata->lcg_state, 6, 0x4000000);
-        } while (work->sigma < 6);
-    }
-    else
-    {
-        work->sigma = sigma;
-    }
-    
-#ifdef PRINT_DEBUG
-    printf("sigma = %" PRIu64"\n", work->sigma);
-#endif
-
-    // v = sigma^2
-    mpz_set_ui(v, work->sigma);
-    mpz_mul(v, v, v);
-
-    /* A=4*d-2 with d = sigma^2/2^GMP_NUMB_BITS*/
-      /* Compute d = sigma^2/2^GMP_NUMB_BITS */
-    for (i = 0; i < 52; i++)
-    {
-        if (mpz_tstbit(v, 0) == 1)
-            mpz_add(v, v, n);
-        mpz_div_2exp(v, v, 1);
-    }
-
-    mpz_mod(v, v, n);
-
-#ifdef PRINT_DEBUG
-    gmp_printf("n = %Zd\n", n);
-#endif
-#ifdef PRINT_DEBUG
-    gmp_printf("d = %Zd\n", v);
-#endif
-    mpz_set(dorig, v);
-
-    /* d = sigma^2 / 2^52，上面已经取模 n。d 不能是 0 也不能是 1。
-       TODO: Suyama 参数化还有一个特殊值要排除：d == -1/8。撞上的概率
-       极低（要先有 8*sigma^2 == -2^52 mod n），而且撞上之后是跳过这条
-       曲线还是直接报错退出，得先定下来。判断要写成 8*d + 1 == 0
-       (mod n)，不能拿 d 去比 -1/8。 */
-    if (mpz_sgn(v) == 0 || mpz_cmp_ui(v, 1) == 0)
-    {
-        printf("parameter cannot be 0 or 1\n");
-        exit(1);
-    }
-
-    mpz_mul_2exp(v, v, 2);           /* 4d */
-    mpz_sub_ui(v, v, 2);             /* 4d-2 */
-
-    // copy and convert to Montgomery representation
-#ifdef PRINT_DEBUG
-    gmp_printf("4d-2 = %Zd\n", v);
-#endif
-    //mpres_set_z(A, v, n);
-    mpz_mul_2exp(A, v, MAXBITS);
-    mpz_mod(A, A, n);
-#ifdef PRINT_DEBUG
-    gmp_printf("A = %Zd\n", A);
-#endif
-
-    /* Compute d=(A+2)/4 from A and d'=B*d thus d' = 2^(GMP_NUMB_BITS-2)*(A+2) */
-    mpres_get_z(d, A, n, mdata, MAXBITS);
-#ifdef PRINT_DEBUG
-    gmp_printf("d (mpres_get_z) = %Zd\n", d);
-#endif
-    mpz_add_ui(d, d, 2);
-#ifdef PRINT_DEBUG
-    gmp_printf("d (mpz_add_ui) = %Zd\n", d);
-#endif
-    mpz_mul_2exp(d, d, 52 - 2);
-#ifdef PRINT_DEBUG
-    gmp_printf("d (mpz_mul_2exp) = %Zd\n", d);
-#endif
-    mpz_mod(d, d, n);
-#ifdef PRINT_DEBUG
-    gmp_printf("d (mpz_mod) = %Zd\n", d);
-#endif
-
-    mpz_set(A, d);
-
-#ifdef PRINT_DEBUG
-    gmp_printf("d' = (A+2)*2^(GMP_NUMB_BITS-2) = %Zd\n", d);
-#endif
-#ifdef PRINT_DEBUG
-    gmp_printf("dorig = %Zd\n", dorig);
-#endif
-
-    //mpres_set_ui(X, 2, n);
-    mpz_set_ui(X, 2);
-    mpz_mul_2exp(X, X, MAXBITS);
-    mpz_mod(X, X, n);
-
-#ifdef PRINT_DEBUG
-    gmp_printf("X = %Zd\n", X);
-#endif
-
-    //mpres_set_ui(Z, 1, n);
-    mpz_set_ui(Z, 1);
-    mpz_mul_2exp(Z, Z, MAXBITS);
-    mpz_tdiv_r(Z, Z, n);
-
-#ifdef PRINT_DEBUG
-    gmp_printf("Z = %Zd\n", Z);
-#endif
-
-    /* Compute 2P : no need to duplicate P, the coordinates are simple. */
-    mpz_set_ui(X2, 9);
-    mpz_mul_2exp(X2, X2, MAXBITS);
-    mpz_tdiv_r(X2, X2, n);
-
-#ifdef PRINT_DEBUG
-    gmp_printf("X2 = %Zd\n", X2);
-#endif
-
-    mpz_set(Z2, d);
-    mpz_mul_2exp(Z2, Z2, MAXBITS);
-    mpz_tdiv_r(Z2, Z2, n);
-    mpres_div_2exp(Z2, Z2, GMP_NUMB_BITS, n);
-
-    mpres_mul_2exp(Z2, Z2, 6, n);
-    mpres_add_ui(Z2, Z2, 8, n, MAXBITS); /* P2 <- 2P = (9 : : 64d+8) */
-
-#ifdef PRINT_DEBUG
-    gmp_printf("Z2 = %Zd\n", Z2);
-#endif
-
-    mpz_clear(n);
-    mpz_clear(v);
-    mpz_clear(d);
-
-    return;
-}
-
 //#define TESTMUL
 void vec_ecm_stage1(vec_monty_t *mdata, ecm_work *work, ecm_pt *P, 
     uint64_t b1, uint64_t*primes, uint64_t nump, int verbose)
 {
 	int i;
 	uint64_t q;
-
 
 #ifdef MPZ_VERIFY
     mpz_t gtmp, gtmp2, gn, gnhat;
@@ -3130,7 +2963,6 @@ int batch_invert_pt_inplace(ecm_pt* pts_to_Zinvert,
     //    return;
     //}
 
-
     // and continue.
     for (i = num - 2; i >= 0; i--)
     {
@@ -3267,7 +3099,6 @@ int batch_invert_pt_to_bignum(ecm_pt* pts_to_Zinvert, vec_bignum_t** out,
     //    return;
     //}
 
-
     // and continue.
     for (i = num - 2; i >= 0; i--)
     {
@@ -3359,7 +3190,6 @@ int batch_invert_pt_to_bignum(ecm_pt* pts_to_Zinvert, vec_bignum_t** out,
 //3954243165
 //2576580518
 //416265588
-
 
 void addflag(uint8_t* flags, uint64_t loc, uint64_t lobound, uint64_t hibound)
 {
@@ -3540,7 +3370,6 @@ void vec_ecm_stage2_pair(uint32_t pairmap_steps, uint32_t* pairmap_v, uint32_t* 
     vec_bignum_t** Pbprod = work->Pbprod;
     vec_bignum_t* acc = work->stg2acc;
 
-
     if (1)
     {
         //first a value: first multiple of D greater than B1
@@ -3609,8 +3438,6 @@ void vec_ecm_stage2_pair(uint32_t pairmap_steps, uint32_t* pairmap_v, uint32_t* 
         if (verbose & (debug == 2))
             printf("A table generated to L = %d\n", 2 * L);
     }
-
-
 
     if (verbose > 1)
     {

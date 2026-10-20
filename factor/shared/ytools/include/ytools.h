@@ -283,6 +283,13 @@ extern int ytools_extended_cpuid(char* idstr, int* cachelinesize, char* bSSE41Ex
 // ============================================================================
 
     extern void logprint(FILE* infile, const char* args, ...);
+    /* 在当前进程里把 stdin/stdout 换成指定文件，然后执行一条命令。
+     * 不用 shell 的 < > 重定向：路径里带空格时引号规则容易被绕晕，
+     * 重定向的内容由代码决定也更清楚。
+     * inPath / outPath 传 NULL 表示不动对应的那个标准流。
+     * 返回被执行的命令的退出状态（0 表示成功），-1 表示重定向本身失败。 */
+    extern int ytools_run_redirected(const char* cmd, const char* inPath,
+                    const char* outPath);
     extern void logprint_oc(const char* name, const char* method, const char* args, ...);
     extern char* get_full_line(char* line, int* sz, FILE* fid);
 #endif /* _YTOOLS_UTIL_H_ */
