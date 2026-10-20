@@ -157,7 +157,23 @@ void ASM_ATTR asm_re_strip(u64_t *,u32_t,i16_t *,unsigned char*);
 
 
 #ifdef TINY3
-static ushort mpqs3_param[15][7]={ /* TODO: optimize parameters */
+/* mpqs3 的参数表。15 行按分解复杂度分档（mpqs3_choose_parameter() 把
+ * complexity 夹到 [91,148] 再按 4 一档映射到行号，mpqs3.cpp:739-747）；
+ * 7 列依次是（mpqs3.cpp:754-765 读取）：
+ *   0  因子基素数上限        mpqs3_nFB
+ *   1  筛法起始下标          mpqs3_sievebegin
+ *   2  每个多项式用的 A 因子个数   mpqs3_nAdiv
+ *   3  A 因子总池大小        mpqs3_nAdiv_total
+ *   4  筛选的对数界          mpqs3_accept
+ *   5  试除起始下标          mpqs3_td_begin
+ *   6  筛长度                mpqs3_sievelen
+ *
+ * 这张表只被 mpqs3 自己读。lasieve 主流程里大于 96 位的余因子走的是旧的
+ * mpqs_factor —— mpqs3_factor 那一句被 #if 0 关着
+ * （factor/nfs/lasieve/gnfs-lasieve4e.cpp:6505-6511），所以这里的取值
+ * 目前只影响 mpqs3test / mpqs3stat 这两个独立目标。要调参得先决定
+ * mpqs3 是否启用；启用之后用这两个目标测。 */
+static ushort mpqs3_param[15][7]={
  { 160, 0, 4, 7, 17, 160, 4096},    /* 92 */
  { 170, 0, 4, 8, 17, 180, 4096},    /* 96 */
  { 200, 0, 4, 8, 17, 200, 5120},   /* 100 */

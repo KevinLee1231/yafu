@@ -599,8 +599,8 @@ __inline uint64_t sqrredc63(uint64_t x, uint64_t n, uint64_t nhat)
 
 /* 可移植的模乘实现就在下面（mulredc / mulredc63 / mulredc60 / submod /
    addmod），用 _umul128 与进位/借位原语拼出来。
-   还没做完的是树里其它部分：不少地方仍然假定 64 位 x86-64，非 x86-64 上
-   剩下的汇编路径还得逐个换成可移植写法。 */
+   本项目只面向 64 位 x86-64（提交 342f9d0 把全部非 x86-64 的分支与兼容层
+   都删了），所以树里其它假定 x86-64 的地方保持原样 —— 那不是待办。 */
 
 #ifndef __aarch64__
 #include <immintrin.h>

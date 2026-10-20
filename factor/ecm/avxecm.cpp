@@ -2316,9 +2316,25 @@ void vececm(thread_data_t* tdata)
                 // get a new batch of primes if the current range ends
                 // before this new one starts or if the range isn't large
                 // enough to cover the current step
-                // TODO: 让素数区间与配对生成器对上，新的一段能接着上一段
-                // 继续，不必重算 2 * L 个 Pa 再求一次逆。典型的 B1/B2 下
-                // 这点开销不算大，但确实是白做的。
+                /* stage 2 分段处理素数：每换一段区间，stage2_pair() 就把
+                 * 2*L 个 Pa 重算一遍，并对它们重新批量求一次逆。
+                 *
+                 * 按现在的划分，这笔开销没法省掉，原因在两边的粒度：
+                 *
+                 *   - 段是按素数个数切的，一次 PRIME_RANGE = 1e8 个素数
+                 *     （avx_ecm_main.cpp:594）。B2 通常是 1e4~1e5 量级，
+                 *     所以段循环（avxecm.cpp:2332 的 for）通常只跑一轮 ——
+                 *     根本没有"新的一段"。
+                 *   - 就算 B2 大到有好多段，一段覆盖的 a 跨度是
+                 *     (B2-B1)/(2*w)，而 Pa 表覆盖的 a 跨度只有 2*L = 4*U
+                 *     （U 的候选是 1..16，avx_ecm_main.cpp:1145）。两者差
+                 *     好几个数量级，新的一段的 Pa 与上一段没有交集。
+                 *
+                 * 要让"新的一段接着上一段继续"成立，段的划分就得改成按
+                 * a 范围、且每段的跨度小于 2*L。那样段数会多出好几个数量级，
+                 * 而每段都要重跑一次 pair()（Q 队列的进出），净收益要实测
+                 * 才知道。 */
+
                 if ((p >= rangemax) ||
                     (rangemax < MIN(STAGE2_MAX, p + (uint64_t)PRIME_RANGE)))
                 {

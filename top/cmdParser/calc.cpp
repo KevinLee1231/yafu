@@ -628,7 +628,12 @@ str_t* preprocess(str_t* in, int* numlines)
     size_t i, j, begin, length;
     int parens = 0, braces = 0;
     str_t *out;
-    /* 调度表未实现 for/if；保留原文交给解析器报告未知函数。 */
+    /* 计算器是表达式求值器，不含控制流：for/if 不在调度表里，原文保留，
+     * 交给解析器报"未知函数"。
+     *
+     * 上游 yafu 的 calc.c 也是这样 —— for_cnt / forp_cnt / forf_cnt /
+     * if_cnt 那四个计数器从上游起就只有声明与重置，没有对应的解析与求值。
+     * 要支持 for/if 等于给这门语言加控制流，不是一处遗漏的实现。 */
     for (i = 0, j = 0; in->s[i] != '\0'; i++)
         if (!isspace((unsigned char)in->s[i]))
             in->s[j++] = in->s[i];

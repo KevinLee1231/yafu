@@ -4073,7 +4073,7 @@ nss+= n_strips;
                                     rescale_interval2(sieve_interval, L1_SIZE);
                                     rescale_interval2(horizontal_sievesums, j_per_strip);
                                 }
-                                else Schlendrian("rescaling of level >2 not implemented yet\n");
+                                else Schlendrian("rescaling of level >2 is not supported\n");
 #endif
                             }
 

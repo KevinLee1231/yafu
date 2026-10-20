@@ -1155,10 +1155,11 @@ void nfs(fact_obj_t *fobj)
 
 		case NFS_STATE_SQRT:
 
-            // TODO: 多因子的输入没有继续分解
-            // 输入有三个以上因子时，应该带着依赖继续，直到整个输入被完全分解。
-            // 现在只做第一个，剩下的可能还剩不少（而且数据会被删掉，
-            // 手工也找不回来）。
+            // 多因子的输入：带着依赖继续分解，直到整个输入被完全分解。
+            // 判据在 nfs_find_factors() 里 —— 它原来在"剩下的合数不到 85 位"
+            // 时就停，而 85 位以内完全可能是两个 42 位素数的乘积，rho 要
+            // 2^21 次迭代才拆得开。现在改成"因子表里没有合数了"才停
+            // （factor/nfs/gnfs/sqrt/sqrt.cpp）。
 
 			if ((fobj->nfs_obj.nfs_phases == NFS_DEFAULT_PHASES) ||
 				(fobj->nfs_obj.nfs_phases & NFS_PHASE_SQRT))
