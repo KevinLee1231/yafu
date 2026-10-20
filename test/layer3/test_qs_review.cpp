@@ -574,6 +574,22 @@ static void t_siqs_process_rel_truncated(tk_ctx *tk)
     /* process_rel 会检查 this_id >= sconf->bpoly_alloc，不设的话所有用例
      * 都在这一个检查上早退，测不到大素数的解析。 */
     sconf->bpoly_alloc = 4;
+    /* process_rel 解析出 this_id 之后会调 ensure_bpoly，它要读 bpoly_b /
+     * bpoly_gray / bpoly_nu / bpoly_Bl。这些不准备就是段错误。 */
+    sconf->bpoly_gray = (char *)calloc(4, 1);
+    sconf->bpoly_nu = (char *)calloc(4, 1);
+    sconf->bpoly_Bl = (mpz_t *)calloc(4, sizeof(mpz_t));
+    TK_REQUIRE(tk, sconf->bpoly_gray && sconf->bpoly_nu && sconf->bpoly_Bl,
+        "out of memory");
+    for (rc = 0; rc < 4; rc++) {
+        mpz_init_set_ui(sconf->bpoly_Bl[rc], 1);
+        sconf->bpoly_gray[rc] = 1;
+        sconf->bpoly_nu[rc] = 1;
+    }
+    mpz_init_set_ui(sconf->bpoly_a, 2);
+    mpz_init_set_ui(sconf->bpoly_b, 2);
+    sconf->bpoly_numB = 1;
+    sconf->bpoly_next = 1;       /* 第 0 个 b 值已经算好 */
 
     /* 1) 截断在 'L' 之前：连大素数都没有 */
     {
@@ -622,9 +638,16 @@ static void t_siqs_process_rel_truncated(tk_ctx *tk)
             "truncated after factors was not rejected early");
     }
 
-    for (rc = 0; rc < 4; rc++)
+    for (rc = 0; rc < 4; rc++) {
         mpz_clear(sconf->curr_b[rc]);
+        mpz_clear(sconf->bpoly_Bl[rc]);
+    }
     free(sconf->curr_b);
+    free(sconf->bpoly_gray);
+    free(sconf->bpoly_nu);
+    free(sconf->bpoly_Bl);
+    mpz_clear(sconf->bpoly_a);
+    mpz_clear(sconf->bpoly_b);
     free(poly.qlisort);
     mpz_clear(poly.mpz_poly_b);
     mpz_clear(sconf->curr_a);
