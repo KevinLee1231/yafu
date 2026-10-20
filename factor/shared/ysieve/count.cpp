@@ -102,7 +102,7 @@ void count_twins_work_fcn(void* vptr)
                         count++;
                     }
                 }
-                else if ((i + 1) < sdata->numlinebytes)
+                else if ((t->startid + i + 1) < (sdata->numlinebytes / 8))
                 {
                     // this thread is done but if there is more data after
                     // this thread's chunk then check between thread boundaries.
@@ -144,7 +144,7 @@ void count_twins_work_fcn(void* vptr)
                         count++;
                     }
                 }
-                else if ((i + 1) < sdata->numlinebytes)
+                else if ((t->startid + i + 1) < (sdata->numlinebytes / 8))
                 {
                     // this thread is done but if there is more data after
                     // this thread's chunk then check between thread boundaries.
@@ -183,7 +183,7 @@ void count_twins_work_fcn(void* vptr)
                     count++;
                 }
             }
-            else if ((t->startid + i + 1) < sdata->numlinebytes)
+            else if ((t->startid + i + 1) < (sdata->numlinebytes / 8))
             {
                 // this thread is done but if there is more data after
                 // this thread's chunk then check between thread boundaries.
@@ -268,7 +268,7 @@ uint64_t count_twins(soe_staticdata_t* sdata, thread_soedata_t* thread_data)
 
     if (sdata->VFLAG > 1)
     {
-        printf("counting twins from %"PRIu64" to %"PRIu64"\n", sdata->orig_llimit, sdata->orig_hlimit);
+        printf("counting twins from %" PRIu64" to %" PRIu64"\n", sdata->orig_llimit, sdata->orig_hlimit);
     }
 
     // divvy up the line bytes.  Unlike when counting primes,
@@ -290,8 +290,8 @@ uint64_t count_twins(soe_staticdata_t* sdata, thread_soedata_t* thread_data)
 
         if (sdata->VFLAG > 2)
         {
-            printf("thread %d counting twins from byte offset %u to %u\n",
-                (int)i, t->startid * 8, t->stopid * 8);
+            printf("thread %d counting twins from byte offset %" PRIu64 " to %" PRIu64 "\n",
+                (int)i, (uint64_t)t->startid * 8, (uint64_t)t->stopid * 8);
         }
     }
 
@@ -394,7 +394,7 @@ uint64_t count_twins_nonthreaded(soe_staticdata_t* sdata)
                         count++;
                     }
                 }
-                else if ((i + 1) < sdata->numlinebytes)
+                else if ((i + 1) < (sdata->numlinebytes / 8))
                 {
                     // this thread is done but if there is more data after
                     // this thread's chunk then check between thread boundaries.
@@ -439,7 +439,7 @@ uint64_t count_twins_nonthreaded(soe_staticdata_t* sdata)
                         count++;
                     }
                 }
-                else if ((i + 1) < sdata->numlinebytes)
+                else if ((i + 1) < (sdata->numlinebytes / 8))
                 {
                     // this thread is done but if there is more data after
                     // this thread's chunk then check between thread boundaries.
@@ -482,7 +482,7 @@ uint64_t count_twins_nonthreaded(soe_staticdata_t* sdata)
                     count++;
                 }
             }
-            else if ((i + 1) < sdata->numlinebytes)
+            else if ((i + 1) < (sdata->numlinebytes / 8))
             {
                 // this thread is done but if there is more data after
                 // this thread's chunk then check between thread boundaries.
