@@ -623,7 +623,13 @@ void resieve_medprimes_32k_avx2(uint8_t parity, uint32_t poly_id, uint32_t bnum,
 
         for (i = 0; i < result; i++)
         {
-            if (buffer[i] < 2)
+            /* resieve 按块处理素数（8/16/32 个一起），循环条件只看块的起点，
+               所以最后一块可能越过 med_B。越界位置上的素数没初始化过，
+               比较结果是垃圾，可能凑出假命中。这种下标要先挡掉 ——
+               直接 fbc->prime[buffer[i]] 就是越界读（comp_sieve_p->prime
+               只按 med_B 个元素分配）。 */
+            if ((buffer[i] < 2) ||
+                (buffer[i] >= (uint32_t)sconf->factor_base->med_B))
                 continue;
 
             DIVIDE_RESIEVED_PRIME_2((buffer[i]));
@@ -737,14 +743,15 @@ void resieve_medprimes_32k_avx512bw(uint8_t parity, uint32_t poly_id, uint32_t b
 
         for (i = 0; i < result; i++)
         {
-			if ((buffer[i] < 2) || (fbc->prime[buffer[i]] < 2))
+			/* 同 AVX2 那条路径：下标先验界，再取素数。假命中在小输入上
+			   会出现（越过 med_B 的那一块里素数没初始化），挡掉这一项
+			   继续就行 —— 原来这里用的是 break，一个假下标就把后面
+			   所有的除法都放弃了。 */
+			if ((buffer[i] < 2) ||
+				(buffer[i] >= (uint32_t)sconf->factor_base->med_B) ||
+				(fbc->prime[buffer[i]] < 2))
 			{
-				// sometimes this happens for small inputs... TODO: figure
-				// out why and fix it.  But for now detecting and ignoring
-				// also works.
-				// printf("attempting to divide by %u at fb index %u during resieve\n",
-				//	fbc->prime[buffer[i]], buffer[i]);
-				break;
+				continue;
 			}
 
             DIVIDE_RESIEVED_PRIME_2((buffer[i]));
