@@ -854,7 +854,17 @@ yafu 早已只面向 Linux x86-64（`342f9d0` 删光全部非 x86-64 分支）�
 （这个在用，语义就是"没有状态要同步"）和 `default` 分支（未知任务类型
 报出来，不静默吞掉）。
 
-**4. `recurrence6.cpp` 里读未初始化的 `__m512i`。**
+**4. `factor_perfect_power` 漏掉两个 `mpz_clear`。**
+
+`factor/trialdiv/trialdiv.cpp` 里，日志文件打不开时直接 `return`，
+跳过了函数末尾的 `mpz_clear(base)` / `mpz_clear(ans)` —— 而这两个
+`mpz` 在函数开头已经 `mpz_init` 过。每开一次日志失败就漏一份 GMP 大数。
+
+同一文件里另外几处相同的"fopen 失败就 return"写法都没有这个问题：
+`zTrial` 与 `zFermat` 在 return 之前没有 `mpz_init`，`spfermat` 走的是
+`goto done`，`rho.cpp` 干脆不 return（`flog` 保持 NULL 继续跑）。
+
+**5. `recurrence6.cpp` 里读未初始化的 `__m512i`。**
 
 `get_recurrence_info_16` 的两个变体里都有：
 

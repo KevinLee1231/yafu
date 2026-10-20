@@ -571,6 +571,9 @@ static void t_siqs_process_rel_truncated(tk_ctx *tk)
     TK_REQUIRE(tk, sconf->curr_b != NULL, "out of memory");
     for (rc = 0; rc < 4; rc++)
         mpz_init_set_ui(sconf->curr_b[rc], 2);
+    /* process_rel 会检查 this_id >= sconf->bpoly_alloc，不设的话所有用例
+     * 都在这一个检查上早退，测不到大素数的解析。 */
+    sconf->bpoly_alloc = 4;
 
     /* 1) 截断在 'L' 之前：连大素数都没有 */
     {
@@ -637,7 +640,6 @@ static const tk_test tk__qs_review_tests[] = {
     { "nfs_qrange_roundtrip", t_nfs_qrange_roundtrip, "fast nfs qs" },
     { "siqs_bpoly_sequence", t_siqs_bpoly_sequence, "fast siqs qs" },
     { "siqs_lazy_bpoly_matches", t_siqs_lazy_bpoly_matches, "fast siqs qs" },
-    { "siqs_process_rel_truncated", t_siqs_process_rel_truncated, "fast siqs qs" },
     { "siqs_process_rel_truncated", t_siqs_process_rel_truncated, "fast siqs qs" },
 #if defined(USE_AVX512F)
     { "bitonic_arbitrary_lengths", t_bitonic_arbitrary_lengths,

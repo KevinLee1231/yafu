@@ -141,6 +141,10 @@ void factor_perfect_power(fact_obj_t *fobj, mpz_t b)
         {
             printf("fopen error: %s\n", strerror(errno));
             printf("could not open %s for writing\n", fobj->flogname);
+            /* base 与 ans 已经 mpz_init 过，走之前得放掉，
+               否则每次开日志失败都漏一份 GMP 大数。 */
+            mpz_clear(base);
+            mpz_clear(ans);
             return;
         }
     }
