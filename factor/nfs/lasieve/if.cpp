@@ -71,7 +71,7 @@ FILE*logfile= NULL;
 
 
 #define MAXMSGLEN 20000
-void complain(char*fmt,...)
+void complain(const char*fmt,...)
 {
 char msg[MAXMSGLEN];
 
@@ -111,7 +111,7 @@ boinc_finish(1);
 
 /*:7*//*8:*/
 
-void Schlendrian(char*fmt,...)
+void Schlendrian(const char*fmt,...)
 {
 va_list arglist,log_args;
 va_start(arglist,fmt);
@@ -132,7 +132,7 @@ boinc_finish(1);
 /*:8*//*9:*/
 
 #define NEW_NUMBER -0x10000
-void logbook(int l, char* fmt, ...)
+void logbook(int l, const char* fmt, ...)
 {
     if (l == NEW_NUMBER) {
         used_cols = 0;
@@ -165,7 +165,7 @@ void logbook(int l, char* fmt, ...)
 /*:9*//*10:*/
 
 int
-errprintf(char*fmt,...)
+errprintf(const char*fmt,...)
 {
 va_list arglist,log_args;
 int res;

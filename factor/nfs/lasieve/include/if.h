@@ -27,10 +27,10 @@ void*xrealloc(void*x,size_t size);
 
 #endif /* YA_ALLOC_DECLARED */
 namespace lasieve_ns {
-void complain(char*fmt,...);
-void Schlendrian(char*fmt,...);
-void logbook(int l,char*fmt,...);
-int errprintf(char*fmt,...);
+void complain(const char*fmt,...);
+void Schlendrian(const char*fmt,...);
+void logbook(int l,const char*fmt,...);
+int errprintf(const char*fmt,...);
 void adjust_bufsize(void**,size_t*,size_t,size_t,size_t);
 extern int verbose;
 extern FILE*logfile;

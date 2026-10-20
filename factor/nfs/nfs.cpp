@@ -879,7 +879,9 @@ void nfs(fact_obj_t *fobj)
 			checkFilePresence(buffer);
 
 			printf("nfs: calling convert_poly to create nfs.fb from c*.poly\n");
-			// TODO: Support Windows lol
+			// TODO: Windows 上没验证过。输入输出重定向用的是 shell 语法
+			// (system())，cmd.exe 与 sh 的转义规则不同，路径里带空格时
+			// 两边都要另外加引号。
 			int convert_length = snprintf(syscmd, sizeof(syscmd),
 				"%s -of msieve < ./cadoWorkdir/c%d.poly > nfs.fb",
 				fobj->nfs_obj.convert_poly_path, cadoPower);
@@ -1151,11 +1153,9 @@ void nfs(fact_obj_t *fobj)
 		case NFS_STATE_SQRT:
 
             // TODO:
-            // when the input has more than 2 factors we can continue 
-            // with dependencies until the input is completely factored.
-            // as it is now, we stop after the first one, potentially leaving
-            // a significant number behind (and deleting all data so that
-            // it can't be found manually either).
+            // 输入有三个以上因子时，应该带着依赖继续，直到整个输入被完全分解。
+            // 现在只做第一个，剩下的可能还剩不少（而且数据会被删掉，
+            // 手工也找不回来）。
 
 			if ((fobj->nfs_obj.nfs_phases == NFS_DEFAULT_PHASES) ||
 				(fobj->nfs_obj.nfs_phases & NFS_PHASE_SQRT))

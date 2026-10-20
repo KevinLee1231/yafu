@@ -1386,9 +1386,8 @@ void test_vecarith(int numbits, int iterations, int validate)
         }
 
         // vec powm: tests mul and sqr
-        // TODO: NEEDS THIS FROM THE VECPM1 CODE
-        //vecslidingmodexp(vec_p, vec_am, e, vec_n, vec_s, mdata->one, mdata);
-        //vecmodexp(vec_p, vec_am, e, vec_n, vec_s, mdata->one, mdata);
+        // 模幂本身这里没测（vecslidingmodexp / vecmodexp 是 vecpm1 那边的，
+        // 这条路径上没接过来），只测了乘与平方。
 
         // un-monty rep
         vecmulmod_ptr(vec_p, vec_one, vec_a, vec_n, vec_s, mdata);      

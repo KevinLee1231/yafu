@@ -88,11 +88,16 @@ endif
 # .cpp migration left every kernel source as C++.  Written out rather than left
 # to make's built-in rules so that OBJDIR is honoured.
 
-$(OBJDIR)/%.o: %.c
+# 头文件依赖：改了 include/ 与 ../include/ 下的头，kernels 的目标文件
+# 都要重编。原来这些规则只依赖 .cpp，改了头不重编 —— 陈旧的目标文件与新
+# 声明对不上，链接时报 undefined reference。
+KERNEL_HEADERS := $(wildcard include/*.h) $(wildcard ../include/*.h)
+
+$(OBJDIR)/%.o: %.c $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(OBJDIR)/%.o: %.cpp
+$(OBJDIR)/%.o: %.cpp $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
@@ -278,7 +283,7 @@ CORE_MEMBERS := \
 # The per-I core objects.  $(1) is substituted at $(call) time, so the
 # rename is baked into each rule rather than shared through a variable.
 define CORE_IRULES
-$$(OBJDIR)/coreI$(1)/%.o: %.c
+$$(OBJDIR)/coreI$(1)/%.o: %.c $$(KERNEL_HEADERS)
 	@mkdir -p $$(dir $$@)
 	$$(CC) $$(CFLAGS) -Dlasieve_ns=lasieve_I$(1) -c -o $$@ $$<
 
@@ -286,7 +291,7 @@ $$(OBJDIR)/coreI$(1)/%.o: %.c
 # intrinsics 一一对应，所以改成了 C++；mpqs_eval 是四个扫描筛数组的
 # 入口，movemask 全部用 intrinsics 表达得了，也改成了 C++。
 # 产物名不变（.cpp -> 同名 .o），所以上面两处清单不用动。
-$$(OBJDIR)/coreI$(1)/%.o: %.cpp
+$$(OBJDIR)/coreI$(1)/%.o: %.cpp $$(KERNEL_HEADERS)
 	@mkdir -p $$(dir $$@)
 	$$(CXX) $$(CXXFLAGS) -Dlasieve_ns=lasieve_I$(1) -c -o $$@ $$<
 endef

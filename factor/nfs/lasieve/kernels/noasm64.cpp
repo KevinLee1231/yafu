@@ -426,8 +426,8 @@ namespace lasieve_ns {
     // SMJS
     //  printf("mul failed: %llu %llu %llu\n",(ulong)a,(ulong)b,(ulong)c);
     //  complain("%llu %llu %llu %llu\n%llu %llu\n",a1,b1,c[0],chk,montgomery_modulo_n[0],montgomery_inv_n);
-      printf("mul failed: "UL_FMTSTR" "UL_FMTSTR" "UL_FMTSTR"\n",(ulong)a,(ulong)b,(ulong)c);
-      complain(UL_FMTSTR" "UL_FMTSTR" "UL_FMTSTR" "UL_FMTSTR"\n"UL_FMTSTR" "UL_FMTSTR"\n",a1,b1,c[0],chk,montgomery_modulo_n[0],montgomery_inv_n);
+      printf("mul failed: " UL_FMTSTR" " UL_FMTSTR" " UL_FMTSTR"\n",(ulong)a,(ulong)b,(ulong)c);
+      complain(UL_FMTSTR" " UL_FMTSTR" " UL_FMTSTR" " UL_FMTSTR"\n" UL_FMTSTR" " UL_FMTSTR"\n",a1,b1,c[0],chk,montgomery_modulo_n[0],montgomery_inv_n);
     }
     }
 
@@ -470,8 +470,8 @@ namespace lasieve_ns {
     // SMJS
     //  printf("mul failed: %llu %llu %llu\n",(ulong)a,(ulong)b,(ulong)c);
     //  complain("%llu %llu * %llu %llu\n%llu %llu != %llu %llu\n%llu %llu   %llu\n",a0,a1,b0,b1,c[0],c[1],chk[0],chk[1],montgomery_modulo_n[0],montgomery_modulo_n[1],montgomery_inv_n);
-      printf("mul failed: "UL_FMTSTR" "UL_FMTSTR" "UL_FMTSTR"\n",(ulong)a,(ulong)b,(ulong)c);
-      complain(UL_FMTSTR" "UL_FMTSTR" * "UL_FMTSTR" "UL_FMTSTR"\n"UL_FMTSTR" "UL_FMTSTR" != "UL_FMTSTR" "UL_FMTSTR"\n"UL_FMTSTR" "UL_FMTSTR"   "UL_FMTSTR"\n",a0,a1,b0,b1,c[0],c[1],chk[0],chk[1],montgomery_modulo_n[0],montgomery_modulo_n[1],montgomery_inv_n);
+      printf("mul failed: " UL_FMTSTR" " UL_FMTSTR" " UL_FMTSTR"\n",(ulong)a,(ulong)b,(ulong)c);
+      complain(UL_FMTSTR" " UL_FMTSTR" * " UL_FMTSTR" " UL_FMTSTR"\n" UL_FMTSTR" " UL_FMTSTR" != " UL_FMTSTR" " UL_FMTSTR"\n" UL_FMTSTR" " UL_FMTSTR"   " UL_FMTSTR"\n",a0,a1,b0,b1,c[0],c[1],chk[0],chk[1],montgomery_modulo_n[0],montgomery_modulo_n[1],montgomery_inv_n);
     }
     }
 
@@ -516,8 +516,8 @@ namespace lasieve_ns {
     // SMJS
     //  printf("mul failed: %llu %llu %llu\n",(ulong)a,(ulong)b,(ulong)c);
     //  complain("%llu %llu %llu * %llu %llu %llu\n%llu %llu %llu!= %llu %llu %llu\n%llu %llu %llu   %llu\n",a0,a1,a2,b0,b1,b2,c[0],c[1],c[2],chk[0],chk[1],chk[2],montgomery_modulo_n[0],montgomery_modulo_n[1],montgomery_modulo_n[2],montgomery_inv_n);
-      printf("mul failed: "UL_FMTSTR" "UL_FMTSTR" "UL_FMTSTR"\n",(ulong)a,(ulong)b,(ulong)c);
-      complain(UL_FMTSTR" "UL_FMTSTR" "UL_FMTSTR" * "UL_FMTSTR" "UL_FMTSTR" "UL_FMTSTR"\n"UL_FMTSTR" "UL_FMTSTR" "UL_FMTSTR"!= "UL_FMTSTR" "UL_FMTSTR" "UL_FMTSTR"\n"UL_FMTSTR" "UL_FMTSTR" "UL_FMTSTR"   "UL_FMTSTR"\n",a0,a1,a2,b0,b1,b2,c[0],c[1],c[2],chk[0],chk[1],chk[2],montgomery_modulo_n[0],montgomery_modulo_n[1],montgomery_modulo_n[2],montgomery_inv_n);
+      printf("mul failed: " UL_FMTSTR" " UL_FMTSTR" " UL_FMTSTR"\n",(ulong)a,(ulong)b,(ulong)c);
+      complain(UL_FMTSTR" " UL_FMTSTR" " UL_FMTSTR" * " UL_FMTSTR" " UL_FMTSTR" " UL_FMTSTR"\n" UL_FMTSTR" " UL_FMTSTR" " UL_FMTSTR"!= " UL_FMTSTR" " UL_FMTSTR" " UL_FMTSTR"\n" UL_FMTSTR" " UL_FMTSTR" " UL_FMTSTR"   " UL_FMTSTR"\n",a0,a1,a2,b0,b1,b2,c[0],c[1],c[2],chk[0],chk[1],chk[2],montgomery_modulo_n[0],montgomery_modulo_n[1],montgomery_modulo_n[2],montgomery_inv_n);
     } // else printf("ok");
     }
 

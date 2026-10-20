@@ -233,12 +233,19 @@ ASMFILES = $(foreach asm_dir,$(ASMDIRS),$(list_asm_files))
 $(KERNEL_DIR)/%: force
 	$(MAKE) $(KERNEL_FLAGS) -C kernels $@
 
+# 头文件依赖：改了这边的头，per-I 与共享的目标文件都要重编。
+# 原来 per-I 的规则只依赖 .cpp，改了 if.h 之类的头不会重编 —— 陈旧的目标
+# 文件与新声明对不上，链接时报 undefined reference（mangled 名字带参数
+# 类型，签名一改就找不到定义了）。共享的那几条也只列了两个头，改别的
+# 头一样漏。
+LASIEVE_HEADERS := $(wildcard include/*.h) $(wildcard kernels/include/*.h)
+
 # Generic compile rules
-$(OBJDIR)/%.o: %.c include/if.h kernels/include/siever-config.h
+$(OBJDIR)/%.o: %.c $(LASIEVE_HEADERS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(OBJDIR)/%.o: %.cpp include/if.h kernels/include/siever-config.h
+$(OBJDIR)/%.o: %.cpp $(LASIEVE_HEADERS)
 	@mkdir -p $(@D)
 	$(CXX) $(CFLAGS) $(CXX_STD) -c -o $@ $<
 
@@ -303,12 +310,12 @@ SIEVER_SRCS := \
 define SIEVER_IRULES
 I$(1)_OBJS := $$(foreach s,$$(SIEVER_SRCS),$$(OBJDIR)/objI$(1)/$$(basename $$s).o)
 
-$$(OBJDIR)/objI$(1)/%.o: %.c
+$$(OBJDIR)/objI$(1)/%.o: %.c $$(LASIEVE_HEADERS)
 	@mkdir -p $$(dir $$@)
 	$$(CC) $$(CFLAGS) -DI_bits=$(1) \
 		-Dlasieve_ns=lasieve_I$(1) -c -o $$@ $$<
 
-$$(OBJDIR)/objI$(1)/%.o: %.cpp
+$$(OBJDIR)/objI$(1)/%.o: %.cpp $$(LASIEVE_HEADERS)
 	@mkdir -p $$(dir $$@)
 	$$(CXX) $$(CFLAGS) $$(CXX_STD) -DI_bits=$(1) \
 		-Dlasieve_ns=lasieve_I$(1) -c -o $$@ $$<

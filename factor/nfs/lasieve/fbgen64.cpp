@@ -291,7 +291,7 @@ static void polprintmod64(u64_t *P, u64_t dP, char * c){
   for(i=0;i<=dP;i++)
     printf("%llu ",P[i]);
 */
-  printf("\n%s "UL_FMTSTR"\n",c,dP);
+  printf("\n%s " UL_FMTSTR"\n",c,dP);
   for(i=0;i<=dP;i++)
     printf(UL_FMTSTR" ",P[i]);
   printf("\n");
@@ -339,7 +339,7 @@ static u64_t polrootmod64(mpz_t * A, u64_t dT,u64_t *r){
      r[i]=0;
      j=polrootrecmod64(Q,dQ,r+i,S+dS+1);  /*j=dQ*/
      // SMJSif(j!=dQ) fprintf(stderr,"Falsche Nullstellenanzahl Q, P %llu\n",mod64);
-     if(j!=dQ) fprintf(stderr,"Falsche Nullstellenanzahl Q, P "UL_FMTSTR"\n",mod64);
+     if(j!=dQ) fprintf(stderr,"Falsche Nullstellenanzahl Q, P " UL_FMTSTR"\n",mod64);
      i+=j;
    }
    if(dS>0){
@@ -347,7 +347,7 @@ static u64_t polrootmod64(mpz_t * A, u64_t dT,u64_t *r){
      r[i]=0;
      j=polrootrecmod64(S,dS,r+i,S+dS+1);  /*j=dS*/
      // SMJS if(j!=dS) fprintf(stderr,"Falsche Nullstellenanzahl S, P %llu\n",mod64);
-     if(j!=dS) fprintf(stderr,"Falsche Nullstellenanzahl S, P "UL_FMTSTR"\n",mod64);
+     if(j!=dS) fprintf(stderr,"Falsche Nullstellenanzahl S, P " UL_FMTSTR"\n",mod64);
      i+=j;
    }
    qsort(r,i,sizeof(u64_t),u64_cmp012);

@@ -840,7 +840,7 @@ static int mpqs3_SI_init()
     mpqs3_Adiv_all_sqrt[j]=mpqs3_FB[2*(i+j)+1];
 
     mpqs3_Adiv_all_sq_inv[j]=mpqs3_invert(mpqs3_Adiv_all_sqrt[j],mpqs3_Adiv_all[j]);
-/* TODO optimise: */
+/* TODO optimise: 这里每项都重算一遍模逆与平方根，批量算能省不少。 */
 {
   u32_t pp, p2, r0, rr, s, inv;
 
@@ -1356,7 +1356,7 @@ zeitA(7);
       mpqs3_sinit_tab[2*j]=mpqs3_sievelen-mpqs3_sinit_tab[2*(2*i-1-j)];
       if (j<2*i-1) mpqs3_sinit_tab[2*j+1]=mpqs3_sinit_tab[2*(2*i-2-j)+1];
     }
-/* compute B_i's */ /* TODO optimise */
+/* compute B_i's */ /* TODO optimise: 逐项做模逆，整批一起算更快。 */
     for (i=0; i<mpqs3_nAdiv; i++) {
       p=mpqs3_Adiv[i];
       bi_64=mpqs3_A_64*mpqs3_inv_64((u64_t)p);
@@ -2736,7 +2736,7 @@ static void mpqs3_rowechelon()
 {
   u32_t i, j, k, l, t, k64, col, row, r0, c0, zz;
   u64_t tmp, tab[16];
-  uchar ucm[MPQS3_GAUSS_MAX], mm[4], m, z;  /* TODO replace 1024 */
+  uchar ucm[MPQS3_GAUSS_MAX], mm[4], m, z;
 
 #ifdef MPQS3_ZEIT
 zeitA(8);

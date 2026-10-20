@@ -43,6 +43,7 @@
 // SOFTWARE.
 
 #include <inttypes.h>
+#include <chrono>
 #include <stdint.h>
 #ifndef __aarch64__
 #include <immintrin.h>
@@ -1033,6 +1034,12 @@ static void my_random_reset(void)
 #endif
 
 
+/* 基准用的计数值。只用来算"每个输入多少 tick"这种相对量，所以计数器
+   的频率不重要 —— 原来 Apple 分支里那句 val * 32 是个猜测（"aarch64
+   emulation on x86_64 ?"），而且三句 return 连着写，只有第一句能执行。
+   现在 aarch64 直接用 cntvct_el0 的计数值，其它平台用 steady_clock 的
+   纳秒计，顺带把那句 "unsupported _rdtsc implementation" 的 #error 去掉了 ——
+   它会让非 x86-64、非 aarch64 的平台根本编不过这个文件。 */
 static inline uint64_t my_rdtsc(void)
 {
 #if defined(__x86_64__) && (defined(__clang__) || defined(__INTEL_COMPILER))
@@ -1042,24 +1049,15 @@ static inline uint64_t my_rdtsc(void)
 	// supported by gcc in immintrin.h for x86 platform
 	return __builtin_ia32_rdtsc();
 #elif defined(__aarch64__)
-	// should be a 64 bits wallclock counter
-	// document for old/recent architecture and/or BMC chipsets mention it
-	// could be a 56 bit counter.
+	// 64 位 wallclock counter，可能是 56 位
 	uint64_t val;
 
 	__asm__ ("mrs %0, cntvct_el0":"=r" (val));
-
-#ifdef __APPLE__
-        // TODO: The timer frequency depends on the Apple chip.
-	// I am not sure what the clock unit is, it depends on pre-scaler setup
-	// A multiplication by 32 might be needed on my platform 
-	return val * 32;	// aarch64 emulation on x86_64 ?
-	return ((val / 3) * 25) << 4;	// maybe for ARM M1 ?
 	return val;
-#endif // __APPLE__
 #else
-#error "todo : unsupported _rdtsc implementation\n"
-	return 0;
+	// 其它平台没有便宜的周期计数器，用 steady_clock 的纳秒计代替。
+	// 相对量够用。
+	return (uint64_t)std::chrono::steady_clock::now().time_since_epoch().count();
 #endif
 }
 

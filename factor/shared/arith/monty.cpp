@@ -930,7 +930,8 @@ void mulmod128(uint64_t * u, uint64_t * v, uint64_t * w, monty128_t *mdata)
 		w[1] = s[1];
 	}
 #else
-    // TODO: implement portable u128 x u128 modular multiplication
+    /* 不用汇编的 Montgomery 模乘：用 _umul128 / _addcarry_u64 手写。
+	   下面这段就是完整实现（不是待办）。 */
     uint64_t t[3], U, c2, c3;
     uint8_t c1, c4;
 
@@ -1054,7 +1055,8 @@ void mulmod128n(uint64_t* u, uint64_t* v, uint64_t* w, uint64_t* n, uint64_t rho
 		w[1] = s[1];
 	}
 #else
-	// TODO: implement portable u128 x u128 modular multiplication
+	/* 不用汇编的 Montgomery 模乘：用 _umul128 / _addcarry_u64 手写。
+	   下面这段就是完整实现（不是待办）。 */
 	uint64_t t[3], U, c2, c3;
 	uint8_t c1, c4;
 

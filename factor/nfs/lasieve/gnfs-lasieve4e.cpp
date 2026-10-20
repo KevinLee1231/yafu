@@ -261,7 +261,7 @@ mpz_t factors[MAX_LPFACTORS];
 static u32_t yield= 0,raw_yield=0,n_mpqsfail[2]= {0,0},n_mpqsvain[2]= {0,0};
 static i64_t mpqs_clock= 0;
 
-// TODO: use this mode with an option
+// TODO: 批量因式分解这个模式还没接到选项上，只能改代码里的开关打开。
 static int do_batch_factor = 0;
 
 static i64_t sieve_clock= 0,sch_clock= 0,td_clock= 0,tdi_clock= 0;
@@ -728,7 +728,7 @@ void logTotalTime()
 
     if (fp == NULL)
         return;
-    fprintf(fp, "\tLatSieveTime: "UL_FMTSTR"\n", (u64_t)t);
+    fprintf(fp, "\tLatSieveTime: " UL_FMTSTR"\n", (u64_t)t);
     fclose(fp);
 }
 
@@ -1020,7 +1020,7 @@ int main(int argc, char** argv)
 
 
 
-                if (sscanf(optarg, UL_FMTSTR":"UL_FMTSTR":"UL_FMTSTR, &first_spq, &first_spq1,
+                if (sscanf(optarg, UL_FMTSTR":" UL_FMTSTR":" UL_FMTSTR, &first_spq, &first_spq1,
                     &first_root) != 3) {
 
                     if (sscanf(optarg, UL_FMTSTR, &first_spq) == 1) {
@@ -1043,6 +1043,8 @@ int main(int argc, char** argv)
                 break;
             case'n':
                 catch_signals = (u16_t)(lasieve_in_process ? 0 : 1);
+                /* 'n' 顺带读一下进程号，与 'N' 走同一段。 */
+                [[fallthrough]];
 
             case'N':
                 NumRead(process_no);
@@ -1160,7 +1162,7 @@ int main(int argc, char** argv)
                 }
             }
 
-            printf(" Resuming with -f "UL_FMTSTR" -c "UL_FMTSTR"\n", first_spq, sieve_count);
+            printf(" Resuming with -f " UL_FMTSTR" -c " UL_FMTSTR"\n", first_spq, sieve_count);
             first_spq1 = first_spq;
         }
 
@@ -1418,7 +1420,7 @@ int main(int argc, char** argv)
                 FB_bound[special_q_side] = (float)first_spq - 1;
                 FB_bound_lowered = 1;
 
-                if (verbose)printf("Warning:  lowering FB_bound to "UL_FMTSTR"\n", first_spq - 1);
+                if (verbose)printf("Warning:  lowering FB_bound to " UL_FMTSTR"\n", first_spq - 1);
             }
         }
 
@@ -1442,7 +1444,7 @@ int main(int argc, char** argv)
 
 
 
-                asprintf(&g_ofile_name, "%s.lasieve-%u."UL_FMTSTR"-"UL_FMTSTR, las_basename,
+                asprintf(&g_ofile_name, "%s.lasieve-%u." UL_FMTSTR"-" UL_FMTSTR, las_basename,
                     special_q_side, first_spq, last_spq);
             }
             else {
@@ -1455,8 +1457,8 @@ int main(int argc, char** argv)
 
                 asprintf(&g_ofile_name,
                     append_output == 0 ?
-                    "gzip --best --stdout > %s.lasieve-%u."UL_FMTSTR"-"UL_FMTSTR".gz" :
-                    "gzip --best --stdout >> %s.lasieve-%u."UL_FMTSTR"-"UL_FMTSTR".gz",
+                    "gzip --best --stdout > %s.lasieve-%u." UL_FMTSTR"-" UL_FMTSTR".gz" :
+                    "gzip --best --stdout >> %s.lasieve-%u." UL_FMTSTR"-" UL_FMTSTR".gz",
                     las_basename, special_q_side, first_spq, last_spq);
             }
         }
@@ -1514,12 +1516,11 @@ int main(int argc, char** argv)
             if ((g_ofile = popen(g_ofile_name, "w")) == NULL)
                 complain("Cannot exec %s for output: %m\n", g_ofile_name);
 
-            // TODO: use this with an option
-            // raw file output with gzip
+            // TODO: gzip 原始输出这个模式还没接到选项上。
 
         }
     done_opening_output:
-        fprintf(g_ofile, "");
+        ;
     }
 
     /*:25*/
@@ -2068,7 +2069,9 @@ int main(int argc, char** argv)
                     s->q = prime;
                     s->r = root_buffer[i];
                 }
-                xFBs[side]++;
+                /* xFBs 是 volatile 计数器。对 volatile 做 ++ 在 C++20 起废弃、
+                   C++26 直接删除，改成读-改-写。 */
+                xFBs[side] = xFBs[side] + 1;
                 add_primepowers2xaFB(&xaFB_alloc, pp_bound, side, 0, 0);
             }
             free(root_buffer);
@@ -4820,7 +4823,7 @@ void do_scheduling(struct schedule_struct* sched, u32_t ns, u32_t ot, u32_t s)
 
 
 
-                    fprintf(stderr, "\rSCHED_PATHOLOGY q0=%u k=%d excess="UL_FMTSTR"\n",
+                    fprintf(stderr, "\rSCHED_PATHOLOGY q0=%u k=%d excess=" UL_FMTSTR"\n",
                         (unsigned int)special_q, k,
                         sched->schedule[ll + 1][k] - (sched->schedule[0][k] + sched->alloc));
                     longjmp(termination_jb, SCHED_PATHOLOGY);
@@ -5046,7 +5049,8 @@ add_primepowers2xaFB(size_t* xaFB_alloc_ptr, u32_t pp_bound,
 
             /*:116*/
 
-            xFBs[s]++;
+            /* 同上：volatile 计数器的 ++ 在 C++26 已经删除。 */
+            xFBs[s] = xFBs[s] + 1;
             add_primepowers2xaFB(xaFB_alloc_ptr, pp_bound, s, 0, 0);
         }
     }
@@ -5404,7 +5408,10 @@ nzss[2]++;
                     if (schedules[side][j].schedule[l + 1][k] <= y) {
                         do {
                             l++;
-                            if (l >= schedules[side][j].n_pieces)Schlendrian("XXX\n");
+                            if (l >= schedules[side][j].n_pieces)
+                                Schlendrian("schedule piece index out of range: side %u piece %u index %u of %u\n",
+                                            (u32_t)side, (u32_t)j, (u32_t)l,
+                                            (u32_t)schedules[side][j].n_pieces);
                         } while (schedules[side][j].schedule[l + 1][k] <= y);
                         fbi_offset = schedules[side][j].fbi_bounds[l];
                     }
@@ -6120,7 +6127,10 @@ x[2]= modsub32(x[2],(j_step)%modulo32);
 
         for (x = smallpsieve_aux[side]; x < smallpsieve_aux_ub[side]; x += 3) {
 
-            if ((modulo32 = x[0]))
+            /* 把 volatile 赋值的值当条件用，在 C++20 起废弃、C++26 删除。
+               拆成两条语句。 */
+            modulo32 = x[0];
+            if (modulo32)
                 x[2] = modsub32(x[2], (j_step) % modulo32);
         }
     }

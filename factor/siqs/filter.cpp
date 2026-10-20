@@ -104,10 +104,8 @@ uint32_t process_poly_a(static_conf_t *sconf)
 
 	// then compute all the Bl's
 	// the first 'b' poly comes with computeBl
-    // TODO: this gets to be hugely inefficient for super large inputs
-    // where most B values don't have any relations associated with them.
-    // But I'm not sure we care about that case since that's not within 
-    // the normal usage of siqs.
+    // TODO: 超大输入下这里很不成比例 —— 大部分 B 值一个关系都没有，
+    // 却照样每个都算一遍 Bl。正常用 siqs 的规模碰不到这种输入，先记着。
 	computeBl(sconf, dconf, 0);
 
 	// compute how many 'b' values we can get from this 'a'

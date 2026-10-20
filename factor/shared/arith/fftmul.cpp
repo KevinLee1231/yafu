@@ -5,6 +5,13 @@
 
 #define pi 3.1415926535897932384626433832795
 
+/* 下面有几处把 GMP 的 limb 数组直接当成 uint64_t 数组用：n[0] 取的是
+   limb 0，在小端机上正好是低 64 位。这要求 mp_limb_t 是 64 位 —— 32 位
+   平台上的 GMP limb 是 32 位，算法会算错。与其让它在运行期给出莫名其妙
+   的结果，不如在编译期就拦下来。 */
+static_assert(sizeof(mp_limb_t) == sizeof(uint64_t),
+    "fftmul assumes a 64-bit mp_limb_t; 32-bit GMP limbs are not supported here");
+
 double * parsewords(mpz_t a, int b, int fftlen)
 {
 	// given mpz input a, make a double-float array with
@@ -53,7 +60,7 @@ double* parsewords_balanced(mpz_t a, int b, int fftlen)
 	int64_t W = (1ULL << b);
 	int64_t mask = W - 1;
 	int64_t b2 = W / 2;
-	// TODO: this assumes that mp_limb_t is 64-bit
+	// mp_limb_t 必须是 64 位（见文件头的 static_assert）
 	uint64_t* n = (uint64_t *)a->_mp_d;
 
 	mpz_init(aa);
@@ -114,7 +121,7 @@ double* fastparse_balanced(mpz_t a, int b, int fftlen)
 	int64_t W = (1ULL << b);
 	int64_t mask = W - 1;
 	int64_t b2 = W / 2;
-	// TODO: this assumes that mp_limb_t is 64-bit
+	// mp_limb_t 必须是 64 位（见文件头的 static_assert）
 	uint64_t* n = (uint64_t *)a->_mp_d;
 	int64_t carry = 0;
 	int j = 0;
@@ -838,7 +845,7 @@ void fast_reconstruct_int(mpz_t c, int64_t* ci, int bits_per_word, int fftlen)
 	int b = bits_per_word;
 	mpz_set_ui(c, 1);
 	mpz_mul_2exp(c, c, bits_per_word * fftlen);
-	// TODO: this assumes that mp_limb_t is 64-bit
+	// mp_limb_t 必须是 64 位（见文件头的 static_assert）
 	uint64_t* n = (uint64_t *)c->_mp_d;
 
 	while (j < (s - b))
