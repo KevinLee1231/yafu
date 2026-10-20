@@ -26,6 +26,7 @@ SOFTWARE.
 #define _THREADPOOL_H
 
 #include <stdlib.h>
+#include <functional>
 
 //#define USE_TPOOL_AFFINITY
 
@@ -47,7 +48,11 @@ enum tpool_state {
     TPOOL_STATE_END
 };
 
-typedef struct
+// 前置声明：成员里要用 std::copyable_function<void(tpool_t*)>，
+// 而结构体自己还没定义完，注入的类名在模板实参里用不了。
+struct tpool_t;
+
+struct tpool_t
 {
     int tindex;
     int tstartup;
@@ -60,13 +65,17 @@ typedef struct
     int num_work_fcn;   // number of work functions
     int work_fcn_id;   // index of work function to execute
 
-    // pointers to user-defined functions to execute during
-    // the various states of the threadpool.
-    void(*tpool_start_fcn)(void *);
-    void(*tpool_stop_fcn)(void *);
-    void(*tpool_sync_fcn)(void *);
-    void(*tpool_dispatch_fcn)(void *);
-    void(*tpool_work_fcn[16])(void *);
+    // 用户定义的回调，在线程池的各个状态上执行。
+    // 用 C++26 的 std::copyable_function（P2943）而不是"函数指针存成 void*、
+    // 调用时再转回来"：后者在标准里只是有条件支持，而且签名写错也查不出来
+    // —— ecm_start_fcn / ecm_stop_fcn 实际上是 void(tpool_t*)，一直被声明
+    // 成 void(void*) 就是这么来的。现在签名不对直接编不过，带捕获的
+    // lambda 也能注册。
+    std::copyable_function<void(tpool_t*)> tpool_start_fcn;
+    std::copyable_function<void(tpool_t*)> tpool_stop_fcn;
+    std::copyable_function<void(void*)> tpool_sync_fcn;
+    std::copyable_function<void(void*)> tpool_dispatch_fcn;
+    std::copyable_function<void(void*)> tpool_work_fcn[16];
 
     // a user-defined structure to carry data throughout the threadpool.
     // user will have to cast this to their appropriate type before use.
@@ -89,10 +98,16 @@ typedef struct
 #endif
 
 
-} tpool_t;
+};
 
 void tpool_go(tpool_t *thread_data);
-void tpool_add_work_fcn(tpool_t *tdata, void *work_fcn);
-tpool_t * tpool_setup(int num_threads, void *start_fcn, void *stop_fcn,
-    void *sync_fcn, void *dispatch_fcn, void *udata);
+void tpool_add_work_fcn(tpool_t *tdata, std::copyable_function<void(void*)> work_fcn);
+tpool_t * tpool_setup(int num_threads,
+    std::copyable_function<void(tpool_t*)> start_fcn,
+    std::copyable_function<void(tpool_t*)> stop_fcn,
+    std::copyable_function<void(void*)> sync_fcn,
+    std::copyable_function<void(void*)> dispatch_fcn,
+    void *udata);
+// 线程池数组是 new[] 出来的（tpool_t 里现在有非平凡成员），释放走这里。
+void tpool_free(tpool_t *tdata);
 #endif // #ifndef _THREADPOOL_H

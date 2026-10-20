@@ -903,15 +903,15 @@ uint64_t *sieve_to_depth(soe_staticdata_t* sdata,
 				// to test, but it is easy so we use it.
 				udata.sdata = sdata; // &thread_data->sdata;
 				udata.ddata = thread_data;
-				tpool_data = tpool_setup(sdata->THREADS, NULL, NULL, NULL,
-					(void *)&compute_prps_dispatch, &udata);
+				tpool_data = tpool_setup(sdata->THREADS, nullptr, nullptr, nullptr,
+					compute_prps_dispatch, &udata);
 
 				//thread_data->sdata.sync_count = 0;
 				sdata->sync_count = 0;
-				tpool_add_work_fcn(tpool_data, (void *)&compute_prps_work_fcn);
+				tpool_add_work_fcn(tpool_data, compute_prps_work_fcn);
 				tpool_go(tpool_data);
 
-				free(tpool_data);
+				tpool_free(tpool_data);
 
 				// combine results and free stuff
 				retval = 0;

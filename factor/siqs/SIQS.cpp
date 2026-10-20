@@ -713,10 +713,9 @@ void SIQS(fact_obj_t *fobj)
 		{
 			// remove any common factor so the input exactly matches
 			// the file.  
-			// TODO: we should also factor the common factor 'g' 
-			// somehow, since the user may be expecting the complete
-			// factorization of the input instead of just the 
-			// qs-resumed bit.
+			// g 可能还是合数。走 autofactor 的正常流程时，调度器会用
+			// get_composite 把因子表里的合数挑出来重新分解，所以最后
+			// 看到的仍是完整的分解；直接调 siqs 的话就只能看到一个合数。
 			if (mpz_cmp_ui(g, 1) > 0)
 			{
 				add_to_factor_list(fobj->factors, g, fobj->VFLAG, fobj->NUM_WITNESSES, 0);
@@ -759,9 +758,9 @@ void SIQS(fact_obj_t *fobj)
 
 	udata.thread_data = thread_data;
 
-	tpool_data = tpool_setup(fobj->THREADS, NULL, NULL,
-		(void *)&siqs_sync, (void *)&siqs_dispatch, &udata);
-	tpool_add_work_fcn(tpool_data, (void *)&process_poly);
+	tpool_data = tpool_setup(fobj->THREADS, nullptr, nullptr,
+		siqs_sync, siqs_dispatch, &udata);
+	tpool_add_work_fcn(tpool_data, process_poly);
 
 	// this function is not run by tpool. It puts things into the user
 	// data portion of the tpool structure and runs a few initialization 
@@ -1191,7 +1190,7 @@ done:
 
 #endif
 
-    free(tpool_data);
+    tpool_free(tpool_data);
 
     // free dynamic thread data
     for (i = 0; i < fobj->THREADS; i++)

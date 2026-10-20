@@ -1954,7 +1954,8 @@ int test_sieve(fact_obj_t* fobj, void* args, int njobs, int are_files)
 	// clean up memory allocated
 	if( are_files )
 	{
-        // TODO: need to write parameter adjustments to file
+        // TODO: 续算时用到的参数调整（系数范围、块大小这些）没有写进
+        // 文件，续算只能沿用本次的设置，对不上就得出错的结果。
 		for(i = 0; i < njobs; i++)
 		{
 			mpz_polys_free(jobs[i].poly);
@@ -2494,9 +2495,9 @@ void do_sieving_nfs(fact_obj_t *fobj, nfs_job_t *job)
 	udata.fobj = fobj;
 	udata.main_job_ref = job;
 
-	tpool_data = tpool_setup(fobj->THREADS, NULL, NULL,
-		(void *)&nfs_sieve_sync, (void *)&nfs_sieve_dispatch, &udata);
-	tpool_add_work_fcn(tpool_data, (void *)&lasieve_launcher);		// work_fcn id = 0
+	tpool_data = tpool_setup(fobj->THREADS, nullptr, nullptr,
+		nfs_sieve_sync, nfs_sieve_dispatch, &udata);
+	tpool_add_work_fcn(tpool_data, lasieve_launcher);		// work_fcn id = 0
 
 	// do nfs sieve initialization and startup
 	nfs_sieve_start(tpool_data);
@@ -3027,7 +3028,7 @@ void do_sieving_nfs(fact_obj_t *fobj, nfs_job_t *job)
 	free(udata.qrange_data->qranges_r);
 	free(udata.qrange_data);
 	free(udata.thread_data);
-	free(tpool_data);
+	tpool_free(tpool_data);
 
 
 

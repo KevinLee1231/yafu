@@ -1860,13 +1860,13 @@ void vececm(thread_data_t* tdata)
         printf("found %" PRIu64" primes in range [%" PRIu64" : %" PRIu64"]\n", ecm_nump, rangemin, rangemax);
     }
 
-    tpool_data = tpool_setup(tdata[0].total_threads, NULL, NULL, (void *)&vec_ecm_sync,
-        (void *)&vec_ecm_dispatch, tdata);
+    tpool_data = tpool_setup(tdata[0].total_threads, nullptr, nullptr, vec_ecm_sync,
+        vec_ecm_dispatch, tdata);
 
-    tpool_add_work_fcn(tpool_data, (void *)&vec_ecm_build_curve_work_fcn);
-    tpool_add_work_fcn(tpool_data, (void *)&vec_ecm_stage1_work_fcn);
-    tpool_add_work_fcn(tpool_data, (void *)&vec_ecm_stage2_init_work_fcn);
-    tpool_add_work_fcn(tpool_data, (void *)&vec_ecm_stage2_work_fcn);
+    tpool_add_work_fcn(tpool_data, vec_ecm_build_curve_work_fcn);
+    tpool_add_work_fcn(tpool_data, vec_ecm_stage1_work_fcn);
+    tpool_add_work_fcn(tpool_data, vec_ecm_stage2_init_work_fcn);
+    tpool_add_work_fcn(tpool_data, vec_ecm_stage2_work_fcn);
 
     for (j = 0; j < VECLEN; j++)
     {
@@ -2323,11 +2323,9 @@ void vececm(thread_data_t* tdata)
                 // get a new batch of primes if the current range ends
                 // before this new one starts or if the range isn't large
                 // enough to cover the current step
-                // TODO: make the primes range and the pair generator line up
-                // in such a way that new ranges can pick up where the last
-                // left off, without recomputing 2 * L Pa's and re-inverting.
-                // it is not a large, or even a medium expense on typical B1/B2's,
-                // but is still wasteful.
+                // TODO: 让素数区间与配对生成器对上，新的一段能接着上一段
+                // 继续，不必重算 2 * L 个 Pa 再求一次逆。典型的 B1/B2 下
+                // 这点开销不算大，但确实是白做的。
                 if ((p >= rangemax) ||
                     (rangemax < MIN(STAGE2_MAX, p + (uint64_t)PRIME_RANGE)))
                 {
@@ -2807,7 +2805,8 @@ void build_one_curve_param1(thread_data_t *tdata, mpz_t X, mpz_t Z,
 #endif
     mpz_set(dorig, v);
 
-    /* TODO add d!=-1/8*/
+    /* TODO: 这里只挡了 d == 0 与 d == 1；Suyama 参数化对 d 还有一个
+       特殊值要排除（-1/8），那一条还没加上。 */
     if (mpz_sgn(v) == 0 || mpz_cmp_ui(v, 1) == 0)
     {
         printf("parameter cannot be 0 or 1\n");

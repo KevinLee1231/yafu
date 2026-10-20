@@ -44,9 +44,9 @@ void tpool_start(tpool_t *t)
         printf("tpool: starting thread %d\n", t->tindex);
     }
 
-    if (t->tpool_start_fcn != NULL)
+    if (t->tpool_start_fcn)
     {
-        (t->tpool_start_fcn)(t);
+        t->tpool_start_fcn(t);
     }
 
 pthread_mutex_init(&t->run_lock, NULL);
@@ -83,9 +83,9 @@ void tpool_stop(tpool_t* t)
         printf("tpool: stopping thread %d\n", t->tindex);
     }
 
-    if (t->tpool_stop_fcn != NULL)
+    if (t->tpool_stop_fcn)
     {
-        (t->tpool_stop_fcn)(t);
+        t->tpool_stop_fcn(t);
     }
 
 //pthread_mutex_lock(&t->run_lock);
@@ -171,7 +171,7 @@ void *tpool_worker_main(void *thread_data) {
                 printf("tpool: thread %d executing work_fcn %d\n", t->tindex, t->work_fcn_id);
             }
 
-            (t->tpool_work_fcn[t->work_fcn_id])(t);
+            t->tpool_work_fcn[t->work_fcn_id](t);
         }
         else if (t->state == TPOOL_STATE_END)
         {
@@ -298,8 +298,8 @@ thread_data[i].queue_lock = &queue_lock;
             if (thread_data[tid].tstartup == 0)
             {
                 // if not in startup...
-                if (thread_data[tid].tpool_sync_fcn != NULL)
-                    (thread_data[tid].tpool_sync_fcn)(&thread_data[tid]);
+                if (thread_data[tid].tpool_sync_fcn)
+                    thread_data[tid].tpool_sync_fcn(&thread_data[tid]);
 
                 // this thread is done, so decrement the count of working threads
                 threads_working--;
@@ -315,7 +315,8 @@ thread_data[i].queue_lock = &queue_lock;
                 printf("tpool: main thread dispatch to %d\n", thread_data[tid].tindex);
             }
 
-            (thread_data[tid].tpool_dispatch_fcn)(&thread_data[tid]);
+            if (thread_data[tid].tpool_dispatch_fcn)
+                thread_data[tid].tpool_dispatch_fcn(&thread_data[tid]);
 
             // in the dispatch function the user will determine
             // what, if any, work function needs to be executed.
@@ -390,13 +391,19 @@ thread_data[i].queue_lock = &queue_lock;
     return;
 }
 
-tpool_t * tpool_setup(int num_threads, void *start_fcn, void *stop_fcn, 
-    void *sync_fcn, void *dispatch_fcn, void *udata)
+tpool_t * tpool_setup(int num_threads,
+    std::copyable_function<void(tpool_t*)> start_fcn,
+    std::copyable_function<void(tpool_t*)> stop_fcn,
+    std::copyable_function<void(void*)> sync_fcn,
+    std::copyable_function<void(void*)> dispatch_fcn,
+    void *udata)
 {
     if (num_threads < 1)
         num_threads = 1;
 
-    tpool_t *t = (tpool_t *)malloc(num_threads * sizeof(tpool_t));
+    // tpool_t 里有 std::copyable_function 这样的非平凡成员，必须用 new，
+    // malloc 出来的对象既没构造过，析构也不会跑。
+    tpool_t *t = new tpool_t[num_threads];
     int i;
 
     //int numberOfProcessors = sysconf(_SC_NPROCESSORS_ONLN);
@@ -405,10 +412,10 @@ tpool_t * tpool_setup(int num_threads, void *start_fcn, void *stop_fcn,
     for (i = 0; i < num_threads; i++)
     {
         t[i].num_threads = num_threads;
-        t[i].tpool_dispatch_fcn = (void (*)(void*))dispatch_fcn;
-        t[i].tpool_start_fcn = (void (*)(void*))start_fcn;
-        t[i].tpool_stop_fcn = (void (*)(void*))stop_fcn;
-        t[i].tpool_sync_fcn = (void (*)(void*))sync_fcn;
+        t[i].tpool_dispatch_fcn = dispatch_fcn;
+        t[i].tpool_start_fcn = start_fcn;
+        t[i].tpool_stop_fcn = stop_fcn;
+        t[i].tpool_sync_fcn = sync_fcn;
         t[i].num_work_fcn = 0;
         t[i].tindex = i;
         t[i].user_data = udata;
@@ -418,11 +425,11 @@ tpool_t * tpool_setup(int num_threads, void *start_fcn, void *stop_fcn,
     return t;
 }
 
-void tpool_add_work_fcn(tpool_t *tdata, void *work_fcn)
+void tpool_add_work_fcn(tpool_t *tdata, std::copyable_function<void(void*)> work_fcn)
 {
     int i;
 
-    if ((tdata == NULL) || (work_fcn == NULL))
+    if ((tdata == NULL) || (!work_fcn))
         return;
 
     if (tdata[0].num_work_fcn >= 16)
@@ -437,8 +444,13 @@ void tpool_add_work_fcn(tpool_t *tdata, void *work_fcn)
     for (i = 0; i < tdata->num_threads; i++)
     {
         tdata[i].num_work_fcn++;
-        tdata[i].tpool_work_fcn[tdata[i].num_work_fcn - 1] = (void (*)(void*))work_fcn;
+        tdata[i].tpool_work_fcn[tdata[i].num_work_fcn - 1] = work_fcn;
     }
 
     return;
+}
+
+void tpool_free(tpool_t *tdata)
+{
+    delete[] tdata;
 }
