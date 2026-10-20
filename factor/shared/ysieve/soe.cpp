@@ -95,7 +95,7 @@ void sieve_dispatch(void *vptr)
     }
     else
     {
-        tdata->work_fcn_id = tdata->num_work_fcn;
+        tdata->work_fcn_id = (int)tdata->tpool_work_fcn.size();
     }
     
     return;
@@ -196,7 +196,7 @@ void bitmap_dispatch(void *vptr)
     }
     else
     {
-        tdata->work_fcn_id = tdata->num_work_fcn;
+        tdata->work_fcn_id = (int)tdata->tpool_work_fcn.size();
     }
 
     return;

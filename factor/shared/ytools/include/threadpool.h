@@ -27,6 +27,7 @@ SOFTWARE.
 
 #include <stdlib.h>
 #include <functional>
+#include <inplace_vector>
 
 //#define USE_TPOOL_AFFINITY
 
@@ -48,12 +49,21 @@ enum tpool_state {
     TPOOL_STATE_END
 };
 
+/* 一个线程池最多能注册多少个工作函数。 */
+#define TPOOL_MAX_WORK_FCN 16
+
 // 前置声明：成员里要用 std::copyable_function<void(tpool_t*)>，
 // 而结构体自己还没定义完，注入的类名在模板实参里用不了。
 struct tpool_t;
 
 struct tpool_t
 {
+    /* tpool_t 里有 pthread_mutex_t / pthread_cond_t，拷贝它等于把锁也复制一份，
+       两份锁互不同步，析构时还会重复解锁。所以这个类型只能就地使用。 */
+    tpool_t() = default;
+    tpool_t(const tpool_t&) = delete("tpool_t owns pthread mutexes and conditions; copying it would copy the locks");
+    tpool_t& operator=(const tpool_t&) = delete("tpool_t owns pthread mutexes and conditions; copying it would copy the locks");
+
     int tindex;
     int tstartup;
     int num_threads;
@@ -62,7 +72,6 @@ struct tpool_t
 
     volatile enum tpool_state state;
 
-    int num_work_fcn;   // number of work functions
     int work_fcn_id;   // index of work function to execute
 
     // 用户定义的回调，在线程池的各个状态上执行。
@@ -75,7 +84,11 @@ struct tpool_t
     std::copyable_function<void(tpool_t*)> tpool_stop_fcn;
     std::copyable_function<void(void*)> tpool_sync_fcn;
     std::copyable_function<void(void*)> tpool_dispatch_fcn;
-    std::copyable_function<void(void*)> tpool_work_fcn[16];
+    /* 工作函数表：上限固定、不需要堆分配，长度由容器自己记着。
+       之前是一个裸数组外加一个手工维护的 num_work_fcn 计数器，
+       两份状态可能对不上；这里只剩一份。满了以后 push_back 会去堆上分配，
+       所以 tpool_add_work_fcn 里先自己检查容量。 */
+    std::inplace_vector<std::copyable_function<void(void*)>, TPOOL_MAX_WORK_FCN> tpool_work_fcn;
 
     // a user-defined structure to carry data throughout the threadpool.
     // user will have to cast this to their appropriate type before use.

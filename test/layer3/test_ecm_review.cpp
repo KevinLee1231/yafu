@@ -264,7 +264,7 @@ static void t_threadpool_bounds(tk_ctx *tk)
     TK_CHECK(tk, pool[0].num_threads == 1);
     for (i = 0; i < 17; i++)
         tpool_add_work_fcn(pool, dummy_work);
-    TK_CHECK(tk, pool[0].num_work_fcn == 16);
+    TK_CHECK(tk, pool[0].tpool_work_fcn.size() == 16);
     tpool_free(pool);
 }
 

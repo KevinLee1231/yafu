@@ -811,12 +811,12 @@ void ecm_dispatch_fcn(void *ptr)
     if (*thread_data->ok_to_stop == 1)
     {
         // found a factor - ok to stop              
-        tdata->work_fcn_id = tdata->num_work_fcn;
+        tdata->work_fcn_id = (int)tdata->tpool_work_fcn.size();
     }
     else if (thread_data->fobj->ecm_obj.exit_cond == ECM_EXIT_ABORT)
     {
         // user abort - ok to stop  
-        tdata->work_fcn_id = tdata->num_work_fcn;
+        tdata->work_fcn_id = (int)tdata->tpool_work_fcn.size();
     }
     else if (*thread_data->total_curves_run < 
         (thread_data->fobj->ecm_obj.num_curves - *thread_data->curves_in_flight))
@@ -828,7 +828,7 @@ void ecm_dispatch_fcn(void *ptr)
     else
     {
         // done running curves
-        tdata->work_fcn_id = tdata->num_work_fcn;
+        tdata->work_fcn_id = (int)tdata->tpool_work_fcn.size();
     }
 
     return;

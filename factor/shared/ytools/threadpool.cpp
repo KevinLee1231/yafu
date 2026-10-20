@@ -320,7 +320,7 @@ thread_data[i].queue_lock = &queue_lock;
 
             // in the dispatch function the user will determine
             // what, if any, work function needs to be executed.
-            if (thread_data[tid].work_fcn_id < thread_data[tid].num_work_fcn)
+            if (thread_data[tid].work_fcn_id < (int)thread_data[tid].tpool_work_fcn.size())
             {
                 thread_data[tid].state = TPOOL_STATE_WORK;
 
@@ -416,7 +416,6 @@ tpool_t * tpool_setup(int num_threads,
         t[i].tpool_start_fcn = start_fcn;
         t[i].tpool_stop_fcn = stop_fcn;
         t[i].tpool_sync_fcn = sync_fcn;
-        t[i].num_work_fcn = 0;
         t[i].tindex = i;
         t[i].user_data = udata;
         t[i].debug = 0;
@@ -432,9 +431,9 @@ void tpool_add_work_fcn(tpool_t *tdata, std::copyable_function<void(void*)> work
     if ((tdata == NULL) || (!work_fcn))
         return;
 
-    if (tdata[0].num_work_fcn >= 16)
+    if (tdata[0].tpool_work_fcn.size() >= TPOOL_MAX_WORK_FCN)
     {
-        printf("tpool: cannot register more than 16 work functions\n");
+        printf("tpool: cannot register more than %d work functions\n", TPOOL_MAX_WORK_FCN);
         return;
     }
 
@@ -443,8 +442,7 @@ void tpool_add_work_fcn(tpool_t *tdata, std::copyable_function<void(void*)> work
     // then in the dispatch function they can set a name instead of work_fcn_id;
     for (i = 0; i < tdata->num_threads; i++)
     {
-        tdata[i].num_work_fcn++;
-        tdata[i].tpool_work_fcn[tdata[i].num_work_fcn - 1] = work_fcn;
+        tdata[i].tpool_work_fcn.push_back(work_fcn);
     }
 
     return;

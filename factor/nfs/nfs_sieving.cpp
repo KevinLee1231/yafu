@@ -1528,7 +1528,7 @@ void nfs_sieve_dispatch(void* vptr)
 			printf("nfs: thread %d halting, nfs timeout of %u sec exceeded\n",
 				tid, fobj->nfs_obj.timeout);
 		}
-		tdata->work_fcn_id = tdata->num_work_fcn;
+		tdata->work_fcn_id = (int)tdata->tpool_work_fcn.size();
 		return;
 	}
 
@@ -1558,7 +1558,7 @@ void nfs_sieve_dispatch(void* vptr)
 			if (t->job.startq >= (fobj->nfs_obj.startq + fobj->nfs_obj.rangeq))
 			{
 				// this will kill the thread
-				tdata->work_fcn_id = tdata->num_work_fcn;
+				tdata->work_fcn_id = (int)tdata->tpool_work_fcn.size();
 				free(qrange);
 
 				if (fobj->VFLAG > 0)
@@ -1575,7 +1575,7 @@ void nfs_sieve_dispatch(void* vptr)
 			if (t->job.qrange == 0)
 			{
 				// this will kill the thread
-				tdata->work_fcn_id = tdata->num_work_fcn;
+				tdata->work_fcn_id = (int)tdata->tpool_work_fcn.size();
 				free(qrange);
 
 				if (fobj->VFLAG > 0)
@@ -1608,7 +1608,7 @@ void nfs_sieve_dispatch(void* vptr)
 	else
 	{
 		// this will kill the thread
-		tdata->work_fcn_id = tdata->num_work_fcn;
+		tdata->work_fcn_id = (int)tdata->tpool_work_fcn.size();
 
 		if (t->isactive != 2)
 		{

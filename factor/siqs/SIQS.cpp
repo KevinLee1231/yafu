@@ -553,7 +553,7 @@ void siqs_dispatch(void *vptr)
 		//printf("thread %d stopping work\n", tid);
         //printf("thread %d stopping work: found %d, %d estimated in flight, need %d\n",
         //    tid, udata->num_found, (int)in_flight_rels, udata->num_needed);
-        tdata->work_fcn_id = tdata->num_work_fcn;
+        tdata->work_fcn_id = (int)tdata->tpool_work_fcn.size();
         //printf("stopping work with %d poly-a's\n", static_conf->total_poly_a + 1);
     }
 

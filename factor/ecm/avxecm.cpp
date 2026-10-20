@@ -217,7 +217,7 @@ void vec_ecm_dispatch(void *vptr)
         }
         else
         {
-            tpdata->work_fcn_id = tpdata->num_work_fcn;
+            tpdata->work_fcn_id = (int)tpdata->tpool_work_fcn.size();
         }
     }
     else if (udata[tid].ecm_phase == 1)
@@ -228,7 +228,7 @@ void vec_ecm_dispatch(void *vptr)
         }
         else
         {
-            tpdata->work_fcn_id = tpdata->num_work_fcn;
+            tpdata->work_fcn_id = (int)tpdata->tpool_work_fcn.size();
         }
     }
     else if (udata[tid].ecm_phase == 2)
@@ -239,7 +239,7 @@ void vec_ecm_dispatch(void *vptr)
         }
         else
         {
-            tpdata->work_fcn_id = tpdata->num_work_fcn;
+            tpdata->work_fcn_id = (int)tpdata->tpool_work_fcn.size();
         }
     }
     else if (udata[tid].ecm_phase == 3)
@@ -250,7 +250,7 @@ void vec_ecm_dispatch(void *vptr)
         }
         else
         {
-            tpdata->work_fcn_id = tpdata->num_work_fcn;
+            tpdata->work_fcn_id = (int)tpdata->tpool_work_fcn.size();
         }
     }
 
@@ -2805,8 +2805,11 @@ void build_one_curve_param1(thread_data_t *tdata, mpz_t X, mpz_t Z,
 #endif
     mpz_set(dorig, v);
 
-    /* TODO: 这里只挡了 d == 0 与 d == 1；Suyama 参数化对 d 还有一个
-       特殊值要排除（-1/8），那一条还没加上。 */
+    /* d = sigma^2 / 2^52，上面已经取模 n。d 不能是 0 也不能是 1。
+       TODO: Suyama 参数化还有一个特殊值要排除：d == -1/8。撞上的概率
+       极低（要先有 8*sigma^2 == -2^52 mod n），而且撞上之后是跳过这条
+       曲线还是直接报错退出，得先定下来。判断要写成 8*d + 1 == 0
+       (mod n)，不能拿 d 去比 -1/8。 */
     if (mpz_sgn(v) == 0 || mpz_cmp_ui(v, 1) == 0)
     {
         printf("parameter cannot be 0 or 1\n");
