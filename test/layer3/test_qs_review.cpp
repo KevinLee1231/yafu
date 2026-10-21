@@ -437,11 +437,6 @@ static void t_siqs_lazy_bpoly_matches(tk_ctx *tk)
     mpz_init(sconf->n);
     mpz_set_ui(sconf->n, 1000000);
     sconf->knmod8 = 0;                 /* 不做 b 的奇偶修正 */
-    sconf->curr_b = (mpz_t *)malloc(sizeof(mpz_t) * (size_t)maxB);
-    TK_REQUIRE(tk, sconf->curr_b != NULL, "out of memory");
-    for (j = 0; j < maxB; j++)
-        mpz_init(sconf->curr_b[j]);
-    sconf->bpoly_alloc = (uint32_t)maxB;
 
     /* 路径一：一次性生成 */
     all = (mpz_t *)malloc(sizeof(mpz_t) * (size_t)maxB);
@@ -449,6 +444,7 @@ static void t_siqs_lazy_bpoly_matches(tk_ctx *tk)
     for (j = 0; j < maxB; j++)
         mpz_init(all[j]);
     sconf->curr_b = all;
+    sconf->bpoly_alloc = (uint32_t)maxB;
     generate_bpolys(sconf, dconf, maxB);
     /* generate_bpolys 填的是 curr_b[0..maxB-1] */
 
@@ -707,8 +703,9 @@ static void t_siqs_get_a_offsets_bad_a(tk_ctx *tk)
     TK_CHECKF(tk, rc != 0,
         "a=11 over fb {1,2,3,5,65537}: expected an error, got %d", rc);
 
-    /* 2) 因子基里全是小于 65536 的素数时，循环要靠 fb->B 收尾，
-     *    不能读出 list->prime 的分配区。 */
+    /* 2) 因子基里全是小于 65536 的素数时，循环要靠 fb->B 才会停。
+     *    数组多给一个哨兵，免得旧代码越界读时读到未定义的内容。 */
+    free(fbel.prime);
     fbel.prime = (uint32_t *)malloc(sizeof(primes2));
     TK_REQUIRE(tk, fbel.prime != NULL, "out of memory");
     memcpy(fbel.prime, primes2, sizeof(primes2));
