@@ -191,15 +191,26 @@ uint32_t process_poly_a(static_conf_t *sconf)
 	return maxB;
 }
 
+/* 把 poly_a 拆成因子基下标，写进 poly->qlisort。
+ *
+ * 分解不出来时返回 -1：调用方 process_poly_a 会把这个 A 名下的关系
+ * 全部跳过。原来这里只是打印一句警告然后返回 0，而调用方拿返回值当
+ * 错误标志（filter.cpp 里 "if (j)"），所以那条错误路径从来没被走到 ——
+ * qlisort 里留着不完整的因子列表，后面的关系校验照样拿它算。
+ *
+ * 循环上界要跟 fb->B 对齐：因子基里不一定有 65536 以下的素数填满，
+ * 原来只按 prime[k] < 65536 判断，k 会一路读出 list->prime 的分配区。*/
 int get_a_offsets(fb_list *fb, siqs_poly *poly, mpz_t tmp)
 {
-	int j,k;
+	int k;
 	uint64_t r;
 
 	mpz_set(tmp, poly->mpz_poly_a);
+	/* 因子基下标 0 是占位的 1，真正的素数从 1 开始 */
 	k=1;
 	poly->s = 0;
-	while ((mpz_cmp_ui(tmp, 1) != 0) && (fb->list->prime[k] < 65536))
+	while ((mpz_cmp_ui(tmp, 1) != 0) && ((uint32_t)k < fb->B) &&
+		(fb->list->prime[k] < 65536))
 	{
 		r = mpz_tdiv_ui(tmp, fb->list->prime[k]);
 
@@ -209,6 +220,9 @@ int get_a_offsets(fb_list *fb, siqs_poly *poly, mpz_t tmp)
 		}
 		else
 		{
+			/* qlisort 只有 MAX_A_FACTORS 个槽位 */
+			if (poly->s >= MAX_A_FACTORS)
+				return -1;
 			poly->qlisort[poly->s] = k;
 			poly->s++;
 			mpz_tdiv_q_ui(tmp, tmp, fb->list->prime[k]);
@@ -219,14 +233,17 @@ int get_a_offsets(fb_list *fb, siqs_poly *poly, mpz_t tmp)
 	{
 		if (NUM_ALP == 1)
 		{
+			if (poly->s >= MAX_A_FACTORS)
+				return -1;
 			poly->qlisort[poly->s] = mpz_get_ui(tmp);
 			poly->s++;
 			mpz_tdiv_q_ui(tmp, tmp, mpz_get_ui(tmp));
 		}
 		else
 		{
-			gmp_printf("unexpected residue %Zd when factoring poly_a = %Zd\n", 
+			gmp_printf("unexpected residue %Zd when factoring poly_a = %Zd\n",
 				tmp, poly->mpz_poly_a);
+			return -1;
 		}
 	}
 

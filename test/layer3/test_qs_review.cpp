@@ -661,6 +661,86 @@ static void t_siqs_process_rel_truncated(tk_ctx *tk)
     free(sconf);
 }
 
+/* get_a_offsets 的错误路径必须真的能报出来。
+ *
+ * 数据文件里的 'a' 要是分解不出因子基里的素数（文件损坏，或者因子基跟
+ * 文件对不上），原来只是打印一句警告然后返回 0 —— 而调用方
+ * process_poly_a 拿返回值当错误标志（"if (j)"），所以那条错误路径从来
+ * 没被走到过：qlisort 里留着不完整的因子列表，后面的关系校验照样拿它算。
+ *
+ * 原来的循环只按 prime[k] < 65536 判断，k 没有跟 fb->B 对齐，分解不出来
+ * 的时候会一路读出 list->prime 的分配区。这里只分配 B 个素数，越界读在
+ * ASan 下会直接报出来。
+ */
+static void t_siqs_get_a_offsets_bad_a(tk_ctx *tk)
+{
+    fb_list fb;
+    fb_element_siqs fbel;
+    siqs_poly poly;
+    mpz_t tmp;
+    /* 因子基下标 0 是占位的 1 */
+    static const uint32_t primes[] = {1, 2, 3, 5, 65537};
+    /* 第二个因子基：素数都小于 65536，循环要走到 fb->B 才会停。
+       数组多给一个哨兵，免得旧代码越界读时读到未定义的内容。 */
+    static const uint32_t primes2[] = {1, 2, 3, 5, 7, 65537};
+    int rc;
+
+    memset(&fb, 0, sizeof(fb));
+    memset(&poly, 0, sizeof(poly));
+    memset(&fbel, 0, sizeof(fbel));
+
+    poly.qlisort = (int *)calloc(MAX_A_FACTORS, sizeof(int));
+    TK_REQUIRE(tk, poly.qlisort != NULL, "out of memory");
+    mpz_init(poly.mpz_poly_a);
+    mpz_init(tmp);
+
+    /* 1) 分解不出来的 a 必须报错。
+     *    这个因子基里最后一个素数就 >= 65536，循环一定会停下来。 */
+    fbel.prime = (uint32_t *)malloc(sizeof(primes));
+    TK_REQUIRE(tk, fbel.prime != NULL, "out of memory");
+    memcpy(fbel.prime, primes, sizeof(primes));
+    fb.list = &fbel;
+    fb.B = (uint32_t)(sizeof(primes) / sizeof(primes[0]));
+
+    mpz_set_ui(poly.mpz_poly_a, 11);
+    rc = get_a_offsets(&fb, &poly, tmp);
+    TK_CHECKF(tk, rc != 0,
+        "a=11 over fb {1,2,3,5,65537}: expected an error, got %d", rc);
+
+    /* 2) 因子基里全是小于 65536 的素数时，循环要靠 fb->B 收尾，
+     *    不能读出 list->prime 的分配区。 */
+    fbel.prime = (uint32_t *)malloc(sizeof(primes2));
+    TK_REQUIRE(tk, fbel.prime != NULL, "out of memory");
+    memcpy(fbel.prime, primes2, sizeof(primes2));
+    fb.list = &fbel;
+    fb.B = (uint32_t)(sizeof(primes2) / sizeof(primes2[0])) - 1;   /* 哨兵不算 */
+
+    mpz_set_ui(poly.mpz_poly_a, 11);
+    rc = get_a_offsets(&fb, &poly, tmp);
+    TK_CHECKF(tk, rc != 0,
+        "a=11 over fb {1,2,3,5,7}: expected an error, got %d", rc);
+
+    /* 3) 能分解的 a 必须成功，因子下标也要对 */
+    mpz_set_ui(poly.mpz_poly_a, 210);      /* 2*3*5*7 */
+    rc = get_a_offsets(&fb, &poly, tmp);
+    TK_CHECKF(tk, rc == 0, "a=210: expected 0, got %d", rc);
+    TK_CHECKF(tk, poly.s == 4, "a=210: expected 4 factors, got %d", poly.s);
+    TK_CHECKF(tk, poly.qlisort[0] == 1 && poly.qlisort[1] == 2 &&
+                  poly.qlisort[2] == 3 && poly.qlisort[3] == 4,
+        "a=210: wrong factor indices");
+
+    /* 4) a = 1 没有因子 */
+    mpz_set_ui(poly.mpz_poly_a, 1);
+    rc = get_a_offsets(&fb, &poly, tmp);
+    TK_CHECKF(tk, rc == 0, "a=1: expected 0, got %d", rc);
+    TK_CHECKF(tk, poly.s == 0, "a=1: expected 0 factors, got %d", poly.s);
+
+    mpz_clear(tmp);
+    mpz_clear(poly.mpz_poly_a);
+    free(poly.qlisort);
+    free(fbel.prime);
+}
+
 static const tk_test tk__qs_review_tests[] = {
     { "threadpool_lifecycle", t_threadpool_lifecycle, "fast threads qs" },
     { "pmpqs_boundaries", t_pmpqs_boundaries, "fast mpqs qs" },
@@ -668,6 +748,7 @@ static const tk_test tk__qs_review_tests[] = {
     { "siqs_bpoly_sequence", t_siqs_bpoly_sequence, "fast siqs qs" },
     { "siqs_lazy_bpoly_matches", t_siqs_lazy_bpoly_matches, "fast siqs qs" },
     { "siqs_process_rel_truncated", t_siqs_process_rel_truncated, "fast siqs qs" },
+    { "siqs_get_a_offsets_bad_a", t_siqs_get_a_offsets_bad_a, "fast siqs qs" },
 #if defined(USE_AVX512F)
     { "bitonic_arbitrary_lengths", t_bitonic_arbitrary_lengths,
       "fast avx512 qs" },
