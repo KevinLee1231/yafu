@@ -400,71 +400,11 @@ void get_cache_sizes(uint32 *level1_size_out,
 	*level2_size_out = cache_size2;
 }
 
-/*--------------------------------------------------------------------*/
-enum cpu_type get_cpu_type(void) {
-
-	enum cpu_type cpu = cpu_generic;
-
-#if defined(HAS_CPUID)
-	uint32 a, b, c, d;
-
-	CPUID(0, a, b, c, d);
-	if ((b & 0xff) == 'G') {	/* "GenuineIntel" */
-
-		uint8 family, model;
-
-		switch (a) {
-		case 1:
-			cpu = cpu_pentium;
-			break;
-		case 2:
-			CPUID(1, a, b, c, d);
-			family = (a >> 8) & 0xf;
-			model = (a >> 4) & 0xf;
-			if (family == 6) {
-				if (model == 9 || model == 13)
-					cpu = cpu_pentium_m;
-				else
-					cpu = cpu_pentium2;
-			}
-			else if (family == 15) {
-				cpu = cpu_pentium4;
-			}
-			break;
-		case 3:
-			cpu = cpu_pentium3;
-			break;
-		case 5:
-		case 6:
-			cpu = cpu_pentium4;
-			break;
-		default:  
-			/* a = 10+; some subspecies of core or core2 */
-			cpu = cpu_core;
-			break;
-		}
-	}
-	else if ((b & 0xff) == 'A') {		/* "AuthenticAMD" */
-
-		uint8 family, model;
-
-		CPUID(1, a, b, c, d);
-		family = (a >> 8) & 0xf;
-		model = (a >> 4) & 0xf;
-		if (family == 15)
-			cpu = cpu_opteron;
-		else if (family == 6) {
-			CPUID(0x80000001, a, b, c, d);
-			if (d & 0x1000000)		/* full SSE */
-				cpu = cpu_athlon_xp;
-			else				/* partial SSE */
-				cpu = cpu_athlon;
-		}
-	}
-#endif
-
-	return cpu;
-}
+/*---------------------------------------------------------------------
+get_cpu_type() 曾经在这里，跟 ytools_get_cpu_type() 是同一份逻辑的两份
+拷贝。全仓搜过，没有任何地方调用它（autofactor 用的是 ytools 那份），
+所以整段删掉了，只留 ytools_get_cpu_type() 一个来源。
+---------------------------------------------------------------------*/
 
 /*--------------------------------------------------------------------*/
 uint64 get_file_size(char *name) {

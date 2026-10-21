@@ -702,26 +702,21 @@ enum cpu_type ytools_get_cpu_type(void) {
             cpu = cpu_pentium4;
             break;
         default:
-            /* a = 10+; some subspecies of core or core2 */
-            CPUID(1, a, b, c, d);
-            family = (a >> 8) & 0xf;
-            model = (a >> 4) & 0xf;
-
-            if (model >= 10)
-                cpu = cpu_core; //cpu_nehalem;
-            else
-                cpu = cpu_core;
-
+            /* a = 10+; some subspecies of core or core2.
+               这里原来按 model 分成 cpu_nehalem / cpu_core 两条路，但枚举里
+               从来没有 cpu_nehalem（那一行是注释掉的），两个分支赋的是同一
+               个值，model 因此白算了一遍。CPU 型号只影响 auto 模式下的耗时
+               估算，多核机型一律按 cpu_core 算。 */
+            cpu = cpu_core;
             break;
         }
     }
     else if ((b & 0xff) == 'A') {		/* "AuthenticAMD" */
 
-        uint8_t family, model;
+        uint8_t family;
 
         CPUID(1, a, b, c, d);
         family = (a >> 8) & 0xf;
-        model = (a >> 4) & 0xf;
         if (family == 15)
             cpu = cpu_opteron;
         else if (family == 6) {

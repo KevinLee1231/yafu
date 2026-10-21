@@ -192,7 +192,8 @@ enum cpu_type {
 #endif /* YA_CPU_TYPE_DECLARED */
 
 void get_cache_sizes(uint32 *level1_cache, uint32 *level2_cache);
-enum cpu_type get_cpu_type(void);
+/* get_cpu_type() 已删除：全仓没有调用者，CPU 型号的探测只有
+   ytools_get_cpu_type() 一个来源。 */
 
 /* CPU-specific capabilities */
 
