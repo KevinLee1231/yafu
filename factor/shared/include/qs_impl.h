@@ -875,8 +875,15 @@ int free_siqs(static_conf_t* sconf);
 void free_filter_vars(static_conf_t* sconf);
 
 //poly
-void new_poly_a(static_conf_t* sconf, dynamic_conf_t* dconf, int gen_and_test_only);
-void new_poly_a_test(static_conf_t* sconf, dynamic_conf_t* dconf, int gen_and_test_only);
+/* 两个函数都在"因子个数装不下"时返回 -1（qlisort 只有 MAX_A_FACTORS
+   个槽位，太大的数凑不出合法的 a）。返回 0 表示成功。 */
+int new_poly_a(static_conf_t* sconf, dynamic_conf_t* dconf, int gen_and_test_only);
+int new_poly_a_test(static_conf_t* sconf, dynamic_conf_t* dconf, int gen_and_test_only);
+/* target_a 能不能用不超过 MAX_A_FACTORS-1 个随机因子表示。
+   window_bits 是留给收尾因子的窗口：new_poly_a 用 10+5，
+   new_poly_a_test 用 spBits(pmax)+5。 */
+int siqs_a_factor_count_ok(uint32_t target_a_bits, uint32_t max_factor_bits,
+	uint32_t window_bits);
 void computeBl(static_conf_t* sconf, dynamic_conf_t* dconf, int needC);
 void nextB(dynamic_conf_t* dconf, static_conf_t* sconf, int needC);
 

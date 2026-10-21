@@ -411,17 +411,20 @@ void siqs_dispatch(void *vptr)
             if (static_conf->total_poly_a & 1)
             {
                 t[tid].dconf->num_alp = 1;
-                new_poly_a_test(static_conf, t[tid].dconf, 0);
+                if (new_poly_a_test(static_conf, t[tid].dconf, 0))
+                    exit(-1);
             }
             else
             {
                 t[tid].dconf->num_alp = 0;
-                new_poly_a(static_conf, t[tid].dconf, 0);
+                if (new_poly_a(static_conf, t[tid].dconf, 0))
+                    exit(-1);
             }
         }
         else
         {
-            new_poly_a(static_conf, t[tid].dconf, 0);
+            if (new_poly_a(static_conf, t[tid].dconf, 0))
+                exit(-1);
         }
         tdata->work_fcn_id = 0;
 
@@ -798,7 +801,8 @@ void SIQS(fact_obj_t *fobj)
         for (i = 0; i < 100000; i++)
         {
             static_conf->total_poly_a++;
-            new_poly_a(static_conf, dconf, 0);
+            if (new_poly_a(static_conf, dconf, 0))
+                exit(-1);
 
             // update the gray code
             get_gray_code(dconf->curr_poly);
@@ -895,7 +899,8 @@ void SIQS(fact_obj_t *fobj)
     for (i = 0; i < 1000; i++)
     {
 
-        new_poly_a(static_conf, thread_data[0].dconf, 1);
+        if (new_poly_a(static_conf, thread_data[0].dconf, 1))
+            exit(-1);
 
     }
 

@@ -741,6 +741,90 @@ static void t_siqs_get_a_offsets_bad_a(tk_ctx *tk)
     free(fbel.prime);
 }
 
+/* a 的因子个数有硬上限：qlisort 只有 MAX_A_FACTORS 个槽位。
+ *
+ * 原来 new_poly_a 往 afact / qlisort 里写的时候没检查 *s，写到第 20 个
+ * 因子就越过数组末尾（afact 是栈上数组）。target_a 太大时（位数超过
+ * 约 250 位的数走 SIQS 就会到）必然踩到。
+ *
+ * 现在超限时函数返回 -1 并报错，不再往数组里写。
+ */
+static void t_siqs_a_factor_limit(tk_ctx *tk)
+{
+    /* 1) 判定函数本身的边界。
+     *    need = ceil((target_a_bits-window_bits+1)/max_factor_bits)，
+     *    要 <= 19。window_bits = 15 是 new_poly_a 用的窗口。 */
+    TK_CHECK(tk, siqs_a_factor_count_ok(15, 13, 15) == 1);
+    TK_CHECK(tk, siqs_a_factor_count_ok(16, 13, 15) == 1);
+    TK_CHECK(tk, siqs_a_factor_count_ok(100, 13, 15) == 1);
+    TK_CHECK(tk, siqs_a_factor_count_ok(261, 13, 15) == 1);
+    TK_CHECK(tk, siqs_a_factor_count_ok(262, 13, 15) == 0);
+    TK_CHECK(tk, siqs_a_factor_count_ok(300, 13, 15) == 0);
+    TK_CHECK(tk, siqs_a_factor_count_ok(100, 0, 15) == 0);
+    /* 窗口越大越宽松：new_poly_a_test 的窗口是 spBits(pmax)+5，
+       同样的 target_a 在那边可能装得下。 */
+    TK_CHECK(tk, siqs_a_factor_count_ok(262, 13, 25) == 1);
+    TK_CHECK(tk, siqs_a_factor_count_ok(270, 13, 25) == 1);
+    TK_CHECK(tk, siqs_a_factor_count_ok(300, 13, 25) == 0);
+
+    /* 2) new_poly_a 遇到装不下的 target_a 必须返回 -1 */
+    {
+        static_conf_t *sconf;
+        dynamic_conf_t *dconf;
+        fb_list fb;
+        fb_element_siqs fbel;
+        siqs_poly poly;
+        fact_obj_t obj;
+        /* 因子池：2000~8161 之间的素数，最后一个是 8161（13 位） */
+        static const uint32_t primes[] = {
+            2003, 2011, 2017, 2027, 2029, 2039, 2053, 2063, 2069, 2081,
+            2083, 2087, 2089, 2099, 2111, 2113, 2129, 2131, 2137, 2141,
+            2143, 2153, 2161, 2179, 2203, 2207, 2213, 2221, 2237, 8161 };
+        int rc;
+
+        memset(&fb, 0, sizeof(fb));
+        memset(&poly, 0, sizeof(poly));
+        memset(&obj, 0, sizeof(obj));
+        memset(&fbel, 0, sizeof(fbel));
+
+        fbel.prime = (uint32_t *)malloc(sizeof(primes));
+        TK_REQUIRE(tk, fbel.prime != NULL, "out of memory");
+        memcpy(fbel.prime, primes, sizeof(primes));
+        fb.list = &fbel;
+        fb.B = fb.small_B = (uint32_t)(sizeof(primes) / sizeof(primes[0]));
+
+        poly.qlisort = (int *)calloc(MAX_A_FACTORS, sizeof(int));
+        TK_REQUIRE(tk, poly.qlisort != NULL, "out of memory");
+        mpz_init(poly.mpz_poly_a);
+
+        sconf = (static_conf_t *)calloc(1, sizeof(static_conf_t));
+        dconf = (dynamic_conf_t *)calloc(1, sizeof(dynamic_conf_t));
+        TK_REQUIRE(tk, sconf && dconf, "out of memory");
+        mpz_init(sconf->target_a);
+        mpz_set_ui(sconf->target_a, 1);
+        mpz_mul_2exp(sconf->target_a, sconf->target_a, 300);    /* 301 位 */
+        sconf->factor_base = &fb;
+        sconf->bits = 130;             /* 走 new_poly_a 的 brute force 分支 */
+        sconf->obj = &obj;
+        sconf->total_poly_a = 0;
+        dconf->curr_poly = &poly;
+        dconf->lcg_state = 0x12345678ULL;
+
+        rc = new_poly_a(sconf, dconf, 1);
+        TK_CHECKF(tk, rc != 0,
+            "target A of 301 bits: expected an error, got %d", rc);
+        TK_CHECKF(tk, poly.s <= MAX_A_FACTORS,
+            "poly->s = %d exceeds MAX_A_FACTORS", poly.s);
+
+        mpz_clear(sconf->target_a);
+        mpz_clear(poly.mpz_poly_a);
+        free(poly.qlisort);
+        free(fbel.prime);
+        free(sconf);
+        free(dconf);
+    }
+}
+
 static const tk_test tk__qs_review_tests[] = {
     { "threadpool_lifecycle", t_threadpool_lifecycle, "fast threads qs" },
     { "pmpqs_boundaries", t_pmpqs_boundaries, "fast mpqs qs" },
@@ -749,6 +833,7 @@ static const tk_test tk__qs_review_tests[] = {
     { "siqs_lazy_bpoly_matches", t_siqs_lazy_bpoly_matches, "fast siqs qs" },
     { "siqs_process_rel_truncated", t_siqs_process_rel_truncated, "fast siqs qs" },
     { "siqs_get_a_offsets_bad_a", t_siqs_get_a_offsets_bad_a, "fast siqs qs" },
+    { "siqs_a_factor_limit", t_siqs_a_factor_limit, "fast siqs qs" },
 #if defined(USE_AVX512F)
     { "bitonic_arbitrary_lengths", t_bitonic_arbitrary_lengths,
       "fast avx512 qs" },
